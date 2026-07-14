@@ -1,47 +1,33 @@
 /* ===================================================================
    Papi — loading screen
-   The four letters — P, then A, then P, then I — land one at a time,
-   each filling with a sweep of gold light as it lands (a shimmering
-   ray passing through, left dark-gold behind it, brighter gold ahead
-   of it). No separate tile-building stage — once the letters have
-   filled in, the loader dissolves straight into the hero.
+   The wordmark rises into place, then fills from white to gold (a
+   hard-edged two-tone gradient sliding across via background-position
+   — like it's being poured full of light), then the loader dissolves
+   straight into the hero.
 =================================================================== */
 (function(){
-  const loader   = document.getElementById('loader');
-  const lettersEl= document.getElementById('loaderLetters');
-  const letters  = Array.from(lettersEl.querySelectorAll('.letter'));
-  const hero     = document.getElementById('hero');
-  const brandMark= document.getElementById('brandMark');
-  const body     = document.body;
+  const loader = document.getElementById('loader');
+  const word   = document.getElementById('loaderWord');
+  const hero   = document.getElementById('hero');
+  const brandMark = document.getElementById('brandMark');
+  const body   = document.body;
 
-  const EASE = 'cubic-bezier(.16,1,.3,1)';
-  const STEP = 420;    // ms between each letter landing
-  const LAND = 620;    // ms for a single letter's land animation
-  const RAY_TAIL = 350; // how much longer the gold sweep runs past the landing itself
-
-  letters.forEach((el)=>{
-    el.style.transform = 'translateY(28px) scale(.4)';
-    el.style.filter = 'blur(10px)';
-    el.style.opacity = '0';
-    el.style.backgroundPosition = '180% 0';
-  });
-
-  function playLetters(){
-    letters.forEach((el, i)=>{
-      setTimeout(()=>{
-        el.style.transition = `transform ${LAND}ms ${EASE}, opacity .4s ease, filter .5s ease, background-position ${LAND + RAY_TAIL}ms ${EASE}`;
-        el.style.transform = 'translateY(0) scale(1)';
-        el.style.filter = 'blur(0px)';
-        el.style.opacity = '1';
-        el.style.backgroundPosition = '-80% 0';
-      }, i * STEP);
-    });
-  }
+  const RISE_MS = 700;   // the word settling into place
+  const FILL_DELAY = 300; // the gold fill starts a little before the rise finishes
+  const FILL_MS = 900;   // how long the white-to-gold fill takes
+  const HOLD_MS = 500;   // a beat to look at the finished gold wordmark before exiting
 
   function start(){
-    playLetters();
-    const lastLetterLandsAt = (letters.length - 1) * STEP + LAND + RAY_TAIL;
-    setTimeout(exitLoader, lastLetterLandsAt + 500);
+    word.style.transition = `opacity ${RISE_MS}ms ease, transform ${RISE_MS}ms cubic-bezier(.16,1,.3,1)`;
+    word.style.opacity = '1';
+    word.style.transform = 'translate(-50%,-50%)';
+
+    setTimeout(()=>{
+      word.style.transition = `background-position ${FILL_MS}ms cubic-bezier(.65,0,.35,1)`;
+      word.style.backgroundPosition = '0% 0';
+    }, FILL_DELAY);
+
+    setTimeout(exitLoader, FILL_DELAY + FILL_MS + HOLD_MS);
   }
 
   function exitLoader(){
@@ -71,7 +57,7 @@
   }
 
   // wait for the display font to be ready (with a safety timeout) before
-  // starting the reveal, so letters don't pop from a fallback font
+  // starting the reveal, so the wordmark doesn't pop from a fallback font
   const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
   const safety = new Promise(res => setTimeout(res, 900));
   Promise.race([fontsReady, safety]).then(start);

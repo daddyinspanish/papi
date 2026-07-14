@@ -136,6 +136,7 @@
 
   let grown = false;
   const showcaseEl = document.getElementById('showcase');
+  const heroEl = document.getElementById('hero');
 
   // the docked top-right word swaps per section as the visitor scrolls
   // through the page — one word standing in for what that section is
@@ -225,15 +226,14 @@
       }
     }
 
-    // flip the fixed brand mark / dock label to dark-on-light while
-    // the white showcase section is behind them
-    let onLight = false;
-    if(showcaseEl){
-      const top = showcaseEl.offsetTop;
-      const bottom = top + showcaseEl.offsetHeight;
-      onLight = window.scrollY + 40 > top && window.scrollY < bottom - 40;
-    }
-    document.body.classList.toggle('on-light-section', onLight);
+    // the brand mark only needs to adapt live (via --style-contrast)
+    // while it's actually over the hero's own sweeping gold/black
+    // field — that's what was going invisible (gold-on-gold). Every
+    // other section already has a fixed dark background, where a
+    // static gold reads fine on its own; leaving it on the dynamic
+    // color there risked it swinging to near-black-on-near-black.
+    const onHero = heroEl ? window.scrollY < heroEl.offsetHeight : false;
+    document.body.classList.toggle('on-hero-section', onHero);
   }
 
   // batch to one update per animation frame — this reads offsetTop/
@@ -247,13 +247,27 @@
   }, { passive:true });
   update();
 
-  // "Explore Templates" jumps straight to the trades showcase
+  // jumps to the trades showcase — but only once the hero's own field
+  // fill has actually finished. Scrolling straight there used to race
+  // the scroll-lock that holds the page during that fill: the lock
+  // would yank the in-progress smooth-scroll back, and once released
+  // the visitor was just dumped at wherever that collision left them —
+  // which read as an abrupt jump instead of one smooth motion.
   if(cta){
     cta.addEventListener('click', (e)=>{
       const showcase = document.getElementById('showcase');
-      if(showcase){
-        e.preventDefault();
+      if(!showcase) return;
+      e.preventDefault();
+
+      function goToShowcase(){
         showcase.scrollIntoView({ behavior:'smooth' });
+      }
+      const fieldGrown = !(window.Papi && window.Papi.isFieldGrown) || window.Papi.isFieldGrown();
+      if(fieldGrown){
+        goToShowcase();
+      } else {
+        if(window.Papi && window.Papi.growField) window.Papi.growField();
+        window.addEventListener('papi:fieldgrown', goToShowcase, { once:true });
       }
     });
   }

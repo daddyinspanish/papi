@@ -40,7 +40,18 @@
   const bg = document.getElementById('cubeBg');
   const section = document.getElementById('cubeSection');
   const eyebrowEl = document.querySelector('.cube-eyebrow');
+  const interactHint = document.getElementById('cubeInteractHint');
   if(!stage || !group) return;
+
+  // shown once the cube has settled; dismissed for good the first
+  // time someone actually interacts with it (clicks a face, or has
+  // tumbled it a meaningful amount by scrolling)
+  let hintDismissed = false;
+  function dismissHint(){
+    if(hintDismissed || !interactHint) return;
+    hintDismissed = true;
+    interactHint.classList.remove('is-visible');
+  }
 
   // split the eyebrow into words so they can cascade in one after
   // another, same idea as the hero title's per-letter reveal
@@ -209,10 +220,10 @@
   // stretch of the range rather than a quick snap — so the two beats
   // never overlap and the fall itself reads as smooth/subtle rather
   // than sudden.
-  const INTRO_FALL_VH = 1.4;
-  const TITLE_REVEAL_END = 0.18;
-  const CUBE_FALL_START = 0.32;
-  const CUBE_FALL_END = 0.78;
+  const INTRO_FALL_VH = 0.8;
+  const TITLE_REVEAL_END = 0.15;
+  const CUBE_FALL_START = 0.22;
+  const CUBE_FALL_END = 0.55;
 
   function smoothstep(edge0, edge1, x){
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
@@ -229,6 +240,7 @@
 
   function focusFace(key){
     if(focusedFace === key) return;
+    dismissHint();
     if(!focusedFace){
       const lockedY = window.scrollY;
       document.documentElement.classList.add('scroll-lock');
@@ -315,6 +327,14 @@
     const clampedScrollY = Math.min(window.scrollY, sectionEndScrollY);
     const postIntroScroll = Math.max(0, clampedScrollY - sectionTop - introRange);
     const scrollRotation = postIntroScroll * DEG_PER_PX;
+
+    // show the interaction hint once it's landed; dismiss it for good
+    // once the visitor has actually tumbled it a bit (or clicked, per
+    // dismissHint() in focusFace above) — it's done its job either way
+    if(interactHint && !hintDismissed){
+      if(cubeRaw >= 0.98) interactHint.classList.add('is-visible');
+      if(scrollRotation > 15) dismissHint();
+    }
 
     let targetRx, targetRy, targetScale;
     if(focusedFace){

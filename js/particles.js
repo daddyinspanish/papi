@@ -344,10 +344,16 @@
     // instead of rotating to a complementary hue (which, with a
     // gold-only field, meant this used to drift to an off-brand blue).
     // Near-black when the field is bright/gold, bright gold-cream when
-    // the field is dark, so it's always legible and always on-brand.
-    const isDarkBg = midLight <= 0.5;
-    const [cr,cg,cb] = isDarkBg ? [232,205,120] : [20,16,8];
-    root.style.setProperty('--style-contrast', `${cr}, ${cg}, ${cb}`);
+    // the field is dark. Blended smoothly by midLight itself (not a
+    // hard snap at the 0.5 threshold) — a hard cutover meant the color
+    // could flip instantly to its opposite between one frame and the
+    // next, which read as an abrupt jump no CSS transition could catch
+    // since a brand-new value lands every frame regardless.
+    const contrastT = smoothstep(0.42, 0.58, midLight);
+    const cr = lerp(232, 20, contrastT);
+    const cg = lerp(205, 16, contrastT);
+    const cb = lerp(120, 8, contrastT);
+    root.style.setProperty('--style-contrast', `${cr|0}, ${cg|0}, ${cb|0}`);
 
     // a softer tint of the live accent, blended toward cream — used for
     // small supporting text (the eyebrow) that needs color but not
