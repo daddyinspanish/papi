@@ -1,9 +1,14 @@
 /* ===================================================================
    Papi — quote form
-   The copy and the form itself fade/rise in independently (form
-   slightly delayed via its own CSS transition-delay) the first time
-   the section scrolls into view — same one-shot IntersectionObserver
-   reveal pattern used for the showcase and cube eyebrows.
+   The copy and the form rise/fade in tied directly to scroll position
+   as the section enters the viewport (the form trailing slightly
+   behind the copy) — not a fixed-duration animation triggered once by
+   an IntersectionObserver. That one-shot approach could finish
+   playing before or after the visitor's own scroll speed caught up to
+   it, which read as the form just "slapping" into place with no
+   sense of motion; tying it straight to scroll means it's always
+   exactly as revealed as how far they've scrolled, at any speed, and
+   it reverses cleanly if they scroll back up.
 
    Submissions post to Formspree (see the form's action= in index.html)
    via fetch, so the button can show its own sending/sent state instead
@@ -20,18 +25,41 @@
   const form = document.getElementById('quoteForm');
   if(!section) return;
 
-  [copy, formWrap].forEach(el=>{
-    if(!el || !('IntersectionObserver' in window)) return;
-    const observer = new IntersectionObserver((entries)=>{
-      entries.forEach(entry=>{
-        if(entry.isIntersecting){
-          el.classList.add('is-visible');
-          observer.unobserve(entry.target);
-        }
-      });
-    }, { threshold:0.2 });
-    observer.observe(el);
-  });
+  function smoothstep(edge0, edge1, x){
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+  }
+
+  function updateReveal(){
+    const rect = section.getBoundingClientRect();
+    const vh = window.innerHeight;
+    // 0 when the section's top edge is at the bottom of the viewport,
+    // 1 once it's scrolled up to a bit above mid-screen
+    const raw = (vh - rect.top) / (vh * 0.65);
+    const p = Math.max(0, Math.min(1, raw));
+
+    const copyP = smoothstep(0, 0.7, p);
+    const formP = smoothstep(0.25, 1, p); // trails the copy a beat behind
+
+    if(copy){
+      copy.style.opacity = copyP.toFixed(3);
+      copy.style.transform = `translateY(${((1 - copyP) * 26).toFixed(1)}px)`;
+    }
+    if(formWrap){
+      formWrap.style.opacity = formP.toFixed(3);
+      formWrap.style.transform = `translateY(${((1 - formP) * 26).toFixed(1)}px)`;
+    }
+  }
+
+  let ticking = false;
+  function requestUpdate(){
+    if(ticking) return;
+    ticking = true;
+    requestAnimationFrame(()=>{ updateReveal(); ticking = false; });
+  }
+  window.addEventListener('scroll', requestUpdate, { passive:true });
+  window.addEventListener('resize', requestUpdate);
+  updateReveal();
 
   if(!form) return;
   const successEl = document.getElementById('quoteSuccess');

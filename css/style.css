@@ -520,38 +520,72 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   bottom:6%;
   transform:translate(-50%, 8px);
   z-index:3;
-  padding:.55em 1.1em;
+  display:inline-flex;
+  align-items:center;
+  gap:.55em;
+  padding:.55em 1.2em;
   border-radius:999px;
   border:1px solid rgba(255,221,122,.35);
-  background:rgba(10,9,8,.6);
-  backdrop-filter:blur(6px);
-  color:rgba(243,237,226,.85);
+  background:rgba(10,9,8,.65);
+  backdrop-filter:blur(8px);
+  color:rgba(243,237,226,.9);
   font-size:.78rem;
   letter-spacing:.02em;
   opacity:0;
   pointer-events:none;
-  transition:opacity .3s var(--ease-out), transform .3s var(--ease-out);
+  transition:opacity .3s var(--ease-out), transform .3s var(--ease-out), border-color .3s var(--ease-out);
 }
 .cube-sticky.is-focused .cube-exit-hint{
   opacity:1;
   transform:translate(-50%, 0);
   pointer-events:auto;
+  animation:cubeHintGlow 2.8s ease-in-out infinite;
 }
-.cube-exit-hint:hover{ border-color:rgba(255,221,122,.6); color:#ffdd7a; }
+.cube-exit-hint:hover{ border-color:rgba(255,221,122,.7); color:#ffdd7a; }
 
 /* shown once the cube has settled, so it's clear it's interactive
    before anyone has actually tried — fades out for good the first
-   time someone clicks a face or scrolls it a meaningful amount */
+   time someone clicks a face or scrolls it a meaningful amount. A
+   softly pulsing "tap" dot plus a breathing glow around the whole
+   badge give it some life, rather than a flat static caption. */
 .cube-interact-hint{
   position:relative;
   z-index:1;
+  display:inline-flex;
+  align-items:center;
+  gap:.6em;
+  padding:.5em 1.15em;
+  border-radius:999px;
+  border:1px solid rgba(255,221,122,.28);
+  background:rgba(255,221,122,.07);
   font-size:.78rem;
   letter-spacing:.03em;
-  color:rgba(243,237,226,.55);
+  color:rgba(243,237,226,.9);
   opacity:0;
-  transition:opacity .6s var(--ease-out);
+  transition:opacity .8s var(--ease-out);
 }
-.cube-interact-hint.is-visible{ opacity:1; }
+.cube-interact-hint::before{
+  content:'';
+  width:7px;
+  height:7px;
+  flex-shrink:0;
+  border-radius:50%;
+  background:#ffdd7a;
+  animation:cubeHintPulse 1.8s ease-out infinite;
+}
+.cube-interact-hint.is-visible{
+  opacity:1;
+  animation:cubeHintGlow 2.8s ease-in-out infinite;
+}
+@keyframes cubeHintPulse{
+  0%{ box-shadow:0 0 0 0 rgba(255,221,122,.6); }
+  70%{ box-shadow:0 0 0 9px rgba(255,221,122,0); }
+  100%{ box-shadow:0 0 0 0 rgba(255,221,122,0); }
+}
+@keyframes cubeHintGlow{
+  0%, 100%{ box-shadow:0 0 12px rgba(255,221,122,.1); border-color:rgba(255,221,122,.25); }
+  50%{ box-shadow:0 0 26px rgba(255,221,122,.32); border-color:rgba(255,221,122,.55); }
+}
 .cube-bg .glow{
   position:absolute;
   width:min(56vw, 620px);
@@ -1067,12 +1101,17 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   align-items:center;
 }
 
+/* opacity/transform are driven directly, continuously, by scroll
+   position in quote-form.js — not a CSS transition triggered once by
+   an IntersectionObserver. A fixed-duration reveal could finish
+   playing before or after the visitor's own scroll speed caught up to
+   it, which is what read as the form just "slapping" into place;
+   tying it straight to scroll position means it's always exactly as
+   revealed as how far they've scrolled, at any scroll speed. */
 .quote-copy{
   opacity:0;
-  transform:translateY(24px);
-  transition:opacity .8s var(--ease-out), transform .8s var(--ease-out);
+  will-change:opacity, transform, filter;
 }
-.quote-copy.is-visible{ opacity:1; transform:translateY(0); }
 
 .quote-eyebrow{
   font-size:.72rem;
@@ -1148,17 +1187,17 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
    animated-gradient-border trick (rotating the wrap itself would spin
    the form's contents too, which is why the rotation lives on this
    ::before instead) */
+/* opacity/transform driven directly by scroll position — see the note
+   on .quote-copy above */
 .quote-form-wrap{
   position:relative;
   border-radius:26px;
   padding:3px;
   overflow:hidden;
   opacity:0;
-  transform:translateY(24px);
-  transition:opacity .8s var(--ease-out) .12s, transform .8s var(--ease-out) .12s;
+  will-change:opacity, transform;
   box-shadow:0 40px 80px -40px rgba(0,0,0,.4);
 }
-.quote-form-wrap.is-visible{ opacity:1; transform:translateY(0); }
 .quote-form-wrap::before{
   content:'';
   position:absolute;

@@ -91,7 +91,7 @@
     items.push(item);
   });
 
-  section.style.height = (n * 62) + 'vh';
+  section.style.height = (n * 80) + 'vh';
 
   function lerp(a,b,t){ return a + (b-a)*t; }
 
@@ -124,7 +124,11 @@
       const baseAngle = (i - (n - 1) / 2) * angleStep;
       const angle = baseAngle * (1 - blend * 0.92);
       const scale = lerp(0.74, maxScale, blend);
-      const opacity = lerp(0.25, 1, blend);
+      // fully invisible when not active, not just faded 25% — with 8
+      // cards stacked in the exact same spot, that floor meant every
+      // one of them stayed at least partly visible at once, reading
+      // as a messy jumble instead of one card at a time
+      const opacity = Math.max(0, (blend - 0.08) / 0.92);
       const ty = lerp(26, minTy, blend);
       card.style.transform = `translateY(${ty.toFixed(1)}px) rotate(${angle.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
       card.style.opacity = opacity.toFixed(2);

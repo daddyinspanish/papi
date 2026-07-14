@@ -220,19 +220,23 @@
   // stretch of the range rather than a quick snap — so the two beats
   // never overlap and the fall itself reads as smooth/subtle rather
   // than sudden.
-  const INTRO_FALL_VH = 0.8;
-  const TITLE_REVEAL_END = 0.15;
-  const CUBE_FALL_START = 0.22;
-  const CUBE_FALL_END = 0.55;
+  const INTRO_FALL_VH = 0.7;
+  const TITLE_REVEAL_END = 0.06;
+  const CUBE_FALL_START = 0.1;
+  const CUBE_FALL_END = 0.5;
 
   function smoothstep(edge0, edge1, x){
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
   }
-  // a plain, smooth deceleration — no overshoot/bounce — so the fall
-  // reads as gentle and subtle rather than a springy "landing"
-  function easeOutCubic(x){
-    return 1 - Math.pow(1 - x, 3);
+  // a gentle bounce-settle — overshoots just slightly past rest, then
+  // eases back, like it settles into the floor rather than either
+  // stopping dead or springing hard. c1 is deliberately much softer
+  // than the standard "back" ease (1.70158) for an elegant landing
+  // rather than a bouncy/springy one.
+  function easeOutBounceSoft(x){
+    const c1 = 1.12, c3 = c1 + 1;
+    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
   }
 
   let focusedFace = null;
@@ -315,7 +319,7 @@
     // title has fully revealed and a beat has passed, then fades in
     // and drops slowly, smoothly, from just under the hero edge ---
     const cubeRaw = smoothstep(CUBE_FALL_START, CUBE_FALL_END, introRaw);
-    const cubeEased = easeOutCubic(cubeRaw);
+    const cubeEased = easeOutBounceSoft(cubeRaw);
 
     // the tumble only starts accumulating once the fall has landed —
     // scrolling through the intro itself doesn't also spin the cube.
