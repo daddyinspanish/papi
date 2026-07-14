@@ -10,6 +10,7 @@
   --cream-dim: #cfc7b8;
   --gold: #cba869;
   --gold-soft: #e4cd9a;
+  --gold-deep: #8a6a1f; /* darker gold for legibility over light backgrounds */
 
   /* luxury white — used for the loader and the showcase section */
   --paper: #f8f6f2;
@@ -66,19 +67,19 @@ a{ color:inherit; text-decoration:none; }
 body, a, .cta{ cursor:none; }
 
 /* ===================================================================
-   LOADER — letters land into a 2x2 square, then 4 colored tiles
-   build the same formation, then the whole thing dissolves away
+   LOADER — black and gold, on brand: the four letters land one at a
+   time against a black field, each filling in with a sweep of gold
+   light as it lands, then the whole thing dissolves into the hero.
 =================================================================== */
 #loader{
   position:fixed;
   inset:0;
   z-index:1000;
-  background:var(--paper);
+  background:var(--ink);
   overflow:hidden;
 }
 
-.loader-letters,
-.loader-squares{
+.loader-letters{
   position:absolute;
   left:50%;
   top:50%;
@@ -90,30 +91,27 @@ body, a, .cta{ cursor:none; }
   place-items:center;
 }
 
+/* a bright highlight band sweeps across each letter as it lands,
+   leaving solid gold behind it — background-position is animated by
+   loader.js in lockstep with the landing transition */
 .loader-letters .letter{
   font-family:'Fraunces', serif;
   font-weight:500;
   font-style:normal;
   font-size:clamp(2.6rem, 8vw, 5.5rem);
   line-height:1;
-  color:var(--paper-ink);
   display:inline-block;
-  will-change:transform, opacity, filter;
+  will-change:transform, opacity, filter, background-position;
   opacity:0;
-}
-
-.loader-squares{ pointer-events:none; perspective:800px; }
-.loader-squares .sq{
-  width:clamp(2.2rem, 6vw, 4rem);
-  height:clamp(2.2rem, 6vw, 4rem);
-  border-radius:10px;
-  opacity:0;
-  border:1px solid rgba(255,255,255,.25);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.3),
-    0 18px 34px -12px var(--sq-glow, rgba(0,0,0,.6));
-  transform:scale(.25) rotate(-22deg) rotateY(35deg);
-  transition:opacity .65s var(--ease-out), transform .65s var(--ease-out), box-shadow .65s var(--ease-out);
+  background:linear-gradient(100deg,
+    #8a6a1f 0%, #8a6a1f 42%,
+    #fff6d8 48%, #ffe9a8 50%, #fff6d8 52%,
+    #8a6a1f 58%, #8a6a1f 100%);
+  background-size:280% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  text-shadow:0 0 40px rgba(255,200,40,.35);
 }
 
 /* loader exit */
@@ -179,7 +177,7 @@ body, a, .cta{ cursor:none; }
   font-size:clamp(1.1rem, 2vw, 1.5rem);
   letter-spacing:.28em;
   display:flex;
-  color:var(--cream);
+  color:var(--gold-soft);
   text-shadow:0 2px 20px rgba(0,0,0,.5);
   transition:color .5s var(--ease-out), text-shadow .5s var(--ease-out);
 }
@@ -205,10 +203,11 @@ body, a, .cta{ cursor:none; }
 }
 
 /* while the white showcase section sits behind the fixed brand mark
-   and docked title, flip them to dark-on-light so they stay legible */
-body.on-light-section .brand-mark{ color:var(--paper-ink); text-shadow:none; }
+   and docked title, switch to the deeper gold so they stay legible —
+   still gold, on brand, just a shade that reads against white paper */
+body.on-light-section .brand-mark{ color:var(--gold-deep); text-shadow:none; }
 body.on-light-section .title-dock,
-body.on-light-section .title-dock-word{ color:var(--paper-ink); text-shadow:none; }
+body.on-light-section .title-dock-word{ color:var(--gold-deep); text-shadow:none; }
 body.on-light-section .title-dock em{ color:rgb(var(--accent)); }
 .title-dock em{
   font-style:italic;
@@ -555,11 +554,11 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 }
 .cube-bg .glow--b{
   bottom:-15%; right:-8%;
-  background:radial-gradient(circle, rgba(84,54,196,.45), transparent 70%);
+  background:radial-gradient(circle, rgba(138,106,31,.5), transparent 70%);
 }
 .cube-bg .glow--c{
   top:32%; right:14%;
-  background:radial-gradient(circle, rgba(30,120,196,.35), transparent 70%);
+  background:radial-gradient(circle, rgba(255,230,160,.3), transparent 70%);
 }
 
 .cube-content{
@@ -833,7 +832,7 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 }
 .t-glow--b{
   bottom:-14%; right:-8%;
-  background:radial-gradient(circle, rgba(70,90,196,.22), transparent 70%);
+  background:radial-gradient(circle, rgba(202,153,20,.2), transparent 70%);
 }
 
 .testimonials-sticky{
@@ -1014,18 +1013,22 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 }
 
 /* ===================================================================
-   QUOTE — request-a-quote form. White card, but the section behind it
-   now runs a slow, solid (not blurred/translucent like the cube's
-   glow) color sweep — blue into purple into teal into gold and back —
+   QUOTE — request-a-quote form. On brand: black and gold only. The
+   section behind the white card runs a slow, solid (not blurred/
+   translucent like the cube's glow) sweep between black and gold —
    the same "moving colors" idea as the cube's background, just more
-   saturated. The form's own border rotates through that same palette
-   so it always reads as contrasted against whatever color is behind
-   it at that moment. Not a tall sticky section like the others: a
-   form should feel direct, not gimmicky.
+   saturated, and kept strictly within the brand pair rather than a
+   rainbow. The form's own border rotates through black/gold/cream so
+   it always reads as contrasted against whatever's behind it. Not a
+   tall sticky section like the others: a form should feel direct,
+   not gimmicky.
 =================================================================== */
 .quote-section{
   position:relative;
-  background:linear-gradient(120deg, #2f6fed, #7c3aed, #0ea5a3, #f2a900, #2f6fed);
+  /* the gold stop stays muted/deep rather than bright yellow — the
+     white copy text sitting directly on top needs to stay legible
+     through the whole sweep, not just the darker parts of it */
+  background:linear-gradient(120deg, #0a0908, #2a1f08, #8a6a1f, #2a1f08, #0a0908);
   background-size:400% 400%;
   animation:quoteBgSweep 18s ease-in-out infinite;
   padding:clamp(4rem, 10vw, 8rem) clamp(1.5rem, 5vw, 4rem);
@@ -1073,7 +1076,7 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   font-size:clamp(2rem, 4.4vw, 3.1rem);
   line-height:1.1;
   margin-bottom:1rem;
-  background:linear-gradient(100deg, #fff, #ffe27a, #fff, #cdd9ff, #fff);
+  background:linear-gradient(100deg, #fff, #ffe27a, #ffd23f, #fff6d8, #fff);
   background-size:300% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -1144,7 +1147,7 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   content:'';
   position:absolute;
   inset:-60%;
-  background:conic-gradient(from 0deg, #2f6fed, #7c3aed, #0ea5a3, #f2a900, #e0483e, #2f6fed);
+  background:conic-gradient(from 0deg, #8a6a1f, #ffd23f, #fff6d8, #cba869, #3a2c0d, #8a6a1f);
   animation:quoteBorderSpin 7s linear infinite;
 }
 @keyframes quoteBorderSpin{ to{ transform:rotate(360deg); } }
@@ -1184,9 +1187,9 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 .quote-field input:focus,
 .quote-field textarea:focus{
   outline:none;
-  border-color:#2f6fed;
+  border-color:#8a6a1f;
   background:#fff;
-  box-shadow:0 0 0 4px rgba(47,111,237,.14);
+  box-shadow:0 0 0 4px rgba(202,153,20,.16);
 }
 .quote-field label{
   position:absolute;
@@ -1205,7 +1208,7 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 .quote-field textarea:not(:placeholder-shown) + label{
   top:.4rem;
   transform:scale(.72);
-  color:#2f6fed;
+  color:#8a6a1f;
 }
 
 .quote-submit{
@@ -1217,19 +1220,19 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   padding:1rem 1.5rem;
   border:none;
   border-radius:14px;
-  background:linear-gradient(120deg, #2f6fed, #7c3aed, #0ea5a3, #2f6fed);
+  background:linear-gradient(120deg, #8a6a1f, #ffd23f, #cba869, #8a6a1f);
   background-size:300% 100%;
   animation:quoteBgSweep 8s ease-in-out infinite;
-  color:#fff;
+  color:#1a1408;
   font-size:1rem;
-  font-weight:600;
+  font-weight:700;
   letter-spacing:.01em;
   cursor:pointer;
   overflow:hidden;
   transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
-  box-shadow:0 16px 34px -14px rgba(47,111,237,.55);
+  box-shadow:0 16px 34px -14px rgba(138,106,31,.6);
 }
-.quote-submit:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -14px rgba(47,111,237,.65); }
+.quote-submit:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -14px rgba(138,106,31,.7); }
 .quote-submit:active{ transform:translateY(0) scale(.98); }
 .quote-submit-check{
   display:none;
@@ -1238,7 +1241,7 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 .quote-form.is-sending .quote-submit{ opacity:.75; pointer-events:none; }
 .quote-form.is-sent .quote-submit-label{ display:none; }
 .quote-form.is-sent .quote-submit-check{ display:block; }
-.quote-form.is-sent .quote-submit{ background:linear-gradient(135deg, #34c77b, #1fa863); animation:none; }
+.quote-form.is-sent .quote-submit{ background:linear-gradient(135deg, #34c77b, #1fa863); color:#fff; animation:none; }
 
 .quote-success{
   font-size:.9rem;

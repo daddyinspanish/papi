@@ -340,13 +340,14 @@
     root.style.setProperty('--accent', `${ar|0}, ${ag|0}, ${ab|0}`);
 
     // "style" and other UI accents always contrast the current
-    // background: complementary hue, pushed light or dark depending on
-    // the background's own lightness so it's never a dull, low-contrast
-    // mid-tone (that dark-grey dead zone)
-    const contrastHue = (midHue + 0.5) % 1;
-    const contrastLight = midLight > 0.55 ? 0.24 : 0.76;
-    const [cr,cg,cb] = hslToRgb(contrastHue, Math.max(0.55, midSat), contrastLight);
-    root.style.setProperty('--style-contrast', `${cr|0}, ${cg|0}, ${cb|0}`);
+    // background — staying strictly within the black/gold brand
+    // instead of rotating to a complementary hue (which, with a
+    // gold-only field, meant this used to drift to an off-brand blue).
+    // Near-black when the field is bright/gold, bright gold-cream when
+    // the field is dark, so it's always legible and always on-brand.
+    const isDarkBg = midLight <= 0.5;
+    const [cr,cg,cb] = isDarkBg ? [232,205,120] : [20,16,8];
+    root.style.setProperty('--style-contrast', `${cr}, ${cg}, ${cb}`);
 
     // a softer tint of the live accent, blended toward cream — used for
     // small supporting text (the eyebrow) that needs color but not
