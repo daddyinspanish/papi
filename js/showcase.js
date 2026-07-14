@@ -78,6 +78,9 @@
     'See yourself here?',
     'This is what possible looks like.',
   ];
+  // a different entrance each time, so the phrase keeps catching the
+  // eye instead of fading in the same way every time a card opens
+  const PHRASE_ANIMS = ['anim-rise', 'anim-pop', 'anim-slide-left', 'anim-slide-right', 'anim-blur'];
 
   const cards = [];
   const items = [];
@@ -98,8 +101,16 @@
     // in the items loop) — keeps the focus on the image itself rather
     // than adding another caption on top of the card
     if(phraseEl){
-      if(i !== null) phraseEl.textContent = PHRASES[Math.floor(Math.random() * PHRASES.length)];
-      phraseEl.classList.toggle('is-visible', i !== null);
+      phraseEl.classList.remove(...PHRASE_ANIMS);
+      if(i !== null){
+        phraseEl.textContent = PHRASES[Math.floor(Math.random() * PHRASES.length)];
+        // force a reflow before adding the animation class back — without
+        // this, picking the same animation two expands in a row wouldn't
+        // replay it (the class never technically changed from the
+        // browser's point of view)
+        void phraseEl.offsetWidth;
+        phraseEl.classList.add(PHRASE_ANIMS[Math.floor(Math.random() * PHRASE_ANIMS.length)]);
+      }
     }
     // both ancestors normally clip to keep the fan's rotated/off-centre
     // cards from spilling past the section — the expanded card is
@@ -152,6 +163,13 @@
         <div class="fan-line short"></div>
       </div>
       <button type="button" class="fan-card-close" aria-label="Close preview">✕</button>`;
+    // a mouse click focusing the card is what was triggering the
+    // browser's own "scroll newly focused element into view" behavior
+    // (worse once the card is scaled up 1.75x) — preventing default on
+    // mousedown stops focus from being assigned on a mouse click at
+    // all, without affecting real keyboard Tab navigation, which still
+    // focuses it normally (Enter/Space below still activates it)
+    card.addEventListener('mousedown', (e)=> e.preventDefault());
     // expanding is purely an in-place enlargement now — it used to also
     // scroll-to-center the card, but that scroll and a visitor's own
     // subsequent scroll fought each other (the auto-collapse-on-scroll
@@ -228,9 +246,14 @@
       if(i === expandedIndex){
         // straightened, well above the rest of the fan, and notably
         // larger than even the normal "active" size — the point is to
-        // actually be able to read the preview, not just recenter it
+        // actually be able to read the preview, not just recenter it.
+        // A small, fixed nudge (not tied to minTy, which was tuned for
+        // the small non-expanded position) rather than a big offset —
+        // the CSS pivot for this state is centered (not bottom), so
+        // growth is already symmetric and doesn't need much compensating
         const expandScale = (isNarrow ? 1.55 : 1.75);
-        card.style.transform = `translateY(${(minTy - 10).toFixed(1)}px) rotate(0deg) scale(${expandScale})`;
+        const expandOffset = isNarrow ? -10 : -20;
+        card.style.transform = `translateY(${expandOffset}px) rotate(0deg) scale(${expandScale})`;
         card.style.opacity = '1';
         card.style.zIndex = '500';
       } else {

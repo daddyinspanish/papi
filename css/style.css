@@ -457,6 +457,12 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   cursor:pointer;
   box-shadow:0 60px 140px -20px rgba(0,0,0,.85), 0 0 0 1.5px rgba(255,221,122,.5), 0 0 50px 4px rgba(255,221,122,.28);
   animation:none;
+  /* the base card pivots from its bottom edge (so the fan reads as
+     rooted to one spot) — expanding from that same pivot meant almost
+     all of the scale-up growth happened upward, reaching up into the
+     phrase/trade-name area above it. Centering the pivot for just the
+     expanded state halves how far the top edge intrudes upward. */
+  transform-origin:center center;
 }
 .fan-card-close{
   position:absolute;
@@ -491,14 +497,19 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
    card/image itself, which would compete with the pan animation
    that's the actual point of expanding. The trade names underneath
    are untouched: they simply fade out (existing opacity logic in
-   showcase.js) while this is visible, and fade back in once collapsed. */
+   showcase.js) while this is visible, and fade back in once collapsed.
+   Anchored to the top of that space (not vertically centered in it)
+   with its own top margin — keeps clear room both above (between it
+   and the eyebrow) and below (between it and the expanded card, which
+   also now grows from its own centre instead of its bottom edge, so
+   it no longer reaches as far up into this space). */
 .showcase-phrase{
   position:absolute;
-  top:50%;
+  top:0;
   left:0;
   right:0;
-  transform:translateY(calc(-50% + 10px));
-  margin:0;
+  margin:1.75rem 0 0;
+  padding:0 1.5rem;
   font-family:'Fraunces', serif;
   font-style:italic;
   font-weight:500;
@@ -508,12 +519,41 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   text-shadow:0 2px 16px rgba(0,0,0,.5);
   opacity:0;
   pointer-events:none;
-  transition:opacity .4s var(--ease-out), transform .4s var(--ease-out);
 }
-.showcase-phrase.is-visible{
-  opacity:1;
-  transform:translateY(-50%);
+.showcase-phrase::before{ content:'\201C'; }
+.showcase-phrase::after{ content:'\201D'; }
+
+/* a different entrance plays each time (picked at random in
+   showcase.js, one class added per expand) — the point is that the
+   phrase itself keeps drawing the eye every time a card opens, rather
+   than becoming background noise after the first couple of times it's
+   seen fade in the exact same way */
+@keyframes phraseRise{
+  from{ opacity:0; transform:translateY(18px); }
+  to{ opacity:1; transform:translateY(0); }
 }
+@keyframes phrasePop{
+  0%{ opacity:0; transform:scale(.8); }
+  70%{ opacity:1; transform:scale(1.06); }
+  100%{ opacity:1; transform:scale(1); }
+}
+@keyframes phraseSlideLeft{
+  from{ opacity:0; transform:translateX(-30px); }
+  to{ opacity:1; transform:translateX(0); }
+}
+@keyframes phraseSlideRight{
+  from{ opacity:0; transform:translateX(30px); }
+  to{ opacity:1; transform:translateX(0); }
+}
+@keyframes phraseBlurIn{
+  from{ opacity:0; filter:blur(7px); transform:translateY(8px); }
+  to{ opacity:1; filter:blur(0); transform:translateY(0); }
+}
+.showcase-phrase.anim-rise{ animation:phraseRise .6s var(--ease-out) both; }
+.showcase-phrase.anim-pop{ animation:phrasePop .6s var(--ease-out) both; }
+.showcase-phrase.anim-slide-left{ animation:phraseSlideLeft .6s var(--ease-out) both; }
+.showcase-phrase.anim-slide-right{ animation:phraseSlideRight .6s var(--ease-out) both; }
+.showcase-phrase.anim-blur{ animation:phraseBlurIn .7s var(--ease-out) both; }
 .fan-card .fan-bar{
   display:flex;
   gap:5px;
