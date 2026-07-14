@@ -14,6 +14,7 @@
   const sticky = document.querySelector('.showcase-sticky');
   const fanEl = document.getElementById('showcaseFan');
   const listEl = document.getElementById('showcaseItems');
+  const phraseEl = document.getElementById('showcasePhrase');
   if(!section || !fanEl || !listEl) return;
 
   function smoothstep(edge0, edge1, x){
@@ -64,18 +65,42 @@
     window.scrollTo({ top: target, behavior:'smooth' });
   }
 
+  // a short, punchy line over whichever card is currently expanded —
+  // picked fresh each time a card opens, rather than the same caption
+  // every time
+  const PHRASES = [
+    'This could be your site.',
+    'Your business deserves this.',
+    'Imagine your name here.',
+    'Built like this — for you.',
+    'Yours could look this good.',
+    "Let's build your next site.",
+    'See yourself here?',
+    'This is what possible looks like.',
+  ];
+
   const cards = [];
   const items = [];
 
   // clicking a card enlarges it in place (straightened, well above the
   // rest of the fan) so its preview is actually readable, rather than
   // only ever being seen at the small, angled size the rest of the fan
-  // uses — collapses on a second click, clicking any other card, or
-  // clicking anywhere outside the fan
+  // uses — collapses on a second click, clicking any other card,
+  // clicking anywhere outside the fan, or resuming scroll (see the
+  // scroll listener below)
   let expandedIndex = null;
+  let expandedAt = 0;
   function setExpanded(i){
     expandedIndex = i;
+    if(i !== null) expandedAt = performance.now();
     cards.forEach((c, ci)=> c.classList.toggle('is-expanded', ci === i));
+    // sits where the trade names normally do (those fade out below,
+    // in the items loop) — keeps the focus on the image itself rather
+    // than adding another caption on top of the card
+    if(phraseEl){
+      if(i !== null) phraseEl.textContent = PHRASES[Math.floor(Math.random() * PHRASES.length)];
+      phraseEl.classList.toggle('is-visible', i !== null);
+    }
     // both ancestors normally clip to keep the fan's rotated/off-centre
     // cards from spilling past the section — the expanded card is
     // meant to spill past that on purpose, so overflow opens up only
@@ -87,6 +112,20 @@
   document.addEventListener('click', (e)=>{
     if(expandedIndex !== null && !e.target.closest('.fan-card')) setExpanded(null);
   });
+  // resuming scroll exits the expanded state immediately — without
+  // this, the enlarged card just sat there frozen no matter how far
+  // you scrolled (it doesn't track scroll position while expanded),
+  // which read as scrolling having stopped doing anything; collapsing
+  // right away hands scrolling straight back to the normal, fast-
+  // moving carousel instead of it feeling stuck behind the expanded card.
+  // Ignored for a brief moment right after expanding — clicking a
+  // focusable card makes the browser focus it, and focusing an element
+  // that's just been transform-scaled larger can itself trigger a
+  // native "scroll to reveal" adjustment, which was immediately
+  // collapsing the card the instant it opened.
+  window.addEventListener('scroll', ()=>{
+    if(expandedIndex !== null && performance.now() - expandedAt > 300) setExpanded(null);
+  }, { passive:true });
 
   categories.forEach((cat, i)=>{
     const c = palette()[i % palette().length];
@@ -113,18 +152,21 @@
         <div class="fan-line short"></div>
       </div>
       <button type="button" class="fan-card-close" aria-label="Close preview">✕</button>`;
+    // expanding is purely an in-place enlargement now — it used to also
+    // scroll-to-center the card, but that scroll and a visitor's own
+    // subsequent scroll fought each other (the auto-collapse-on-scroll
+    // above would immediately undo the very scroll that opened it)
     card.addEventListener('click', (e)=>{
       // clicking the close button (only reachable while already
-      // expanded) collapses instead of re-triggering the expand/jump
+      // expanded) collapses instead of re-triggering the expand
       if(e.target.closest('.fan-card-close')){ setExpanded(null); return; }
       if(expandedIndex === i){ setExpanded(null); return; }
       setExpanded(i);
-      scrollToIndex(i);
     });
     card.addEventListener('keydown', (e)=>{
       if(e.key === 'Enter' || e.key === ' '){
         e.preventDefault();
-        if(expandedIndex === i){ setExpanded(null); } else { setExpanded(i); scrollToIndex(i); }
+        if(expandedIndex === i){ setExpanded(null); } else { setExpanded(i); }
       }
     });
     fanEl.appendChild(card);

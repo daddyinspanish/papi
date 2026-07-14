@@ -173,11 +173,12 @@
       // safety net: if 'papi:fieldgrown' never fires for any reason
       // (e.g. growField() was called before the field had finished
       // its own reveal setup, so it silently no-op'd), don't leave
-      // scrolling locked forever — release it after a generous timeout
+      // scrolling locked forever — release it shortly after the grow
+      // (INTRO_DURATION in particles.js) should have finished
       setTimeout(()=>{
         document.documentElement.classList.remove('scroll-lock');
         document.body.classList.remove('scroll-lock');
-      }, 4000);
+      }, 1800);
     }
 
     // don't let the rest of the transition advance until the field

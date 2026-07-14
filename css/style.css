@@ -483,6 +483,37 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   pointer-events:auto;
 }
 .fan-card-close:hover{ border-color:rgba(255,221,122,.7); color:#ffdd7a; }
+
+/* a short encouraging line that takes over the trade-name carousel's
+   own spot (below the "Real websites. Every industry." eyebrow, above
+   the fan) only while a card is expanded — picked at random each time
+   (see PHRASES in showcase.js) — rather than sitting on top of the
+   card/image itself, which would compete with the pan animation
+   that's the actual point of expanding. The trade names underneath
+   are untouched: they simply fade out (existing opacity logic in
+   showcase.js) while this is visible, and fade back in once collapsed. */
+.showcase-phrase{
+  position:absolute;
+  top:50%;
+  left:0;
+  right:0;
+  transform:translateY(calc(-50% + 10px));
+  margin:0;
+  font-family:'Fraunces', serif;
+  font-style:italic;
+  font-weight:500;
+  font-size:clamp(1.2rem, 3vw, 1.7rem);
+  text-align:center;
+  color:#ffdd7a;
+  text-shadow:0 2px 16px rgba(0,0,0,.5);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .4s var(--ease-out), transform .4s var(--ease-out);
+}
+.showcase-phrase.is-visible{
+  opacity:1;
+  transform:translateY(-50%);
+}
 .fan-card .fan-bar{
   display:flex;
   gap:5px;

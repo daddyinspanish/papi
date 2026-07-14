@@ -57,7 +57,14 @@
   //   done    -> always fully shown
   let introPhase = 'pending';
   let introStart = null;
-  const INTRO_DURATION = 2100; // slow but not draggy
+  // was 2100ms — title-dock.js locks page scroll for this entire
+  // stretch while the field grows, so a visitor scrolling from the
+  // hero into the next section had their scroll gesture abruptly
+  // frozen for over 2 seconds, reading as the page "pausing"/glitching
+  // (especially noticeable on iPhone, where a fast flick just stops
+  // dead instead of decelerating). Still a real grow animation, just a
+  // much shorter lock.
+  const INTRO_DURATION = 950;
   const INTRO_FEATHER = 0.2;
   const HELD_REVEAL = 0.24; // a wide "world of cubes" cluster while held
 
@@ -203,17 +210,33 @@
   window.addEventListener('load', resize);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(resize);
 
+  // tiles are positioned in canvas-local coordinates (0,0 at the
+  // canvas's own top-left), but mouse/touch events report viewport-
+  // relative coordinates — those only happen to match at the very top
+  // of the page with zero scroll. The moment the hero has scrolled at
+  // all, the canvas's viewport position shifts up while tile positions
+  // don't, so without this conversion the push effect drifts out of
+  // sync with the cursor by however far the page has scrolled — tiles
+  // lower on the field need the cursor further down than the viewport
+  // even allows, reading as "hovering near the bottom does nothing."
+  function toCanvasXY(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    return [clientX - rect.left, clientY - rect.top];
+  }
+
   window.addEventListener('mousemove', (e)=>{
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
+    const [x,y] = toCanvasXY(e.clientX, e.clientY);
+    mouse.x = x;
+    mouse.y = y;
     mouse.active = true;
     lastMoveTime = performance.now();
   });
   window.addEventListener('mouseleave', ()=>{ mouse.active = false; });
   window.addEventListener('touchmove', (e)=>{
     if(e.touches && e.touches[0]){
-      mouse.x = e.touches[0].clientX;
-      mouse.y = e.touches[0].clientY;
+      const [x,y] = toCanvasXY(e.touches[0].clientX, e.touches[0].clientY);
+      mouse.x = x;
+      mouse.y = y;
       mouse.active = true;
       lastMoveTime = performance.now();
     }
