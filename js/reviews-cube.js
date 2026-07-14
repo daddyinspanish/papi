@@ -124,9 +124,17 @@
   // than the same scroll distance would on desktop
   let introRange = 0;
   let sectionTop = 0;
+  let sectionEndScrollY = Infinity;
   function measureIntroRange(){
     introRange = window.innerHeight * INTRO_FALL_VH;
     sectionTop = section ? section.offsetTop : 0;
+    // the scrollY at which this section has fully scrolled past — used
+    // to freeze the tumble once the visitor has moved on to the next
+    // section, instead of it continuing to spin based on scroll that
+    // now belongs to a completely different part of the page
+    sectionEndScrollY = section
+      ? sectionTop + Math.max(0, section.offsetHeight - window.innerHeight)
+      : Infinity;
   }
 
   requestAnimationFrame(()=>{ measureDepth(); measureIntroRange(); });
@@ -283,8 +291,14 @@
     const cubeEased = easeOutBack(cubeRaw);
 
     // the tumble only starts accumulating once the fall has landed —
-    // scrolling through the intro itself doesn't also spin the cube
-    const postIntroScroll = Math.max(0, window.scrollY - sectionTop - introRange);
+    // scrolling through the intro itself doesn't also spin the cube.
+    // Clamped to the section's own end, too — past that point the
+    // visitor has moved on to the next section, and without this the
+    // cube kept tumbling based on scroll that had nothing to do with
+    // it anymore, which showed up as it seeming to move on its own
+    // right around when the next section came into view.
+    const clampedScrollY = Math.min(window.scrollY, sectionEndScrollY);
+    const postIntroScroll = Math.max(0, clampedScrollY - sectionTop - introRange);
     const scrollRotation = postIntroScroll * DEG_PER_PX;
 
     let targetRx, targetRy, targetScale;

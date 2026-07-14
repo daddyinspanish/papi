@@ -43,8 +43,14 @@ html,body{
 html{ overflow-x:hidden; }
 
 /* briefly locks scrolling while the background field grows to fill
-   the screen, so the hero doesn't move until it's finished */
+   the screen, so the hero doesn't move until it's finished. Locking
+   only html (not body too) doesn't reliably block iOS Safari's
+   touch-driven scrolling — the same gap fixed for .no-scroll below —
+   which let a stray touch keep dragging the page slightly during the
+   "locked" fill, and the mismatch showed up as a pause/catch-up right
+   as the real unlock happened. */
 html.scroll-lock{ overflow:hidden; }
+body.scroll-lock{ overflow:hidden; height:100vh; }
 
 /* on body alone, this doesn't reliably block touch-driven scrolling
    on iOS Safari (a known WebKit quirk) — locking the root element too
@@ -918,4 +924,228 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 @media (max-width:640px){
   .testimonials-section{ height:640vh; }
   .testimonial-stack{ height:clamp(300px, 46vh, 400px); }
+}
+
+/* ===================================================================
+   QUOTE — request-a-quote form. Deliberately not the site's warm
+   amber/dark palette — white background, blue accents, on purpose, so
+   this reads as its own clean, trustworthy "take action" moment
+   rather than another scroll-driven story beat. Not a tall sticky
+   section like the others: a form should feel direct, not gimmicky.
+=================================================================== */
+.quote-section{
+  position:relative;
+  background:#fbfdff;
+  padding:clamp(4rem, 10vw, 8rem) clamp(1.5rem, 5vw, 4rem);
+  overflow:hidden;
+}
+.quote-section::before,
+.quote-section::after{
+  content:'';
+  position:absolute;
+  border-radius:50%;
+  filter:blur(90px);
+  pointer-events:none;
+  z-index:0;
+}
+.quote-section::before{
+  width:min(46vw, 520px); height:min(46vw, 520px);
+  top:-12%; left:-10%;
+  background:radial-gradient(circle, rgba(47,111,237,.14), transparent 70%);
+}
+.quote-section::after{
+  width:min(40vw, 460px); height:min(40vw, 460px);
+  bottom:-14%; right:-8%;
+  background:radial-gradient(circle, rgba(47,111,237,.1), transparent 70%);
+}
+
+.quote-inner{
+  position:relative;
+  z-index:1;
+  max-width:1100px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:1fr 1.1fr;
+  gap:clamp(2.5rem, 6vw, 5rem);
+  align-items:center;
+}
+
+.quote-copy{
+  opacity:0;
+  transform:translateY(24px);
+  transition:opacity .8s var(--ease-out), transform .8s var(--ease-out);
+}
+.quote-copy.is-visible{ opacity:1; transform:translateY(0); }
+
+.quote-eyebrow{
+  font-size:.72rem;
+  letter-spacing:.36em;
+  text-transform:uppercase;
+  color:#2f6fed;
+  font-weight:600;
+  margin-bottom:1rem;
+}
+.quote-heading{
+  font-family:'Fraunces', serif;
+  font-weight:500;
+  font-size:clamp(2rem, 4.4vw, 3.1rem);
+  line-height:1.1;
+  color:#0f1f3d;
+  margin-bottom:1rem;
+}
+.quote-sub{
+  font-size:clamp(1rem, 1.6vw, 1.15rem);
+  line-height:1.55;
+  color:#4b5a75;
+  max-width:44ch;
+  margin-bottom:2.4rem;
+}
+
+.quote-proof{
+  display:flex;
+  flex-direction:column;
+  gap:1.1rem;
+}
+.quote-rating{ display:flex; align-items:center; gap:.7rem; }
+.quote-stars{ color:#ffb300; letter-spacing:.15em; font-size:1.05rem; }
+.quote-rating-text{ font-size:.9rem; color:#4b5a75; }
+.quote-rating-text strong{ color:#0f1f3d; }
+
+.quote-social{ display:flex; align-items:center; gap:.9rem; }
+.quote-social-label{ font-size:.85rem; color:#4b5a75; }
+.quote-social-links{ display:flex; gap:.55rem; }
+.quote-social-link{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:34px; height:34px;
+  border-radius:50%;
+  background:rgba(47,111,237,.08);
+  color:#2f6fed;
+  transition:background .3s var(--ease-out), color .3s var(--ease-out), transform .3s var(--ease-out);
+}
+.quote-social-link:hover{
+  background:#2f6fed;
+  color:#fff;
+  transform:translateY(-2px);
+}
+
+/* ---- the form itself ---- */
+.quote-form{
+  position:relative;
+  opacity:0;
+  transform:translateY(24px);
+  transition:opacity .8s var(--ease-out) .12s, transform .8s var(--ease-out) .12s;
+  background:#fff;
+  border:1px solid rgba(15,31,61,.08);
+  border-radius:24px;
+  padding:clamp(1.6rem, 3vw, 2.4rem);
+  box-shadow:0 40px 80px -40px rgba(15,31,61,.25);
+  display:flex;
+  flex-direction:column;
+  gap:1.3rem;
+}
+.quote-form.is-visible{ opacity:1; transform:translateY(0); }
+
+.quote-row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1.3rem;
+}
+
+.quote-field{ position:relative; }
+.quote-field input,
+.quote-field textarea{
+  width:100%;
+  font-family:'Inter', sans-serif;
+  font-size:1rem;
+  color:#0f1f3d;
+  background:#f7faff;
+  border:1.5px solid rgba(15,31,61,.12);
+  border-radius:12px;
+  padding:1.1rem .9rem .5rem;
+  transition:border-color .3s var(--ease-out), box-shadow .3s var(--ease-out), background .3s var(--ease-out);
+  resize:none;
+}
+.quote-field textarea{ padding-top:1.3rem; }
+.quote-field input:focus,
+.quote-field textarea:focus{
+  outline:none;
+  border-color:#2f6fed;
+  background:#fff;
+  box-shadow:0 0 0 4px rgba(47,111,237,.14);
+}
+.quote-field label{
+  position:absolute;
+  left:.95rem;
+  top:.95rem;
+  font-size:1rem;
+  color:#8b96ac;
+  pointer-events:none;
+  transform-origin:left top;
+  transition:transform .22s var(--ease-out), color .22s var(--ease-out), top .22s var(--ease-out);
+}
+.quote-field label span{ color:#a8b2c4; }
+.quote-field input:focus + label,
+.quote-field input:not(:placeholder-shown) + label,
+.quote-field textarea:focus + label,
+.quote-field textarea:not(:placeholder-shown) + label{
+  top:.4rem;
+  transform:scale(.72);
+  color:#2f6fed;
+}
+
+.quote-submit{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.5rem;
+  padding:1rem 1.5rem;
+  border:none;
+  border-radius:14px;
+  background:linear-gradient(135deg, #4a86ff, #2f6fed);
+  color:#fff;
+  font-size:1rem;
+  font-weight:600;
+  letter-spacing:.01em;
+  cursor:pointer;
+  overflow:hidden;
+  transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
+  box-shadow:0 16px 34px -14px rgba(47,111,237,.55);
+}
+.quote-submit:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -14px rgba(47,111,237,.65); }
+.quote-submit:active{ transform:translateY(0) scale(.98); }
+.quote-submit-check{
+  display:none;
+}
+
+.quote-form.is-sending .quote-submit{ opacity:.75; pointer-events:none; }
+.quote-form.is-sent .quote-submit-label{ display:none; }
+.quote-form.is-sent .quote-submit-check{ display:block; }
+.quote-form.is-sent .quote-submit{ background:linear-gradient(135deg, #34c77b, #1fa863); }
+
+.quote-success{
+  font-size:.9rem;
+  color:#1fa863;
+  text-align:center;
+  opacity:0;
+  max-height:0;
+  overflow:hidden;
+  transition:opacity .4s var(--ease-out), max-height .4s var(--ease-out), color .3s var(--ease-out);
+}
+.quote-form.is-sent .quote-success{ opacity:1; max-height:60px; }
+.quote-form.is-error .quote-success{ opacity:1; max-height:60px; color:#e0483e; }
+
+@media (max-width:860px){
+  .quote-inner{ grid-template-columns:1fr; }
+  .quote-copy{ text-align:center; }
+  .quote-proof{ align-items:center; }
+  .quote-rating{ justify-content:center; }
+  .quote-social{ justify-content:center; }
+  .quote-sub{ margin-left:auto; margin-right:auto; }
+}
+
+@media (max-width:560px){
+  .quote-row{ grid-template-columns:1fr; }
 }

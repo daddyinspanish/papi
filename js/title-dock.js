@@ -30,6 +30,23 @@
   const FADE_END       = 0.82; // everything fully gone
   const DOCK_THRESHOLD = 0.62; // when the corner label appears
 
+  // cached, not read live from window.innerHeight on every scroll
+  // update — on iOS Safari, innerHeight grows as the address bar
+  // collapses partway through the very scroll gesture that triggers
+  // this transition, which was making the field-grow release (and
+  // everything paced off "dist" below) feel like it lagged or didn't
+  // let go smoothly right when it should have
+  let viewportH = window.innerHeight;
+  function measureViewport(){ viewportH = window.innerHeight; }
+  let lastResizeW = window.innerWidth;
+  window.addEventListener('resize', ()=>{
+    const w = window.innerWidth;
+    if(w === lastResizeW) return; // ignore height-only changes (mobile toolbar show/hide)
+    lastResizeW = w;
+    clearTimeout(window.__papiDockResizeT);
+    window.__papiDockResizeT = setTimeout(measureViewport, 150);
+  });
+
   function smoothstep(edge0, edge1, x){
     const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
@@ -132,7 +149,7 @@
   let currentDockWord = null;
 
   function update(){
-    const dist = window.innerHeight * SCROLL_RANGE_RATIO;
+    const dist = viewportH * SCROLL_RANGE_RATIO;
     const rawProgress = Math.max(0, Math.min(1, window.scrollY / dist));
 
     // the background field holds still (a wide centre cluster) until
@@ -145,10 +162,12 @@
       grown = true;
       const lockedY = window.scrollY;
       document.documentElement.classList.add('scroll-lock');
+      document.body.classList.add('scroll-lock');
       window.scrollTo(0, lockedY);
       if(window.Papi && window.Papi.growField) window.Papi.growField();
       window.addEventListener('papi:fieldgrown', ()=>{
         document.documentElement.classList.remove('scroll-lock');
+        document.body.classList.remove('scroll-lock');
       }, { once:true });
       // safety net: if 'papi:fieldgrown' never fires for any reason
       // (e.g. growField() was called before the field had finished
@@ -156,6 +175,7 @@
       // scrolling locked forever — release it after a generous timeout
       setTimeout(()=>{
         document.documentElement.classList.remove('scroll-lock');
+        document.body.classList.remove('scroll-lock');
       }, 4000);
     }
 
@@ -179,7 +199,7 @@
 
     // pick whichever section the viewport's centre currently sits in
     if(sectionDock){
-      const y = window.scrollY + window.innerHeight * 0.5;
+      const y = window.scrollY + viewportH * 0.5;
       let word = null;
       for(let i=0;i<sectionWords.length;i++){
         const s = sectionWords[i];

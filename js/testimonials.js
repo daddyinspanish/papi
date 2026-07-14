@@ -67,8 +67,10 @@
     dots.push(dot);
   });
 
-  // one extra "lap" of scroll room to loop back to the first card
-  section.style.height = ((n + 1) * 70) + 'vh';
+  // one extra "lap" of scroll room to loop back to the first card —
+  // 130vh per testimonial (not 70) so each one holds long enough to
+  // actually read before the next slides in, rather than flipping past
+  section.style.height = ((n + 1) * 130) + 'vh';
 
   // shortest signed distance between two points on a circle of
   // circumference n — this is what makes the whole thing loop: card 0
