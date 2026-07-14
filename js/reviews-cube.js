@@ -341,6 +341,26 @@
     const postIntroScroll = Math.max(0, clampedScrollY - sectionTop - introRange + viewportH);
     const scrollRotation = postIntroScroll * DEG_PER_PX;
 
+    // over the last viewport-height of this section's own scroll (i.e.
+    // as the visitor approaches the next section), ease the tumble
+    // back to its neutral resting angle instead of leaving the cube
+    // wherever it happened to be spinning — otherwise it kept rotating
+    // right up until the section boundary and the visitor would land
+    // on the next section with it stuck mid-spin
+    const distFromSectionEnd = Math.max(0, sectionEndScrollY - clampedScrollY);
+    const recenterT = 1 - smoothstep(0, viewportH || 1, distFromSectionEnd);
+
+    // a small continuous drift once the title has revealed, tied
+    // directly to ongoing scroll rather than time — otherwise, once
+    // its own reveal finished, it sat completely inert for the entire
+    // rest of the (very long) section while only the cube's rotation
+    // gave any sign scrolling was still doing anything. Fades out
+    // alongside the tumble as the cube recenters near the section end.
+    if(eyebrowEl){
+      const driftY = Math.sin(postIntroScroll * 0.0035) * 5 * (1 - recenterT);
+      eyebrowEl.style.transform = `translateY(${driftY.toFixed(1)}px)`;
+    }
+
     // show the interaction hint once it's landed; dismiss it for good
     // once the visitor has actually tumbled it a bit (or clicked, per
     // dismissHint() in focusFace above) — it's done its job either way
@@ -356,8 +376,14 @@
       targetRy = a.ry;
       targetScale = FOCUS_SCALE;
     } else {
-      targetRx = BASE_RX + Math.sin(scrollRotation * Math.PI / 180) * TUMBLE_AMP - tiltY * MAX_TILT * 0.5;
-      targetRy = BASE_RY + scrollRotation + tiltX * MAX_TILT;
+      // the tumble and cursor-tilt contributions both fade out as
+      // recenterT climbs, unwinding smoothly back to BASE_RX/BASE_RY
+      // rather than jumping — recenterT itself only starts moving off
+      // 0 within the last viewport-height of scroll, so this never
+      // touches the tumble during the rest of the section
+      const settle = 1 - recenterT;
+      targetRx = BASE_RX + (Math.sin(scrollRotation * Math.PI / 180) * TUMBLE_AMP - tiltY * MAX_TILT * 0.5) * settle;
+      targetRy = BASE_RY + (scrollRotation + tiltX * MAX_TILT) * settle;
       // just a hint bigger while still dropping in, settling to its
       // normal size right as it lands — subtle on purpose
       targetScale = 1 + (1 - cubeEased) * 0.08;

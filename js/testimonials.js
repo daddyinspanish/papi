@@ -10,11 +10,64 @@
 =================================================================== */
 (function(){
   const section = document.getElementById('testimonialsSection');
+  const sticky = document.querySelector('.testimonials-sticky');
   const stack = document.getElementById('testimonialStack');
   const dotsEl = document.getElementById('testimonialDots');
   const prevBtn = document.getElementById('testimonialPrev');
   const nextBtn = document.getElementById('testimonialNext');
+  const headingEl = document.querySelector('.testimonials-heading');
   if(!section || !stack || !dotsEl) return;
+
+  function smoothstep(edge0, edge1, x){
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+  }
+
+  // split into words so they can sign on one after another, each with
+  // its own slight rotation/swoop rather than the whole line just
+  // fading in flat — reads more like a flourish than a plain reveal
+  let headingWords = [];
+  if(headingEl){
+    const text = headingEl.textContent.trim();
+    headingEl.innerHTML = '';
+    headingWords = text.split(/\s+/).map(word=>{
+      const span = document.createElement('span');
+      span.className = 'testimonials-heading-word';
+      span.textContent = word;
+      headingEl.appendChild(span);
+      headingEl.appendChild(document.createTextNode(' '));
+      return span;
+    });
+  }
+
+  // the whole section rises and fades in as it enters from below, tied
+  // directly to scroll position (same convention as the cube title and
+  // quote form) rather than a fixed-duration animation triggered once —
+  // and the heading signs itself in, word by word, over the same window
+  function updateEntrance(){
+    if(!sticky) return;
+    const rect = section.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const raw = (vh - rect.top) / (vh * 0.75);
+    const p = Math.max(0, Math.min(1, raw));
+    const bodyP = smoothstep(0, 1, p);
+    sticky.style.opacity = bodyP.toFixed(3);
+    sticky.style.transform = `translateY(${((1 - bodyP) * 34).toFixed(1)}px)`;
+
+    const wn = headingWords.length;
+    if(wn){
+      const signP = smoothstep(0.15, 0.85, p); // starts a beat after the section itself begins rising
+      const spread = 0.6;
+      for(let i=0;i<wn;i++){
+        const start = wn > 1 ? (i / (wn - 1)) * spread : 0;
+        const wp = smoothstep(start, start + (1 - spread), signP);
+        const el = headingWords[i];
+        const rot = (1 - wp) * (i % 2 === 0 ? -10 : 10);
+        el.style.opacity = wp.toFixed(3);
+        el.style.transform = `translateY(${((1 - wp) * 22).toFixed(1)}px) rotate(${rot.toFixed(1)}deg)`;
+      }
+    }
+  }
 
   const TESTIMONIALS = [
     { icon:'🏠', industry:'Roofing', quote:'Papi gave us a site that finally looks as solid as the roofs we build. Calls started coming in the same week.', result:'+38% more calls in month one', name:'Marcus T.', role:'Owner' },
@@ -41,6 +94,10 @@
       <p class="testimonial-result">${t.result}</p>
       <div class="testimonial-stars" aria-hidden="true">★★★★★</div>
       <p class="testimonial-name">${t.name} <span>— ${t.role}</span></p>`;
+    // lets a visitor tap a neighboring (not-yet-centered) card to jump
+    // straight to it, instead of only being able to get there by
+    // swiping all the way — same idea as the showcase's fan cards
+    card.addEventListener('click', ()=> goTo(i));
     stack.appendChild(card);
     cards.push(card);
 
@@ -86,7 +143,15 @@
     requestAnimationFrame(()=>{ updateActive(); ticking = false; });
   }
   stack.addEventListener('scroll', requestUpdate, { passive:true });
-  window.addEventListener('resize', requestUpdate);
+  window.addEventListener('resize', ()=>{ requestUpdate(); updateEntrance(); });
+
+  let entranceTicking = false;
+  window.addEventListener('scroll', ()=>{
+    if(entranceTicking) return;
+    entranceTicking = true;
+    requestAnimationFrame(()=>{ updateEntrance(); entranceTicking = false; });
+  }, { passive:true });
+  updateEntrance();
 
   if(prevBtn) prevBtn.addEventListener('click', ()=> goTo(activeIndex - 1));
   if(nextBtn) nextBtn.addEventListener('click', ()=> goTo(activeIndex + 1));

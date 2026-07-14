@@ -22,6 +22,7 @@
   const section = document.getElementById('quoteSection');
   const copy = document.querySelector('.quote-copy');
   const formWrap = document.querySelector('.quote-form-wrap');
+  const closingBrand = document.getElementById('closingBrand');
   const form = document.getElementById('quoteForm');
   if(!section) return;
 
@@ -48,6 +49,11 @@
     if(formWrap){
       formWrap.style.opacity = formP.toFixed(3);
       formWrap.style.transform = `translateY(${((1 - formP) * 26).toFixed(1)}px)`;
+    }
+    if(closingBrand){
+      const brandP = smoothstep(0.15, 0.85, p);
+      closingBrand.style.opacity = brandP.toFixed(3);
+      closingBrand.style.transform = `translate(-50%, ${((1 - brandP) * 16).toFixed(1)}px)`;
     }
   }
 

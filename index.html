@@ -175,6 +175,7 @@ window.scrollTo(0, 0);
 
     <div class="quote-form-wrap">
     <form class="quote-form" id="quoteForm" action="https://formspree.io/f/mrenblpj" method="POST" novalidate>
+      <h3 class="quote-form-title">Build your website today!</h3>
       <div class="quote-field">
         <input type="text" id="qName" name="name" autocomplete="name" required placeholder=" ">
         <label for="qName">Full name</label>
@@ -206,6 +207,14 @@ window.scrollTo(0, 0);
     </div>
   </div>
 </section>
+
+<!-- closing brand signature — fades in bottom-center once the quote
+     section is reached, echoing the top-right brand mark/tagline as a
+     closing beat rather than just ending on the form -->
+<div class="closing-brand" id="closingBrand" aria-hidden="true">
+  <div class="closing-brand-mark">PAPI</div>
+  <div class="closing-brand-line">Built with <em>purpose</em>, not just design</div>
+</div>
 
 <!-- custom elegant cursor -->
 <div class="custom-cursor" id="customCursor" aria-hidden="true">
