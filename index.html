@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>
+// run as early as possible, before the browser has a chance to
+// restore a scrolled-down position from the last visit/reload — that
+// restored scrollY, arriving before the loader has even started,
+// was one way the hero's fill animation could get skipped entirely
+if('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.scrollTo(0, 0);
+</script>
 <title>Papi — Business-Ready Websites, Built With Purpose</title>
 <meta name="description" content="Papi builds business-ready websites designed to build trust, communicate clearly, and guide visitors to their next step.">
 
@@ -82,6 +90,7 @@
       <div class="cube-stage" id="cubeStage">
         <div class="cube-group" id="cubeGroup"></div>
       </div>
+      <button type="button" class="cube-exit-hint" id="cubeExitHint">✕ Tap to exit</button>
     </div>
   </div>
 </section>
@@ -89,16 +98,14 @@
 <!-- ============ SHOWCASE — fan of live previews + business list ============ -->
 <section class="showcase" id="showcase">
   <div class="showcase-sticky">
+    <p class="showcase-eyebrow">Real websites. Every industry.</p>
+    <div class="showcase-items" id="showcaseItems"></div>
     <div class="showcase-fan" id="showcaseFan"></div>
-    <div class="showcase-list" id="showcaseList">
-      <p class="showcase-eyebrow">Real websites. Every industry.</p>
-      <div class="showcase-items" id="showcaseItems"></div>
-    </div>
   </div>
 </section>
 
-<!-- ============ TESTIMONIALS — businesses across industries on the
-     value Papi brought them, one crossfading in after another ============ -->
+<!-- ============ TESTIMONIALS — businesses across industries, swipe
+     left/right to browse (independent of scrolling down the page) ============ -->
 <section class="testimonials-section" id="testimonialsSection">
   <div class="testimonials-bg" aria-hidden="true">
     <span class="t-glow t-glow--a"></span>
@@ -107,8 +114,17 @@
   <div class="testimonials-sticky">
     <p class="testimonials-eyebrow">Trusted across industries</p>
     <h2 class="testimonials-heading">What business owners say</h2>
+    <p class="testimonials-hint">Swipe to browse</p>
     <div class="testimonial-stack" id="testimonialStack"></div>
-    <div class="testimonial-dots" id="testimonialDots"></div>
+    <div class="testimonials-controls">
+      <button type="button" class="testimonial-arrow" id="testimonialPrev" aria-label="Previous testimonial">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="testimonial-dots" id="testimonialDots"></div>
+      <button type="button" class="testimonial-arrow" id="testimonialNext" aria-label="Next testimonial">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
   </div>
 </section>
 
@@ -129,20 +145,45 @@
         <div class="quote-social">
           <span class="quote-social-label">Follow along</span>
           <div class="quote-social-links">
-            <a href="#" class="quote-social-link" aria-label="Papi on Facebook">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M13.5 21v-7.6h2.55l.38-2.96h-2.93v-1.9c0-.86.24-1.44 1.47-1.44h1.57V4.42C16.24 4.3 15.36 4.2 14.34 4.2c-2.1 0-3.54 1.28-3.54 3.64v2.03H8.25v2.96h2.55V21h2.7z"/></svg>
+            <a href="#" class="quote-social-link quote-social-link--facebook" aria-label="Papi on Facebook">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <circle cx="12" cy="12" r="12" fill="#1877F2"/>
+                <path d="M13.5 21v-7.6h2.55l.38-2.96h-2.93v-1.9c0-.86.24-1.44 1.47-1.44h1.57V4.42C16.24 4.3 15.36 4.2 14.34 4.2c-2.1 0-3.54 1.28-3.54 3.64v2.03H8.25v2.96h2.55V21h2.7z" fill="#fff"/>
+              </svg>
             </a>
-            <a href="#" class="quote-social-link" aria-label="Papi on Instagram">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1"/></svg>
+            <a href="#" class="quote-social-link quote-social-link--instagram" aria-label="Papi on Instagram">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <defs>
+                  <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
+                    <stop offset="0%" stop-color="#fdf497"/>
+                    <stop offset="15%" stop-color="#fdf497"/>
+                    <stop offset="35%" stop-color="#fd5949"/>
+                    <stop offset="60%" stop-color="#d6249f"/>
+                    <stop offset="100%" stop-color="#285AEB"/>
+                  </radialGradient>
+                </defs>
+                <rect x="0" y="0" width="24" height="24" rx="7" fill="url(#igGrad)"/>
+                <rect x="6" y="6" width="12" height="12" rx="3.5" fill="none" stroke="#fff" stroke-width="1.6"/>
+                <circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.6"/>
+                <circle cx="16" cy="8" r="1" fill="#fff"/>
+              </svg>
             </a>
-            <a href="#" class="quote-social-link" aria-label="Papi on TikTok">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z"/></svg>
+            <a href="#" class="quote-social-link quote-social-link--tiktok" aria-label="Papi on TikTok">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <circle cx="12" cy="12" r="12" fill="#010101"/>
+                <g transform="translate(6.6,3.4) scale(0.62)">
+                  <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z" fill="#25F4EE" transform="translate(-0.9,0.9)"/>
+                  <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z" fill="#FE2C55" transform="translate(0.9,-0.9)"/>
+                  <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z" fill="#fff"/>
+                </g>
+              </svg>
             </a>
           </div>
         </div>
       </div>
     </div>
 
+    <div class="quote-form-wrap">
     <form class="quote-form" id="quoteForm" action="https://formspree.io/f/mrenblpj" method="POST" novalidate>
       <div class="quote-field">
         <input type="text" id="qName" name="name" autocomplete="name" required placeholder=" ">
@@ -167,11 +208,12 @@
         <label for="qMessage">Tell us about your project</label>
       </div>
       <button type="submit" class="quote-submit">
-        <span class="quote-submit-label">Get My Quote</span>
+        <span class="quote-submit-label">Hop on a Call</span>
         <svg class="quote-submit-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
       </button>
       <p class="quote-success" id="quoteSuccess" role="status">Thanks — we'll be in touch soon.</p>
     </form>
+    </div>
   </div>
 </section>
 

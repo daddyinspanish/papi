@@ -355,22 +355,28 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   z-index:1;
 }
 
+/* stacked, in reading order: eyebrow, then the scrolling trade name,
+   then the fan of preview cards underneath — was a two-column grid
+   (fan left, name+eyebrow right); this reads top-to-bottom instead */
 .showcase-sticky{
   position:sticky;
   top:0;
   height:100vh;
-  display:grid;
-  grid-template-columns:1.05fr .95fr;
+  display:flex;
+  flex-direction:column;
   align-items:center;
-  gap:clamp(1.5rem, 4vw, 3rem);
-  padding:0 clamp(1.5rem, 5vw, 4.5rem);
+  justify-content:center;
+  gap:clamp(.5rem, 2vw, 1.2rem);
+  padding:2rem clamp(1.5rem, 5vw, 4.5rem);
   overflow:hidden;
+  text-align:center;
 }
 
 .showcase-fan{
   position:relative;
   z-index:2;
-  height:min(66vh, 560px);
+  width:100%;
+  height:min(34vh, 300px);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -378,8 +384,8 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 
 .fan-card{
   position:absolute;
-  width:clamp(230px, 25vw, 360px);
-  height:clamp(300px, 33vw, 460px);
+  width:clamp(170px, 16vw, 230px);
+  height:clamp(220px, 21vw, 300px);
   border-radius:18px;
   background:#fff;
   border:1px solid rgba(23,24,26,.08);
@@ -418,13 +424,13 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 .fan-card .fan-line{ height:6px; border-radius:3px; background:rgba(23,24,26,.08); margin-bottom:.45rem; }
 .fan-card .fan-line.short{ width:55%; }
 
-.showcase-list{ position:relative; z-index:2; }
 .showcase-eyebrow{
+  position:relative;
+  z-index:2;
   font-size:.76rem;
   letter-spacing:.38em;
   text-transform:uppercase;
   color:rgb(var(--accent));
-  margin-bottom:2rem;
   opacity:0;
   transform:translateY(16px);
   transition:color .8s var(--ease-out), opacity .9s var(--ease-out), transform .9s var(--ease-out);
@@ -432,15 +438,18 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 .showcase-eyebrow.is-visible{ opacity:1; transform:translateY(0); }
 .showcase-items{
   position:relative;
-  height:min(48vh, 620px);
+  z-index:2;
+  width:100%;
+  height:min(26vh, 260px);
 }
 .showcase-item{
   position:absolute;
   top:50%;
   left:0;
   width:100%;
+  text-align:center;
   font-family:'Fraunces', serif;
-  font-size:clamp(2.8rem, 7.4vw, 6.8rem);
+  font-size:clamp(2.2rem, 5.6vw, 4.6rem);
   font-weight:400;
   letter-spacing:-.01em;
   line-height:1.1;
@@ -456,19 +465,12 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 }
 
 @media (max-width:640px){
-  .showcase-item{ font-size:clamp(2rem, 10vw, 3.2rem); }
+  .showcase-item{ font-size:clamp(1.7rem, 8vw, 2.6rem); }
 }
 
 @media (max-width:860px){
-  .showcase-sticky{
-    grid-template-columns:1fr;
-    grid-template-rows:auto 1fr;
-    padding-top:5rem;
-  }
-  .showcase-fan{ height:40vh; }
-  .fan-card{ width:min(56vw, 210px); height:min(28vh, 230px); }
-  .showcase-items{ height:min(32vh, 400px); }
-  .showcase-list{ text-align:center; }
+  .showcase-sticky{ padding-top:5rem; }
+  .fan-card{ width:min(48vw, 180px); height:min(26vh, 240px); }
 }
 
 /* ===================================================================
@@ -511,6 +513,34 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 }
 /* dim the backdrop while a face is zoomed in, so focus stays on it */
 .cube-sticky.is-focused .cube-bg{ opacity:.35; }
+
+/* a visible way out for anyone who taps a face and isn't sure how to
+   back out of the zoomed-in view — otherwise "click anywhere else" is
+   invisible until you happen to try it */
+.cube-exit-hint{
+  position:absolute;
+  left:50%;
+  bottom:6%;
+  transform:translate(-50%, 8px);
+  z-index:3;
+  padding:.55em 1.1em;
+  border-radius:999px;
+  border:1px solid rgba(255,221,122,.35);
+  background:rgba(10,9,8,.6);
+  backdrop-filter:blur(6px);
+  color:rgba(243,237,226,.85);
+  font-size:.78rem;
+  letter-spacing:.02em;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .3s var(--ease-out), transform .3s var(--ease-out);
+}
+.cube-sticky.is-focused .cube-exit-hint{
+  opacity:1;
+  transform:translate(-50%, 0);
+  pointer-events:auto;
+}
+.cube-exit-hint:hover{ border-color:rgba(255,221,122,.6); color:#ffdd7a; }
 .cube-bg .glow{
   position:absolute;
   width:min(56vw, 620px);
@@ -588,6 +618,22 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   border-radius:50%;
   background:radial-gradient(circle, rgba(255,200,40,.5), transparent 70%);
   filter:blur(56px);
+  z-index:-1;
+  pointer-events:none;
+}
+/* a soft shadow pooling on the "floor" beneath the cube — grounds it
+   so it reads as floating above a surface rather than just hovering
+   in empty space with nothing to cast a shadow onto */
+.cube-stage::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  bottom:6%;
+  width:62%;
+  height:14%;
+  background:radial-gradient(ellipse, rgba(0,0,0,.55) 0%, rgba(0,0,0,.2) 55%, transparent 75%);
+  filter:blur(10px);
+  transform:translateX(-50%);
   z-index:-1;
   pointer-events:none;
 }
@@ -751,16 +797,20 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 }
 
 /* ===================================================================
-   TESTIMONIALS — businesses across industries, one crossfading in
-   after another as the visitor scrolls (sticky inner viewport, same
-   pattern as the showcase and cube sections). Dark, with the same
-   amber accent as the cube section, so the page bookends the light
-   showcase in between with two dark, warm-lit moments.
+   TESTIMONIALS — businesses across industries, swipeable left/right.
+   Deliberately NOT a tall scroll-hijacked section like the showcase
+   and cube — a visitor shouldn't have to scroll through all of them
+   vertically just to reach the form below. Browsing them (horizontal
+   swipe/drag) and moving down the page (vertical scroll) are now two
+   fully independent motions. Still dark, with the cube section's
+   amber accent, bookending the light showcase in between.
 =================================================================== */
 .testimonials-section{
   position:relative;
-  height:560vh;
   z-index:1;
+  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
+  padding:clamp(3.5rem, 8vw, 6rem) 0;
+  overflow:hidden;
 }
 
 .testimonials-bg{
@@ -787,17 +837,13 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 }
 
 .testimonials-sticky{
-  position:sticky;
-  top:0;
-  height:100vh;
+  position:relative;
+  z-index:1;
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:center;
   gap:clamp(1.2rem, 3vw, 2rem);
-  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
-  overflow:hidden;
-  padding:2rem 1.5rem;
+  padding:0 1.5rem;
 }
 
 .testimonials-eyebrow{
@@ -823,19 +869,39 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   background-clip:text;
   color:transparent;
   text-align:center;
+  margin-bottom:.5rem;
 }
 
+.testimonials-hint{
+  position:relative;
+  z-index:1;
+  font-size:.78rem;
+  color:rgba(243,237,226,.45);
+  margin-top:-.5rem;
+}
+
+/* the swipeable row itself — native horizontal scroll with snap, so
+   touch drag/swipe just works with no JS needed for the gesture */
 .testimonial-stack{
   position:relative;
   z-index:1;
-  width:min(92vw, 640px);
-  height:clamp(320px, 40vh, 400px);
-  perspective:1200px;
+  width:100%;
+  max-width:1100px;
+  display:flex;
+  gap:clamp(1rem, 2.5vw, 1.6rem);
+  overflow-x:auto;
+  scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  padding:.5rem clamp(1.5rem, 8vw, 12vw) 1.5rem;
 }
+.testimonial-stack::-webkit-scrollbar{ display:none; }
 
 .testimonial-card{
-  position:absolute;
-  inset:0;
+  position:relative;
+  flex:0 0 auto;
+  width:min(80vw, 420px);
+  scroll-snap-align:center;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -846,8 +912,14 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   background:linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
   border:1px solid rgba(255,221,122,.16);
   box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
-  backdrop-filter:blur(6px);
-  will-change:transform, opacity;
+  opacity:.5;
+  transform:scale(.94);
+  transition:opacity .35s var(--ease-out), transform .35s var(--ease-out), box-shadow .35s var(--ease-out);
+}
+.testimonial-card.is-active{
+  opacity:1;
+  transform:scale(1);
+  box-shadow:0 46px 110px -26px rgba(0,0,0,.7), 0 0 0 1px rgba(255,221,122,.22);
 }
 
 .testimonial-icon{ font-size:2.2rem; margin-bottom:.5rem; }
@@ -897,9 +969,29 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 }
 .testimonial-name span{ color:rgba(243,237,226,.45); }
 
-.testimonial-dots{
+.testimonials-controls{
   position:relative;
   z-index:1;
+  display:flex;
+  align-items:center;
+  gap:1.4rem;
+}
+.testimonial-arrow{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:38px; height:38px;
+  border-radius:50%;
+  border:1px solid rgba(243,237,226,.25);
+  background:transparent;
+  color:rgba(243,237,226,.8);
+  cursor:pointer;
+  transition:border-color .3s var(--ease-out), color .3s var(--ease-out), background .3s var(--ease-out);
+}
+.testimonial-arrow:hover{ border-color:#ffdd7a; color:#ffdd7a; background:rgba(255,221,122,.08); }
+@media (hover:none), (pointer:coarse){ .testimonial-arrow{ display:none; } }
+
+.testimonial-dots{
   display:flex;
   gap:.55rem;
   align-items:center;
@@ -921,42 +1013,28 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   background:#ffdd7a;
 }
 
-@media (max-width:640px){
-  .testimonials-section{ height:640vh; }
-  .testimonial-stack{ height:clamp(300px, 46vh, 400px); }
-}
-
 /* ===================================================================
-   QUOTE — request-a-quote form. Deliberately not the site's warm
-   amber/dark palette — white background, blue accents, on purpose, so
-   this reads as its own clean, trustworthy "take action" moment
-   rather than another scroll-driven story beat. Not a tall sticky
-   section like the others: a form should feel direct, not gimmicky.
+   QUOTE — request-a-quote form. White card, but the section behind it
+   now runs a slow, solid (not blurred/translucent like the cube's
+   glow) color sweep — blue into purple into teal into gold and back —
+   the same "moving colors" idea as the cube's background, just more
+   saturated. The form's own border rotates through that same palette
+   so it always reads as contrasted against whatever color is behind
+   it at that moment. Not a tall sticky section like the others: a
+   form should feel direct, not gimmicky.
 =================================================================== */
 .quote-section{
   position:relative;
-  background:#fbfdff;
+  background:linear-gradient(120deg, #2f6fed, #7c3aed, #0ea5a3, #f2a900, #2f6fed);
+  background-size:400% 400%;
+  animation:quoteBgSweep 18s ease-in-out infinite;
   padding:clamp(4rem, 10vw, 8rem) clamp(1.5rem, 5vw, 4rem);
   overflow:hidden;
 }
-.quote-section::before,
-.quote-section::after{
-  content:'';
-  position:absolute;
-  border-radius:50%;
-  filter:blur(90px);
-  pointer-events:none;
-  z-index:0;
-}
-.quote-section::before{
-  width:min(46vw, 520px); height:min(46vw, 520px);
-  top:-12%; left:-10%;
-  background:radial-gradient(circle, rgba(47,111,237,.14), transparent 70%);
-}
-.quote-section::after{
-  width:min(40vw, 460px); height:min(40vw, 460px);
-  bottom:-14%; right:-8%;
-  background:radial-gradient(circle, rgba(47,111,237,.1), transparent 70%);
+@keyframes quoteBgSweep{
+  0%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+  100%{ background-position:0% 50%; }
 }
 
 .quote-inner{
@@ -981,22 +1059,36 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   font-size:.72rem;
   letter-spacing:.36em;
   text-transform:uppercase;
-  color:#2f6fed;
+  color:#fff;
+  opacity:.85;
   font-weight:600;
   margin-bottom:1rem;
 }
+/* the heading sweeps through the same palette as the section behind
+   it — its own animation, offset in timing so it doesn't just match
+   the backdrop 1:1 the whole time */
 .quote-heading{
   font-family:'Fraunces', serif;
   font-weight:500;
   font-size:clamp(2rem, 4.4vw, 3.1rem);
   line-height:1.1;
-  color:#0f1f3d;
   margin-bottom:1rem;
+  background:linear-gradient(100deg, #fff, #ffe27a, #fff, #cdd9ff, #fff);
+  background-size:300% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  animation:quoteHeadingSweep 10s ease-in-out infinite;
+}
+@keyframes quoteHeadingSweep{
+  0%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+  100%{ background-position:0% 50%; }
 }
 .quote-sub{
   font-size:clamp(1rem, 1.6vw, 1.15rem);
   line-height:1.55;
-  color:#4b5a75;
+  color:rgba(255,255,255,.85);
   max-width:44ch;
   margin-bottom:2.4rem;
 }
@@ -1007,45 +1099,66 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   gap:1.1rem;
 }
 .quote-rating{ display:flex; align-items:center; gap:.7rem; }
-.quote-stars{ color:#ffb300; letter-spacing:.15em; font-size:1.05rem; }
-.quote-rating-text{ font-size:.9rem; color:#4b5a75; }
-.quote-rating-text strong{ color:#0f1f3d; }
+.quote-stars{ color:#ffd23f; letter-spacing:.15em; font-size:1.05rem; }
+.quote-rating-text{ font-size:.9rem; color:rgba(255,255,255,.8); }
+.quote-rating-text strong{ color:#fff; }
 
 .quote-social{ display:flex; align-items:center; gap:.9rem; }
-.quote-social-label{ font-size:.85rem; color:#4b5a75; }
-.quote-social-links{ display:flex; gap:.55rem; }
+.quote-social-label{ font-size:.85rem; color:rgba(255,255,255,.8); }
+.quote-social-links{ display:flex; gap:.6rem; }
 .quote-social-link{
   display:flex;
   align-items:center;
   justify-content:center;
-  width:34px; height:34px;
+  width:38px; height:38px;
   border-radius:50%;
-  background:rgba(47,111,237,.08);
-  color:#2f6fed;
-  transition:background .3s var(--ease-out), color .3s var(--ease-out), transform .3s var(--ease-out);
+  overflow:hidden;
+  box-shadow:0 8px 20px -8px rgba(0,0,0,.35);
+  transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
 }
 .quote-social-link:hover{
-  background:#2f6fed;
-  color:#fff;
-  transform:translateY(-2px);
+  transform:translateY(-3px) scale(1.06);
+  box-shadow:0 14px 26px -8px rgba(0,0,0,.45);
 }
+.quote-social-link svg{ display:block; }
 
 /* ---- the form itself ---- */
-.quote-form{
+/* the "outline contrasted through every color": an oversized conic
+   gradient spins behind the card, clipped by the wrap's own rounded
+   rect and border-box padding down to a slim ring — the classic
+   animated-gradient-border trick (rotating the wrap itself would spin
+   the form's contents too, which is why the rotation lives on this
+   ::before instead) */
+.quote-form-wrap{
   position:relative;
+  border-radius:26px;
+  padding:3px;
+  overflow:hidden;
   opacity:0;
   transform:translateY(24px);
   transition:opacity .8s var(--ease-out) .12s, transform .8s var(--ease-out) .12s;
+  box-shadow:0 40px 80px -40px rgba(0,0,0,.4);
+}
+.quote-form-wrap.is-visible{ opacity:1; transform:translateY(0); }
+.quote-form-wrap::before{
+  content:'';
+  position:absolute;
+  inset:-60%;
+  background:conic-gradient(from 0deg, #2f6fed, #7c3aed, #0ea5a3, #f2a900, #e0483e, #2f6fed);
+  animation:quoteBorderSpin 7s linear infinite;
+}
+@keyframes quoteBorderSpin{ to{ transform:rotate(360deg); } }
+
+.quote-form{
+  position:relative;
+  z-index:1;
   background:#fff;
-  border:1px solid rgba(15,31,61,.08);
-  border-radius:24px;
+  border-radius:23px;
   padding:clamp(1.6rem, 3vw, 2.4rem);
-  box-shadow:0 40px 80px -40px rgba(15,31,61,.25);
   display:flex;
   flex-direction:column;
   gap:1.3rem;
 }
-.quote-form.is-visible{ opacity:1; transform:translateY(0); }
 
 .quote-row{
   display:grid;
@@ -1104,7 +1217,9 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
   padding:1rem 1.5rem;
   border:none;
   border-radius:14px;
-  background:linear-gradient(135deg, #4a86ff, #2f6fed);
+  background:linear-gradient(120deg, #2f6fed, #7c3aed, #0ea5a3, #2f6fed);
+  background-size:300% 100%;
+  animation:quoteBgSweep 8s ease-in-out infinite;
   color:#fff;
   font-size:1rem;
   font-weight:600;
@@ -1123,7 +1238,7 @@ body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
 .quote-form.is-sending .quote-submit{ opacity:.75; pointer-events:none; }
 .quote-form.is-sent .quote-submit-label{ display:none; }
 .quote-form.is-sent .quote-submit-check{ display:block; }
-.quote-form.is-sent .quote-submit{ background:linear-gradient(135deg, #34c77b, #1fa863); }
+.quote-form.is-sent .quote-submit{ background:linear-gradient(135deg, #34c77b, #1fa863); animation:none; }
 
 .quote-success{
   font-size:.9rem;

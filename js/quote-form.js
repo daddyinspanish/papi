@@ -16,10 +16,11 @@
 (function(){
   const section = document.getElementById('quoteSection');
   const copy = document.querySelector('.quote-copy');
+  const formWrap = document.querySelector('.quote-form-wrap');
   const form = document.getElementById('quoteForm');
   if(!section) return;
 
-  [copy, form].forEach(el=>{
+  [copy, formWrap].forEach(el=>{
     if(!el || !('IntersectionObserver' in window)) return;
     const observer = new IntersectionObserver((entries)=>{
       entries.forEach(entry=>{

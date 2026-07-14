@@ -204,21 +204,24 @@
 
   // the section's intro range, in viewport-heights: 0 = the very top
   // of the section's scroll (nothing visible yet), 1 = fully settled,
-  // tumble takes over from here on. Title and cube split that range
-  // between them rather than each owning the whole thing, so both are
-  // done well before the section's midpoint.
-  const INTRO_FALL_VH = 1.1;
-  const TITLE_REVEAL_END = 0.22;
-  const CUBE_FALL_START = 0.22;
-  const CUBE_FALL_END = 0.4;
+  // tumble takes over from here on. Title finishes first, then there's
+  // a deliberate pause, then the cube falls — slowly, over a long
+  // stretch of the range rather than a quick snap — so the two beats
+  // never overlap and the fall itself reads as smooth/subtle rather
+  // than sudden.
+  const INTRO_FALL_VH = 1.4;
+  const TITLE_REVEAL_END = 0.18;
+  const CUBE_FALL_START = 0.32;
+  const CUBE_FALL_END = 0.78;
 
   function smoothstep(edge0, edge1, x){
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
   }
-  function easeOutBack(x){
-    const c1 = 1.70158, c3 = c1 + 1;
-    return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+  // a plain, smooth deceleration — no overshoot/bounce — so the fall
+  // reads as gentle and subtle rather than a springy "landing"
+  function easeOutCubic(x){
+    return 1 - Math.pow(1 - x, 3);
   }
 
   let focusedFace = null;
@@ -255,6 +258,18 @@
   // or anywhere else on the page) releases focus and resumes scroll
   document.addEventListener('click', ()=>{ if(focusedFace) unfocusFace(); });
 
+  // the visible "tap to exit" hint that appears while zoomed in — this
+  // would already work via the document-level handler above (it's
+  // outside .cube-stage), but wiring it explicitly keeps that intent
+  // obvious rather than relying on event bubbling
+  const exitHint = document.getElementById('cubeExitHint');
+  if(exitHint){
+    exitHint.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      unfocusFace();
+    });
+  }
+
   function frame(){
     const rect = stage.getBoundingClientRect();
     const cx = rect.left + rect.width/2;
@@ -285,10 +300,10 @@
     }
 
     // --- cube: invisible (opacity 0, not just off-position) until the
-    // title has mostly revealed, then fades in and drops from just
-    // under the hero edge, settling before the section's midpoint ---
+    // title has fully revealed and a beat has passed, then fades in
+    // and drops slowly, smoothly, from just under the hero edge ---
     const cubeRaw = smoothstep(CUBE_FALL_START, CUBE_FALL_END, introRaw);
-    const cubeEased = easeOutBack(cubeRaw);
+    const cubeEased = easeOutCubic(cubeRaw);
 
     // the tumble only starts accumulating once the fall has landed —
     // scrolling through the intro itself doesn't also spin the cube.
@@ -310,10 +325,9 @@
     } else {
       targetRx = BASE_RX + Math.sin(scrollRotation * Math.PI / 180) * TUMBLE_AMP - tiltY * MAX_TILT * 0.5;
       targetRy = BASE_RY + scrollRotation + tiltX * MAX_TILT;
-      // a touch bigger while it's still dropping in, settling to its
-      // normal size right as it lands — makes the entrance read as
-      // "falling toward you" rather than just sliding down
-      targetScale = 1 + (1 - cubeEased) * 0.2;
+      // just a hint bigger while still dropping in, settling to its
+      // normal size right as it lands — subtle on purpose
+      targetScale = 1 + (1 - cubeEased) * 0.08;
     }
 
     curRx += (targetRx - curRx) * 0.12;
@@ -327,7 +341,10 @@
     // distance — "falling from just under the hero," not from way up —
     // and opacity (not position) is what guarantees it's fully hidden
     // beforehand, regardless of where it happens to sit.
-    const fallDistance = window.innerHeight * 0.4;
+    // derived from the cached introRange (not a fresh window.innerHeight
+    // read) for the same reason introRange itself is cached — avoids
+    // the fall distance drifting mid-gesture on iOS
+    const fallDistance = introRange * 0.25;
     const fallY = -fallDistance * (1 - cubeEased);
     group.style.opacity = cubeRaw.toFixed(3);
     group.style.transform = `translateY(${fallY.toFixed(1)}px)`;

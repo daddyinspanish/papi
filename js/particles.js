@@ -365,17 +365,31 @@
 
   window.Papi = window.Papi || {};
   window.Papi.resizeField = resize;
+
+  // if the visitor somehow starts scrolling (browser scroll-position
+  // restore on reload, an iOS quirk, anything) before the loader has
+  // handed off, growField() below can get called while introPhase is
+  // still 'pending' — remember that request instead of dropping it, so
+  // revealField() can act on it once the field is actually ready. Not
+  // remembering it was the bug: the fill would silently never run, and
+  // the visitor would just land straight in the next section.
+  let pendingGrow = false;
+  function startGrow(){
+    introStart = performance.now();
+    introPhase = 'active';
+  }
+
   // shows the wide still centre cluster and holds — called once the
   // loader hands off
   window.Papi.revealField = function(){
-    if(introPhase === 'pending') introPhase = 'held';
+    if(introPhase !== 'pending') return;
+    introPhase = 'held';
+    if(pendingGrow) startGrow();
   };
   // starts the outward grow — called once the visitor begins scrolling
   window.Papi.growField = function(){
-    if(introPhase === 'held'){
-      introStart = performance.now();
-      introPhase = 'active';
-    }
+    if(introPhase === 'held') startGrow();
+    else if(introPhase === 'pending') pendingGrow = true;
   };
   window.Papi.isFieldGrown = function(){ return introPhase === 'done'; };
 })();

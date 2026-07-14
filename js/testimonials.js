@@ -1,24 +1,19 @@
 /* ===================================================================
    Papi — testimonials
-   A tall section with a sticky inner viewport (same pattern as the
-   showcase and cube sections). One testimonial card is "active" at a
-   time; as the visitor scrolls, it slides out to the left while the
-   next one slides in from the right — a horizontal filmstrip rather
-   than a vertical scroll, so it doesn't feel like just another
-   "scroll up" moment stacked on everything else on the page.
-
-   It loops: scrolling past the last testimonial brings the first one
-   back in from the right (and reversing brings the last one back in
-   from the left) — treating the testimonials as a circle rather than
-   a dead-ended list, so there's no "end" to abruptly stop at.
-
-   Dot pagination at the bottom mirrors progress and is clickable,
-   same idea as the showcase's clickable trade list.
+   A horizontally swipeable row (native scroll-snap, so touch drag just
+   works with no JS needed for the gesture itself) rather than the
+   vertical scroll-hijacked slideshow this used to be — browsing
+   testimonials and scrolling down the page are now fully independent,
+   so nobody has to swipe/scroll through all of them just to reach the
+   form below. Dot pagination (and prev/next arrows on non-touch
+   devices) mirror and control which card is centered.
 =================================================================== */
 (function(){
   const section = document.getElementById('testimonialsSection');
   const stack = document.getElementById('testimonialStack');
   const dotsEl = document.getElementById('testimonialDots');
+  const prevBtn = document.getElementById('testimonialPrev');
+  const nextBtn = document.getElementById('testimonialNext');
   if(!section || !stack || !dotsEl) return;
 
   const TESTIMONIALS = [
@@ -35,15 +30,6 @@
   const n = TESTIMONIALS.length;
   const cards = [];
   const dots = [];
-
-  // reserve the final 1/n of the scroll range to loop back to the
-  // first testimonial, rather than dead-ending on the last one
-  function scrollToIndex(i){
-    const sectionTop = section.offsetTop;
-    const scrollable = Math.max(1, section.offsetHeight - window.innerHeight);
-    const target = sectionTop + (i / n) * scrollable;
-    window.scrollTo({ top: target, behavior: 'smooth' });
-  }
 
   TESTIMONIALS.forEach((t, i)=>{
     const card = document.createElement('div');
@@ -62,63 +48,52 @@
     dot.type = 'button';
     dot.className = 'testimonial-dot';
     dot.setAttribute('aria-label', `Show the ${t.industry} testimonial`);
-    dot.addEventListener('click', ()=> scrollToIndex(i));
+    dot.addEventListener('click', ()=> goTo(i));
     dotsEl.appendChild(dot);
     dots.push(dot);
   });
 
-  // one extra "lap" of scroll room to loop back to the first card —
-  // 130vh per testimonial (not 70) so each one holds long enough to
-  // actually read before the next slides in, rather than flipping past
-  section.style.height = ((n + 1) * 130) + 'vh';
-
-  // shortest signed distance between two points on a circle of
-  // circumference n — this is what makes the whole thing loop: card 0
-  // reads as "close" both right after card n-1 and right before it
-  function circularDelta(a, b){
-    let d = a - b;
-    d = ((d % n) + n) % n; // 0..n
-    if(d > n / 2) d -= n;  // fold into -n/2..n/2
-    return d;
+  function goTo(i){
+    const clamped = Math.max(0, Math.min(n - 1, i));
+    cards[clamped].scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
   }
 
-  function update(){
-    const sectionTop = section.offsetTop;
-    const sectionHeight = section.offsetHeight;
-    const scrollable = Math.max(1, sectionHeight - window.innerHeight);
-    const progress = Math.max(0, Math.min(1, (window.scrollY - sectionTop) / scrollable));
-    const activeFloat = progress * n; // 0..n, where n wraps back to 0
-
+  let activeIndex = 0;
+  function updateActive(){
+    // whichever card's centre sits closest to the stack's own centre
+    const stackRect = stack.getBoundingClientRect();
+    const stackCenter = stackRect.left + stackRect.width / 2;
+    let closest = 0;
+    let closestDist = Infinity;
     cards.forEach((card, i)=>{
-      const d = circularDelta(activeFloat, i);
-      const blend = Math.max(0, 1 - Math.abs(d));
-      // cards already passed (d > 0) exit to the left; cards still
-      // ahead (d < 0) wait off to the right, ready to slide in — left
-      // to right, like reading forward through the list
-      const dir = d > 0 ? -1 : 1;
-      const offset = (1 - blend) * 70 * dir;
-      const scale = 0.94 + blend * 0.06;
-      card.style.opacity = blend.toFixed(3);
-      card.style.transform = `translateX(${offset.toFixed(1)}px) scale(${scale.toFixed(3)})`;
-      card.style.zIndex = String(Math.round(blend * 100));
-      card.style.pointerEvents = blend > 0.6 ? 'auto' : 'none';
+      const r = card.getBoundingClientRect();
+      const cardCenter = r.left + r.width / 2;
+      const dist = Math.abs(cardCenter - stackCenter);
+      if(dist < closestDist){ closestDist = dist; closest = i; }
     });
-
-    dots.forEach((dot, i)=>{
-      dot.classList.toggle('is-active', Math.abs(circularDelta(activeFloat, i)) < 0.5);
-    });
+    if(closest === activeIndex) return;
+    activeIndex = closest;
+    cards.forEach((card, i)=> card.classList.toggle('is-active', i === activeIndex));
+    dots.forEach((dot, i)=> dot.classList.toggle('is-active', i === activeIndex));
   }
 
-  // batch to one update per animation frame — same reasoning as the
-  // showcase and title-dock scroll handlers: raw 'scroll' events can
-  // fire faster than the screen repaints
+  // batch to one check per animation frame — the stack's own 'scroll'
+  // event (from swiping/dragging) can fire very rapidly
   let ticking = false;
   function requestUpdate(){
     if(ticking) return;
     ticking = true;
-    requestAnimationFrame(()=>{ update(); ticking = false; });
+    requestAnimationFrame(()=>{ updateActive(); ticking = false; });
   }
-  window.addEventListener('scroll', requestUpdate, { passive:true });
+  stack.addEventListener('scroll', requestUpdate, { passive:true });
   window.addEventListener('resize', requestUpdate);
-  update();
+
+  if(prevBtn) prevBtn.addEventListener('click', ()=> goTo(activeIndex - 1));
+  if(nextBtn) nextBtn.addEventListener('click', ()=> goTo(activeIndex + 1));
+
+  // first card starts active; run once layout has settled
+  requestAnimationFrame(()=>{
+    cards[0].classList.add('is-active');
+    dots[0].classList.add('is-active');
+  });
 })();
