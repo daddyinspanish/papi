@@ -440,11 +440,25 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 }
 .fan-card .fan-bar span{ width:7px; height:7px; border-radius:50%; background:rgba(255,221,122,.2); }
 .fan-card .fan-hero{
+  position:relative;
   height:44%;
   display:flex;
   align-items:center;
   justify-content:center;
   font-size:2.4rem;
+  overflow:hidden;
+}
+/* real live-site screenshots are tall full-page captures — cropped to
+   just their own top (the hero) rather than squashed to fit, cover +
+   top alignment reads as a proper preview thumbnail instead of a
+   shrunk full page */
+.fan-card .fan-hero img{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:top center;
 }
 .fan-card .fan-body{ padding:1rem 1.15rem; }
 .fan-card .fan-name{
@@ -519,7 +533,11 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 =================================================================== */
 .cube-section{
   position:relative;
-  height:430vh;
+  /* was 430vh — that meant over 4 full screens of scrolling just to
+     get through this one section before the next one appeared, which
+     read as taking forever. Still tall enough for a full tumble
+     through the faces plus the recenter settle at the end. */
+  height:240vh;
   z-index:1;
 }
 
@@ -682,6 +700,22 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   margin:0 .18em;
   opacity:0;
   will-change:opacity, transform, filter;
+  /* a slow shimmer sweeps through each word's own gold, rather than
+     the title just sitting there as one flat, static color once
+     revealed — color is on the word itself (not the parent), since a
+     background-clip:text gradient on the parent has nothing to clip
+     once its text has been moved into these child spans */
+  background:linear-gradient(100deg, #fff6d8 15%, #ffdd7a 45%, #ffb400 65%, #ffdd7a 85%);
+  background-size:260% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  animation:cubeEyebrowShine 5s ease-in-out infinite;
+}
+@keyframes cubeEyebrowShine{
+  0%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+  100%{ background-position:0% 50%; }
 }
 
 .cube-stage{
@@ -775,6 +809,18 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   font-weight:600;
   letter-spacing:.04em;
   margin-bottom:.5em;
+}
+/* a bright flash/glow burst plays once a face is clicked into focus —
+   like a ray of light just caught it — rather than the label just
+   sitting there flat once zoomed in. Added/removed by reviews-cube.js
+   so it can replay every time the same face is focused again. */
+.face-label.is-shining{
+  animation:faceLabelShine .9s var(--ease-out);
+}
+@keyframes faceLabelShine{
+  0%{ filter:brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); }
+  35%{ filter:brightness(1.9) drop-shadow(0 0 16px rgba(255,255,255,.85)); }
+  100%{ filter:brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); }
 }
 .face-points{
   list-style:none;

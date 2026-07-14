@@ -41,10 +41,10 @@
   }
 
   const categories = [
-    { name:'Roofing',         icon:'🏠' },
-    { name:'Dentists',        icon:'🦷' },
-    { name:'Plumbers',        icon:'🔧' },
-    { name:'Electricians',    icon:'⚡' },
+    { name:'Roofing',         icon:'🏠', img:'assets/trades/roofing.jpg' },
+    { name:'Dentists',        icon:'🦷', img:'assets/trades/dentists.jpg' },
+    { name:'Plumbers',        icon:'🔧', img:'assets/trades/plumbers.jpg' },
+    { name:'Electricians',    icon:'⚡', img:'assets/trades/electricians.jpg' },
     { name:'Real Estate',     icon:'🏢' },
     { name:'Law Firms',       icon:'⚖️' },
     { name:'Restaurants',     icon:'🍽️' },
@@ -77,9 +77,15 @@
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
     card.setAttribute('aria-label', `Jump to ${cat.name}`);
+    // real live-site preview where we have one; the emoji glyph stays
+    // as the placeholder for categories that don't have a screenshot
+    // yet, so the fan never has an empty/broken card
+    const heroContent = cat.img
+      ? `<img src="${cat.img}" alt="${cat.name} website preview" loading="lazy">`
+      : cat.icon;
     card.innerHTML = `
       <div class="fan-bar"><span></span><span></span><span></span></div>
-      <div class="fan-hero" style="background:rgba(${rgb},.16)">${cat.icon}</div>
+      <div class="fan-hero" style="background:rgba(${rgb},.16)">${heroContent}</div>
       <div class="fan-body">
         <div class="fan-name">${cat.name}</div>
         <div class="fan-line"></div>

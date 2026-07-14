@@ -244,7 +244,7 @@
   let focusedFace = null;
   let curRx = BASE_RX, curRy = BASE_RY, curScale = 1;
 
-  function focusFace(key){
+  function focusFace(key, faceEl){
     if(focusedFace === key) return;
     dismissHint();
     if(!focusedFace){
@@ -254,6 +254,17 @@
       if(sticky) sticky.classList.add('is-focused');
     }
     focusedFace = key;
+    // a bright flash on the label itself, like a ray of light just
+    // caught it, right as it snaps into focus — self-removing so it's
+    // free to replay the next time any face (including this same one)
+    // is focused again
+    const label = faceEl && faceEl.querySelector('.face-label');
+    if(label){
+      label.classList.remove('is-shining');
+      void label.offsetWidth;
+      label.classList.add('is-shining');
+      label.addEventListener('animationend', ()=> label.classList.remove('is-shining'), { once:true });
+    }
   }
   function unfocusFace(){
     if(!focusedFace) return;
@@ -270,7 +281,7 @@
     const key = cls && cls.slice('face--'.length);
     if(!key || !FACE_ANGLES[key]) return;
     if(focusedFace === key) unfocusFace();
-    else focusFace(key);
+    else focusFace(key, faceEl);
   });
   // clicking anywhere outside a face (even elsewhere within the stage,
   // or anywhere else on the page) releases focus and resumes scroll

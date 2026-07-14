@@ -23,6 +23,7 @@
   const copy = document.querySelector('.quote-copy');
   const formWrap = document.querySelector('.quote-form-wrap');
   const closingBrand = document.getElementById('closingBrand');
+  const titleDock = document.getElementById('titleDock');
   const form = document.getElementById('quoteForm');
   if(!section) return;
 
@@ -50,10 +51,19 @@
       formWrap.style.opacity = formP.toFixed(3);
       formWrap.style.transform = `translateY(${((1 - formP) * 26).toFixed(1)}px)`;
     }
+    const brandP = smoothstep(0.15, 0.85, p);
     if(closingBrand){
-      const brandP = smoothstep(0.15, 0.85, p);
       closingBrand.style.opacity = brandP.toFixed(3);
       closingBrand.style.transform = `translate(-50%, ${((1 - brandP) * 16).toFixed(1)}px)`;
+    }
+    // the top-right brand mark/tagline fades out in step with the
+    // closing brand fading in — once both are visible at once, the
+    // "Built with purpose, not just design" line is just sitting on
+    // screen twice. Only overridden while this section is actually in
+    // play (brandP > 0); otherwise cleared so title-dock.js's own
+    // class-driven visibility keeps working everywhere else on the page.
+    if(titleDock){
+      titleDock.style.opacity = brandP > 0.001 ? (1 - brandP).toFixed(3) : '';
     }
   }
 
