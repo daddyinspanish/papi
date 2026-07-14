@@ -1,8 +1,10 @@
 /* ===================================================================
    Papi — loading screen
-   The wordmark rises into place, then fills from white to gold (a
-   hard-edged two-tone gradient sliding across via background-position
-   — like it's being poured full of light), then the loader dissolves
+   The wordmark rises into place, its letters fading in one after
+   another, then a gold fill pours through those same letters left to
+   right (each letter's own color transitioning, staggered, rather
+   than one gradient sliding across the whole word — simpler, and it
+   still reads as light pouring through), then the loader dissolves
    straight into the hero.
 =================================================================== */
 (function(){
@@ -12,22 +14,47 @@
   const brandMark = document.getElementById('brandMark');
   const body   = document.body;
 
-  const RISE_MS = 700;   // the word settling into place
-  const FILL_DELAY = 300; // the gold fill starts a little before the rise finishes
-  const FILL_MS = 900;   // how long the white-to-gold fill takes
-  const HOLD_MS = 500;   // a beat to look at the finished gold wordmark before exiting
+  const RISE_MS = 550;        // the word settling into place
+  const LETTER_STAGGER = 60;  // ms between each letter starting its own fade-in
+  const LETTER_FADE_MS = 420; // how long each letter's own fade-in takes
+  const FILL_GAP = 180;       // pause after the last letter's fade-in before the gold fill starts
+  const FILL_STAGGER = 55;    // ms between each letter starting its own color fill
+  const FILL_MS = 320;        // how long each letter's own color fill takes
+  const HOLD_MS = 500;        // a beat to look at the finished gold wordmark before exiting
+
+  const letters = Array.from(word.textContent).map(ch=>{
+    const span = document.createElement('span');
+    span.className = 'loader-letter';
+    span.textContent = ch;
+    return span;
+  });
+  word.innerHTML = '';
+  letters.forEach(l => word.appendChild(l));
+  const n = letters.length;
 
   function start(){
     word.style.transition = `opacity ${RISE_MS}ms ease, transform ${RISE_MS}ms cubic-bezier(.16,1,.3,1)`;
     word.style.opacity = '1';
     word.style.transform = 'translate(-50%,-50%)';
 
-    setTimeout(()=>{
-      word.style.transition = `background-position ${FILL_MS}ms cubic-bezier(.65,0,.35,1)`;
-      word.style.backgroundPosition = '0% 0';
-    }, FILL_DELAY);
+    letters.forEach((l, i)=>{
+      setTimeout(()=>{
+        l.style.transition = `opacity ${LETTER_FADE_MS}ms ease, transform ${LETTER_FADE_MS}ms cubic-bezier(.16,1,.3,1)`;
+        l.style.opacity = '1';
+        l.style.transform = 'translateY(0)';
+      }, i * LETTER_STAGGER);
+    });
 
-    setTimeout(exitLoader, FILL_DELAY + FILL_MS + HOLD_MS);
+    const fillStart = (n - 1) * LETTER_STAGGER + LETTER_FADE_MS + FILL_GAP;
+    letters.forEach((l, i)=>{
+      setTimeout(()=>{
+        l.style.transition = `color ${FILL_MS}ms ease`;
+        l.style.color = '#ffd23f';
+      }, fillStart + i * FILL_STAGGER);
+    });
+
+    const fillEnd = fillStart + (n - 1) * FILL_STAGGER + FILL_MS;
+    setTimeout(exitLoader, fillEnd + HOLD_MS);
   }
 
   function exitLoader(){

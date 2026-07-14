@@ -54,7 +54,7 @@
     const brandP = smoothstep(0.15, 0.85, p);
     if(closingBrand){
       closingBrand.style.opacity = brandP.toFixed(3);
-      closingBrand.style.transform = `translate(-50%, ${((1 - brandP) * 16).toFixed(1)}px)`;
+      closingBrand.style.transform = `translateY(${((1 - brandP) * 16).toFixed(1)}px)`;
     }
     // the top-right brand mark/tagline fades out in step with the
     // closing brand fading in — once both are visible at once, the

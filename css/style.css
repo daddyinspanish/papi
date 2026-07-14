@@ -78,31 +78,32 @@ body, a, .cta{ cursor:none; }
   overflow:hidden;
 }
 
-/* its own stylized logotype treatment — italic, bold, tightly
-   tracked — distinct from the regular Fraunces weight used for
-   headings elsewhere, so this reads as a proper wordmark rather than
-   just a big heading. A hard (not soft/blurred) two-tone gradient
-   fills it from white to gold as loader.js slides background-position
-   across, like the word is being poured full of gold light. */
+/* Space Grotesk rather than the Fraunces used for headings elsewhere —
+   a clean geometric sans with generous tracking reads as a modern,
+   elegant wordmark treatment instead of a big heading; the rise
+   settles the whole word into place, then loader.js fades each letter
+   in on its own before pouring the gold fill through them in turn. */
 .loader-word{
   position:absolute;
   left:50%;
   top:50%;
-  transform:translate(-50%,-50%) translateY(20px) scale(.92);
-  font-family:'Fraunces', serif;
-  font-weight:700;
-  font-style:italic;
-  letter-spacing:-.03em;
-  font-size:clamp(3.2rem, 13vw, 7.5rem);
+  transform:translate(-50%,-50%) translateY(20px) scale(.94);
+  font-family:'Space Grotesk', sans-serif;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  font-size:clamp(2.4rem, 10vw, 5.6rem);
   line-height:1;
-  will-change:transform, opacity, background-position;
+  display:flex;
+  will-change:transform, opacity;
   opacity:0;
-  background:linear-gradient(90deg, #ffd23f 0%, #ffd23f 50%, #fff 50%, #fff 100%);
-  background-size:200% 100%;
-  background-position:100% 0;
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
+}
+.loader-letter{
+  display:inline-block;
+  opacity:0;
+  color:#fff;
+  transform:translateY(16px);
+  will-change:opacity, transform, color;
 }
 
 /* loader exit */
@@ -232,10 +233,9 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
    (same convention as the rest of that section's reveal) rather than
    a CSS transition, which would fight a value set fresh every frame. */
 .closing-brand{
-  position:fixed;
-  left:50%;
-  bottom:clamp(1.5rem, 4vw, 2.75rem);
-  z-index:190;
+  position:relative;
+  z-index:1;
+  margin-top:clamp(2.5rem, 6vw, 4rem);
   text-align:center;
   pointer-events:none;
   opacity:0;
@@ -291,10 +291,15 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   font-weight:700;
   letter-spacing:.32em;
   text-transform:uppercase;
-  color:rgb(var(--style-contrast));
+  /* static cream, not the live --style-contrast sweep — that color
+     cycles all the way to a bright gold that, against the field's own
+     gold sweep, made this label hard to read at times. Matches the
+     main title's own static color; only the "purpose" accent word
+     stays on the dynamic contrast color. */
+  color:var(--cream);
   margin-bottom:1.4rem;
   text-shadow:0 2px 16px rgba(0,0,0,.6);
-  transition:color .8s var(--ease-out), opacity .3s ease;
+  transition:opacity .3s ease;
 }
 
 .hero-title{
@@ -402,21 +407,27 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   overflow:hidden;
   text-align:center;
 }
+/* opened up only while a fan card is expanded — normally this clips
+   the fan's own rotated/off-centre cards to the section, but the
+   expanded card is deliberately larger than that footprint so it can
+   actually be read */
+.showcase-sticky.has-expanded-card{ overflow:visible; }
 
 .showcase-fan{
   position:relative;
   z-index:2;
   width:100%;
-  height:min(34vh, 300px);
+  height:min(38vh, 340px);
   display:flex;
   align-items:center;
   justify-content:center;
 }
+.showcase-fan.has-expanded-card{ overflow:visible; }
 
 .fan-card{
   position:absolute;
-  width:clamp(170px, 16vw, 230px);
-  height:clamp(220px, 21vw, 300px);
+  width:clamp(200px, 20vw, 280px);
+  height:clamp(260px, 26vw, 360px);
   border-radius:18px;
   background:linear-gradient(165deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
   border:1px solid rgba(255,221,122,.14);
@@ -424,14 +435,54 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   overflow:hidden;
   transform-origin:center bottom;
   will-change:transform, opacity;
-  transition:transform .3s var(--ease-out), opacity .3s var(--ease-out), box-shadow .3s var(--ease-out), border-color .3s var(--ease-out);
+  transition:transform .35s var(--ease-out), opacity .3s var(--ease-out), box-shadow .35s var(--ease-out), border-color .35s var(--ease-out);
   cursor:none;
 }
 .fan-card:hover{ box-shadow:0 34px 80px -24px rgba(0,0,0,.7); }
 .fan-card.is-active{
   border-color:rgba(255,221,122,.4);
   box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,221,122,.18);
+  /* a slow breathing glow, so the front card feels alive rather than
+     static once it's settled into place — safe to animate box-shadow
+     here since (unlike transform/opacity) nothing else writes to it
+     every frame, so it never fights the scroll-driven JS above */
+  animation:fanCardGlow 3.4s ease-in-out infinite;
 }
+@keyframes fanCardGlow{
+  0%, 100%{ box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,221,122,.18); }
+  50%{ box-shadow:0 46px 120px -20px rgba(0,0,0,.8), 0 0 34px 2px rgba(255,221,122,.3); }
+}
+.fan-card.is-expanded{
+  z-index:500;
+  cursor:pointer;
+  box-shadow:0 60px 140px -20px rgba(0,0,0,.85), 0 0 0 1.5px rgba(255,221,122,.5), 0 0 50px 4px rgba(255,221,122,.28);
+  animation:none;
+}
+.fan-card-close{
+  position:absolute;
+  top:.6rem;
+  right:.6rem;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  border:1px solid rgba(255,221,122,.35);
+  background:rgba(10,9,8,.65);
+  backdrop-filter:blur(6px);
+  color:rgba(243,237,226,.9);
+  font-size:.7rem;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s var(--ease-out), border-color .25s var(--ease-out);
+}
+.fan-card.is-expanded .fan-card-close{
+  opacity:1;
+  pointer-events:auto;
+}
+.fan-card-close:hover{ border-color:rgba(255,221,122,.7); color:#ffdd7a; }
 .fan-card .fan-bar{
   display:flex;
   gap:5px;
@@ -515,7 +566,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 
 @media (max-width:860px){
   .showcase-sticky{ padding-top:5rem; }
-  .fan-card{ width:min(48vw, 180px); height:min(26vh, 240px); }
+  .fan-card{ width:min(58vw, 220px); height:min(32vh, 290px); }
 }
 
 /* ===================================================================

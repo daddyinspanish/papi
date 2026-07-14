@@ -45,10 +45,10 @@
     { name:'Dentists',        icon:'🦷', img:'assets/trades/dentists.jpg' },
     { name:'Plumbers',        icon:'🔧', img:'assets/trades/plumbers.jpg' },
     { name:'Electricians',    icon:'⚡', img:'assets/trades/electricians.jpg' },
-    { name:'Real Estate',     icon:'🏢' },
-    { name:'Law Firms',       icon:'⚖️' },
-    { name:'Restaurants',     icon:'🍽️' },
-    { name:'Fitness Studios', icon:'💪' },
+    { name:'Real Estate',     icon:'🏢', img:'assets/trades/real-estate.jpg' },
+    { name:'Law Firms',       icon:'⚖️', img:'assets/trades/law-firms.jpg' },
+    { name:'Restaurants',     icon:'🍽️', img:'assets/trades/restaurants.jpg' },
+    { name:'Fitness Studios', icon:'💪', img:'assets/trades/fitness-studios.jpg' },
   ];
 
   function palette(){
@@ -66,6 +66,27 @@
 
   const cards = [];
   const items = [];
+
+  // clicking a card enlarges it in place (straightened, well above the
+  // rest of the fan) so its preview is actually readable, rather than
+  // only ever being seen at the small, angled size the rest of the fan
+  // uses — collapses on a second click, clicking any other card, or
+  // clicking anywhere outside the fan
+  let expandedIndex = null;
+  function setExpanded(i){
+    expandedIndex = i;
+    cards.forEach((c, ci)=> c.classList.toggle('is-expanded', ci === i));
+    // both ancestors normally clip to keep the fan's rotated/off-centre
+    // cards from spilling past the section — the expanded card is
+    // meant to spill past that on purpose, so overflow opens up only
+    // while one actually is expanded
+    if(sticky) sticky.classList.toggle('has-expanded-card', i !== null);
+    fanEl.classList.toggle('has-expanded-card', i !== null);
+    requestUpdate();
+  }
+  document.addEventListener('click', (e)=>{
+    if(expandedIndex !== null && !e.target.closest('.fan-card')) setExpanded(null);
+  });
 
   categories.forEach((cat, i)=>{
     const c = palette()[i % palette().length];
@@ -90,10 +111,22 @@
         <div class="fan-name">${cat.name}</div>
         <div class="fan-line"></div>
         <div class="fan-line short"></div>
-      </div>`;
-    const jump = ()=> scrollToIndex(i);
-    card.addEventListener('click', jump);
-    card.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); jump(); } });
+      </div>
+      <button type="button" class="fan-card-close" aria-label="Close preview">✕</button>`;
+    card.addEventListener('click', (e)=>{
+      // clicking the close button (only reachable while already
+      // expanded) collapses instead of re-triggering the expand/jump
+      if(e.target.closest('.fan-card-close')){ setExpanded(null); return; }
+      if(expandedIndex === i){ setExpanded(null); return; }
+      setExpanded(i);
+      scrollToIndex(i);
+    });
+    card.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' || e.key === ' '){
+        e.preventDefault();
+        if(expandedIndex === i){ setExpanded(null); } else { setExpanded(i); scrollToIndex(i); }
+      }
+    });
     fanEl.appendChild(card);
     cards.push(card);
 
@@ -103,8 +136,9 @@
     item.setAttribute('role', 'button');
     item.setAttribute('tabindex', '0');
     item.setAttribute('aria-label', `Jump to ${cat.name}`);
-    item.addEventListener('click', jump);
-    item.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); jump(); } });
+    const jumpOnly = ()=> scrollToIndex(i);
+    item.addEventListener('click', jumpOnly);
+    item.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); jumpOnly(); } });
     listEl.appendChild(item);
     items.push(item);
   });
@@ -148,9 +182,20 @@
       // as a messy jumble instead of one card at a time
       const opacity = Math.max(0, (blend - 0.08) / 0.92);
       const ty = lerp(26, minTy, blend);
-      card.style.transform = `translateY(${ty.toFixed(1)}px) rotate(${angle.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
-      card.style.opacity = opacity.toFixed(2);
-      card.style.zIndex = String(Math.round(blend * 100) + 1);
+
+      if(i === expandedIndex){
+        // straightened, well above the rest of the fan, and notably
+        // larger than even the normal "active" size — the point is to
+        // actually be able to read the preview, not just recenter it
+        const expandScale = (isNarrow ? 1.55 : 1.75);
+        card.style.transform = `translateY(${(minTy - 10).toFixed(1)}px) rotate(0deg) scale(${expandScale})`;
+        card.style.opacity = '1';
+        card.style.zIndex = '500';
+      } else {
+        card.style.transform = `translateY(${ty.toFixed(1)}px) rotate(${angle.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
+        card.style.opacity = opacity.toFixed(2);
+        card.style.zIndex = String(Math.round(blend * 100) + 1);
+      }
       card.classList.toggle('is-active', blend > 0.82);
     });
 

@@ -206,15 +206,17 @@ window.scrollTo(0, 0);
     </form>
     </div>
   </div>
-</section>
 
-<!-- closing brand signature — fades in bottom-center once the quote
-     section is reached, echoing the top-right brand mark/tagline as a
-     closing beat rather than just ending on the form -->
-<div class="closing-brand" id="closingBrand" aria-hidden="true">
-  <div class="closing-brand-mark">PAPI</div>
-  <div class="closing-brand-line">Built with <em>purpose</em>, not just design</div>
-</div>
+  <!-- closing brand signature — fades in below the form once the quote
+       section is reached, echoing the top-right brand mark/tagline as
+       a closing beat rather than just ending on the form. Lives in
+       normal document flow (not fixed) so it can never overlap the
+       form itself, regardless of how tall the form gets. -->
+  <div class="closing-brand" id="closingBrand" aria-hidden="true">
+    <div class="closing-brand-mark">PAPI</div>
+    <div class="closing-brand-line">Built with <em>purpose</em>, not just design</div>
+  </div>
+</section>
 
 <!-- custom elegant cursor -->
 <div class="custom-cursor" id="customCursor" aria-hidden="true">

@@ -68,7 +68,12 @@
   // intentional reveal. Starts ticking the moment the field is first
   // shown (revealField), independent of scroll.
   let colorWarmupStart = null;
-  const COLOR_WARMUP_DURATION = 1800;
+  // was 1800ms — long enough that the field was still visibly pale/
+  // dim while the hero title was fading in over it at the same time,
+  // making the title harder to read right when it mattered most
+  // (especially noticeable on iPhone). Still enough of a ramp to avoid
+  // the flat "pop to full brightness" look, just resolved much faster.
+  const COLOR_WARMUP_DURATION = 650;
 
   // slow continuous orbit of the held cluster around its centre —
   // only while held; once growth starts the tiles settle to their
