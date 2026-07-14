@@ -428,11 +428,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
      all the way to near-black, which would go invisible against this
      section's own fixed dark background */
   color:#ffdd7a;
-  opacity:0;
-  transform:translateY(16px);
-  transition:opacity .9s var(--ease-out), transform .9s var(--ease-out);
 }
-.showcase-eyebrow.is-visible{ opacity:1; transform:translateY(0); }
 .showcase-items{
   position:relative;
   z-index:2;

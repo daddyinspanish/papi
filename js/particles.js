@@ -61,6 +61,15 @@
   const INTRO_FEATHER = 0.2;
   const HELD_REVEAL = 0.24; // a wide "world of cubes" cluster while held
 
+  // the very first color the field shows eases up from a soft, pale
+  // tint rather than snapping straight to the fully saturated/bright
+  // color the instant the field appears — appearing already at full
+  // brightness with no ramp read as a glitch/pop rather than an
+  // intentional reveal. Starts ticking the moment the field is first
+  // shown (revealField), independent of scroll.
+  let colorWarmupStart = null;
+  const COLOR_WARMUP_DURATION = 1800;
+
   // slow continuous orbit of the held cluster around its centre —
   // only while held; once growth starts the tiles settle to their
   // true static grid spot so a full screen of tiles never has to orbit
@@ -262,6 +271,16 @@
       }
     }
 
+    // 0 right as the field first appears, easing to 1 over
+    // COLOR_WARMUP_DURATION — blended in below toward a paler, softer
+    // tint at 0 so the very first color the visitor sees isn't already
+    // at full saturation/brightness
+    let colorWarmup = 1;
+    if(colorWarmupStart !== null){
+      const wraw = Math.min(1, (ts - colorWarmupStart) / COLOR_WARMUP_DURATION);
+      colorWarmup = wraw < 0.5 ? 2*wraw*wraw : 1 - Math.pow(-2*wraw+2, 2)/2;
+    }
+
     const pal = palette();
     const curColor = pal[colorIndex];
     const nextColor = pal[(colorIndex + 1) % pal.length];
@@ -310,7 +329,11 @@
         const hh = lerpHue(h0, h1, mix);
         const ss = lerp(s0, s1, mix);
         const ll = lerp(l0, l1, mix);
-        const [r,g,b] = hslToRgb(hh, ss, ll);
+        // ease in from a paler, less saturated version of this same
+        // hue rather than the fully-saturated color — see colorWarmup
+        const ss2 = colorWarmup >= 1 ? ss : lerp(ss * 0.3, ss, colorWarmup);
+        const ll2 = colorWarmup >= 1 ? ll : lerp(Math.min(1, ll + (1 - ll) * 0.6), ll, colorWarmup);
+        const [r,g,b] = hslToRgb(hh, ss2, ll2);
 
         let reveal = 1;
         if(introPhase === 'active' || introPhase === 'held'){
@@ -336,7 +359,12 @@
     const midHue = lerpHue(h0, h1, midMix);
     const midSat = lerp(s0, s1, midMix);
     const midLight = lerp(l0, l1, midMix);
-    const [ar,ag,ab] = hslToRgb(midHue, midSat, midLight);
+    // same warmup ease applied to the shared accent, so the CTA/cursor
+    // glow that reads off it don't pop to full strength ahead of the
+    // field itself still easing in
+    const midSat2 = colorWarmup >= 1 ? midSat : lerp(midSat * 0.3, midSat, colorWarmup);
+    const midLight2 = colorWarmup >= 1 ? midLight : lerp(Math.min(1, midLight + (1 - midLight) * 0.6), midLight, colorWarmup);
+    const [ar,ag,ab] = hslToRgb(midHue, midSat2, midLight2);
     root.style.setProperty('--accent', `${ar|0}, ${ag|0}, ${ab|0}`);
 
     // "style" and other UI accents always contrast the current
@@ -391,6 +419,7 @@
   window.Papi.revealField = function(){
     if(introPhase !== 'pending') return;
     introPhase = 'held';
+    colorWarmupStart = performance.now();
     if(pendingGrow) startGrow();
   };
   // starts the outward grow — called once the visitor begins scrolling

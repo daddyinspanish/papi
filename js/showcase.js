@@ -11,21 +11,33 @@
 =================================================================== */
 (function(){
   const section = document.getElementById('showcase');
+  const sticky = document.querySelector('.showcase-sticky');
   const fanEl = document.getElementById('showcaseFan');
   const listEl = document.getElementById('showcaseItems');
-  const eyebrowEl = document.querySelector('.showcase-eyebrow');
   if(!section || !fanEl || !listEl) return;
 
-  if(eyebrowEl && 'IntersectionObserver' in window){
-    const eyebrowObserver = new IntersectionObserver((entries)=>{
-      entries.forEach(entry=>{
-        if(entry.isIntersecting){
-          eyebrowEl.classList.add('is-visible');
-          eyebrowObserver.unobserve(entry.target);
-        }
-      });
-    }, { threshold:0.4 });
-    eyebrowObserver.observe(eyebrowEl);
+  function smoothstep(edge0, edge1, x){
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+  }
+
+  // the whole sticky content (eyebrow, trade names, fan of cards) rises
+  // and fades in together as the section approaches from below, tied
+  // directly to scroll position rather than a fixed-duration animation
+  // triggered once — a one-shot reveal could finish before or after
+  // the visitor's own scroll speed, which is what made this section
+  // feel like it was just "there" instantly rather than easing in.
+  // Without this, the first card/name was already at full opacity and
+  // scale (the carousel's own per-card math already has it fully
+  // active at progress 0) the moment the section came on screen at all.
+  function updateEntrance(){
+    if(!sticky) return;
+    const rect = section.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const raw = (vh - rect.top) / (vh * 0.8);
+    const p = smoothstep(0, 1, Math.max(0, Math.min(1, raw)));
+    sticky.style.opacity = p.toFixed(3);
+    sticky.style.transform = `translateY(${((1 - p) * 30).toFixed(1)}px)`;
   }
 
   const categories = [
@@ -156,10 +168,11 @@
   function requestUpdate(){
     if(ticking) return;
     ticking = true;
-    requestAnimationFrame(()=>{ update(); ticking = false; });
+    requestAnimationFrame(()=>{ update(); updateEntrance(); ticking = false; });
   }
 
   window.addEventListener('scroll', requestUpdate, { passive:true });
   window.addEventListener('resize', ()=>{ measureStep(); requestUpdate(); });
   update();
+  updateEntrance();
 })();
