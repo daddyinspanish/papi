@@ -511,6 +511,17 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   object-fit:cover;
   object-position:top center;
 }
+/* while expanded, a slow gentle pan reveals more of the page below the
+   hero crop these otherwise sit on — full-page screenshots have a lot
+   more to show than the sliver a static top-aligned crop lets through.
+   Only runs while expanded; every other card stays on its static crop. */
+.fan-card.is-expanded .fan-hero img{
+  animation:fanHeroPan 10s ease-in-out infinite alternate;
+}
+@keyframes fanHeroPan{
+  0%{ object-position:top center; }
+  100%{ object-position:bottom center; }
+}
 .fan-card .fan-body{ padding:1rem 1.15rem; }
 .fan-card .fan-name{
   font-family:'Fraunces', serif;

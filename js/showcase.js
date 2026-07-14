@@ -202,10 +202,15 @@
     items.forEach((item, i)=>{
       const offset = i - activeFloat;
       const dist = Math.abs(offset);
-      const opacity = Math.max(0, 1 - dist / 2.1);
+      // the expanded card grows tall enough to reach into the trade-name
+      // list above it — rather than let the two overlap, the names fade
+      // out of the way while a card is expanded (its own CSS transition
+      // on opacity handles the fade smoothly) and back in once collapsed
+      const opacity = expandedIndex !== null ? 0 : Math.max(0, 1 - dist / 2.1);
       const scale = lerp(0.78, 1, Math.max(0, 1 - dist / 1.6));
       item.style.transform = `translateY(${(offset * itemStep - 0.5*itemStep).toFixed(1)}px) scale(${scale.toFixed(3)})`;
       item.style.opacity = opacity.toFixed(2);
+      item.style.pointerEvents = expandedIndex !== null ? 'none' : '';
       item.classList.toggle('is-active', dist < 0.4);
     });
   }
