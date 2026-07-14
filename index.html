@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en" class="no-scroll">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Papi — Business-Ready Websites, Built With Purpose</title>
+<meta name="description" content="Papi builds business-ready websites designed to build trust, communicate clearly, and guide visitors to their next step.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="no-scroll">
+
+<!-- ============ LOADER ============ -->
+<div id="loader">
+  <div class="loader-letters" id="loaderLetters">
+    <span class="letter">P</span>
+    <span class="letter">A</span>
+    <span class="letter">P</span>
+    <span class="letter">I</span>
+  </div>
+  <div class="loader-squares" id="loaderSquares">
+    <span class="sq"></span>
+    <span class="sq"></span>
+    <span class="sq"></span>
+    <span class="sq"></span>
+  </div>
+</div>
+
+<!-- persistent top-right brand mark -->
+<header class="site-header" id="siteHeader">
+  <div class="brand-mark" id="brandMark">
+    <span>P</span><span>A</span><span>P</span><span>I</span>
+  </div>
+</header>
+
+<!-- small docked title label that crossfades in below the brand mark
+     once the visitor starts scrolling past the hero -->
+<div class="title-dock" id="titleDock" aria-hidden="true">
+  <div class="title-dock-line">Built with <em>purpose</em>, not just design</div>
+  <div class="title-dock-word" id="sectionDock">Craft</div>
+</div>
+
+<!-- ============ HERO ============ -->
+<main id="hero" aria-hidden="true">
+
+  <canvas id="fieldCanvas"></canvas>
+  <div class="glass-sheen" aria-hidden="true"></div>
+
+  <section class="hero-content">
+    <div class="hero-copy" id="heroCopy">
+      <p class="eyebrow" id="heroEyebrow">Est. Business-Ready Websites</p>
+      <div class="hero-title-row">
+        <h1 class="hero-title" id="heroTitle">
+          Built with <em>purpose</em><br> not just design
+        </h1>
+        <a href="#showcase" class="cta" id="heroCta">
+          <span>See What We Build</span>
+          <i></i>
+        </a>
+      </div>
+      <p class="hero-sub" id="heroSub">Designed to build trust, communicate clearly, and guide visitors to act.</p>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ REVIEWS — a single glowing yellow cube, falls in from the hero,
+     then tumbles/is clickable for the rest of its scroll ============ -->
+<section class="cube-section" id="cubeSection">
+  <div class="cube-sticky">
+    <div class="cube-bg" id="cubeBg" aria-hidden="true">
+      <span class="glow glow--a"></span>
+      <span class="glow glow--b"></span>
+      <span class="glow glow--c"></span>
+    </div>
+    <div class="cube-content">
+      <p class="cube-eyebrow">What every website is built on</p>
+      <div class="cube-stage" id="cubeStage">
+        <div class="cube-group" id="cubeGroup"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SHOWCASE — fan of live previews + business list ============ -->
+<section class="showcase" id="showcase">
+  <div class="showcase-sticky">
+    <div class="showcase-fan" id="showcaseFan"></div>
+    <div class="showcase-list" id="showcaseList">
+      <p class="showcase-eyebrow">Real websites. Every industry.</p>
+      <div class="showcase-items" id="showcaseItems"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TESTIMONIALS — businesses across industries on the
+     value Papi brought them, one crossfading in after another ============ -->
+<section class="testimonials-section" id="testimonialsSection">
+  <div class="testimonials-bg" aria-hidden="true">
+    <span class="t-glow t-glow--a"></span>
+    <span class="t-glow t-glow--b"></span>
+  </div>
+  <div class="testimonials-sticky">
+    <p class="testimonials-eyebrow">Trusted across industries</p>
+    <h2 class="testimonials-heading">What business owners say</h2>
+    <div class="testimonial-stack" id="testimonialStack"></div>
+    <div class="testimonial-dots" id="testimonialDots"></div>
+  </div>
+</section>
+
+<!-- custom elegant cursor -->
+<div class="custom-cursor" id="customCursor" aria-hidden="true">
+  <span class="cursor-ring"></span>
+  <span class="cursor-dot"></span>
+</div>
+
+<script src="js/accent.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/title.js"></script>
+<script src="js/title-dock.js"></script>
+<script src="js/showcase.js"></script>
+<script src="js/reviews-cube.js"></script>
+<script src="js/testimonials.js"></script>
+<script src="js/cursor.js"></script>
+<script src="js/loader.js"></script>
+</body>
+</html>

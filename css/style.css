@@ -1,0 +1,921 @@
+/* ===================================================================
+   PAPI — Premium Business Template Studio
+   Loader + Hero
+=================================================================== */
+
+:root{
+  --ink: #0b0b0c;
+  --ink-soft: #17171a;
+  --cream: #f3ede2;
+  --cream-dim: #cfc7b8;
+  --gold: #cba869;
+  --gold-soft: #e4cd9a;
+
+  /* luxury white — used for the loader and the showcase section */
+  --paper: #f8f6f2;
+  --paper-ink: #17181a;
+  --paper-dim: rgba(23,24,26,.5);
+
+  /* live dominant color — driven by the background sweep in particles.js */
+  --accent: 201, 168, 105;      /* r,g,b */
+  /* live contrast color for "style" — always readable against --accent */
+  --style-contrast: 243, 237, 226;
+  /* soft cream-blended tint of --accent, used for supporting text */
+  --accent-tint: 222, 208, 180;
+
+  --ease-out: cubic-bezier(.16,1,.3,1);
+  --ease-in-out: cubic-bezier(.65,0,.35,1);
+}
+
+*{ margin:0; padding:0; box-sizing:border-box; }
+
+html,body{
+  min-height:100%;
+  background:var(--ink);
+  color:var(--cream);
+  font-family:'Inter', system-ui, sans-serif;
+}
+
+/* overflow-x:hidden only on html (not also on body) — setting it on
+   both makes each one's overflow-y compute to auto (a CSS quirk),
+   turning body into a competing scroll container that breaks
+   position:sticky for the showcase section */
+html{ overflow-x:hidden; }
+
+/* briefly locks scrolling while the background field grows to fill
+   the screen, so the hero doesn't move until it's finished */
+html.scroll-lock{ overflow:hidden; }
+
+/* on body alone, this doesn't reliably block touch-driven scrolling
+   on iOS Safari (a known WebKit quirk) — locking the root element too
+   is what actually stops it there */
+html.no-scroll{ overflow:hidden; }
+body.no-scroll{ overflow:hidden; height:100vh; }
+
+::selection{ background:rgba(var(--accent),.4); color:var(--cream); }
+
+a{ color:inherit; text-decoration:none; }
+
+/* custom cursor replaces the system pointer across the whole page */
+body, a, .cta{ cursor:none; }
+
+/* ===================================================================
+   LOADER — letters land into a 2x2 square, then 4 colored tiles
+   build the same formation, then the whole thing dissolves away
+=================================================================== */
+#loader{
+  position:fixed;
+  inset:0;
+  z-index:1000;
+  background:var(--paper);
+  overflow:hidden;
+}
+
+.loader-letters,
+.loader-squares{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  display:grid;
+  grid-template-columns:repeat(2, 1fr);
+  grid-template-rows:repeat(2, 1fr);
+  gap:clamp(.6rem, 2vw, 1.4rem);
+  place-items:center;
+}
+
+.loader-letters .letter{
+  font-family:'Fraunces', serif;
+  font-weight:500;
+  font-style:normal;
+  font-size:clamp(2.6rem, 8vw, 5.5rem);
+  line-height:1;
+  color:var(--paper-ink);
+  display:inline-block;
+  will-change:transform, opacity, filter;
+  opacity:0;
+}
+
+.loader-squares{ pointer-events:none; perspective:800px; }
+.loader-squares .sq{
+  width:clamp(2.2rem, 6vw, 4rem);
+  height:clamp(2.2rem, 6vw, 4rem);
+  border-radius:10px;
+  opacity:0;
+  border:1px solid rgba(255,255,255,.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.3),
+    0 18px 34px -12px var(--sq-glow, rgba(0,0,0,.6));
+  transform:scale(.25) rotate(-22deg) rotateY(35deg);
+  transition:opacity .65s var(--ease-out), transform .65s var(--ease-out), box-shadow .65s var(--ease-out);
+}
+
+/* loader exit */
+#loader.is-done{
+  pointer-events:none;
+}
+
+/* ===================================================================
+   HERO / CANVAS FIELD
+=================================================================== */
+#hero{
+  position:relative;
+  min-height:100vh;
+  width:100%;
+  background:var(--ink);
+  visibility:hidden;
+  opacity:0;
+  transition:opacity 1.6s var(--ease-in-out);
+  overflow:hidden;
+}
+#hero.is-visible{
+  visibility:visible;
+  opacity:1;
+}
+
+#fieldCanvas{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  display:block;
+}
+
+/* a soft diagonal sheen so the field reads as glass, not just a blurred
+   image — a premium highlight rather than heavier blur */
+.glass-sheen{
+  position:absolute;
+  inset:0;
+  z-index:6;
+  pointer-events:none;
+  background:linear-gradient(115deg,
+    rgba(255,255,255,.12) 0%,
+    rgba(255,255,255,0) 24%,
+    rgba(255,255,255,0) 66%,
+    rgba(255,255,255,.07) 100%);
+  mix-blend-mode:overlay;
+}
+
+/* ---- header / brand mark — fixed, always top right ---- */
+.site-header{
+  position:fixed;
+  top:0; left:0; right:0;
+  z-index:200;
+  display:flex;
+  justify-content:flex-end;
+  padding:clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 4vw, 3rem) 0;
+  pointer-events:none;
+}
+
+.brand-mark{
+  font-family:'Fraunces', serif;
+  font-weight:500;
+  font-size:clamp(1.1rem, 2vw, 1.5rem);
+  letter-spacing:.28em;
+  display:flex;
+  color:var(--cream);
+  text-shadow:0 2px 20px rgba(0,0,0,.5);
+  transition:color .5s var(--ease-out), text-shadow .5s var(--ease-out);
+}
+.brand-mark span{ display:inline-block; opacity:0; transition:opacity .9s var(--ease-out); }
+
+/* small title label that crossfades in below the brand mark once the
+   visitor scrolls past the hero — stays put through the showcase */
+.title-dock{
+  position:fixed;
+  top:clamp(3.6rem, 8vw, 5.1rem);
+  right:clamp(1.5rem, 4vw, 3rem);
+  z-index:190;
+  font-family:'Fraunces', serif;
+  font-size:.95rem;
+  font-weight:400;
+  color:var(--cream);
+  text-shadow:0 2px 14px rgba(0,0,0,.6);
+  opacity:0;
+  transform:translateY(-10px);
+  transition:opacity .6s var(--ease-out), transform .6s var(--ease-out), color .5s var(--ease-out), text-shadow .5s var(--ease-out);
+  pointer-events:none;
+  text-align:right;
+}
+
+/* while the white showcase section sits behind the fixed brand mark
+   and docked title, flip them to dark-on-light so they stay legible */
+body.on-light-section .brand-mark{ color:var(--paper-ink); text-shadow:none; }
+body.on-light-section .title-dock,
+body.on-light-section .title-dock-word{ color:var(--paper-ink); text-shadow:none; }
+body.on-light-section .title-dock em{ color:rgb(var(--accent)); }
+.title-dock em{
+  font-style:italic;
+  color:rgb(var(--style-contrast));
+  transition:color .8s var(--ease-out);
+}
+.title-dock.is-visible{ opacity:1; transform:translateY(0); }
+/* dimmed further while sitting over the light showcase section, so it
+   doesn't compete with the section's own content underneath it */
+body.on-light-section .title-dock.is-visible{ opacity:.4; }
+
+.title-dock-word{
+  margin-top:.35rem;
+  font-size:.72rem;
+  font-weight:500;
+  letter-spacing:.3em;
+  text-transform:uppercase;
+  color:rgb(var(--style-contrast));
+  opacity:0;
+  transform:translateY(-6px);
+  transition:opacity .7s var(--ease-out), transform .7s var(--ease-out), color .8s var(--ease-out);
+}
+.title-dock-word.is-visible{ opacity:1; transform:translateY(0); }
+body.on-light-section .title-dock-word.is-visible{ opacity:.4; }
+
+/* ---- hero copy (no card, floats directly over the field) ---- */
+.hero-content{
+  position:relative;
+  z-index:15;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100vh;
+  padding: 6vw 1.5rem 4rem;
+  perspective:1400px;
+}
+
+.hero-copy{
+  position:relative;
+  max-width:980px;
+  width:100%;
+  text-align:center;
+}
+
+.hero-title-row{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(1.6rem, 4vw, 3rem);
+  flex-wrap:wrap;
+}
+
+.eyebrow{
+  font-size:.72rem;
+  font-weight:700;
+  letter-spacing:.32em;
+  text-transform:uppercase;
+  color:rgb(var(--style-contrast));
+  margin-bottom:1.4rem;
+  text-shadow:0 2px 16px rgba(0,0,0,.6);
+  transition:color .8s var(--ease-out), opacity .3s ease;
+}
+
+.hero-title{
+  font-family:'Fraunces', serif;
+  font-weight:400;
+  font-size:clamp(2.4rem, 6.4vw, 5rem);
+  line-height:1.04;
+  letter-spacing:-.01em;
+  color:var(--cream);
+  text-shadow:0 4px 30px rgba(0,0,0,.65);
+  transform-style:preserve-3d;
+  will-change:transform;
+  display:inline-block;
+  transition:opacity .3s ease;
+}
+.hero-title em{
+  font-style:italic;
+  font-weight:400;
+  color:rgb(var(--style-contrast));
+  text-shadow:0 2px 24px rgba(0,0,0,.4);
+  transition:color .8s var(--ease-out);
+}
+.hero-title .char{
+  display:inline-block;
+  /* a lone space character inside an inline-block collapses to zero
+     width by default (the browser trims leading/trailing whitespace
+     within each inline box) — pre keeps the space's actual width, so
+     "Built with" and "not just design" don't run their words together */
+  white-space:pre;
+  will-change:transform, opacity;
+}
+
+.hero-sub{
+  max-width:640px;
+  margin:1.8rem auto 2.6rem;
+  font-size:clamp(1.15rem, 2.4vw, 1.6rem);
+  line-height:1.4;
+  color:var(--cream-dim);
+  font-weight:300;
+  text-shadow:0 2px 16px rgba(0,0,0,.6);
+  opacity:0;
+  transition:opacity .3s ease;
+}
+
+.cta{
+  display:inline-flex;
+  align-items:center;
+  gap:.7rem;
+  padding:.95rem 1.8rem;
+  border-radius:999px;
+  border:1px solid rgba(var(--style-contrast),.55);
+  background:rgba(var(--accent),.16);
+  backdrop-filter:blur(10px) saturate(150%);
+  -webkit-backdrop-filter:blur(10px) saturate(150%);
+  font-size:.85rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:rgb(var(--style-contrast));
+  opacity:0;
+  will-change:transform;
+  transition:border-color .8s var(--ease-out), background .8s var(--ease-out), color .8s var(--ease-out), opacity .3s ease;
+}
+.cta i{
+  width:8px; height:8px;
+  border-right:1.5px solid currentColor;
+  border-bottom:1.5px solid currentColor;
+  transform:rotate(-45deg);
+  transition:transform .4s var(--ease-out);
+}
+.cta:hover{
+  background:rgba(var(--accent),.32);
+  border-color:rgba(var(--style-contrast),.9);
+}
+.cta:hover i{ transform:rotate(-45deg) translate(2px,-2px); }
+
+/* ===================================================================
+   SHOWCASE — fan of live-demo previews (left) + business list (right),
+   both driven by scroll position via a sticky inner viewport
+=================================================================== */
+.showcase{
+  position:relative;
+  background:var(--paper);
+  z-index:1;
+}
+
+.showcase-sticky{
+  position:sticky;
+  top:0;
+  height:100vh;
+  display:grid;
+  grid-template-columns:1.05fr .95fr;
+  align-items:center;
+  gap:clamp(1.5rem, 4vw, 3rem);
+  padding:0 clamp(1.5rem, 5vw, 4.5rem);
+  overflow:hidden;
+}
+
+.showcase-fan{
+  position:relative;
+  z-index:2;
+  height:min(66vh, 560px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.fan-card{
+  position:absolute;
+  width:clamp(230px, 25vw, 360px);
+  height:clamp(300px, 33vw, 460px);
+  border-radius:18px;
+  background:#fff;
+  border:1px solid rgba(23,24,26,.08);
+  box-shadow:0 30px 70px -26px rgba(23,24,26,.22);
+  overflow:hidden;
+  transform-origin:center bottom;
+  will-change:transform, opacity;
+  transition:transform .3s var(--ease-out), opacity .3s var(--ease-out), box-shadow .3s var(--ease-out);
+  cursor:none;
+}
+.fan-card:hover{ box-shadow:0 34px 80px -24px rgba(23,24,26,.3); }
+.fan-card.is-active{
+  box-shadow:0 46px 110px -22px rgba(23,24,26,.4), 0 0 0 1px rgba(23,24,26,.06);
+}
+.fan-card .fan-bar{
+  display:flex;
+  gap:5px;
+  padding:.7rem .8rem;
+  background:rgba(23,24,26,.04);
+}
+.fan-card .fan-bar span{ width:7px; height:7px; border-radius:50%; background:rgba(23,24,26,.16); }
+.fan-card .fan-hero{
+  height:44%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:2.4rem;
+}
+.fan-card .fan-body{ padding:1rem 1.15rem; }
+.fan-card .fan-name{
+  font-family:'Fraunces', serif;
+  font-size:1.05rem;
+  margin-bottom:.7rem;
+  color:var(--paper-ink);
+}
+.fan-card .fan-line{ height:6px; border-radius:3px; background:rgba(23,24,26,.08); margin-bottom:.45rem; }
+.fan-card .fan-line.short{ width:55%; }
+
+.showcase-list{ position:relative; z-index:2; }
+.showcase-eyebrow{
+  font-size:.76rem;
+  letter-spacing:.38em;
+  text-transform:uppercase;
+  color:rgb(var(--accent));
+  margin-bottom:2rem;
+  opacity:0;
+  transform:translateY(16px);
+  transition:color .8s var(--ease-out), opacity .9s var(--ease-out), transform .9s var(--ease-out);
+}
+.showcase-eyebrow.is-visible{ opacity:1; transform:translateY(0); }
+.showcase-items{
+  position:relative;
+  height:min(48vh, 620px);
+}
+.showcase-item{
+  position:absolute;
+  top:50%;
+  left:0;
+  width:100%;
+  font-family:'Fraunces', serif;
+  font-size:clamp(2.8rem, 7.4vw, 6.8rem);
+  font-weight:400;
+  letter-spacing:-.01em;
+  line-height:1.1;
+  color:rgba(23,24,26,.24);
+  white-space:nowrap;
+  will-change:transform, opacity;
+  transition:transform .5s var(--ease-out), opacity .5s var(--ease-out), color .6s var(--ease-out), text-shadow .6s var(--ease-out);
+  cursor:none;
+}
+.showcase-item.is-active{
+  color:rgb(var(--accent));
+  text-shadow:0 0 64px rgba(var(--accent),.32), 0 0 120px rgba(var(--accent),.16);
+}
+
+@media (max-width:640px){
+  .showcase-item{ font-size:clamp(2rem, 10vw, 3.2rem); }
+}
+
+@media (max-width:860px){
+  .showcase-sticky{
+    grid-template-columns:1fr;
+    grid-template-rows:auto 1fr;
+    padding-top:5rem;
+  }
+  .showcase-fan{ height:40vh; }
+  .fan-card{ width:min(56vw, 210px); height:min(28vh, 230px); }
+  .showcase-items{ height:min(32vh, 400px); }
+  .showcase-list{ text-align:center; }
+}
+
+/* ===================================================================
+   REVIEWS — a single glowing yellow cube. A tall outer section with a
+   sticky inner viewport (same pattern as the showcase section) gives
+   the scroll-driven tumble enough room to actually complete — without
+   it, the page simply ran out of scrollable height before the cube
+   had turned through all six faces. The first stretch of that height
+   is spent on the cube falling in from above (see reviews-cube.js);
+   the rest is the tumble. It's the same cube element the whole way
+   through, so the two moments read as one continuous piece rather
+   than a separate intro handing off to something else. A blurred,
+   contrasting glow field sits behind it and orbits with the cube, so
+   the whole backdrop feels like it's moving with the object.
+=================================================================== */
+.cube-section{
+  position:relative;
+  height:430vh;
+  z-index:1;
+}
+
+.cube-sticky{
+  position:sticky;
+  top:0;
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
+  overflow:hidden;
+}
+
+.cube-bg{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  overflow:hidden;
+  pointer-events:none;
+  transition:opacity .5s var(--ease-out);
+}
+/* dim the backdrop while a face is zoomed in, so focus stays on it */
+.cube-sticky.is-focused .cube-bg{ opacity:.35; }
+.cube-bg .glow{
+  position:absolute;
+  width:min(56vw, 620px);
+  height:min(56vw, 620px);
+  border-radius:50%;
+  filter:blur(90px);
+  will-change:transform;
+}
+.cube-bg .glow--a{
+  top:-8%; left:-12%;
+  background:radial-gradient(circle, rgba(255,196,40,.5), transparent 70%);
+}
+.cube-bg .glow--b{
+  bottom:-15%; right:-8%;
+  background:radial-gradient(circle, rgba(84,54,196,.45), transparent 70%);
+}
+.cube-bg .glow--c{
+  top:32%; right:14%;
+  background:radial-gradient(circle, rgba(30,120,196,.35), transparent 70%);
+}
+
+.cube-content{
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:clamp(1.5rem, 4vw, 2.5rem);
+  padding:4rem 1.5rem;
+}
+
+.cube-eyebrow{
+  font-family:'Fraunces', serif;
+  font-size:clamp(1.7rem, 5.2vw, 3.1rem);
+  font-weight:500;
+  letter-spacing:.01em;
+  text-transform:none;
+  color:#ffdd7a;
+  text-shadow:0 0 22px rgba(255,196,40,.55), 0 0 50px rgba(255,196,40,.3);
+  text-align:center;
+  max-width:16ch;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  row-gap:.1em;
+}
+/* each word rises and comes into focus on its own, cascading in one
+   after another as the visitor scrolls — the same entrance language
+   as the hero title's letter-by-letter reveal, so the two sections
+   read as one brand rather than each inventing its own trick. Driven
+   directly off scroll position in reviews-cube.js (not a fixed-
+   duration animation), so it's always exactly as revealed as how far
+   they've scrolled, and it can't finish playing before they look. */
+.cube-eyebrow-word{
+  display:inline-block;
+  margin:0 .18em;
+  opacity:0;
+  will-change:opacity, transform, filter;
+}
+
+.cube-stage{
+  position:relative;
+  perspective:1400px;
+  width:min(62vw, 380px);
+  height:min(62vw, 380px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+.cube-stage::before{
+  content:'';
+  position:absolute;
+  inset:-30%;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(255,200,40,.5), transparent 70%);
+  filter:blur(56px);
+  z-index:-1;
+  pointer-events:none;
+}
+
+.cube-group{
+  position:relative;
+  width:100%;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* handles the idle float (CSS animation) — kept separate from the
+   inner cube so it never fights with the JS-driven cursor tilt */
+.glow-cube-wrap{
+  position:relative;
+  width:64%;
+  height:64%;
+  animation:glowCubeFloat 6s ease-in-out infinite;
+}
+
+/* the actual 3D cube — JS sets its rotateX/rotateY every frame */
+.glow-cube{
+  position:relative;
+  width:100%;
+  height:100%;
+  transform-style:preserve-3d;
+  will-change:transform;
+}
+
+.glow-cube .face{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  /* no box-shadow here on purpose — a shadow on each individual face
+     halos that face's own four edges, and those halos stack right
+     where adjacent faces meet: as a colored glow that read as a
+     bright outline "lining" at every seam, and even just a dark
+     grounding shadow read as a dark seam/groove, making the whole
+     thing look pushed-in/concave instead of a solid block. The single
+     ambient glow behind the whole shape (.cube-stage::before below)
+     carries the glow and depth cue instead. */
+}
+.face-inner{
+  max-width:82%;
+  text-align:center;
+  color:#2a1c02;
+}
+.face-label{
+  display:block;
+  font-family:'Fraunces', serif;
+  font-size:clamp(.9rem, 2.6vw, 1.15rem);
+  font-weight:600;
+  letter-spacing:.04em;
+  margin-bottom:.5em;
+}
+.face-points{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:.32em;
+  font-size:clamp(.52rem, 1.5vw, .64rem);
+  line-height:1.25;
+  letter-spacing:.01em;
+  color:rgba(42,28,2,.8);
+}
+/* every face uses the exact same flat color/sheen — on purpose. This
+   cube tumbles freely on both axes (see reviews-cube.js), so "top"
+   doesn't stay up; any of the six faces can end up facing the camera,
+   facing away, or edge-on at any moment. Grading brightness per face
+   identity (top brightest, bottom darkest, as if lit from a fixed
+   direction) assumed a fixed viewing angle that no longer holds once
+   it tumbles — the face that happened to be lit brightest would drift
+   in and out of view along with everything else, reading as
+   inconsistent, "wrong" lighting as it spun. Making every face
+   identical guarantees it looks the same from every angle instead. */
+.glow-cube .face--top{
+  transform:rotateX(90deg) translateZ(calc(var(--wc-depth, 100px) / 2));
+  background:radial-gradient(120% 120% at 25% 20%, #ffe27a 0%, #ffd23f 65%);
+}
+.glow-cube .face--front{
+  transform:translateZ(calc(var(--wc-depth, 100px) / 2));
+  background:radial-gradient(120% 120% at 25% 20%, #ffe27a 0%, #ffd23f 65%);
+}
+.glow-cube .face--right{
+  transform:rotateY(90deg) translateZ(calc(var(--wc-depth, 100px) / 2));
+  background:radial-gradient(120% 120% at 25% 20%, #ffe27a 0%, #ffd23f 65%);
+}
+.glow-cube .face--back{
+  transform:rotateY(180deg) translateZ(calc(var(--wc-depth, 100px) / 2));
+  background:radial-gradient(120% 120% at 25% 20%, #ffe27a 0%, #ffd23f 65%);
+}
+.glow-cube .face--left{
+  transform:rotateY(-90deg) translateZ(calc(var(--wc-depth, 100px) / 2));
+  background:radial-gradient(120% 120% at 25% 20%, #ffe27a 0%, #ffd23f 65%);
+}
+.glow-cube .face--bottom{
+  transform:rotateX(-90deg) translateZ(calc(var(--wc-depth, 100px) / 2));
+  background:radial-gradient(120% 120% at 25% 20%, #ffe27a 0%, #ffd23f 65%);
+}
+
+@keyframes glowCubeFloat{
+  0%, 100%{ transform:translateY(0); }
+  50%{ transform:translateY(-12px); }
+}
+
+@media (max-width:640px){
+  .cube-stage{ width:min(72vw, 300px); height:min(72vw, 300px); }
+  .cube-bg .glow{ width:min(80vw, 420px); height:min(80vw, 420px); filter:blur(70px); }
+}
+
+/* ===================================================================
+   CUSTOM CURSOR — elegant, lagging "drag" feel
+=================================================================== */
+.custom-cursor{
+  position:fixed;
+  top:0; left:0;
+  width:0; height:0;
+  z-index:2000;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .4s var(--ease-out);
+}
+/* only revealed once the loader has fully finished (see loader.js) */
+.custom-cursor.is-ready{ opacity:1; }
+.custom-cursor.is-ready.is-hidden{ opacity:0; }
+/* fades away if the pointer sits still for a while */
+.custom-cursor.is-ready.is-idle{ opacity:0; transition:opacity 1s ease; }
+.cursor-ring{
+  position:absolute;
+  top:0; left:0;
+  width:36px; height:36px;
+  margin:-18px 0 0 -18px;
+  border-radius:50%;
+  border:1px solid rgba(243,237,226,.7);
+  box-shadow:0 0 20px rgba(var(--accent),.35);
+  transition:width .35s var(--ease-out), height .35s var(--ease-out), margin .35s var(--ease-out), border-color .35s var(--ease-out), opacity .3s ease;
+}
+.cursor-dot{
+  position:absolute;
+  top:0; left:0;
+  width:5px; height:5px;
+  margin:-2.5px 0 0 -2.5px;
+  border-radius:50%;
+  background:var(--cream);
+}
+.custom-cursor.is-active .cursor-ring{
+  width:64px; height:64px;
+  margin:-32px 0 0 -32px;
+  border-color:rgb(var(--accent));
+}
+
+@media (hover:none), (pointer:coarse){
+  .custom-cursor{ display:none; }
+  body, a, .cta{ cursor:auto; }
+}
+
+/* ===================================================================
+   TESTIMONIALS — businesses across industries, one crossfading in
+   after another as the visitor scrolls (sticky inner viewport, same
+   pattern as the showcase and cube sections). Dark, with the same
+   amber accent as the cube section, so the page bookends the light
+   showcase in between with two dark, warm-lit moments.
+=================================================================== */
+.testimonials-section{
+  position:relative;
+  height:560vh;
+  z-index:1;
+}
+
+.testimonials-bg{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  overflow:hidden;
+  pointer-events:none;
+}
+.t-glow{
+  position:absolute;
+  width:min(50vw, 560px);
+  height:min(50vw, 560px);
+  border-radius:50%;
+  filter:blur(100px);
+}
+.t-glow--a{
+  top:-10%; left:-10%;
+  background:radial-gradient(circle, rgba(255,196,40,.28), transparent 70%);
+}
+.t-glow--b{
+  bottom:-14%; right:-8%;
+  background:radial-gradient(circle, rgba(70,90,196,.22), transparent 70%);
+}
+
+.testimonials-sticky{
+  position:sticky;
+  top:0;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:clamp(1.2rem, 3vw, 2rem);
+  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
+  overflow:hidden;
+  padding:2rem 1.5rem;
+}
+
+.testimonials-eyebrow{
+  position:relative;
+  z-index:1;
+  font-size:.72rem;
+  letter-spacing:.4em;
+  text-transform:uppercase;
+  color:rgba(228,205,154,.65);
+}
+/* its own font on purpose — everything else on the site is Fraunces
+   (headings) or Inter (body); Space Grotesk's confident, slightly
+   geometric character gives this one section its own distinct voice */
+.testimonials-heading{
+  position:relative;
+  z-index:1;
+  font-family:'Space Grotesk', 'Inter', sans-serif;
+  font-weight:700;
+  letter-spacing:-.01em;
+  font-size:clamp(2rem, 5vw, 3.4rem);
+  background:linear-gradient(100deg, var(--cream) 30%, #ffdd7a 65%, #ffb400 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  text-align:center;
+}
+
+.testimonial-stack{
+  position:relative;
+  z-index:1;
+  width:min(92vw, 640px);
+  height:clamp(320px, 40vh, 400px);
+  perspective:1200px;
+}
+
+.testimonial-card{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:clamp(1.4rem, 3vw, 2.4rem);
+  border-radius:22px;
+  background:linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border:1px solid rgba(255,221,122,.16);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
+  backdrop-filter:blur(6px);
+  will-change:transform, opacity;
+}
+
+.testimonial-icon{ font-size:2.2rem; margin-bottom:.5rem; }
+.testimonial-industry{
+  font-size:.72rem;
+  letter-spacing:.32em;
+  text-transform:uppercase;
+  color:#ffdd7a;
+  margin-bottom:.9rem;
+}
+.testimonial-quote{
+  font-family:'Fraunces', serif;
+  font-style:italic;
+  font-weight:400;
+  font-size:clamp(1.1rem, 2.4vw, 1.45rem);
+  line-height:1.45;
+  color:var(--cream);
+  max-width:44ch;
+  margin-bottom:1rem;
+}
+/* the "encouraging" beat: a concrete positive result, styled apart
+   from the quote so it reads like a quick win at a glance */
+.testimonial-result{
+  display:inline-flex;
+  align-items:center;
+  gap:.4em;
+  font-size:.8rem;
+  font-weight:600;
+  letter-spacing:.01em;
+  color:#8CE99A;
+  background:rgba(140,233,154,.12);
+  border:1px solid rgba(140,233,154,.3);
+  border-radius:999px;
+  padding:.4em .9em;
+  margin-bottom:1rem;
+}
+.testimonial-result::before{ content:'✓'; font-weight:700; }
+.testimonial-stars{
+  color:#ffdd7a;
+  letter-spacing:.25em;
+  font-size:.85rem;
+  margin-bottom:.7rem;
+}
+.testimonial-name{
+  font-size:.85rem;
+  color:rgba(243,237,226,.7);
+}
+.testimonial-name span{ color:rgba(243,237,226,.45); }
+
+.testimonial-dots{
+  position:relative;
+  z-index:1;
+  display:flex;
+  gap:.55rem;
+  align-items:center;
+}
+.testimonial-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  border:none;
+  padding:0;
+  background:rgba(243,237,226,.25);
+  cursor:pointer;
+  transition:background .35s var(--ease-out), width .35s var(--ease-out);
+}
+.testimonial-dot:hover{ background:rgba(243,237,226,.5); }
+.testimonial-dot.is-active{
+  width:22px;
+  border-radius:5px;
+  background:#ffdd7a;
+}
+
+@media (max-width:640px){
+  .testimonials-section{ height:640vh; }
+  .testimonial-stack{ height:clamp(300px, 46vh, 400px); }
+}
