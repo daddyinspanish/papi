@@ -136,6 +136,12 @@ body, a, .cta{ cursor:none; }
   width:100%;
   height:100%;
   display:block;
+  /* its own compositor layer, decoupled from the hero copy sitting on
+     top of it (the title/subtitle characters changing transform every
+     frame right alongside it) — without this they could end up
+     sharing a paint/layer boundary, where one repainting drags the
+     other along with it */
+  will-change:transform;
 }
 
 /* a soft diagonal sheen so the field reads as glass, not just a blurred
@@ -329,6 +335,22 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
      width by default (the browser trims leading/trailing whitespace
      within each inline box) — pre keeps the space's actual width, so
      "Built with" and "not just design" don't run their words together */
+  white-space:pre;
+  will-change:transform, opacity;
+}
+/* the subtitle's own per-letter spans (title.js) run the exact same
+   per-frame transform physics as the title's chars above, but lived
+   under a different ancestor (#heroSub, not .hero-title) so they never
+   picked up that rule's will-change hint — meaning the browser had no
+   reason to pre-promote any of these 70+ elements to their own
+   compositor layer ahead of time. The moment they actually started
+   moving by a meaningful amount every frame (exactly what happens as
+   soon as scrolling begins, via the explode effect below), that's 70+
+   elements suddenly needing real paint work instead of a cheap
+   GPU-composited transform — a very plausible source of a hitch
+   landing right at that exact moment. */
+#heroSub .char{
+  display:inline-block;
   white-space:pre;
   will-change:transform, opacity;
 }
@@ -1006,6 +1028,16 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   display:flex;
   align-items:center;
   justify-content:center;
+  /* both transform (the fall-in drop) and opacity are set here every
+     single frame from reviews-cube.js, but this element had no
+     will-change hint of its own — nothing telling the browser to
+     promote it to its own compositor layer ahead of time. The instant
+     scrolling actually starts moving these values by a meaningful
+     amount frame to frame, that's the browser potentially repainting
+     this element (and the cube + glow subtree inside it) from scratch
+     every frame instead of just compositing a cached layer — a
+     plausible source of the cube hitching right as scrolling begins. */
+  will-change:transform, opacity;
 }
 
 /* handles the idle float (CSS animation) — kept separate from the
