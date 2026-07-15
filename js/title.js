@@ -6,9 +6,14 @@
      right, then "not", "just", "design" each bounce into place one
      after another.
    - Slow, smooth gyro tilt toward the cursor, strongest near the title.
-   - A gentle ripple runs through the letters on scroll/wheel, and the
-     same ripple/push physics also runs on the subtitle's letters once
-     its own entrance (owned by title-dock.js) has settled.
+   - As the visitor scrolls the hero away, each letter drifts outward
+     from the title's own centre and grows slightly while fading —
+     like the words are expanding out into the field's orbiting cluster
+     — rather than the wave-like ripple this used to do. Purely a
+     function of the current scroll position (not an accumulated
+     value), so it reverses cleanly back to normal on its own if the
+     visitor scrolls back up. The same physics runs on the subtitle's
+     letters once its own entrance (owned by title-dock.js) has settled.
    - Moving the cursor near the title (or subtitle) pushes the nearby
      letters apart, like they're being parted, then they spring back.
 =================================================================== */
@@ -16,26 +21,46 @@
   const title = document.getElementById('heroTitle');
   if(!title) return;
 
-  // ---- shared per-character "parting" push + scroll ripple physics —
-  // used for both the title and the subtitle, so the two share one
-  // implementation instead of two copies of the same formulas ----
+  function smoothstep(edge0, edge1, x){
+    const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+    return t * t * (3 - 2 * t);
+  }
+
+  // ---- shared per-character "parting" push physics + scroll-driven
+  // outward "explode" — used for both the title and the subtitle, so
+  // the two share one implementation instead of two copies of the same
+  // formulas ----
   const PUSH_RADIUS = 85;
   const PUSH = 0.34;
   const SPRING = 0.05;
   const DAMPING = .82;
+  const EXPLODE_DISTANCE = 150; // px a letter drifts outward at full progress
+  const EXPLODE_SCALE = 0.55;   // extra scale a letter grows to at full progress
 
   let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
 
   function createCharGroup(chars){
     const charState = chars.map(()=>({ homeX:0, homeY:0, x:0, y:0, vx:0, vy:0 }));
+    // the group's own centre — each letter's outward "explode" drift
+    // is measured from here, so the whole word expands outward from
+    // its own middle rather than every letter drifting the same
+    // direction
+    let centerX = 0, centerY = 0;
     function computeHomes(){
+      let sumX = 0, sumY = 0;
       chars.forEach((el, i)=>{
         const r = el.getBoundingClientRect();
-        charState[i].homeX = r.left + r.width/2;
-        charState[i].homeY = r.top + r.height/2;
+        const hx = r.left + r.width/2;
+        const hy = r.top + r.height/2;
+        charState[i].homeX = hx;
+        charState[i].homeY = hy;
+        sumX += hx;
+        sumY += hy;
       });
+      centerX = sumX / chars.length;
+      centerY = sumY / chars.length;
     }
-    function update(idle, scrollEnergy){
+    function update(idle, explodeProgress){
       chars.forEach((el, i)=>{
         const st = charState[i];
         if(!idle){
@@ -56,10 +81,16 @@
         st.x += st.vx;
         st.y += st.vy;
 
-        const phase = i * 0.55;
-        const rippleY = Math.sin(phase) * scrollEnergy * 0.9;
-        const rotate = Math.cos(phase) * scrollEnergy * 0.4;
-        el.style.transform = `translate(${st.x.toFixed(2)}px, ${(st.y + rippleY).toFixed(2)}px) rotate(${rotate.toFixed(2)}deg)`;
+        let ex = 0, ey = 0, escale = 1;
+        if(explodeProgress > 0.001){
+          const dx = st.homeX - centerX;
+          const dy = st.homeY - centerY;
+          const dist = Math.hypot(dx, dy) || 1;
+          ex = (dx / dist) * explodeProgress * EXPLODE_DISTANCE;
+          ey = (dy / dist) * explodeProgress * EXPLODE_DISTANCE;
+          escale = 1 + explodeProgress * EXPLODE_SCALE;
+        }
+        el.style.transform = `translate(${(st.x + ex).toFixed(2)}px, ${(st.y + ey).toFixed(2)}px) scale(${escale.toFixed(3)})`;
       });
     }
     return { computeHomes, update };
@@ -215,21 +246,17 @@
   const MAX_TILT = 9;
   const PROXIMITY_RANGE = 620;
 
-  // ---- scroll / wheel driven letter ripple ----
-  let scrollEnergy = 0;
-  let lastScrollY = window.scrollY;
-
-  window.addEventListener('wheel', (e)=>{
-    scrollEnergy += e.deltaY * 0.025;
-    scrollEnergy = Math.max(-40, Math.min(40, scrollEnergy));
-  }, { passive:true });
-
-  window.addEventListener('scroll', ()=>{
-    const y = window.scrollY;
-    scrollEnergy += (y - lastScrollY) * 0.5;
-    scrollEnergy = Math.max(-40, Math.min(40, scrollEnergy));
-    lastScrollY = y;
-  }, { passive:true });
+  // ---- scroll-driven explode progress — 0 at the top of the hero,
+  // ramping to 1 over the same stretch title-dock.js fades the hero
+  // out over. Computed fresh from the current scroll position every
+  // frame (not accumulated), so it just tracks backward on its own if
+  // the visitor scrolls back up — no separate reverse logic needed. ----
+  const EXPLODE_RANGE_RATIO = 0.95; // matches title-dock.js's own SCROLL_RANGE_RATIO
+  function getExplodeProgress(){
+    const dist = window.innerHeight * EXPLODE_RANGE_RATIO;
+    const raw = Math.max(0, Math.min(1, window.scrollY / dist));
+    return smoothstep(0.15, 0.9, raw);
+  }
 
   function frame(){
     const idle = performance.now() - lastMoveTime > IDLE_MS;
@@ -251,9 +278,9 @@
 
     title.style.transform = `rotateX(${(-curY*MAX_TILT).toFixed(2)}deg) rotateY(${(curX*MAX_TILT).toFixed(2)}deg)`;
 
-    if(effectsLive || subEffectsLive) scrollEnergy *= 0.92;
-    if(effectsLive) titleGroup.update(idle, scrollEnergy);
-    if(subEffectsLive) subGroup.update(idle, scrollEnergy);
+    const explodeProgress = (effectsLive || subEffectsLive) ? getExplodeProgress() : 0;
+    if(effectsLive) titleGroup.update(idle, explodeProgress);
+    if(subEffectsLive) subGroup.update(idle, explodeProgress);
 
     requestAnimationFrame(frame);
   }

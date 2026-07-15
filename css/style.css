@@ -465,8 +465,8 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .fan-card{
   --card-scale:1;
   position:absolute;
-  width:clamp(200px, 20vw, 280px);
-  height:clamp(260px, 26vw, 360px);
+  width:clamp(210px, 22vw, 300px);
+  height:clamp(280px, 29vw, 400px);
   border-radius:18px;
   /* a frosted, "Safari blurred" glass look — translucent white over
      whatever's behind it, with a soft white glow, rather than the
@@ -600,11 +600,11 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 @media (min-width:861px){
   .showcase-phrase{
     left: calc(-1 * (var(--showcase-left-col) + var(--showcase-col-gap)));
-    /* pulled up from the base rule's 1.75rem — moving the quote closer
-       to the top of the fan raises the floor (topBound in showcase.js)
-       the expanded card centers itself against, so the card sits
-       higher too instead of just the quote moving on its own */
-    margin-top:.25rem;
+    /* pulled up further from the base rule's 1.75rem — moving the
+       quote closer to the top of the fan raises the floor (topBound in
+       showcase.js) the expanded card centers itself against, so the
+       card sits higher too instead of just the quote moving on its own */
+    margin-top:-.75rem;
   }
 }
 
@@ -698,66 +698,6 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 }
 .fan-card .fan-line.short{ width:55%; }
 
-/* feature badges — only shown while a card is expanded, since a small
-   angled fan card doesn't have room to hint at these without looking
-   cluttered. Vivid, varied gradients (not the site's own gold-on-black
-   palette) are the point — they need to pop as their own accent color
-   against the card, not blend into the brand */
-.fan-icons{
-  position:absolute;
-  top:calc(.8rem * var(--card-scale));
-  right:calc(.8rem * var(--card-scale));
-  z-index:5;
-  display:flex;
-  flex-direction:column;
-  gap:calc(.55rem * var(--card-scale));
-  pointer-events:none;
-}
-.fan-icon{
-  width:calc(2.15rem * var(--card-scale));
-  height:calc(2.15rem * var(--card-scale));
-  border-radius:50%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:#fff;
-  box-shadow:0 8px 18px -6px rgba(0,0,0,.55);
-  transform:scale(0);
-  opacity:0;
-  transition:transform .4s cubic-bezier(.34,1.56,.64,1), opacity .25s ease;
-}
-.fan-icon svg{
-  width:calc(1.05rem * var(--card-scale));
-  height:calc(1.05rem * var(--card-scale));
-}
-.fan-icon--call{ background:linear-gradient(135deg, #ff8a4c, #ff3d68); }
-.fan-icon--video{ background:linear-gradient(135deg, #4facfe, #7c3aed); }
-.fan-icon--ai{ background:linear-gradient(135deg, #34e0a1, #06b6d4); }
-
-/* pop in one after another rather than all at once — reads as each
-   capability being called out in turn instead of a single flat reveal */
-.fan-card.is-expanded .fan-icon{ transform:scale(1); opacity:1; }
-.fan-card.is-expanded .fan-icon--call{ transition-delay:.05s; }
-.fan-card.is-expanded .fan-icon--video{ transition-delay:.16s; }
-.fan-card.is-expanded .fan-icon--ai{ transition-delay:.27s; }
-
-/* closing plays this instead of the entrance in reverse — scaling
-   past 1 while fading out reads like a soap bubble popping rather than
-   the icon just shrinking away. A transition alone can't overshoot
-   like this on its way out, hence a dedicated keyframe animation,
-   toggled on/off via .is-bursting in showcase.js. */
-@keyframes fanIconBurst{
-  0%{ transform:scale(1); opacity:1; }
-  40%{ transform:scale(1.6); opacity:.7; }
-  100%{ transform:scale(2.1); opacity:0; }
-}
-.fan-icons.is-bursting .fan-icon{
-  animation:fanIconBurst .38s ease-out forwards;
-  transition:none;
-}
-.fan-icons.is-bursting .fan-icon--video{ animation-delay:.04s; }
-.fan-icons.is-bursting .fan-icon--ai{ animation-delay:.08s; }
-
 .showcase-eyebrow{
   position:relative;
   z-index:2;
@@ -808,7 +748,11 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 
 @media (max-width:860px){
   .showcase-sticky{ padding-top:5rem; }
-  .fan-card{ width:min(58vw, 220px); height:min(32vh, 290px); }
+  .fan-card{ width:min(64vw, 240px); height:min(36vh, 320px); }
+  /* a bit more clearance below the eyebrow/trade-name area than the
+     base rule gives — on the stacked mobile layout the quote was
+     sitting close enough to read as crowding the section title above it */
+  .showcase-phrase{ margin-top:2.5rem; }
 }
 
 /* ===================================================================
@@ -1388,11 +1332,14 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   margin-bottom:.9rem;
 }
 .testimonial-quote{
-  font-family:'Fraunces', serif;
-  font-style:italic;
+  /* was Fraunces italic — a display serif in italic reads fine as a
+     couple of words but got noticeably harder to read at full
+     paragraph length; a plain sans-serif body face carries the actual
+     review text much more comfortably */
+  font-family:'Inter', sans-serif;
   font-weight:400;
-  font-size:clamp(1.1rem, 2.4vw, 1.45rem);
-  line-height:1.45;
+  font-size:clamp(1.05rem, 2.2vw, 1.3rem);
+  line-height:1.55;
   color:var(--cream);
   max-width:44ch;
   margin-bottom:1rem;
@@ -1749,6 +1696,21 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   50%{ background-position:100% 50%; }
   100%{ background-position:0% 50%; }
 }
+/* "free" gets its own brighter, faster shine layered on top of the
+   heading's own slow overall sweep — a distinct highlight sweeping
+   across just that one word rather than blending into the rest */
+.quote-heading-shine{
+  background:linear-gradient(100deg, #ffd23f 0%, #fff6d8 20%, #fff 40%, #fff6d8 60%, #ffd23f 100%);
+  background-size:250% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  animation:quoteFreeShine 2.4s ease-in-out infinite;
+}
+@keyframes quoteFreeShine{
+  0%{ background-position:150% 50%; }
+  100%{ background-position:-50% 50%; }
+}
 .quote-sub{
   font-size:clamp(1rem, 1.6vw, 1.15rem);
   line-height:1.55;
@@ -1787,31 +1749,28 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .quote-social-link svg{ display:block; }
 
 /* ---- the form itself ---- */
-/* the "outline contrasted through every color": an oversized conic
-   gradient spins behind the card, clipped by the wrap's own rounded
-   rect and border-box padding down to a slim ring — the classic
-   animated-gradient-border trick (rotating the wrap itself would spin
-   the form's contents too, which is why the rotation lives on this
-   ::before instead) */
+/* used to be wrapped in an oversized rotating conic-gradient clipped
+   down to a slim animated-rainbow-gold ring (the classic animated-
+   gradient-border trick) — removed outright. That wrap's own rounded-
+   corner clipping needing to track the swipeable stack's height
+   (itself resized in JS whenever the visitor swaps between the quote
+   and call-back panels) was the actual root of the recurring "gold bar"
+   glitch: any brief mismatch between the two exposed this wrap's own
+   gold background in the gap. With no gold background left to expose,
+   there's nothing left for that gap to reveal — the form's own white
+   background (on .quote-form-tabs/.quote-form-stack below) is what's
+   actually visible now, full stop. */
 /* opacity/transform driven directly by scroll position — see the note
    on .quote-copy above */
 .quote-form-wrap{
   position:relative;
-  border-radius:26px;
-  padding:3px;
-  overflow:hidden;
   opacity:0;
   will-change:opacity, transform;
+  /* a plain, static shadow for depth — not a "container background",
+     just enough definition that the card doesn't look like it's
+     floating flat against the page */
   box-shadow:0 40px 80px -40px rgba(0,0,0,.4);
 }
-.quote-form-wrap::before{
-  content:'';
-  position:absolute;
-  inset:-60%;
-  background:conic-gradient(from 0deg, #8a6a1f, #ffd23f, #fff6d8, #cba869, #3a2c0d, #8a6a1f);
-  animation:quoteBorderSpin 7s linear infinite;
-}
-@keyframes quoteBorderSpin{ to{ transform:rotate(360deg); } }
 
 /* two panels — the original quote request, and a call-back request —
    swipeable like the testimonials row (native horizontal scroll-snap,

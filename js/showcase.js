@@ -56,16 +56,6 @@
     return (window.Papi && window.Papi.palette) || [[201,168,105]];
   }
 
-  // small badge icons shown only while a card is expanded — a quick,
-  // visual reminder of what a real site built on this template can
-  // actually plug in (click-to-call, video, an AI chat assistant),
-  // rather than just a static screenshot
-  const ICONS = {
-    call: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
-    video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="5" width="15" height="14" rx="2"/><path d="M23 7l-7 5 7 5V7z"/></svg>',
-    ai: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.8 5.4L19 9l-5.2 1.6L12 16l-1.8-5.4L5 9l5.2-1.6L12 2z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9L19 15z"/></svg>',
-  };
-
   const n = categories.length;
 
   function scrollToIndex(i){
@@ -154,19 +144,6 @@
       prevCard.style.height = '';
       prevCard.style.transform = '';
       prevCard.style.removeProperty('--card-scale');
-      // the icon badges pop in on expand — closing plays a quick
-      // "burst" (scale past 1 while fading, like a bubble popping)
-      // instead of just running that entrance backwards, which read
-      // as far too gentle for something disappearing this fast. A
-      // dedicated keyframe animation (toggled via this class) rather
-      // than the CSS transition removing is-expanded already drives,
-      // since a transition can only ease between two states — it can't
-      // overshoot past scale(1) on its way out.
-      const icons = prevCard.querySelector('.fan-icons');
-      if(icons){
-        icons.classList.add('is-bursting');
-        setTimeout(()=> icons.classList.remove('is-bursting'), 420);
-      }
     }
     // sits where the trade names normally do (those fade out below,
     // in the items loop) — keeps the focus on the image itself rather
@@ -228,11 +205,6 @@
         <div class="fan-name">${cat.name}</div>
         <div class="fan-line"></div>
         <div class="fan-line short"></div>
-      </div>
-      <div class="fan-icons" aria-hidden="true">
-        <span class="fan-icon fan-icon--call" title="Click-to-call">${ICONS.call}</span>
-        <span class="fan-icon fan-icon--video" title="Video">${ICONS.video}</span>
-        <span class="fan-icon fan-icon--ai" title="AI chat">${ICONS.ai}</span>
       </div>
       <span class="fan-card-exit-dot" aria-hidden="true"></span>`;
     // a mouse click focusing the card is what was triggering the
@@ -329,14 +301,15 @@
         const topBound = quoteRect && quoteRect.bottom > 0
           ? quoteRect.bottom + margin
           : window.innerHeight * 0.26;
-        // on desktop, stopping short of the very bottom of the
-        // viewport (rather than reaching all the way down to it)
-        // pulls the centered result up noticeably — letting the range
-        // reach the bottom edge dragged the midpoint down further than
-        // felt right, sitting the expanded card lower than desktop's
-        // extra headroom actually called for
+        // stopping short of the very bottom of the viewport (rather
+        // than reaching all the way down to it) pulls the centered
+        // result up noticeably — letting the range reach the bottom
+        // edge dragged the midpoint down further than felt right,
+        // sitting the expanded card lower than the headroom available
+        // actually called for. Desktop can stop further from the edge
+        // than mobile, which has less room to spare in the first place.
         const bottomBound = isNarrow
-          ? window.innerHeight - margin
+          ? Math.min(window.innerHeight - margin, window.innerHeight * 0.86)
           : Math.min(window.innerHeight - margin, window.innerHeight * 0.84);
         const availableHeight = Math.max(120, bottomBound - topBound);
         const uncappedScale = isNarrow ? 1.55 : 1.75;
