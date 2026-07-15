@@ -108,8 +108,23 @@
     mouseY = e.clientY;
   });
 
+  const heroElForMagnet = document.getElementById('hero');
+
   function magnetFrame(){
-    if(cta && ctaEntranceDone){
+    // this used to run unconditionally forever — a forced-layout
+    // getBoundingClientRect() read every single frame for the entire
+    // rest of the page's life, long after the CTA (and the hero it
+    // lives in) had scrolled out of view and stopped mattering at all.
+    // That's wasted work stacking on top of whatever else is
+    // animating, and it was still running at full cost exactly during
+    // the hero-to-next-section scroll transition — one real
+    // contributor to that freeze. Skipping it once the hero isn't
+    // visible removes it from the busiest moment entirely.
+    const heroVisible = !heroElForMagnet || (()=>{
+      const r = heroElForMagnet.getBoundingClientRect();
+      return r.bottom > 0 && r.top < window.innerHeight;
+    })();
+    if(cta && ctaEntranceDone && heroVisible){
       const rect = cta.getBoundingClientRect();
       const cx = rect.left + rect.width/2;
       const cy = rect.top + rect.height/2;

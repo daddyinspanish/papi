@@ -151,6 +151,29 @@
     if(phraseEl){
       phraseEl.classList.remove(...PHRASE_ANIMS);
       if(i !== null){
+        // re-parent the quote onto <body> too, pinned to exactly where
+        // it's already sitting on screen, the same way the expanded
+        // card itself does — and for the same reason. A previous
+        // attempt instead bumped .showcase's own z-index above the
+        // card's so the quote (nested inside it) could stack on top —
+        // but .showcase has its own big opaque section background, so
+        // that dragged the *entire section's background* above the
+        // card too, hiding the card completely behind it (all that was
+        // left visible was the quote, floating on that background —
+        // exactly the "fan cards disappear, only the quote shows" bug).
+        // A nested stacking context can never reach out past its own
+        // ancestor's position in a higher one, which is why only
+        // moving the quote itself — not raising an ancestor — actually
+        // works here.
+        const r = phraseEl.getBoundingClientRect();
+        phraseEl.style.position = 'fixed';
+        phraseEl.style.top = `${r.top.toFixed(1)}px`;
+        phraseEl.style.left = `${r.left.toFixed(1)}px`;
+        phraseEl.style.right = 'auto';
+        phraseEl.style.width = `${r.width.toFixed(1)}px`;
+        phraseEl.style.margin = '0';
+        phraseEl.style.zIndex = '600';
+        document.body.appendChild(phraseEl);
         phraseEl.textContent = PHRASES[Math.floor(Math.random() * PHRASES.length)];
         // force a reflow before adding the animation class back — without
         // this, picking the same animation two expands in a row wouldn't
@@ -158,6 +181,17 @@
         // browser's point of view)
         void phraseEl.offsetWidth;
         phraseEl.classList.add(PHRASE_ANIMS[Math.floor(Math.random() * PHRASE_ANIMS.length)]);
+      } else {
+        // back into its normal spot inside the fan, inline styles
+        // cleared so the CSS-driven positioning takes back over
+        phraseEl.style.position = '';
+        phraseEl.style.top = '';
+        phraseEl.style.left = '';
+        phraseEl.style.right = '';
+        phraseEl.style.width = '';
+        phraseEl.style.margin = '';
+        phraseEl.style.zIndex = '';
+        fanEl.appendChild(phraseEl);
       }
     }
     // both ancestors normally clip to keep the fan's rotated/off-centre
@@ -166,17 +200,6 @@
     // while one actually is expanded
     if(sticky) sticky.classList.toggle('has-expanded-card', i !== null);
     fanEl.classList.toggle('has-expanded-card', i !== null);
-    // the expanded card is re-parented straight onto <body> (see
-    // above), so it stacks in body's own top-level z-index order —
-    // completely outside .showcase's own local stacking context. That
-    // meant no z-index given to the quote (or anything else still
-    // nested inside .showcase) could ever win against it, no matter
-    // how high, since a nested stacking context can't reach out past
-    // its own ancestor's position in a higher one. Bumping .showcase's
-    // own z-index above the card's while one is expanded is what
-    // actually lets the quote sitting inside it stack back on top,
-    // instead of ending up hidden behind the card.
-    section.classList.toggle('has-expanded-card', i !== null);
     // documentElement only — matching the cube section's own
     // face-focus lock, a user-triggered, briefly-held lock rather
     // than the hero's automatic-on-scroll one (which needs body too

@@ -316,8 +316,29 @@
   // That snap — plus everything needing a beat to catch up — is what
   // read as the hero "restarting" and freezing for a moment on scroll.
   let curExplodeProgress = 0;
+  const heroElForTilt = document.getElementById('hero');
 
   function frame(){
+    // this ran unconditionally forever regardless of scroll position —
+    // a forced-layout getBoundingClientRect() read plus a full physics
+    // update across 100+ letter spans (title + subtitle combined),
+    // every single frame, for the entire rest of the page visit, long
+    // after the hero (and its title) had faded to invisible and
+    // scrolled away. None of that work has any visible effect once the
+    // title's own opacity has already reached 0, so skipping it once
+    // the hero is off-screen costs nothing visually — but it was
+    // measured, real, continuous work stacking on top of whatever else
+    // is animating, including right at the hero-to-next-section
+    // transition where a freeze was confirmed on video.
+    const heroVisible = !heroElForTilt || (()=>{
+      const r = heroElForTilt.getBoundingClientRect();
+      return r.bottom > 0 && r.top < window.innerHeight;
+    })();
+    if(!heroVisible){
+      requestAnimationFrame(frame);
+      return;
+    }
+
     const idle = performance.now() - lastMoveTime > IDLE_MS;
 
     const rect = title.getBoundingClientRect();
