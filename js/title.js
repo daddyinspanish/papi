@@ -29,6 +29,15 @@
     return t * t * (3 - 2 * t);
   }
 
+  // scales a flat per-frame lerp rate by how much real time actually
+  // passed, capped so a very long gap still glides quickly rather than
+  // snapping in one frame — see the matching note on curExplodeProgress
+  // below for what this fixes and why (the exact bug pattern already
+  // found and fixed this week in reviews-cube.js's own rotation easing)
+  function timeAlpha(perFrameRate, dt, cap){
+    return Math.min(cap, 1 - Math.pow(1 - perFrameRate, dt / 16.6667));
+  }
+
   // ---- shared per-character "parting" push physics + scroll-driven
   // outward "explode" — used for both the title and the subtitle, so
   // the two share one implementation instead of two copies of the same
@@ -165,6 +174,7 @@
   function computeHomes(){ titleGroup.computeHomes(); }
 
   function revealTitle(){
+    revealEyebrow();
     const FLY_DURATION = 800;
     const FLY_EASE = 'cubic-bezier(.16,1,.3,1)';
     const BOUNCE_DURATION = 560;
@@ -266,6 +276,38 @@
     subEffectsLive = true;
   });
 
+  // ---- eyebrow ("Est. Business-Ready Websites"): same per-letter
+  // cursor push physics as the title/subtitle, plus its own entrance —
+  // a per-letter "shine" sweep (a bright gold flash that settles to the
+  // resting color) rather than a plain fade, echoing the loader's own
+  // gold-fill-through-the-letters reveal so the two read as one brand
+  // moment rather than two different techniques ----
+  const eyebrow = document.getElementById('heroEyebrow');
+  let eyebrowChars = [];
+  let eyebrowGroup = null;
+  let eyebrowEffectsLive = false;
+  if(eyebrow){
+    const text = eyebrow.textContent;
+    eyebrow.innerHTML = '';
+    appendWordWrapped(eyebrow, text, eyebrowChars);
+    eyebrowGroup = createCharGroup(eyebrowChars);
+  }
+  function revealEyebrow(){
+    if(!eyebrow || !eyebrowChars.length) return;
+    const STAGGER = 26;
+    const SHINE_DURATION = 700;
+    eyebrowChars.forEach((el, i)=>{
+      el.style.animation = `eyebrowShine ${SHINE_DURATION}ms ease forwards`;
+      el.style.animationDelay = `${i * STAGGER}ms`;
+    });
+    const total = (eyebrowChars.length - 1) * STAGGER + SHINE_DURATION;
+    setTimeout(()=>{
+      eyebrowChars.forEach(el => { el.style.animation = 'none'; });
+      eyebrowGroup.computeHomes();
+      eyebrowEffectsLive = true;
+    }, total + 60);
+  }
+
   // width-only guard — on iOS Safari, scrolling for the very first time
   // in a session collapses the address bar, which fires a 'resize'
   // event that changes innerHeight but not innerWidth. Without this
@@ -327,10 +369,26 @@
   // deliberately turned off on these elements once the entrance ends.
   // That snap — plus everything needing a beat to catch up — is what
   // read as the hero "restarting" and freezing for a moment on scroll.
+  //
+  // the easing rate itself used to be a flat 0.06 "per frame" (assuming
+  // ~16.7ms between frames) — scrolling back up quickly drops the
+  // target fast, and closing only 6% of that gap per frame meant the
+  // exploded letters visibly sat still, stuck out at their scrolled-out
+  // position, for the better part of a second before catching back up
+  // to their real (already-correct) home — reading exactly like a
+  // freeze right as you scroll back. timeAlpha below scales the rate by
+  // actual elapsed time and raises the base rate, so it converges in a
+  // handful of frames regardless of frame timing, capped so it still
+  // glides rather than teleporting after a real pause.
   let curExplodeProgress = 0;
   const heroElForTilt = document.getElementById('hero');
+  let lastFrameTs = null;
 
-  function frame(){
+  function frame(ts){
+    if(ts === undefined) ts = performance.now();
+    const dt = lastFrameTs === null ? 16.6667 : ts - lastFrameTs;
+    lastFrameTs = ts;
+
     // this ran unconditionally forever regardless of scroll position —
     // a forced-layout getBoundingClientRect() read plus a full physics
     // update across 100+ letter spans (title + subtitle combined),
@@ -365,17 +423,35 @@
     const targetX = Math.max(-1, Math.min(1, normX)) * proximity;
     const targetY = Math.max(-1, Math.min(1, normY)) * proximity;
 
-    curX += (targetX - curX) * 0.035;
-    curY += (targetY - curY) * 0.035;
+    const tiltAlpha = timeAlpha(0.035, dt, 0.4);
+    curX += (targetX - curX) * tiltAlpha;
+    curY += (targetY - curY) * tiltAlpha;
 
     title.style.transform = `rotateX(${(-curY*MAX_TILT).toFixed(2)}deg) rotateY(${(curX*MAX_TILT).toFixed(2)}deg)`;
 
     const targetExplode = (effectsLive || subEffectsLive) ? getExplodeProgress() : 0;
-    curExplodeProgress += (targetExplode - curExplodeProgress) * 0.06;
+    const explodeAlpha = timeAlpha(0.12, dt, 0.4);
+    curExplodeProgress += (targetExplode - curExplodeProgress) * explodeAlpha;
     if(effectsLive) titleGroup.update(idle, curExplodeProgress);
     if(subEffectsLive) subGroup.update(idle, curExplodeProgress);
+    if(eyebrowEffectsLive) eyebrowGroup.update(idle, 0);
+
+    // "purpose" contrasts whatever is currently behind it — the plain
+    // white hero background, or the slime mass when it happens to be
+    // drifting past — rather than a single fixed color that would only
+    // ever look right against one of the two
+    if(window.Papi && window.Papi.getSlimeCoverage && em){
+      const emRect = em.getBoundingClientRect();
+      const coverage = window.Papi.getSlimeCoverage(emRect.left + emRect.width/2, emRect.top + emRect.height/2);
+      const onSlime = coverage > 0.35;
+      if(onSlime !== emOnSlime){
+        emOnSlime = onSlime;
+        em.classList.toggle('is-on-slime', onSlime);
+      }
+    }
 
     requestAnimationFrame(frame);
   }
+  let emOnSlime = false;
   frame();
 })();

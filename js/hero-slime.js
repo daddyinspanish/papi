@@ -72,9 +72,20 @@ import * as THREE from './vendor/three.module.min.js';
     mobileWidth: 640,
     stretchAmount: 5.5,      // how much a point elongates along its velocity direction
     compressAmount: 1.8,     // how much it compresses perpendicular to that direction while moving
-    colorEdge:  [0.20, 0.11, 0.02],
-    colorMid:   [0.86, 0.62, 0.24],
-    colorCore:  [1.00, 0.94, 0.76],
+    // these three MUST be monotonically increasing in luminance, edge
+    // to core — the first attempt at a lightened palette picked a mid
+    // tone that was, by luminance, darker than both the edge and core
+    // colors either side of it, which rendered as a dark ring around
+    // every point no matter how smoothly the two were interpolated:
+    // smooth interpolation only guarantees a smooth transition *between*
+    // the colors you give it, not that the result brightens in one
+    // consistent direction. Edge is a warm-but-fairly-rich gold rather
+    // than pale white — the alpha fade (edgeSoftness) already handles
+    // blending the true boundary into the white page; this is the color
+    // just inside that, not the boundary itself.
+    colorEdge:  [0.85, 0.64, 0.32],
+    colorMid:   [0.96, 0.82, 0.50],
+    colorCore:  [1.00, 0.97, 0.87],
     maxDt: 1000/24,          // caps the simulation step so a long paused-JS gap (see file header) resumes
                              // with a normal-sized step instead of one huge one — same lesson learned the
                              // hard way earlier rebuilding this hero background: an uncapped dt fed into a
@@ -133,7 +144,7 @@ import * as THREE from './vendor/three.module.min.js';
     float fbm(vec2 p){
       float v = 0.0;
       float amp = 0.5;
-      for(int i=0;i<4;i++){
+      for(int i=0;i<3;i++){
         v += amp * valueNoise(p);
         p *= 2.02;
         amp *= 0.5;
@@ -145,11 +156,25 @@ import * as THREE from './vendor/three.module.min.js';
       return mix(b, a, h) - k*h*(1.0-h);
     }
 
-    float field(vec2 p){
+    // aspect passed in explicitly rather than each call recomputing it —
+    // more importantly, this is what fixes control points only ever
+    // showing up in a narrow strip on portrait/narrow screens: the
+    // fragment coordinate below is aspect-corrected (p.x scaled by
+    // aspect) but the control points themselves, coming straight from
+    // JS in plain 0..1 space, were being compared against that scaled
+    // coordinate un-scaled — on a portrait phone (aspect ~0.46), the
+    // visible fragment x-range becomes roughly 0..0.46, while points
+    // still lived around x=0.3..0.7, so most of the mass sat outside
+    // that range entirely and only ever showed up hugging one edge.
+    // Scaling the point position by the same aspect factor puts both
+    // in the same coordinate space, so a point at normalized (0.5, 0.5)
+    // always lands at the visual centre regardless of aspect ratio.
+    float field(vec2 p, float aspect){
       float f = 1.0e5;
       for(int i=0;i<${pointCount};i++){
         vec4 pt = uPoints[i];
-        vec2 d = p - pt.xy;
+        vec2 ptPos = vec2(pt.x*aspect, pt.y);
+        vec2 d = p - ptPos;
         vec2 vel = pt.zw;
         float speed = length(vel);
         if(speed > 0.0005){
@@ -171,25 +196,46 @@ import * as THREE from './vendor/three.module.min.js';
       vec2 p = vec2(vUv.x*aspect, vUv.y);
 
       float n = fbm(p*3.2 + uTime*0.045) - 0.5;
-      float raw = field(p);
+      float raw = field(p, aspect);
       float f = raw - n*uNoiseStrength*0.14;
 
       float edge = 1.0 - smoothstep(0.0, uEdgeSoftness, f);
       if(edge <= 0.003) discard;
 
+      // fake normal from the field's own gradient, used only for soft
+      // diffuse shading (rounded, cloud-like depth) — deliberately no
+      // specular term here anymore: a sharp specular highlight is
+      // exactly what read as "pointy" hotspots on the mass rather than
+      // a smooth, heavy liquid surface
       float eps = 0.006;
-      float fx = field(p+vec2(eps,0.0)) - field(p-vec2(eps,0.0));
-      float fy = field(p+vec2(0.0,eps)) - field(p-vec2(0.0,eps));
+      float fx = field(p+vec2(eps,0.0), aspect) - field(p-vec2(eps,0.0), aspect);
+      float fy = field(p+vec2(0.0,eps), aspect) - field(p-vec2(0.0,eps), aspect);
       vec3 normal = normalize(vec3(-fx, -fy, eps*2.4));
 
       vec3 lightDir = normalize(vec3(-0.35, 0.55, 0.7));
+      // remapped into a narrower, higher floor range — the raw dot
+      // product put each point's own dead-centre (where the surface
+      // faces the camera straight-on, not the light) noticeably dimmer
+      // than the area actually facing the light beside it, which
+      // rendered as a small dark dot at every point's centre
       float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
-      float spec = pow(clamp(dot(reflect(-lightDir, normal), vec3(0.0,0.0,1.0)), 0.0, 1.0), 26.0);
+      diff = 0.6 + diff * 0.4;
 
+      // a clean two-segment monotonic ramp (edge -> mid -> core) rather
+      // than two independent additive blends — the previous version
+      // mixed edge->mid over most of the range and *separately* faded
+      // in up to 50% core on top of that, which dipped through a
+      // darker middle tone before brightening again toward the centre.
+      // That dip, combined with the true boundary already fading pale
+      // via alpha, was rendering as a dark ring around each point
+      // instead of one smoothly-lit mass.
       float depthT = clamp(-f / (uSlimeSize*0.85), 0.0, 1.0);
-      vec3 base = mix(uColorEdge, uColorMid, smoothstep(0.0, 0.62, depthT));
-      base = mix(base, uColorCore, smoothstep(0.55, 1.0, depthT)*0.5);
-      vec3 color = base*(0.5 + 0.5*diff) + vec3(1.0)*spec*uHighlightIntensity;
+      vec3 base = depthT < 0.5
+        ? mix(uColorEdge, uColorMid, smoothstep(0.0, 0.5, depthT))
+        : mix(uColorMid, uColorCore, smoothstep(0.5, 1.0, depthT));
+      // highlightIntensity now scales how much the diffuse (soft, broad)
+      // shading brightens the lit side — no sharp specular term at all
+      vec3 color = base*(0.62 + diff*(0.3 + uHighlightIntensity*0.25));
 
       gl_FragColor = vec4(color, edge*uOpacity);
     }
@@ -251,7 +297,10 @@ import * as THREE from './vendor/three.module.min.js';
     lastMoveTime = performance.now();
   }, { passive:true });
 
-  const WANDER_RANGE = 0.20; // how far from center (0.5,0.5) a target can wander
+  const WANDER_RANGE = 0.30; // how far from center (0.5,0.5) a target can wander — normalized units,
+                              // scaled the same way as the point positions themselves (see the aspect
+                              // fix in the shader's field()), so this roams proportionally regardless
+                              // of whether the viewport is portrait or landscape
   const WANDER_SPEED = 0.00012; // how fast the noise field driving targets itself evolves
 
   function stepPoints(dtMs, elapsedMs){
@@ -395,7 +444,31 @@ import * as THREE from './vendor/three.module.min.js';
     rafId = requestAnimationFrame(loop);
   }
 
+  // a plain-JS approximation of "how covered is this screen point by
+  // the mass right now" — used by title.js to swap "purpose"'s color
+  // between a dark-on-white default and a light-on-gold alternate
+  // depending on whether the slime currently happens to be behind it.
+  // Deliberately just the single closest point's distance, not a full
+  // smooth-min merge across all of them: this only needs to be a
+  // reasonable, smooth proxy for "is the mass roughly here," not a
+  // pixel-accurate match to the shader's own rendered edge.
   window.Papi = window.Papi || {};
+  window.Papi.getSlimeCoverage = function(clientX, clientY){
+    const rect = canvas.getBoundingClientRect();
+    if(!rect.width || !rect.height) return 0;
+    const x = (clientX - rect.left) / rect.width;
+    const y = (clientY - rect.top) / rect.height;
+    const aspect = rect.width / rect.height;
+    let minDist = Infinity;
+    for(let i=0;i<points.length;i++){
+      const p = points[i];
+      const dx = (x - p.x) * aspect;
+      const dy = (y - p.y);
+      const dist = Math.sqrt(dx*dx + dy*dy) - CONFIG.slimeSize;
+      if(dist < minDist) minDist = dist;
+    }
+    return 1 - Math.max(0, Math.min(1, minDist / (CONFIG.slimeSize * 0.9)));
+  };
   window.Papi.resizeField = resize;
   window.Papi.revealField = function(){
     if(revealed) return;

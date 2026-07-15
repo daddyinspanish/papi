@@ -17,10 +17,16 @@
   --paper-ink: #17181a;
   --paper-dim: rgba(23,24,26,.5);
 
-  /* live dominant color — driven by the background sweep in particles.js */
+  /* --accent/--style-contrast used to be driven live, every frame, by
+     the old hero particle field's color sweep — nothing updates them
+     anymore (the hero background is a static white+bokeh now, see
+     #hero below), so these are just fixed defaults. --style-contrast
+     in particular used to default to a light cream (right for the old
+     near-black hero); switched to a dark tone here since it's what the
+     brand mark/CTA border/"purpose" fall back to against the new white
+     hero background. */
   --accent: 201, 168, 105;      /* r,g,b */
-  /* live contrast color for "style" — always readable against --accent */
-  --style-contrast: 243, 237, 226;
+  --style-contrast: 26, 20, 13;
   /* soft cream-blended tint of --accent, used for supporting text */
   --accent-tint: 222, 208, 180;
 
@@ -119,13 +125,28 @@ body, a, .cta{ cursor:none; }
   position:relative;
   min-height:100vh;
   width:100%;
-  /* no fill of its own — the page's own dark background shows through,
-     so the only thing visibly painted here is the liquid field itself */
-  background:transparent;
+  background:#ffffff;
   visibility:hidden;
   opacity:0;
   transition:opacity 1.6s var(--ease-in-out);
   overflow:hidden;
+}
+/* soft, static bokeh field — a handful of large, softly-feathered
+   circles of light in warm pastel tones, purely decorative texture on
+   top of the plain white fill. Entirely static (no animation, no
+   per-frame JS) so it costs nothing beyond the one-time paint: no
+   scroll-freeze risk here at all, unlike the slime layer above it. */
+#hero::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255,214,140,.55) 0%, rgba(255,214,140,0) 40%),
+    radial-gradient(circle at 85% 12%, rgba(255,190,120,.4) 0%, rgba(255,190,120,0) 35%),
+    radial-gradient(circle at 78% 78%, rgba(255,225,170,.5) 0%, rgba(255,225,170,0) 42%),
+    radial-gradient(circle at 8% 82%, rgba(240,200,230,.35) 0%, rgba(240,200,230,0) 38%),
+    radial-gradient(circle at 50% 50%, rgba(255,235,200,.3) 0%, rgba(255,235,200,0) 55%);
 }
 #hero.is-visible{
   visibility:visible;
@@ -369,15 +390,24 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   font-weight:700;
   letter-spacing:.32em;
   text-transform:uppercase;
-  /* static cream, not the live --style-contrast sweep — that color
-     cycles all the way to a bright gold that, against the field's own
-     gold sweep, made this label hard to read at times. Matches the
-     main title's own static color; only the "purpose" accent word
-     stays on the dynamic contrast color. */
-  color:var(--cream);
+  /* dark, matching the main title — the hero background is now white,
+     not the near-black this was originally tuned for */
+  color:var(--paper-ink);
   margin-bottom:1.4rem;
-  text-shadow:0 2px 16px rgba(0,0,0,.6);
   transition:opacity .3s ease;
+}
+.eyebrow .char{
+  display:inline-block;
+  white-space:pre;
+  will-change:transform, opacity;
+}
+/* per-letter entrance for the eyebrow: a bright gold flash that settles
+   to the resting dark color, echoing the loader's own gold-fill-
+   through-the-letters reveal (see loader.js) rather than a plain fade */
+@keyframes eyebrowShine{
+  0%{ opacity:0; transform:translateY(8px); color:#fff6d6; text-shadow:0 0 18px rgba(255,205,110,.9), 0 0 34px rgba(255,205,110,.5); }
+  55%{ opacity:1; transform:translateY(0); color:#fff6d6; text-shadow:0 0 18px rgba(255,205,110,.9), 0 0 34px rgba(255,205,110,.5); }
+  100%{ opacity:1; transform:translateY(0); color:var(--paper-ink); text-shadow:none; }
 }
 
 .hero-title{
@@ -386,8 +416,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   font-size:clamp(2.4rem, 6.4vw, 5rem);
   line-height:1.04;
   letter-spacing:-.01em;
-  color:var(--cream);
-  text-shadow:0 4px 30px rgba(0,0,0,.65);
+  color:var(--paper-ink);
   transform-style:preserve-3d;
   will-change:transform;
   display:inline-block;
@@ -396,9 +425,17 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .hero-title em{
   font-style:italic;
   font-weight:400;
+  /* default: dark, matching the rest of the title, for when it's over
+     the plain white background. .is-on-slime (toggled by title.js,
+     which tracks whether the slime mass currently sits behind this
+     specific word) swaps it to a light color instead, for when the
+     gold mass itself is what's behind it */
   color:rgb(var(--style-contrast));
-  text-shadow:0 2px 24px rgba(0,0,0,.4);
-  transition:color .8s var(--ease-out);
+  transition:color .4s ease;
+}
+.hero-title em.is-on-slime{
+  color:#fffaf0;
+  text-shadow:0 1px 10px rgba(0,0,0,.25);
 }
 .hero-title .char{
   display:inline-block;
@@ -440,9 +477,8 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   margin:1.8rem auto 2.6rem;
   font-size:clamp(1.15rem, 2.4vw, 1.6rem);
   line-height:1.4;
-  color:#fff;
+  color:var(--paper-dim);
   font-weight:300;
-  text-shadow:0 2px 16px rgba(0,0,0,.6);
   opacity:0;
   transition:opacity .3s ease;
 }
