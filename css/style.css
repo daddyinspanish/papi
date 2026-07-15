@@ -354,6 +354,15 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   white-space:pre;
   will-change:transform, opacity;
 }
+/* keeps each word (and any punctuation stuck directly to it, like a
+   trailing comma) together as one unbreakable unit — without this,
+   splitting the subtitle into individual letter spans let the browser
+   wrap a line between a word and its own attached punctuation, which
+   is what showed up on iPhone as a comma stranded alone on its own line */
+.word-wrap{
+  display:inline-block;
+  white-space:nowrap;
+}
 
 .hero-sub{
   max-width:640px;
@@ -409,6 +418,14 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
   z-index:1;
 }
+/* the expanded fan-card re-parents onto <body> at z-index:500 (see
+   showcase.js) — this section is its direct sibling there, so its own
+   z-index has to clear 500 for anything still nested inside it (the
+   quote) to be able to stack back on top of that card, rather than
+   ending up hidden behind it. Scoped to only while a card is actually
+   expanded, matching the precedent the card itself already sets by
+   covering the fixed site header the same way in that state. */
+.showcase.has-expanded-card{ z-index:501; }
 
 /* stacked, in reading order: eyebrow, then the scrolling trade name,
    then the fan of preview cards underneath — was a two-column grid

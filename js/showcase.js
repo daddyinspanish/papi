@@ -166,6 +166,17 @@
     // while one actually is expanded
     if(sticky) sticky.classList.toggle('has-expanded-card', i !== null);
     fanEl.classList.toggle('has-expanded-card', i !== null);
+    // the expanded card is re-parented straight onto <body> (see
+    // above), so it stacks in body's own top-level z-index order —
+    // completely outside .showcase's own local stacking context. That
+    // meant no z-index given to the quote (or anything else still
+    // nested inside .showcase) could ever win against it, no matter
+    // how high, since a nested stacking context can't reach out past
+    // its own ancestor's position in a higher one. Bumping .showcase's
+    // own z-index above the card's while one is expanded is what
+    // actually lets the quote sitting inside it stack back on top,
+    // instead of ending up hidden behind the card.
+    section.classList.toggle('has-expanded-card', i !== null);
     // documentElement only — matching the cube section's own
     // face-focus lock, a user-triggered, briefly-held lock rather
     // than the hero's automatic-on-scroll one (which needs body too

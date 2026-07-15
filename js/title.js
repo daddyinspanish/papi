@@ -6,14 +6,17 @@
      right, then "not", "just", "design" each bounce into place one
      after another.
    - Slow, smooth gyro tilt toward the cursor, strongest near the title.
-   - As the visitor scrolls the hero away, each letter drifts outward
-     from the title's own centre and grows slightly while fading —
-     like the words are expanding out into the field's orbiting cluster
-     — rather than the wave-like ripple this used to do. Purely a
-     function of the current scroll position (not an accumulated
-     value), so it reverses cleanly back to normal on its own if the
-     visitor scrolls back up. The same physics runs on the subtitle's
-     letters once its own entrance (owned by title-dock.js) has settled.
+   - As the visitor scrolls the hero away, each of the title's letters
+     drifts outward from the title's own centre and grows slightly
+     while fading — like the words are expanding out into the field's
+     orbiting cluster — rather than the wave-like ripple this used to
+     do. The subtitle instead sinks straight down as one line and
+     fades, rather than repeating the title's own explode. Both are
+     purely a function of the current scroll position (not an
+     accumulated value), so they reverse cleanly back to normal on
+     their own if the visitor scrolls back up. The same per-letter
+     push/ripple physics runs on both, once each one's own entrance
+     (owned by title-dock.js for the subtitle) has settled.
    - Moving the cursor near the title (or subtitle) pushes the nearby
      letters apart, like they're being parted, then they spring back.
 =================================================================== */
@@ -36,10 +39,16 @@
   const DAMPING = .82;
   const EXPLODE_DISTANCE = 150; // px a letter drifts outward at full progress
   const EXPLODE_SCALE = 0.55;   // extra scale a letter grows to at full progress
+  const DROP_DISTANCE = 80;     // px the subtitle sinks by at full progress
+  const DROP_SHRINK = 0.15;     // extra shrink the subtitle settles into as it sinks
 
   let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
 
-  function createCharGroup(chars){
+  // exitMode 'explode' (default, the title) drifts each letter outward
+  // from the group's own centre as it fades; 'drop' (the subtitle)
+  // sinks the whole line straight down instead — a distinct exit so
+  // the subtitle doesn't just repeat the title's own effect
+  function createCharGroup(chars, exitMode){
     const charState = chars.map(()=>({ homeX:0, homeY:0, x:0, y:0, vx:0, vy:0 }));
     // the group's own centre — each letter's outward "explode" drift
     // is measured from here, so the whole word expands outward from
@@ -83,12 +92,19 @@
 
         let ex = 0, ey = 0, escale = 1;
         if(explodeProgress > 0.001){
-          const dx = st.homeX - centerX;
-          const dy = st.homeY - centerY;
-          const dist = Math.hypot(dx, dy) || 1;
-          ex = (dx / dist) * explodeProgress * EXPLODE_DISTANCE;
-          ey = (dy / dist) * explodeProgress * EXPLODE_DISTANCE;
-          escale = 1 + explodeProgress * EXPLODE_SCALE;
+          if(exitMode === 'drop'){
+            // straight down, uniformly — the whole line sinks together
+            // rather than each letter scattering its own direction
+            ey = explodeProgress * DROP_DISTANCE;
+            escale = 1 - explodeProgress * DROP_SHRINK;
+          } else {
+            const dx = st.homeX - centerX;
+            const dy = st.homeY - centerY;
+            const dist = Math.hypot(dx, dy) || 1;
+            ex = (dx / dist) * explodeProgress * EXPLODE_DISTANCE;
+            ey = (dy / dist) * explodeProgress * EXPLODE_DISTANCE;
+            escale = 1 + explodeProgress * EXPLODE_SCALE;
+          }
         }
         el.style.transform = `translate(${(st.x + ex).toFixed(2)}px, ${(st.y + ey).toFixed(2)}px) scale(${escale.toFixed(3)})`;
       });
@@ -190,11 +206,50 @@
   window.Papi = window.Papi || {};
   window.Papi.revealTitle = revealTitle;
 
+  // splits text into per-letter spans for the push/ripple physics,
+  // same as appendGroup above, but keeps each WORD wrapped in its own
+  // no-wrap span first — splitting straight into individual letter
+  // spans with nothing grouping them meant the browser's line-breaking
+  // no longer knew a word and its own trailing punctuation (like the
+  // comma right after "trust,") belonged together, and could wrap a
+  // line between them — showing up on iPhone as a comma stranded alone
+  // at the start of the next line. The letters inside each word wrapper
+  // are still their own spans, so the per-letter physics is unaffected;
+  // only the whitespace between words stays outside those wrappers, as
+  // the actual breakable point a line can wrap at.
+  function appendWordWrapped(parent, text, collector){
+    text.split(/(\s+)/).forEach(part=>{
+      if(part === '') return;
+      if(/^\s+$/.test(part)){
+        Array.from(part).forEach(()=>{
+          const span = document.createElement('span');
+          span.className = 'char';
+          span.textContent = ' ';
+          parent.appendChild(span);
+          collector.push(span);
+        });
+        return;
+      }
+      const wordWrap = document.createElement('span');
+      wordWrap.className = 'word-wrap';
+      Array.from(part).forEach(ch=>{
+        const span = document.createElement('span');
+        span.className = 'char';
+        span.textContent = ch;
+        wordWrap.appendChild(span);
+        collector.push(span);
+      });
+      parent.appendChild(wordWrap);
+    });
+  }
+
   // ---- subtitle: same per-letter ripple/push, once its own entrance
   // (a block "rolling into place," owned by title-dock.js) has settled.
   // Splitting it into spans here doesn't touch that entrance — it
   // still animates the whole element; these are just along for the ride
-  // until the ripple physics takes over their individual transforms. ----
+  // until the ripple physics takes over their individual transforms.
+  // Sinks straight down and fades on scroll-exit ('drop' mode) rather
+  // than repeating the title's own outward-explode effect. ----
   const sub = document.getElementById('heroSub');
   let subChars = [];
   let subGroup = null;
@@ -202,14 +257,8 @@
   if(sub){
     const text = sub.textContent;
     sub.innerHTML = '';
-    Array.from(text).forEach(ch=>{
-      const span = document.createElement('span');
-      span.className = 'char';
-      span.textContent = ch === ' ' ? ' ' : ch;
-      sub.appendChild(span);
-      subChars.push(span);
-    });
-    subGroup = createCharGroup(subChars);
+    appendWordWrapped(sub, text, subChars);
+    subGroup = createCharGroup(subChars, 'drop');
   }
   window.addEventListener('papi:subtitlerevealed', ()=>{
     if(!subGroup) return;
