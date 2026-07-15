@@ -136,8 +136,18 @@
   }
 
   function resize(){
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = canvas.offsetWidth;
+    // capped lower on narrow/phone-width screens — this canvas redraws
+    // every tile every frame forever (the orbit/breathe loop never
+    // idles down), and a Retina phone's devicePixelRatio (often 3)
+    // means clearRect/fillRect are working over roughly 2x the pixel
+    // area a capped-at-2 DPR already implies, purely for a soft,
+    // blurred-looking background field that doesn't need that
+    // sharpness — that extra cost is what was showing up as the
+    // animation stalling/stuttering ("freezing") specifically on
+    // iPhone as soon as scrolling (and everything else competing for
+    // the main thread with it) started.
+    DPR = Math.min(window.devicePixelRatio || 1, W < 640 ? 1 : 2);
     H = canvas.offsetHeight || window.innerHeight;
     canvas.width = W * DPR;
     canvas.height = H * DPR;
@@ -159,7 +169,11 @@
       oldByKey.set(tiles[i].key, tiles[i]);
     }
     tiles = [];
-    cell = W < 640 ? 58 : (W < 1100 ? 76 : 96);
+    // bigger (so fewer) tiles on narrow screens — was 58, cutting the
+    // per-frame tile count by roughly a third on a typical phone width,
+    // on top of the DPR cap above, to reduce this canvas's per-frame
+    // cost specifically where it was freezing/stuttering
+    cell = W < 640 ? 76 : (W < 1100 ? 76 : 96);
     cols = Math.ceil(W / cell) + 1;
     rows = Math.ceil(H / cell) + 1;
     centerX = W / 2;

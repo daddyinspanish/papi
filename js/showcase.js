@@ -296,9 +296,12 @@
         // its normal spot up top, and giving the card the whole
         // viewport height to grow into let it cover the quote (and the
         // section eyebrow above that) instead of sitting under them.
+        const baseH = expandedBaseH || card.offsetHeight;
+        const baseW = expandedBaseW || card.offsetWidth;
+
         const margin = isNarrow ? 14 : 20;
         const quoteRect = phraseEl ? phraseEl.getBoundingClientRect() : null;
-        const topBound = quoteRect && quoteRect.bottom > 0
+        const rawTopBound = quoteRect && quoteRect.bottom > 0
           ? quoteRect.bottom + margin
           : window.innerHeight * 0.26;
         // stopping short of the very bottom of the viewport (rather
@@ -311,11 +314,23 @@
         const bottomBound = isNarrow
           ? Math.min(window.innerHeight - margin, window.innerHeight * 0.86)
           : Math.min(window.innerHeight - margin, window.innerHeight * 0.84);
+        // guarantees at least enough room for a modest expansion
+        // (1.15x the card's own resting height), regardless of where
+        // the quote actually is on screen at the moment of tapping —
+        // tapping a card before the sticky section has fully "stuck"
+        // (or any other moment the quote's on-screen position is
+        // unexpectedly low/tall) could otherwise leave topBound close
+        // to or past bottomBound, next to no room left to expand into.
+        // That's exactly what showed up on iPhone as the card
+        // *shrinking* instead of expanding and dropping toward the
+        // bottom of the screen — centerY below is derived directly
+        // from topBound, so a topBound that's too large drags it down
+        // right along with it.
+        const minAvailable = baseH * 1.15;
+        const topBound = Math.max(0, Math.min(rawTopBound, bottomBound - minAvailable));
         const availableHeight = Math.max(120, bottomBound - topBound);
         const uncappedScale = isNarrow ? 1.55 : 1.75;
         const maxCardHeight = Math.min(availableHeight, window.innerHeight * 0.8);
-        const baseH = expandedBaseH || card.offsetHeight;
-        const baseW = expandedBaseW || card.offsetWidth;
         const expandScale = Math.min(uncappedScale, maxCardHeight / baseH);
         const centerY = topBound + availableHeight / 2;
         card.style.top = `${centerY.toFixed(1)}px`;
