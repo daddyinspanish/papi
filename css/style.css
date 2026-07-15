@@ -432,6 +432,34 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 }
 .showcase-fan.has-expanded-card{ overflow:visible; }
 
+/* above ~860px there's enough width to give the trade names their own
+   column on the left instead of stacking above the fan — scrolling
+   through them no longer competes with the fan/cards for the same
+   vertical space the way it did stacked. The fan gets the rest of the
+   width (and more height) to spread and expand into. The quote lives
+   inside .showcase-fan in the markup for exactly this — it rides along
+   with the fan's own column instead of staying centered over the old,
+   now-vacated stacked layout. Everything here is scoped to this
+   min-width query on purpose: the stacked, centered layout below it
+   (iPhone, iPad portrait) is untouched. */
+@media (min-width:861px){
+  .showcase-sticky{
+    display:grid;
+    grid-template-columns: clamp(200px, 24vw, 300px) 1fr;
+    column-gap: clamp(2.5rem, 5vw, 4.5rem);
+    align-items:center;
+  }
+  .showcase-sticky.has-expanded-card{ column-gap: clamp(2.5rem, 5vw, 4.5rem); }
+  .showcase-eyebrow{ grid-column:1; grid-row:1; text-align:left; }
+  .showcase-items{ grid-column:1; grid-row:2; }
+  .showcase-item{ text-align:left; }
+  .showcase-fan{
+    grid-column:2;
+    grid-row:1 / span 2;
+    height:min(48vh, 440px);
+  }
+}
+
 .fan-card{
   --card-scale:1;
   position:absolute;
@@ -1559,13 +1587,22 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   display:flex;
   /* panels don't stretch to match whichever is tallest — each sits at
      its own natural height, and quote-form.js sets this height
-     directly to match whichever one is currently active, animated by
-     this transition. Without it, the shorter call-back panel sat top-
-     aligned inside a box sized for the taller quote form, leaving a
-     dead gap below it that read as the bottom of the form missing. */
+     directly to match whichever one is currently active. Without it,
+     the shorter call-back panel sat top-aligned inside a box sized for
+     the taller quote form, leaving a dead gap below it that read as
+     the bottom of the form missing.
+     No CSS transition on this height change (there used to be one) —
+     animating height on a box that's also doing rounded-corner
+     overflow:hidden clipping is a known rough edge in WebKit: mid-
+     transition, the corner clip and the actual painted content could
+     drift out of sync, which showed up as the section's own gold
+     background bleeding through a gap at the card's bottom-right
+     corner every time the panels swapped. Snapping straight to the
+     new height (right as the swipe itself settles, so the height
+     change is never seen as its own separate motion) sidesteps the
+     whole class of bug. */
   align-items:flex-start;
   height:0;
-  transition:height .35s var(--ease-out);
   overflow-x:auto;
   scroll-snap-type:x mandatory;
   -webkit-overflow-scrolling:touch;

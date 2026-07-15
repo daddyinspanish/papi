@@ -124,6 +124,26 @@
       const nextCard = cards[prevIndex + 1];
       if(nextCard && nextCard.parentNode === fanEl) fanEl.insertBefore(cards[prevIndex], nextCard);
       else fanEl.appendChild(cards[prevIndex]);
+      // clear the expanded-state inline styles in this same synchronous
+      // pass, not on the next requestUpdate() frame — the values above
+      // (a large width/height/top computed to center the card in the
+      // *viewport* while it was position:fixed) would otherwise still
+      // be sitting on the element for that one frame while it's now
+      // position:absolute back in the fan instead, re-interpreting
+      // those same numbers against a completely different containing
+      // block. That flashed the card at a nonsense spot for a frame
+      // before the next update() call corrected it — the "glitches to
+      // a different position" on close. Clearing them now instead
+      // gives the browser a clean, empty starting style to paint on
+      // the very next frame, so the transform/opacity transition
+      // requestUpdate() applies afterward has a real, continuous
+      // starting point to animate from.
+      const prevCard = cards[prevIndex];
+      prevCard.style.top = '';
+      prevCard.style.width = '';
+      prevCard.style.height = '';
+      prevCard.style.transform = '';
+      prevCard.style.removeProperty('--card-scale');
     }
     // sits where the trade names normally do (those fade out below,
     // in the items loop) — keeps the focus on the image itself rather
