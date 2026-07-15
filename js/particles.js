@@ -22,15 +22,32 @@
    section, and it meant the animation only ever played once. The
    breathing loop is fully self-contained and independent of scroll,
    so there's nothing left to gate scrolling on.
+
+   Every tile is a real DOM element, not a pixel drawn on a shared
+   <canvas>. That used to be a canvas: one clearRect + a fresh fillRect
+   per tile, every frame, forever. On-device debug data proved the
+   JS/rAF loop itself was never the problem (it kept ticking within a
+   frame or two of on-time the whole time a freeze happened) — the
+   freeze was iOS Safari deferring the canvas's own repaint/raster
+   step for the length of a touch-scroll gesture, independent of
+   whether the JS driving it was healthy. transform/opacity on a real
+   element are pure compositor properties: the browser can update them
+   by recompositing an already-rasterized layer, with no repaint step
+   to defer, which is exactly why the CSS scroll-timeline pieces
+   elsewhere on this page (the hero text fade, the cube's fade-in)
+   never had this problem. Moving the tiles themselves onto that same
+   footing is what actually closes the gap — background-color is the
+   one property below that still triggers a per-tile repaint, but the
+   color sweep moves so slowly (a 7+ second cycle) that deferring it
+   for the length of a single gesture is not something anyone perceives.
 =================================================================== */
 (function(){
-  const canvas = document.getElementById('fieldCanvas');
-  if(!canvas) return;
-  const ctx = canvas.getContext('2d');
+  const container = document.getElementById('fieldCanvas');
+  if(!container) return;
   const root = document.documentElement;
   const heroEl = document.getElementById('hero');
 
-  let W, H, DPR;
+  let W, H;
   let cell = 90;
   let tiles = [];
   let cols = 0, rows = 0;
@@ -170,7 +187,7 @@
   // reused across every call rather than allocating a fresh 3-element
   // array each time — both call sites immediately destructure the
   // result into plain numbers and never hold onto the array itself, so
-  // sharing one mutable output is safe. With up to 100+ tiles redrawn
+  // sharing one mutable output is safe. With up to 100+ tiles updated
   // every frame forever, that's a continuous stream of small array
   // allocations removed — exactly the kind of steady garbage-collector
   // pressure that can surface as an occasional stall on a phone,
@@ -187,43 +204,30 @@
   }
 
   function resize(){
-    W = canvas.offsetWidth;
-    // capped lower on narrow/phone-width screens — this canvas redraws
-    // every tile every frame forever (the orbit/breathe loop never
-    // idles down), and a Retina phone's devicePixelRatio (often 3)
-    // means clearRect/fillRect are working over roughly 2x the pixel
-    // area a capped-at-2 DPR already implies, purely for a soft,
-    // blurred-looking background field that doesn't need that
-    // sharpness — that extra cost is what was showing up as the
-    // animation stalling/stuttering ("freezing") specifically on
-    // iPhone as soon as scrolling (and everything else competing for
-    // the main thread with it) started.
-    DPR = Math.min(window.devicePixelRatio || 1, W < 640 ? 1 : 2);
-    H = canvas.offsetHeight || window.innerHeight;
-    canvas.width = W * DPR;
-    canvas.height = H * DPR;
-    ctx.setTransform(DPR,0,0,DPR,0,0);
+    W = container.offsetWidth;
+    H = container.offsetHeight || window.innerHeight;
     buildGrid();
   }
 
   function buildGrid(){
     // carry over any tile already in motion (orbiting, mid-push, mid-
-    // grow) by grid slot — buildGrid can fire more than once for
-    // reasons that have nothing to do with a real layout change
-    // (fonts finishing load, the scrollbar appearing/disappearing
-    // right as the loader hands off, a mobile browser's address bar
-    // hiding on scroll). Resetting every tile straight back to its
-    // static hx/hy each time made those innocuous re-measures look
-    // like the orbit glitching or the cursor-push pulsing.
+    // grow) by grid slot, including its actual DOM element — buildGrid
+    // can fire more than once for reasons that have nothing to do with
+    // a real layout change (fonts finishing load, the scrollbar
+    // appearing/disappearing right as the loader hands off, a mobile
+    // browser's address bar hiding on scroll). Resetting every tile
+    // straight back to its static hx/hy each time made those innocuous
+    // re-measures look like the orbit glitching or the cursor-push
+    // pulsing; recreating every element from scratch each time would
+    // also mean briefly having zero tiles on screen mid-rebuild.
     const oldByKey = new Map();
     for(let i=0;i<tiles.length;i++){
       oldByKey.set(tiles[i].key, tiles[i]);
     }
+    const usedKeys = new Set();
     tiles = [];
     // bigger (so fewer) tiles on narrow screens — was 58, cutting the
-    // per-frame tile count by roughly a third on a typical phone width,
-    // on top of the DPR cap above, to reduce this canvas's per-frame
-    // cost specifically where it was freezing/stuttering
+    // per-frame tile count by roughly a third on a typical phone width
     cell = W < 640 ? 76 : (W < 1100 ? 76 : 96);
     cols = Math.ceil(W / cell) + 1;
     rows = Math.ceil(H / cell) + 1;
@@ -238,6 +242,21 @@
         const dy = (hy + cell/2) - centerY;
         const key = r + '_' + c;
         const old = oldByKey.get(key);
+        usedKeys.add(key);
+        const gap = old ? old.gap : 2 + Math.random()*2;
+        // the tile's own box is sized once here, in real CSS pixels —
+        // never touched again after this. The per-frame reveal/breathe
+        // grow-shrink below is a transform:scale() around that fixed
+        // box, not a width/height change, which is what keeps every
+        // per-frame update to pure compositor properties
+        const size = cell - gap;
+        let el = old ? old.el : document.createElement('div');
+        if(!old){
+          el.className = 'field-tile';
+          container.appendChild(el);
+        }
+        el.style.width = `${size}px`;
+        el.style.height = `${size}px`;
         tiles.push({
           key,
           hx, hy,
@@ -246,13 +265,21 @@
           vx: old ? old.vx : 0,
           vy: old ? old.vy : 0,
           ny: H ? hy / H : 0,
-          gap: old ? old.gap : 2 + Math.random()*2,
+          gap, size,
           dist: Math.sqrt(dx*dx + dy*dy) / maxDist,
           angle0: Math.atan2(dy, dx),
           radius: Math.sqrt(dx*dx + dy*dy),
+          el,
         });
       }
     }
+    // drop any element left over from a shrunk grid (rare — only
+    // happens on a big enough resize to change row/col counts)
+    oldByKey.forEach((oldTile, key)=>{
+      if(!usedKeys.has(key) && oldTile.el && oldTile.el.parentNode){
+        oldTile.el.parentNode.removeChild(oldTile.el);
+      }
+    });
   }
 
   // ignore resize events that only changed height — a mobile browser
@@ -269,22 +296,22 @@
   window.addEventListener('load', resize);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(resize);
 
-  // tiles are positioned in canvas-local coordinates (0,0 at the
-  // canvas's own top-left), but mouse/touch events report viewport-
+  // tiles are positioned in container-local coordinates (0,0 at the
+  // container's own top-left), but mouse/touch events report viewport-
   // relative coordinates — those only happen to match at the very top
   // of the page with zero scroll. The moment the hero has scrolled at
-  // all, the canvas's viewport position shifts up while tile positions
-  // don't, so without this conversion the push effect drifts out of
-  // sync with the cursor by however far the page has scrolled — tiles
-  // lower on the field need the cursor further down than the viewport
-  // even allows, reading as "hovering near the bottom does nothing."
-  function toCanvasXY(clientX, clientY){
-    const rect = canvas.getBoundingClientRect();
+  // all, the container's viewport position shifts up while tile
+  // positions don't, so without this conversion the push effect drifts
+  // out of sync with the cursor by however far the page has scrolled —
+  // tiles lower on the field need the cursor further down than the
+  // viewport even allows, reading as "hovering near the bottom does nothing."
+  function toLocalXY(clientX, clientY){
+    const rect = container.getBoundingClientRect();
     return [clientX - rect.left, clientY - rect.top];
   }
 
   window.addEventListener('mousemove', (e)=>{
-    const [x,y] = toCanvasXY(e.clientX, e.clientY);
+    const [x,y] = toLocalXY(e.clientX, e.clientY);
     mouse.x = x;
     mouse.y = y;
     mouse.active = true;
@@ -293,7 +320,7 @@
   window.addEventListener('mouseleave', ()=>{ mouse.active = false; });
   window.addEventListener('touchmove', (e)=>{
     if(e.touches && e.touches[0]){
-      const [x,y] = toCanvasXY(e.touches[0].clientX, e.touches[0].clientY);
+      const [x,y] = toLocalXY(e.touches[0].clientX, e.touches[0].clientY);
       mouse.x = x;
       mouse.y = y;
       mouse.active = true;
@@ -330,7 +357,7 @@
   // correctly). There is no accumulator left to jump — a long gap
   // between frames just means the next frame computes the exact
   // angle/progress that real elapsed time says it should be, and
-  // paints it directly. Whatever the gap was, the motion itself is
+  // applies it directly. Whatever the gap was, the motion itself is
   // still just a continuous, ordinary function of time; it never
   // stops being that function, it just isn't sampled as often for
   // that one gap.
@@ -405,8 +432,6 @@
     const [h0,s0,l0] = rgbToHsl(curColor[0], curColor[1], curColor[2]);
     const [h1,s1,l1] = rgbToHsl(nextColor[0], nextColor[1], nextColor[2]);
 
-    ctx.clearRect(0,0,W,H);
-
     if(introPhase !== 'pending'){
       const orbiting = introPhase === 'held';
       for(let i=0;i<tiles.length;i++){
@@ -440,22 +465,35 @@
         t.x += t.vx;
         t.y += t.vy;
 
-        // checked before any of the sweep/hue/rgb math below, not
-        // after — introPhase is 'held' forever now (the cluster never
-        // grows to fill the whole screen), so most tiles in the grid
-        // sit outside the visible cluster at any given moment and used
-        // to still pay for a full color computation (several lerps
-        // plus an hslToRgb call) only to have it thrown away by this
-        // same check a few lines later. The physics above still has to
-        // run for every tile regardless (so they're in the right place
-        // whenever they do become visible, e.g. as the cluster
-        // breathes outward) — only the color/paint work is worth
-        // skipping.
         let reveal = 1;
         if(introPhase === 'held'){
           reveal = smoothstep(t.dist - INTRO_FEATHER, t.dist + INTRO_FEATHER, introProgress);
-          if(reveal <= 0.001) continue;
         }
+
+        // position and scale/opacity are transform/opacity only — pure
+        // compositor properties, applied every frame regardless of
+        // reveal (unlike the old canvas version, skipping a hidden
+        // tile's draw call isn't saving any real paint work here, since
+        // there's no shared bitmap to redraw). t.el's own box is a
+        // fixed size set once in buildGrid, so translate3d(t.x, t.y, 0)
+        // alone (no extra centering math) lands it exactly where the
+        // old ccx/ccy-centered fillRect used to draw, because scale()
+        // pivots around transform-origin:center by default rather than
+        // moving the box's top-left.
+        const scale = 0.35 + 0.65 * reveal;
+        t.el.style.transform = `translate3d(${t.x.toFixed(1)}px, ${t.y.toFixed(1)}px, 0) scale(${scale.toFixed(3)})`;
+        t.el.style.opacity = reveal.toFixed(3);
+
+        // checked before any of the sweep/hue/rgb math below — most
+        // tiles in the grid sit outside the visible cluster at any
+        // given moment (introPhase is 'held' forever now; the cluster
+        // never grows to fill the whole screen), so there's no reason
+        // to pay for a full color computation only to paint it fully
+        // transparent. background-color is the one property here that
+        // still triggers a real per-tile repaint (unlike the transform/
+        // opacity above), so skipping it when nothing will show is
+        // worth it both for the color math and for that paint cost.
+        if(reveal <= 0.001) continue;
 
         // where this tile sits along the current sweep direction
         const thresh = direction === 1 ? (1 - t.ny) : t.ny;
@@ -469,16 +507,8 @@
         const ll2 = colorWarmup >= 1 ? ll : lerp(Math.min(1, ll + (1 - ll) * 0.6), ll, colorWarmup);
         const [r,g,b] = hslToRgb(hh, ss2, ll2);
 
-        const scale = 0.35 + 0.65 * reveal;
-        const size = (cell - t.gap) * scale;
-        const ccx = t.x + (cell - t.gap) / 2;
-        const ccy = t.y + (cell - t.gap) / 2;
-
-        ctx.globalAlpha = reveal;
-        ctx.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
-        ctx.fillRect(ccx - size/2, ccy - size/2, size, size);
+        t.el.style.backgroundColor = `rgb(${r|0},${g|0},${b|0})`;
       }
-      ctx.globalAlpha = 1;
     }
 
     // whatever color the vertical middle currently shows becomes the

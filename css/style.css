@@ -213,18 +213,31 @@ body, a, .cta{ cursor:none; }
   }
 }
 
+/* a plain positioning container now, not a <canvas> — js/particles.js
+   fills it with one real .field-tile element per tile, each moved via
+   transform/opacity only, so the browser can update them by
+   recompositing already-rasterized layers instead of repainting a
+   shared bitmap every frame (see the note at the top of particles.js
+   for why that's what actually fixed the hero freeze on iOS) */
 #fieldCanvas{
   position:absolute;
   inset:0;
-  width:100%;
-  height:100%;
-  display:block;
-  /* its own compositor layer, decoupled from the hero copy sitting on
-     top of it (the title/subtitle characters changing transform every
-     frame right alongside it) — without this they could end up
-     sharing a paint/layer boundary, where one repainting drags the
-     other along with it */
-  will-change:transform;
+  overflow:hidden;
+  pointer-events:none;
+}
+
+.field-tile{
+  position:absolute;
+  left:0;
+  top:0;
+  opacity:0;
+  transform-origin:center center;
+  /* each tile its own compositor layer, decoupled both from its
+     sibling tiles and from the hero copy sitting on top of the field
+     (the title/subtitle characters changing transform every frame
+     right alongside it) — without this they could end up sharing a
+     paint/layer boundary, where one repainting drags the others along */
+  will-change:transform, opacity;
 }
 
 /* a soft diagonal sheen so the field reads as glass, not just a blurred
