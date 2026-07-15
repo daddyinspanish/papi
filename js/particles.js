@@ -116,23 +116,34 @@
     }
     return [h,s,l];
   }
+  // hoisted out of hslToRgb — it used to be redefined as a fresh
+  // closure on every single call (up to 100+ times per frame, one per
+  // tile, forever), which is its own small allocation on top of the array below
+  function hue2rgb(p,q,t){
+    if(t<0) t+=1;
+    if(t>1) t-=1;
+    if(t<1/6) return p+(q-p)*6*t;
+    if(t<1/2) return q;
+    if(t<2/3) return p+(q-p)*(2/3-t)*6;
+    return p;
+  }
+  // reused across every call rather than allocating a fresh 3-element
+  // array each time — both call sites immediately destructure the
+  // result into plain numbers and never hold onto the array itself, so
+  // sharing one mutable output is safe. With up to 100+ tiles redrawn
+  // every frame forever, that's a continuous stream of small array
+  // allocations removed — exactly the kind of steady garbage-collector
+  // pressure that can surface as an occasional stall on a phone,
+  // regardless of which specific moment it happens to land on.
+  const rgbOut = [0,0,0];
   function hslToRgb(h,s,l){
-    if(s===0) return [l*255,l*255,l*255];
-    const hue2rgb=(p,q,t)=>{
-      if(t<0) t+=1;
-      if(t>1) t-=1;
-      if(t<1/6) return p+(q-p)*6*t;
-      if(t<1/2) return q;
-      if(t<2/3) return p+(q-p)*(2/3-t)*6;
-      return p;
-    };
+    if(s===0){ rgbOut[0]=rgbOut[1]=rgbOut[2]=l*255; return rgbOut; }
     const q = l<0.5 ? l*(1+s) : l+s-l*s;
     const p = 2*l-q;
-    return [
-      hue2rgb(p,q,h+1/3)*255,
-      hue2rgb(p,q,h)*255,
-      hue2rgb(p,q,h-1/3)*255,
-    ];
+    rgbOut[0] = hue2rgb(p,q,h+1/3)*255;
+    rgbOut[1] = hue2rgb(p,q,h)*255;
+    rgbOut[2] = hue2rgb(p,q,h-1/3)*255;
+    return rgbOut;
   }
 
   function resize(){
@@ -352,6 +363,23 @@
         t.x += t.vx;
         t.y += t.vy;
 
+        // checked before any of the sweep/hue/rgb math below, not
+        // after — introPhase is 'held' forever now (the cluster never
+        // grows to fill the whole screen), so most tiles in the grid
+        // sit outside the visible cluster at any given moment and used
+        // to still pay for a full color computation (several lerps
+        // plus an hslToRgb call) only to have it thrown away by this
+        // same check a few lines later. The physics above still has to
+        // run for every tile regardless (so they're in the right place
+        // whenever they do become visible, e.g. as the cluster
+        // breathes outward) — only the color/paint work is worth
+        // skipping.
+        let reveal = 1;
+        if(introPhase === 'held'){
+          reveal = smoothstep(t.dist - INTRO_FEATHER, t.dist + INTRO_FEATHER, introProgress);
+          if(reveal <= 0.001) continue;
+        }
+
         // where this tile sits along the current sweep direction
         const thresh = direction === 1 ? (1 - t.ny) : t.ny;
         const mix = smoothstep(thresh - FEATHER, thresh + FEATHER, sweepProgress);
@@ -363,12 +391,6 @@
         const ss2 = colorWarmup >= 1 ? ss : lerp(ss * 0.3, ss, colorWarmup);
         const ll2 = colorWarmup >= 1 ? ll : lerp(Math.min(1, ll + (1 - ll) * 0.6), ll, colorWarmup);
         const [r,g,b] = hslToRgb(hh, ss2, ll2);
-
-        let reveal = 1;
-        if(introPhase === 'held'){
-          reveal = smoothstep(t.dist - INTRO_FEATHER, t.dist + INTRO_FEATHER, introProgress);
-          if(reveal <= 0.001) continue;
-        }
 
         const scale = 0.35 + 0.65 * reveal;
         const size = (cell - t.gap) * scale;
