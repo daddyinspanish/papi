@@ -146,6 +146,20 @@
       prevCard.style.transform = '';
       prevCard.style.removeProperty('--card-scale');
     }
+    // both ancestors normally clip to keep the fan's rotated/off-centre
+    // cards from spilling past the section — the expanded card is
+    // meant to spill past that on purpose, so overflow opens up only
+    // while one actually is expanded. This also shrinks the gap between
+    // the eyebrow/items/fan flex column, which — since the column is
+    // vertically centered as a whole — actually moves the eyebrow
+    // itself (a smaller combined stack height re-centers lower). That
+    // has to happen *before* the eyebrow's position is read for the
+    // quote below: reading it first and applying this after meant the
+    // quote got pinned to the eyebrow's old spot, while the eyebrow
+    // itself then visibly shifted down toward it — the section title
+    // sliding right above the quote on expand, and back on collapse.
+    if(sticky) sticky.classList.toggle('has-expanded-card', i !== null);
+    fanEl.classList.toggle('has-expanded-card', i !== null);
     // sits where the trade names normally do (those fade out below,
     // in the items loop) — keeps the focus on the image itself rather
     // than adding another caption on top of the card
@@ -208,12 +222,6 @@
         fanEl.appendChild(phraseEl);
       }
     }
-    // both ancestors normally clip to keep the fan's rotated/off-centre
-    // cards from spilling past the section — the expanded card is
-    // meant to spill past that on purpose, so overflow opens up only
-    // while one actually is expanded
-    if(sticky) sticky.classList.toggle('has-expanded-card', i !== null);
-    fanEl.classList.toggle('has-expanded-card', i !== null);
     // documentElement only — matching the cube section's own
     // face-focus lock, a user-triggered, briefly-held lock rather
     // than the hero's automatic-on-scroll one (which needs body too

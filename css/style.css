@@ -180,6 +180,37 @@ body, a, .cta{ cursor:none; }
     animation-timeline: --hero-exit;
     animation-range: exit 0% exit 100%;
   }
+
+  /* same idea, applied to the cube's own fade/fall-in as it scrolls
+     into view — reviews-cube.js drives #cubeGroup's opacity/transform
+     from window.scrollY in its own rAF loop, same as the hero did.
+     Anchored to #cubeSection's "entry" phase (0% = section starts
+     entering from below, 100% = fully entered — spans one full
+     viewport-height of scroll), which is the standard-range
+     equivalent of the JS version's own introRaw, just not scaled by
+     its 0.7 factor — the keyframe stops below compress the actual
+     motion into roughly the first 70% of this range to compensate,
+     approximating the JS timing rather than matching it exactly. The
+     cube's own tumble rotation (a continuous, unbounded sin/cos
+     function of total scroll distance) stays JS-driven — that part
+     doesn't have a clean bounded-keyframe equivalent the way a fade/
+     fall-in does. */
+  #cubeSection{
+    view-timeline-name: --cube-entry;
+    view-timeline-axis: block;
+  }
+  @keyframes cubeIntroFadeFall{
+    0%, 14%{ opacity:0; transform:translateY(-17.5vh); }
+    36%{ opacity:.3; transform:translateY(-11.7vh); }
+    57%{ opacity:.85; transform:translateY(-2.9vh); }
+    66%{ opacity:1; transform:translateY(.7vh); }
+    75%, 100%{ opacity:1; transform:translateY(0); }
+  }
+  #cubeGroup{
+    animation: cubeIntroFadeFall linear both;
+    animation-timeline: --cube-entry;
+    animation-range: entry 0% entry 100%;
+  }
 }
 
 #fieldCanvas{
