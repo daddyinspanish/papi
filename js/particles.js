@@ -334,6 +334,13 @@
       introProgress = lerp(HELD_REVEAL, EXPANDED_REVEAL, eased);
     }
 
+    // no-op unless ?debug=1 was used to turn on js/debug-hud.js — flags
+    // any frame gap long enough to be a real Safari JS pause (not
+    // ordinary jitter) and records what these values were right when it
+    // happened, so a gap that shows up on a real iPhone leaves hard
+    // numbers behind instead of just "it froze again"
+    window.PapiDebug.log('particles', { ts, sweepProgress, orbitPhase, introProgress });
+
     // 0 right as the field first appears, easing to 1 over
     // COLOR_WARMUP_DURATION — blended in below toward a paler, softer
     // tint at 0 so the very first color the visitor sees isn't already

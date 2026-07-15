@@ -468,6 +468,10 @@
     curScale += (targetScale - curScale) * rotAlpha;
     cube.style.transform = `scale(${curScale.toFixed(3)}) rotateX(${curRx.toFixed(2)}deg) rotateY(${curRy.toFixed(2)}deg)`;
 
+    // no-op unless ?debug=1 was used to turn on js/debug-hud.js — see
+    // the matching note in particles.js
+    window.PapiDebug.log('cube', { ts, dt, curRx, curRy, targetRx, targetRy });
+
     // the fall itself lives on the group (not the wrap or cube, which
     // already own the idle-float CSS animation and the rotate/scale
     // above) so none of these transforms fight each other. A modest
