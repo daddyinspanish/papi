@@ -253,21 +253,15 @@
       const r = heroEl.getBoundingClientRect();
       heroVisible = r.bottom > 0 && r.top < window.innerHeight;
     }
-    // this canvas keeps orbiting/breathing forever, which is real,
-    // continuous per-frame work (a few hundred tiles, each redrawn
-    // every frame) — harmless while the hero is on screen, but with
-    // nothing gating it, it kept doing that same work even once the
-    // hero had scrolled fully out of view, competing with the browser
-    // for frame time right as it tried to composite the scroll itself.
-    // That's what showed up as a freeze/stutter right as the hero
-    // handed off to the next section. Skipping the whole redraw while
-    // the canvas isn't visible removes that contention entirely — its
-    // state (orbit phase, sweep, breathing cycle) just picks back up
-    // exactly where it left off if the visitor scrolls back up.
-    if(!heroVisible){
-      requestAnimationFrame(step);
-      return;
-    }
+    // used to skip the whole redraw once the hero scrolled fully out of
+    // view, to stop it competing for frame time with whatever the next
+    // section was animating. On iPhone specifically that pause-then-
+    // resume was itself visible right at the edge of the hero's visible
+    // range (innerHeight shifting slightly as Safari's address bar
+    // collapses mid-scroll flips heroVisible back and forth), reading
+    // as the orbit stalling and restarting rather than running
+    // continuously. Letting it just run all the time avoids that
+    // entirely — simpler and never has a pause/resume seam to begin with.
 
     // release the cursor effect once the pointer has sat still a while
     if(mouse.active && ts - lastMoveTime > IDLE_MS) mouse.active = false;

@@ -54,7 +54,11 @@
   }
 
   // split the eyebrow into words so they can cascade in one after
-  // another, same idea as the hero title's per-letter reveal
+  // another, same idea as the hero title's per-letter reveal. "Papi"
+  // gets its own italic style (matching how the brand name is styled
+  // everywhere else it appears mid-sentence) — rebuilding from
+  // textContent/split loses any markup that was in the source HTML, so
+  // that style has to be reapplied here rather than just in the HTML
   let eyebrowWords = [];
   if(eyebrowEl){
     const text = eyebrowEl.textContent.trim();
@@ -62,6 +66,7 @@
     eyebrowWords = text.split(/\s+/).map(word=>{
       const span = document.createElement('span');
       span.className = 'cube-eyebrow-word';
+      if(word.toLowerCase() === 'papi') span.classList.add('cube-eyebrow-word--brand');
       span.textContent = word;
       eyebrowEl.appendChild(span);
       return span;

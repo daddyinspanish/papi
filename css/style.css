@@ -949,6 +949,13 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   color:transparent;
   animation:cubeEyebrowShine 5s ease-in-out infinite;
 }
+/* "Papi" reads as the brand name dropped into the sentence, not just
+   another word in it — italic, a touch bolder, same family as the
+   brand mark's own em styling elsewhere on the page */
+.cube-eyebrow-word--brand{
+  font-style:italic;
+  font-weight:600;
+}
 @keyframes cubeEyebrowShine{
   0%{ background-position:0% 50%; }
   50%{ background-position:100% 50%; }
