@@ -894,27 +894,38 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .principles-content{
   position:relative;
   z-index:2;
-  width:min(640px, 86vw);
+  width:100%;
   height:100%;
-  text-align:center;
   /* individual stages/CTAs re-enable this themselves once active —
      otherwise whichever stage is fading in/out would still be able to
      intercept clicks meant for the canvas or the section beneath */
   pointer-events:none;
 }
-.principles-intro,
-.principles-stage{
+/* the connecting line — a single shared element, repositioned and
+   relabelled each frame to point from wherever the sphere's currently-
+   visible surface is toward whichever one stage is active, rather than
+   seven separate lines. Sits between the canvas and the text layer. */
+#principlesLines{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:1;
+  pointer-events:none;
+  overflow:visible;
+}
+#principlesLine{
+  stroke:rgba(228,205,154,.75);
+  stroke-width:1.25;
+  opacity:0;
+}
+.principles-intro{
   position:absolute;
   left:50%;
   top:50%;
   transform:translate(-50%,-50%);
   width:min(560px, 84vw);
-  /* opacity/transform set directly, every frame, from scroll position
-     in principles-liquid.js — no CSS transition here, which would just
-     fight a value that's already being driven continuously */
-  opacity:0;
-}
-.principles-intro{
+  text-align:center;
   font-family:'Fraunces', serif;
   font-style:italic;
   font-weight:400;
@@ -923,23 +934,35 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   line-height:1.4;
   opacity:1;
 }
+/* per-stage callouts: JS sets transform (translate to the line's fixed
+   outer endpoint) and opacity every frame from scroll position — no
+   CSS transition here, which would just fight a value that's already
+   being driven continuously. left:0;top:0 so the JS translate is the
+   element's entire position, not an offset from some other layout. */
+.principles-stage{
+  position:absolute;
+  left:0;
+  top:0;
+  width:min(280px, 56vw);
+  opacity:0;
+}
 .principles-eyebrow{
   font-family:'Fraunces', serif;
   font-weight:500;
   font-style:italic;
-  font-size:clamp(1.8rem, 4.4vw, 3rem);
+  font-size:clamp(1.3rem, 2.6vw, 1.7rem);
   color:#ffdd7a;
-  text-shadow:0 0 40px rgba(255,205,90,.35);
-  margin-bottom:1rem;
+  text-shadow:0 0 30px rgba(255,205,90,.3);
+  margin-bottom:.5rem;
 }
 .principles-copy{
-  font-size:clamp(1.05rem, 2.2vw, 1.3rem);
+  font-size:.92rem;
   color:var(--cream-dim);
-  line-height:1.55;
+  line-height:1.5;
 }
 .principles-closing{
-  margin-top:1.2rem;
-  font-size:clamp(1rem, 2vw, 1.15rem);
+  margin-top:1rem;
+  font-size:.92rem;
   color:var(--cream-dim);
   font-style:italic;
 }
@@ -947,15 +970,15 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   display:inline-flex;
   align-items:center;
   gap:.6rem;
-  margin-top:1.6rem;
-  padding:.9rem 1.7rem;
+  margin-top:1.2rem;
+  padding:.8rem 1.5rem;
   border-radius:999px;
   border:1px solid rgba(228,205,154,.5);
   background:rgba(203,168,105,.14);
   backdrop-filter:blur(8px);
   -webkit-backdrop-filter:blur(8px);
   color:var(--cream);
-  font-size:.82rem;
+  font-size:.76rem;
   letter-spacing:.08em;
   text-transform:uppercase;
   text-decoration:none;
@@ -965,19 +988,11 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   background:rgba(203,168,105,.28);
   border-color:rgba(228,205,154,.85);
 }
-.principles-prompts{
-  margin-top:1.4rem;
-  display:flex;
-  flex-direction:column;
-  gap:.5rem;
-  font-size:.95rem;
-  color:var(--cream-dim);
-  font-style:italic;
-}
 
 @media (max-width:640px){
-  .principles-eyebrow{ font-size:clamp(1.5rem, 6vw, 2.1rem); }
-  .principles-copy{ font-size:1rem; }
+  .principles-stage{ width:min(220px, 50vw); }
+  .principles-eyebrow{ font-size:1.2rem; }
+  .principles-copy{ font-size:.85rem; }
 }
 
 /* ===================================================================
