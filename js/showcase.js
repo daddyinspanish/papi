@@ -95,10 +95,20 @@
   // the page would silently swap or exit the expanded card, which felt
   // like losing your place by accident.
   let expandedIndex = null;
+  // the expanded card's true (unscaled) size, captured once right as
+  // it expands — update() uses this as the basis for the real resize
+  // below rather than re-measuring every frame, since after the first
+  // frame the card's own offsetWidth/Height would reflect the already-
+  // resized (expanded) box, not its original size
+  let expandedBaseW = 0, expandedBaseH = 0;
   function setExpanded(i){
     const wasExpanded = expandedIndex !== null;
     const prevIndex = expandedIndex;
     expandedIndex = i;
+    if(i !== null){
+      expandedBaseW = cards[i].offsetWidth;
+      expandedBaseH = cards[i].offsetHeight;
+    }
     cards.forEach((c, ci)=> c.classList.toggle('is-expanded', ci === i));
     // re-parented straight onto <body> while expanded, and back into
     // its normal slot in the fan on collapse. .fan-card.is-expanded is
@@ -276,13 +286,24 @@
         const availableHeight = Math.max(120, bottomBound - topBound);
         const uncappedScale = isNarrow ? 1.55 : 1.75;
         const maxCardHeight = Math.min(availableHeight, window.innerHeight * 0.8);
-        const expandScale = Math.min(uncappedScale, maxCardHeight / card.offsetHeight);
+        const baseH = expandedBaseH || card.offsetHeight;
+        const baseW = expandedBaseW || card.offsetWidth;
+        const expandScale = Math.min(uncappedScale, maxCardHeight / baseH);
         const centerY = topBound + availableHeight / 2;
         card.style.top = `${centerY.toFixed(1)}px`;
-        // trailing translateZ(0) forces its own GPU layer, which
-        // keeps the scaled-up content (the name text especially)
-        // crisp instead of landing on blurry subpixel positions
-        card.style.transform = `translate(-50%, -50%) scale(${expandScale.toFixed(3)}) translateZ(0)`;
+        // a real resize (width/height), not transform:scale() — scaling
+        // this element via transform was stretching an already-
+        // rasterized bitmap of it (border-radius + overflow:hidden +
+        // backdrop-filter force it onto its own composited layer),
+        // which is what was actually causing the blur, not a subpixel
+        // rounding issue. A real resize makes the browser lay out and
+        // paint it fresh at its true size instead. --card-scale carries
+        // the same factor to the CSS below so padding/font-size/etc.
+        // grow with it exactly like transform:scale() used to.
+        card.style.width = `${(baseW * expandScale).toFixed(1)}px`;
+        card.style.height = `${(baseH * expandScale).toFixed(1)}px`;
+        card.style.setProperty('--card-scale', expandScale.toFixed(3));
+        card.style.transform = 'translate(-50%, -50%)';
         card.style.opacity = '1';
         card.style.zIndex = '500';
         card.style.pointerEvents = '';
@@ -292,16 +313,22 @@
         // a neighboring card could still peek out from around/behind
         // the expanded one, reading as visual clutter under its name
         card.style.top = '';
+        card.style.width = '';
+        card.style.height = '';
         card.style.opacity = '0';
         card.style.pointerEvents = 'none';
       } else {
-        // clears any leftover inline "top" from a previous expand —
-        // the normal (non-expanded) position is absolute with no
-        // explicit top of its own (it relies on the flex parent's
-        // alignment for its static position), so a stale top value
-        // left set would otherwise misplace it here
+        // clears any leftover inline "top"/width/height from a previous
+        // expand — the normal (non-expanded) position and size are
+        // plain CSS (the fan spread relies on the flex parent's
+        // alignment plus a much smaller transform:scale for its static
+        // position/size), so stale values left set would misplace or
+        // wrongly size it here
         card.style.top = '';
-        card.style.transform = `translateY(${ty.toFixed(1)}px) rotate(${angle.toFixed(1)}deg) scale(${scale.toFixed(3)}) translateZ(0)`;
+        card.style.width = '';
+        card.style.height = '';
+        card.style.removeProperty('--card-scale');
+        card.style.transform = `translateY(${ty.toFixed(1)}px) rotate(${angle.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
         card.style.opacity = opacity.toFixed(2);
         card.style.zIndex = String(Math.round(blend * 100) + 1);
         card.style.pointerEvents = '';

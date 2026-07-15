@@ -439,6 +439,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .showcase-fan.has-expanded-card{ overflow:visible; }
 
 .fan-card{
+  --card-scale:1;
   position:absolute;
   width:clamp(200px, 20vw, 280px);
   height:clamp(260px, 26vw, 360px);
@@ -454,16 +455,20 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   overflow:hidden;
   transform-origin:center bottom;
   will-change:transform, opacity;
-  transition:transform .35s var(--ease-out), opacity .3s var(--ease-out), box-shadow .35s var(--ease-out), border-color .35s var(--ease-out);
+  transition:transform .35s var(--ease-out), opacity .3s var(--ease-out), box-shadow .35s var(--ease-out), border-color .35s var(--ease-out), width .35s var(--ease-out), height .35s var(--ease-out);
   cursor:none;
-  /* scaling a card up via CSS transform (especially the ~1.6-1.75x
-     jump on expand) was landing its content — the name text most
-     visibly — on non-integer subpixel positions, which desktop's
-     lower pixel density (vs. an iPhone's much higher DPI) makes read
-     as genuinely blurry rather than just softly antialiased. Forcing
-     its own GPU compositing layer keeps it crisp at any scale. */
-  backface-visibility:hidden;
-  -webkit-backface-visibility:hidden;
+  /* backface-visibility/translateZ alone didn't fix the expanded blur
+     — the real cause is that border-radius + overflow:hidden +
+     backdrop-filter force this element onto its own rasterized
+     texture, and CSS transform:scale() then just stretches that
+     already-rasterized bitmap rather than re-rendering its content
+     (the name text and the image) sharp at the larger size. Fixed at
+     the source: the expanded state resizes the card for real (width/
+     height in showcase.js) instead of scaling it, so the browser
+     lays out and paints it fresh at its true displayed size. Padding/
+     font-size/etc. below scale via the --card-scale variable that
+     goes with it, since a real resize doesn't proportionally grow
+     rem-based children on its own the way transform:scale() did. */
 }
 .fan-card:hover{ box-shadow:0 34px 80px -24px rgba(0,0,0,.7), 0 0 30px rgba(255,255,255,.1); }
 .fan-card.is-active{
@@ -496,7 +501,6 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   cursor:pointer;
   box-shadow:0 60px 140px -20px rgba(0,0,0,.85), 0 0 0 1.5px rgba(255,255,255,.6), 0 0 60px 6px rgba(255,255,255,.32);
   animation:none;
-  transform-origin:center center;
 }
 .fan-card-close{
   position:absolute;
@@ -614,18 +618,23 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .showcase-phrase.anim-blur{ animation:phraseBlurIn .7s var(--ease-out) both; }
 .fan-card .fan-bar{
   display:flex;
-  gap:5px;
-  padding:.7rem .8rem;
+  gap:calc(5px * var(--card-scale));
+  padding:calc(.7rem * var(--card-scale)) calc(.8rem * var(--card-scale));
   background:rgba(255,221,122,.06);
 }
-.fan-card .fan-bar span{ width:7px; height:7px; border-radius:50%; background:rgba(255,221,122,.2); }
+.fan-card .fan-bar span{
+  width:calc(7px * var(--card-scale));
+  height:calc(7px * var(--card-scale));
+  border-radius:50%;
+  background:rgba(255,221,122,.2);
+}
 .fan-card .fan-hero{
   position:relative;
   height:44%;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:2.4rem;
+  font-size:calc(2.4rem * var(--card-scale));
   overflow:hidden;
 }
 /* real live-site screenshots are tall full-page captures — cropped to
@@ -651,14 +660,19 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   0%{ object-position:top center; }
   100%{ object-position:bottom center; }
 }
-.fan-card .fan-body{ padding:1rem 1.15rem; }
+.fan-card .fan-body{ padding:calc(1rem * var(--card-scale)) calc(1.15rem * var(--card-scale)); }
 .fan-card .fan-name{
   font-family:'Fraunces', serif;
-  font-size:1.05rem;
-  margin-bottom:.7rem;
+  font-size:calc(1.05rem * var(--card-scale));
+  margin-bottom:calc(.7rem * var(--card-scale));
   color:#ffdd7a;
 }
-.fan-card .fan-line{ height:6px; border-radius:3px; background:rgba(255,221,122,.1); margin-bottom:.45rem; }
+.fan-card .fan-line{
+  height:calc(6px * var(--card-scale));
+  border-radius:3px;
+  background:rgba(255,221,122,.1);
+  margin-bottom:calc(.45rem * var(--card-scale));
+}
 .fan-card .fan-line.short{ width:55%; }
 
 .showcase-eyebrow{
