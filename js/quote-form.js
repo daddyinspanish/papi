@@ -77,40 +77,97 @@
   window.addEventListener('resize', requestUpdate);
   updateReveal();
 
-  if(!form) return;
-  const successEl = document.getElementById('quoteSuccess');
+  // a <select> has no :placeholder-shown state to float its label off
+  // of (that's built for text inputs), so its floated state is driven
+  // by this .has-value class instead — toggled on change, and checked
+  // once up front in case a browser restores a previous value on reload
+  document.querySelectorAll('.quote-field--select select').forEach(select=>{
+    const sync = ()=> select.classList.toggle('has-value', select.value !== '');
+    select.addEventListener('change', sync);
+    sync();
+  });
 
-  form.addEventListener('submit', (e)=>{
-    if(!form.reportValidity()) { e.preventDefault(); return; }
-    if(form.classList.contains('is-sending') || form.classList.contains('is-sent')){
+  // wires a form up to submit via fetch (so the button can show its
+  // own sending/sent state instead of a full page navigation) with a
+  // native submit as the fallback if fetch throws — shared by both the
+  // quote request and call-back request forms below
+  function wireForm(form, successEl, successText){
+    if(!form) return;
+    form.addEventListener('submit', (e)=>{
+      if(!form.reportValidity()) { e.preventDefault(); return; }
+      if(form.classList.contains('is-sending') || form.classList.contains('is-sent')){
+        e.preventDefault();
+        return;
+      }
+
+      // from here on we're taking over the submit ourselves — if fetch
+      // throws (network down, blocked, etc.) we fall back to letting the
+      // form submit natively to its action= URL instead of hard-failing
       e.preventDefault();
-      return;
-    }
+      form.classList.remove('is-error');
+      form.classList.add('is-sending');
 
-    // from here on we're taking over the submit ourselves — if fetch
-    // throws (network down, blocked, etc.) we fall back to letting the
-    // form submit natively to its action= URL instead of hard-failing
-    e.preventDefault();
-    form.classList.remove('is-error');
-    form.classList.add('is-sending');
-
-    fetch(form.action, {
-      method: 'POST',
-      body: new FormData(form),
-      headers: { 'Accept': 'application/json' },
-    }).then(res=>{
-      form.classList.remove('is-sending');
-      if(res.ok){
-        form.classList.add('is-sent');
-        if(successEl) successEl.textContent = 'Thanks — we’ll be in touch soon.';
-      } else {
+      fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'Accept': 'application/json' },
+      }).then(res=>{
+        form.classList.remove('is-sending');
+        if(res.ok){
+          form.classList.add('is-sent');
+          if(successEl) successEl.textContent = successText;
+        } else {
+          form.classList.add('is-error');
+          if(successEl) successEl.textContent = 'Something went wrong — please try again.';
+        }
+      }).catch(()=>{
+        form.classList.remove('is-sending');
         form.classList.add('is-error');
         if(successEl) successEl.textContent = 'Something went wrong — please try again.';
-      }
-    }).catch(()=>{
-      form.classList.remove('is-sending');
-      form.classList.add('is-error');
-      if(successEl) successEl.textContent = 'Something went wrong — please try again.';
+      });
     });
-  });
+  }
+
+  wireForm(form, document.getElementById('quoteSuccess'), 'Thanks — we’ll be in touch soon.');
+  wireForm(document.getElementById('callForm'), document.getElementById('callSuccess'), 'Thanks — we’ll call you soon.');
+
+  // ---- the two panels (quote request / call-back request) swipe like
+  // the testimonials row — tabs above are the click/keyboard equivalent
+  // and mirror whichever panel scroll has landed on ----
+  const formStack = document.getElementById('quoteFormStack');
+  const formTabs = Array.from(document.querySelectorAll('.quote-form-tab'));
+  if(formStack && formTabs.length){
+    const panels = Array.from(formStack.children);
+    function goToPanel(i){
+      const panel = panels[i];
+      if(panel) panel.scrollIntoView({ behavior:'smooth', inline:'start', block:'nearest' });
+    }
+    formTabs.forEach((tab, i)=>{
+      tab.addEventListener('click', ()=> goToPanel(i));
+    });
+    let activePanel = 0;
+    function updateActiveTab(){
+      const stackRect = formStack.getBoundingClientRect();
+      const center = stackRect.left + stackRect.width / 2;
+      let closest = 0, closestDist = Infinity;
+      panels.forEach((panel, i)=>{
+        const r = panel.getBoundingClientRect();
+        const dist = Math.abs((r.left + r.width / 2) - center);
+        if(dist < closestDist){ closestDist = dist; closest = i; }
+      });
+      if(closest === activePanel) return;
+      activePanel = closest;
+      formTabs.forEach((tab, i)=>{
+        const active = i === activePanel;
+        tab.classList.toggle('is-active', active);
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+    }
+    let tabTicking = false;
+    formStack.addEventListener('scroll', ()=>{
+      if(tabTicking) return;
+      tabTicking = true;
+      requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
+    }, { passive:true });
+  }
 })();

@@ -136,10 +136,10 @@
     // while one actually is expanded
     if(sticky) sticky.classList.toggle('has-expanded-card', i !== null);
     fanEl.classList.toggle('has-expanded-card', i !== null);
-    // documentElement only (not body too) — matching the cube
-    // section's own face-focus lock exactly. Also locking body pulls
-    // in body.scroll-lock's explicit height:100vh, which was
-    // resetting scrollY to 0 the instant it was applied.
+    // documentElement only — matching the cube section's own
+    // face-focus lock, a user-triggered, briefly-held lock rather
+    // than the hero's automatic-on-scroll one (which needs body too
+    // for iOS touch-scroll coverage; see title-dock.js).
     if(i !== null && !wasExpanded){
       document.documentElement.classList.add('scroll-lock');
     } else if(i === null && wasExpanded){
@@ -177,7 +177,7 @@
         <div class="fan-line short"></div>
       </div>
       <button type="button" class="fan-card-close" aria-label="Close preview">✕</button>
-      <span class="fan-card-exit-hint">✕ Tap to exit</span>`;
+      <span class="fan-card-exit-dot" aria-hidden="true"></span>`;
     // a mouse click focusing the card is what was triggering the
     // browser's own "scroll newly focused element into view" behavior
     // (worse once the card is scaled up 1.75x) — preventing default on
@@ -261,12 +261,28 @@
       if(i === expandedIndex){
         // fixed + centered in the viewport (see .fan-card.is-expanded)
         // rather than scaled up in place, so it's centered on-screen
-        // wherever the visitor currently is, and the scale cap below
-        // only has to account for its own size, not its position too
+        // wherever the visitor currently is. Vertically centered in
+        // whatever space is actually left below the quote (measured
+        // directly, not guessed) — the quote's own box still occupies
+        // its normal spot up top, and giving the card the whole
+        // viewport height to grow into let it cover the quote (and the
+        // section eyebrow above that) instead of sitting under them.
+        const margin = isNarrow ? 14 : 20;
+        const quoteRect = phraseEl ? phraseEl.getBoundingClientRect() : null;
+        const topBound = quoteRect && quoteRect.bottom > 0
+          ? quoteRect.bottom + margin
+          : window.innerHeight * 0.26;
+        const bottomBound = window.innerHeight - margin;
+        const availableHeight = Math.max(120, bottomBound - topBound);
         const uncappedScale = isNarrow ? 1.55 : 1.75;
-        const maxCardHeight = window.innerHeight * (isNarrow ? 0.72 : 0.8);
+        const maxCardHeight = Math.min(availableHeight, window.innerHeight * 0.8);
         const expandScale = Math.min(uncappedScale, maxCardHeight / card.offsetHeight);
-        card.style.transform = `translate(-50%, -50%) scale(${expandScale.toFixed(3)})`;
+        const centerY = topBound + availableHeight / 2;
+        card.style.top = `${centerY.toFixed(1)}px`;
+        // trailing translateZ(0) forces its own GPU layer, which
+        // keeps the scaled-up content (the name text especially)
+        // crisp instead of landing on blurry subpixel positions
+        card.style.transform = `translate(-50%, -50%) scale(${expandScale.toFixed(3)}) translateZ(0)`;
         card.style.opacity = '1';
         card.style.zIndex = '500';
         card.style.pointerEvents = '';
@@ -275,10 +291,17 @@
         // is expanded — leaving them at their normal fan opacity meant
         // a neighboring card could still peek out from around/behind
         // the expanded one, reading as visual clutter under its name
+        card.style.top = '';
         card.style.opacity = '0';
         card.style.pointerEvents = 'none';
       } else {
-        card.style.transform = `translateY(${ty.toFixed(1)}px) rotate(${angle.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
+        // clears any leftover inline "top" from a previous expand —
+        // the normal (non-expanded) position is absolute with no
+        // explicit top of its own (it relies on the flex parent's
+        // alignment for its static position), so a stale top value
+        // left set would otherwise misplace it here
+        card.style.top = '';
+        card.style.transform = `translateY(${ty.toFixed(1)}px) rotate(${angle.toFixed(1)}deg) scale(${scale.toFixed(3)}) translateZ(0)`;
         card.style.opacity = opacity.toFixed(2);
         card.style.zIndex = String(Math.round(blend * 100) + 1);
         card.style.pointerEvents = '';

@@ -40,6 +40,20 @@
     });
   }
 
+  // once, the first time the section has mostly settled into view, the
+  // stack actually scrolls itself a little and back — a real preview
+  // of the drag gesture rather than just a static "swipe to browse"
+  // label, so it's obvious the row responds to a real swipe
+  let hasNudged = false;
+  function maybeNudge(bodyP){
+    if(hasNudged || bodyP < 0.96) return;
+    hasNudged = true;
+    setTimeout(()=>{
+      stack.scrollBy({ left: 60, behavior:'smooth' });
+      setTimeout(()=>{ stack.scrollBy({ left: -60, behavior:'smooth' }); }, 500);
+    }, 500);
+  }
+
   // the whole section rises and fades in as it enters from below, tied
   // directly to scroll position (same convention as the cube title and
   // quote form) rather than a fixed-duration animation triggered once —
@@ -53,6 +67,7 @@
     const bodyP = smoothstep(0, 1, p);
     sticky.style.opacity = bodyP.toFixed(3);
     sticky.style.transform = `translateY(${((1 - bodyP) * 34).toFixed(1)}px)`;
+    maybeNudge(bodyP);
 
     const wn = headingWords.length;
     if(wn){
