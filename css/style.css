@@ -1549,6 +1549,15 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   position:relative;
   z-index:1;
   display:flex;
+  /* panels don't stretch to match whichever is tallest — each sits at
+     its own natural height, and quote-form.js sets this height
+     directly to match whichever one is currently active, animated by
+     this transition. Without it, the shorter call-back panel sat top-
+     aligned inside a box sized for the taller quote form, leaving a
+     dead gap below it that read as the bottom of the form missing. */
+  align-items:flex-start;
+  height:0;
+  transition:height .35s var(--ease-out);
   overflow-x:auto;
   scroll-snap-type:x mandatory;
   -webkit-overflow-scrolling:touch;
@@ -1665,6 +1674,19 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .quote-field--select select.has-value{ color:#0f1f3d; }
 .quote-field--select select:focus + label,
 .quote-field--select select.has-value + label{
+  top:.4rem;
+  transform:scale(.72);
+  color:#8a6a1f;
+}
+
+/* the preferred-call-date field — a native date input so tapping it
+   opens the platform's own calendar (day-of-month picker) rather than
+   free-text. Like <select>, it doesn't support :placeholder-shown, so
+   the floated-label state is driven by the same .has-value class
+   (toggled in quote-form.js) instead. */
+.quote-field--date input{ color:#0f1f3d; }
+.quote-field--date input:focus + label,
+.quote-field--date input.has-value + label{
   top:.4rem;
   transform:scale(.72);
   color:#8a6a1f;

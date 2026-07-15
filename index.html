@@ -236,14 +236,20 @@ window.scrollTo(0, 0);
           <input type="tel" id="cPhone" name="phone" autocomplete="tel" required placeholder=" ">
           <label for="cPhone">Phone number</label>
         </div>
-        <div class="quote-field quote-field--select">
-          <select id="cTime" name="preferred_time" required>
-            <option value="" disabled selected hidden></option>
-            <option value="Morning">Morning</option>
-            <option value="Afternoon">Afternoon</option>
-            <option value="Evening">Evening</option>
-          </select>
-          <label for="cTime">Best time to call</label>
+        <div class="quote-row">
+          <div class="quote-field quote-field--date">
+            <input type="date" id="cDate" name="preferred_date" required>
+            <label for="cDate">Preferred date</label>
+          </div>
+          <div class="quote-field quote-field--select">
+            <select id="cTime" name="preferred_time" required>
+              <option value="" disabled selected hidden></option>
+              <option value="Morning">Morning</option>
+              <option value="Afternoon">Afternoon</option>
+              <option value="Evening">Evening</option>
+            </select>
+            <label for="cTime">Best time to call</label>
+          </div>
         </div>
         <button type="submit" class="quote-submit">
           <span class="quote-submit-label">Request a Call Back</span>

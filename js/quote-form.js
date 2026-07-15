@@ -77,15 +77,27 @@
   window.addEventListener('resize', requestUpdate);
   updateReveal();
 
-  // a <select> has no :placeholder-shown state to float its label off
-  // of (that's built for text inputs), so its floated state is driven
-  // by this .has-value class instead — toggled on change, and checked
-  // once up front in case a browser restores a previous value on reload
-  document.querySelectorAll('.quote-field--select select').forEach(select=>{
-    const sync = ()=> select.classList.toggle('has-value', select.value !== '');
-    select.addEventListener('change', sync);
+  // neither a <select> nor a date input has a :placeholder-shown state
+  // to float its label off of (that's built for text inputs), so their
+  // floated state is driven by this .has-value class instead — toggled
+  // on change, and checked once up front in case a browser restores a
+  // previous value on reload
+  document.querySelectorAll('.quote-field--select select, .quote-field--date input').forEach(field=>{
+    const sync = ()=> field.classList.toggle('has-value', field.value !== '');
+    field.addEventListener('change', sync);
     sync();
   });
+
+  // can't pick a call-back date that's already passed — set once the
+  // page loads rather than hard-coding it into the HTML
+  const dateField = document.getElementById('cDate');
+  if(dateField){
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    dateField.min = `${yyyy}-${mm}-${dd}`;
+  }
 
   // wires a form up to submit via fetch (so the button can show its
   // own sending/sent state instead of a full page navigation) with a
@@ -138,6 +150,15 @@
   const formTabs = Array.from(document.querySelectorAll('.quote-form-tab'));
   if(formStack && formTabs.length){
     const panels = Array.from(formStack.children);
+    // the stack's own height always matches whichever panel is active
+    // (see the CSS transition on it) rather than stretching every
+    // panel to match the tallest one — the call-back panel has far
+    // fewer fields than the quote form, and stretching it left a dead
+    // gap at the bottom that read as part of the form being missing
+    function syncStackHeight(){
+      const panel = panels[activePanel];
+      if(panel) formStack.style.height = `${panel.scrollHeight}px`;
+    }
     function goToPanel(i){
       const panel = panels[i];
       if(panel) panel.scrollIntoView({ behavior:'smooth', inline:'start', block:'nearest' });
@@ -162,6 +183,7 @@
         tab.classList.toggle('is-active', active);
         tab.setAttribute('aria-selected', active ? 'true' : 'false');
       });
+      syncStackHeight();
     }
     let tabTicking = false;
     formStack.addEventListener('scroll', ()=>{
@@ -169,5 +191,10 @@
       tabTicking = true;
       requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
     }, { passive:true });
+    window.addEventListener('resize', syncStackHeight);
+    // measure once layout has actually settled — measuring in the same
+    // tick as creation can catch fonts/images still reflowing, which
+    // is what showed up as the panel's height being locked in too short
+    requestAnimationFrame(syncStackHeight);
   }
 })();
