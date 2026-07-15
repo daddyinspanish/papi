@@ -234,7 +234,6 @@
         <span class="fan-icon fan-icon--video" title="Video">${ICONS.video}</span>
         <span class="fan-icon fan-icon--ai" title="AI chat">${ICONS.ai}</span>
       </div>
-      <button type="button" class="fan-card-close" aria-label="Close preview">✕</button>
       <span class="fan-card-exit-dot" aria-hidden="true"></span>`;
     // a mouse click focusing the card is what was triggering the
     // browser's own "scroll newly focused element into view" behavior
@@ -248,9 +247,6 @@
     // subsequent scroll fought each other (the auto-collapse-on-scroll
     // above would immediately undo the very scroll that opened it)
     card.addEventListener('click', (e)=>{
-      // clicking the close button (only reachable while already
-      // expanded) collapses instead of re-triggering the expand
-      if(e.target.closest('.fan-card-close')){ setExpanded(null); return; }
       if(expandedIndex === i){ setExpanded(null); return; }
       setExpanded(i);
     });
@@ -276,7 +272,10 @@
     items.push(item);
   });
 
-  section.style.height = (n * 80) + 'vh';
+  // was n*80vh — a bit less scroll distance per trade name means the
+  // carousel advances through all of them a little faster for the
+  // same amount of scrolling
+  section.style.height = (n * 68) + 'vh';
 
   function lerp(a,b,t){ return a + (b-a)*t; }
 
@@ -330,7 +329,15 @@
         const topBound = quoteRect && quoteRect.bottom > 0
           ? quoteRect.bottom + margin
           : window.innerHeight * 0.26;
-        const bottomBound = window.innerHeight - margin;
+        // on desktop, stopping short of the very bottom of the
+        // viewport (rather than reaching all the way down to it)
+        // pulls the centered result up noticeably — letting the range
+        // reach the bottom edge dragged the midpoint down further than
+        // felt right, sitting the expanded card lower than desktop's
+        // extra headroom actually called for
+        const bottomBound = isNarrow
+          ? window.innerHeight - margin
+          : Math.min(window.innerHeight - margin, window.innerHeight * 0.84);
         const availableHeight = Math.max(120, bottomBound - topBound);
         const uncappedScale = isNarrow ? 1.55 : 1.75;
         const maxCardHeight = Math.min(availableHeight, window.innerHeight * 0.8);

@@ -177,13 +177,16 @@
     // rather than stretching every panel to match the tallest one —
     // the call-back panel has far fewer fields than the quote form,
     // and stretching it left a dead gap at the bottom that read as
-    // part of the form being missing. No CSS transition drives this
-    // (see the height rule itself) — it snaps straight to the new
-    // value, so there's no window where the box and its content
-    // disagree on height.
+    // part of the form being missing. No CSS transition drives this —
+    // it snaps straight to the new value. The +1px is a small buffer
+    // against scrollHeight's own integer rounding landing a hair short
+    // of the real, sub-pixel content height — without it, that
+    // fractional shortfall was enough on its own to expose a hairline
+    // of the wrap's rotating gold border-gradient at the very bottom
+    // edge, even with the height otherwise correct.
     function syncStackHeight(){
       const panel = panels[getClosestPanelIndex()];
-      if(panel) formStack.style.height = `${panel.scrollHeight}px`;
+      if(panel) formStack.style.height = `${panel.scrollHeight + 1}px`;
     }
     function goToPanel(i){
       const panel = panels[i];
@@ -193,6 +196,8 @@
       tab.addEventListener('click', ()=> goToPanel(i));
     });
     let activePanel = 0;
+    // only swaps which tab is highlighted — cheap, safe to do live on
+    // every scroll frame while a swipe is still in motion
     function updateActiveTab(){
       const closest = getClosestPanelIndex();
       if(closest === activePanel) return;
@@ -202,14 +207,41 @@
         tab.classList.toggle('is-active', active);
         tab.setAttribute('aria-selected', active ? 'true' : 'false');
       });
-      syncStackHeight();
+    }
+    // syncStackHeight, on the other hand, only runs once the scroll
+    // gesture actually stops (native 'scrollend' where supported, a
+    // short debounce as a fallback everywhere else) — not live, the
+    // instant the closest panel flips. Both panels are genuinely
+    // visible at once for most of a swipe (one sliding out, one
+    // sliding in), and the two can be very different heights; resizing
+    // the box the moment the crossover happens, while the exiting
+    // panel is often still partly on screen, clipped that panel's own
+    // tail end against the new (shorter) box for the rest of the drag,
+    // or left the incoming (shorter) panel sitting inside a box still
+    // sized for the outgoing (taller) one — either way exposing the
+    // wrap's own gold gradient in the gap for the remainder of the
+    // gesture. Waiting for the gesture to actually finish means the
+    // resize only ever happens once, after nothing is left disagreeing
+    // about which panel is on screen.
+    let settleTimer = null;
+    function scheduleHeightSync(){
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(syncStackHeight, 100);
     }
     let tabTicking = false;
     formStack.addEventListener('scroll', ()=>{
-      if(tabTicking) return;
-      tabTicking = true;
-      requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
+      if(!tabTicking){
+        tabTicking = true;
+        requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
+      }
+      scheduleHeightSync();
     }, { passive:true });
+    if('onscrollend' in window){
+      formStack.addEventListener('scrollend', ()=>{
+        clearTimeout(settleTimer);
+        syncStackHeight();
+      });
+    }
     window.addEventListener('resize', syncStackHeight);
     // measure once layout has actually settled — measuring in the same
     // tick as creation can catch fonts/images still reflowing, which
