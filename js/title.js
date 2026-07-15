@@ -257,6 +257,16 @@
     const raw = Math.max(0, Math.min(1, window.scrollY / dist));
     return smoothstep(0.15, 0.9, raw);
   }
+  // eased toward the raw scroll-based target rather than applied
+  // directly — reading it straight off scroll position meant that if
+  // a visitor scrolled down during the ~2s entrance sequence (before
+  // effectsLive flips true and the per-char transform starts applying
+  // at all), the very first frame it turned on could jump straight to
+  // a large mid-scroll value with no ramp-up, since transitions are
+  // deliberately turned off on these elements once the entrance ends.
+  // That snap — plus everything needing a beat to catch up — is what
+  // read as the hero "restarting" and freezing for a moment on scroll.
+  let curExplodeProgress = 0;
 
   function frame(){
     const idle = performance.now() - lastMoveTime > IDLE_MS;
@@ -278,9 +288,10 @@
 
     title.style.transform = `rotateX(${(-curY*MAX_TILT).toFixed(2)}deg) rotateY(${(curX*MAX_TILT).toFixed(2)}deg)`;
 
-    const explodeProgress = (effectsLive || subEffectsLive) ? getExplodeProgress() : 0;
-    if(effectsLive) titleGroup.update(idle, explodeProgress);
-    if(subEffectsLive) subGroup.update(idle, explodeProgress);
+    const targetExplode = (effectsLive || subEffectsLive) ? getExplodeProgress() : 0;
+    curExplodeProgress += (targetExplode - curExplodeProgress) * 0.06;
+    if(effectsLive) titleGroup.update(idle, curExplodeProgress);
+    if(subEffectsLive) subGroup.update(idle, curExplodeProgress);
 
     requestAnimationFrame(frame);
   }

@@ -298,6 +298,26 @@
   }
 
   function frame(){
+    // this loop runs forever regardless of scroll position, doing a
+    // forced-layout getBoundingClientRect() read plus several style
+    // writes every single frame — harmless while the section is
+    // actually on screen, but with nothing gating it, it kept doing
+    // that same work the entire time the visitor was scrolling through
+    // *other* sections too, competing for main-thread time with
+    // whatever those sections were animating. That contention is what
+    // showed up as the cube itself hitching/freezing for a moment
+    // partway through its own section's scroll. Skipping the work
+    // outright while the section isn't visible removes that
+    // competition; everything here is a pure function of the current
+    // scroll position, so there's no accumulated state to pick back up
+    // — it just recomputes fresh the moment it's back in view.
+    const sectionRect = section ? section.getBoundingClientRect() : null;
+    const sectionVisible = !sectionRect || (sectionRect.bottom > 0 && sectionRect.top < window.innerHeight);
+    if(!sectionVisible){
+      requestAnimationFrame(frame);
+      return;
+    }
+
     const rect = stage.getBoundingClientRect();
     const cx = rect.left + rect.width/2;
     const cy = rect.top + rect.height/2;

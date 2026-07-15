@@ -522,7 +522,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   position:fixed;
   left:50%;
   z-index:500;
-  cursor:pointer;
+  cursor:none;
   box-shadow:0 60px 140px -20px rgba(0,0,0,.85), 0 0 0 1.5px rgba(255,255,255,.6), 0 0 60px 6px rgba(255,255,255,.32);
   animation:none;
 }
@@ -963,7 +963,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   display:flex;
   align-items:center;
   justify-content:center;
-  cursor:pointer;
+  cursor:none;
 }
 .cube-stage::before{
   content:'';
@@ -1140,8 +1140,15 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   margin:-18px 0 0 -18px;
   border-radius:50%;
   border:1px solid rgba(243,237,226,.7);
-  box-shadow:0 0 20px rgba(255,221,122,.35);
   transition:width .35s var(--ease-out), height .35s var(--ease-out), margin .35s var(--ease-out), border-color .35s var(--ease-out), opacity .3s ease;
+  /* a slow, subtle breathing glow rather than a flat static shadow —
+     something about the cursor is always gently alive as it travels
+     around the site, not just when it's over something interactive */
+  animation:cursorGlowPulse 2.6s ease-in-out infinite;
+}
+@keyframes cursorGlowPulse{
+  0%, 100%{ box-shadow:0 0 16px rgba(255,221,122,.3); }
+  50%{ box-shadow:0 0 28px rgba(255,221,122,.55); }
 }
 .cursor-dot{
   position:absolute;
@@ -1155,6 +1162,13 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   width:64px; height:64px;
   margin:-32px 0 0 -32px;
   border-color:#ffdd7a;
+  /* brighter, faster pulse while hovering something interactive —
+     the glow itself calling out that this is clickable */
+  animation:cursorGlowPulseActive 1.3s ease-in-out infinite;
+}
+@keyframes cursorGlowPulseActive{
+  0%, 100%{ box-shadow:0 0 24px rgba(255,221,122,.55); }
+  50%{ box-shadow:0 0 40px rgba(255,221,122,.85); }
 }
 
 @media (hover:none), (pointer:coarse){
@@ -1389,7 +1403,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   border:1px solid rgba(243,237,226,.25);
   background:transparent;
   color:rgba(243,237,226,.8);
-  cursor:pointer;
+  cursor:none;
   transition:border-color .3s var(--ease-out), color .3s var(--ease-out), background .3s var(--ease-out);
 }
 .testimonial-arrow:hover{ border-color:#ffdd7a; color:#ffdd7a; background:rgba(255,221,122,.08); }
@@ -1407,7 +1421,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   border:none;
   padding:0;
   background:rgba(243,237,226,.25);
-  cursor:pointer;
+  cursor:none;
   transition:background .35s var(--ease-out), width .35s var(--ease-out);
 }
 .testimonial-dot:hover{ background:rgba(243,237,226,.5); }
@@ -1589,7 +1603,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   font-family:'Fraunces', serif;
   font-size:clamp(1.02rem, 2vw, 1.2rem);
   color:var(--cream);
-  cursor:pointer;
+  cursor:none;
   transition:color .25s var(--ease-out);
 }
 .faq-question:hover{ color:#ffdd7a; }
@@ -1795,7 +1809,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   font-size:.86rem;
   letter-spacing:.01em;
   color:#8b96ac;
-  cursor:pointer;
+  cursor:none;
   transition:color .25s var(--ease-out), background .25s var(--ease-out), border-color .25s var(--ease-out);
 }
 .quote-form-tab.is-active{
@@ -1808,24 +1822,18 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   position:relative;
   z-index:1;
   display:flex;
-  /* panels don't stretch to match whichever is tallest — each sits at
-     its own natural height, and quote-form.js sets this height
-     directly to match whichever one is currently active. Without it,
-     the shorter call-back panel sat top-aligned inside a box sized for
-     the taller quote form, leaving a dead gap below it that read as
-     the bottom of the form missing.
-     No CSS transition on this height change (there used to be one) —
-     animating height on a box that's also doing rounded-corner
-     overflow:hidden clipping is a known rough edge in WebKit: mid-
-     transition, the corner clip and the actual painted content could
-     drift out of sync, which showed up as the section's own gold
-     background bleeding through a gap at the card's bottom-right
-     corner every time the panels swapped. Snapping straight to the
-     new height (right as the swipe itself settles, so the height
-     change is never seen as its own separate motion) sidesteps the
-     whole class of bug. */
+  /* fixed to whichever panel is tallest (see quote-form.js) rather
+     than resized to match whichever is currently active — resizing
+     per-panel shrank the whole section in normal document flow every
+     time the visitor swiped, which shifted everything below the form
+     (the closing Papi signature) up and down on every swipe, on top of
+     occasionally exposing a gap at the card's own rounded corners. A
+     background here (rather than leaving this transparent) means the
+     shorter call-back panel's leftover space below it just reads as
+     more white card, not a gap into whatever is behind the section. */
   align-items:flex-start;
   height:0;
+  background:#fff;
   overflow-x:auto;
   scroll-snap-type:x mandatory;
   -webkit-overflow-scrolling:touch;
@@ -1938,7 +1946,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .quote-field--select select{
   appearance:none;
   -webkit-appearance:none;
-  cursor:pointer;
+  cursor:none;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b96ac' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat:no-repeat;
   background-position:right .9rem center;
@@ -1990,7 +1998,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   font-size:1rem;
   font-weight:700;
   letter-spacing:.01em;
-  cursor:pointer;
+  cursor:none;
   overflow:hidden;
   transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
   box-shadow:0 16px 34px -14px rgba(138,106,31,.6);

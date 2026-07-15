@@ -173,20 +173,23 @@
       });
       return closest;
     }
-    // the stack's own height always matches whichever panel is active
-    // rather than stretching every panel to match the tallest one —
-    // the call-back panel has far fewer fields than the quote form,
-    // and stretching it left a dead gap at the bottom that read as
-    // part of the form being missing. No CSS transition drives this —
-    // it snaps straight to the new value. The +1px is a small buffer
-    // against scrollHeight's own integer rounding landing a hair short
-    // of the real, sub-pixel content height — without it, that
-    // fractional shortfall was enough on its own to expose a hairline
-    // of the wrap's rotating gold border-gradient at the very bottom
-    // edge, even with the height otherwise correct.
+    // the stack's height is fixed to whichever panel is *tallest*,
+    // measured once (plus on resize/font-load) — it no longer resizes
+    // to match whichever panel is currently active. That per-panel
+    // resizing was the root of two separate problems: swapping to a
+    // shorter panel shrank the whole form section in the page's normal
+    // flow, which shifted everything below it (the closing Papi
+    // signature) up and down on every single swipe; and any brief
+    // mismatch between the resize and which panel visually settled
+    // was what kept exposing a gap at the form's own rounded corners.
+    // A fixed height trades a small empty gap under the shorter
+    // call-back panel for the form — and the page around it — never
+    // moving on its own again. The +1px is a small buffer against
+    // scrollHeight's own integer rounding landing a hair short of the
+    // real, sub-pixel content height.
     function syncStackHeight(){
-      const panel = panels[getClosestPanelIndex()];
-      if(panel) formStack.style.height = `${panel.scrollHeight + 1}px`;
+      const tallest = Math.max(...panels.map(p => p.scrollHeight));
+      formStack.style.height = `${tallest + 1}px`;
     }
     function goToPanel(i){
       const panel = panels[i];
@@ -196,8 +199,9 @@
       tab.addEventListener('click', ()=> goToPanel(i));
     });
     let activePanel = 0;
-    // only swaps which tab is highlighted — cheap, safe to do live on
-    // every scroll frame while a swipe is still in motion
+    // only swaps which tab is highlighted — the height itself is fixed
+    // now, so this is purely cosmetic and safe to run live on every
+    // scroll frame while a swipe is still in motion
     function updateActiveTab(){
       const closest = getClosestPanelIndex();
       if(closest === activePanel) return;
@@ -208,40 +212,12 @@
         tab.setAttribute('aria-selected', active ? 'true' : 'false');
       });
     }
-    // syncStackHeight, on the other hand, only runs once the scroll
-    // gesture actually stops (native 'scrollend' where supported, a
-    // short debounce as a fallback everywhere else) — not live, the
-    // instant the closest panel flips. Both panels are genuinely
-    // visible at once for most of a swipe (one sliding out, one
-    // sliding in), and the two can be very different heights; resizing
-    // the box the moment the crossover happens, while the exiting
-    // panel is often still partly on screen, clipped that panel's own
-    // tail end against the new (shorter) box for the rest of the drag,
-    // or left the incoming (shorter) panel sitting inside a box still
-    // sized for the outgoing (taller) one — either way exposing the
-    // wrap's own gold gradient in the gap for the remainder of the
-    // gesture. Waiting for the gesture to actually finish means the
-    // resize only ever happens once, after nothing is left disagreeing
-    // about which panel is on screen.
-    let settleTimer = null;
-    function scheduleHeightSync(){
-      clearTimeout(settleTimer);
-      settleTimer = setTimeout(syncStackHeight, 100);
-    }
     let tabTicking = false;
     formStack.addEventListener('scroll', ()=>{
-      if(!tabTicking){
-        tabTicking = true;
-        requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
-      }
-      scheduleHeightSync();
+      if(tabTicking) return;
+      tabTicking = true;
+      requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
     }, { passive:true });
-    if('onscrollend' in window){
-      formStack.addEventListener('scrollend', ()=>{
-        clearTimeout(settleTimer);
-        syncStackHeight();
-      });
-    }
     window.addEventListener('resize', syncStackHeight);
     // measure once layout has actually settled — measuring in the same
     // tick as creation can catch fonts/images still reflowing, which
