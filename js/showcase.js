@@ -15,6 +15,7 @@
   const fanEl = document.getElementById('showcaseFan');
   const listEl = document.getElementById('showcaseItems');
   const phraseEl = document.getElementById('showcasePhrase');
+  const eyebrowEl = document.querySelector('.showcase-eyebrow');
   if(!section || !fanEl || !listEl) return;
 
   function smoothstep(edge0, edge1, x){
@@ -151,26 +152,39 @@
     if(phraseEl){
       phraseEl.classList.remove(...PHRASE_ANIMS);
       if(i !== null){
-        // re-parent the quote onto <body> too, pinned to exactly where
-        // it's already sitting on screen, the same way the expanded
-        // card itself does — and for the same reason. A previous
-        // attempt instead bumped .showcase's own z-index above the
-        // card's so the quote (nested inside it) could stack on top —
-        // but .showcase has its own big opaque section background, so
-        // that dragged the *entire section's background* above the
-        // card too, hiding the card completely behind it (all that was
-        // left visible was the quote, floating on that background —
-        // exactly the "fan cards disappear, only the quote shows" bug).
-        // A nested stacking context can never reach out past its own
-        // ancestor's position in a higher one, which is why only
-        // moving the quote itself — not raising an ancestor — actually
-        // works here.
-        const r = phraseEl.getBoundingClientRect();
+        // re-parent the quote onto <body> too, the same way the
+        // expanded card itself does — and for the same reason. A
+        // previous attempt instead bumped .showcase's own z-index
+        // above the card's so the quote (nested inside it) could stack
+        // on top — but .showcase has its own big opaque section
+        // background, so that dragged the *entire section's
+        // background* above the card too, hiding the card completely
+        // behind it (all that was left visible was the quote, floating
+        // on that background — the "fan cards disappear, only the
+        // quote shows" bug). A nested stacking context can never reach
+        // out past its own ancestor's position in a higher one, which
+        // is why only moving the quote itself — not raising an
+        // ancestor — actually works here.
+        //
+        // Positioned from the section eyebrow's own on-screen spot,
+        // not wherever the quote happened to already be sitting inside
+        // the fan — the fan's position varies with layout (stacked
+        // under the trade names on narrow screens vs. beside them on
+        // desktop), so anchoring to it directly meant the card's own
+        // expand math (which uses this same quote position as its
+        // floor) could end up computing a start point *above* where
+        // the quote actually was, letting the two overlap on iPhone.
+        // Anchoring to the eyebrow instead is stable regardless of
+        // that layout, and guarantees "quote below the section title"
+        // as a hard rule rather than an incidental side effect.
+        const eyebrowRect = eyebrowEl ? eyebrowEl.getBoundingClientRect() : null;
+        const gap = window.innerWidth < 640 ? 22 : 28;
+        const quoteTop = eyebrowRect ? eyebrowRect.bottom + gap : window.innerHeight * 0.14;
         phraseEl.style.position = 'fixed';
-        phraseEl.style.top = `${r.top.toFixed(1)}px`;
-        phraseEl.style.left = `${r.left.toFixed(1)}px`;
-        phraseEl.style.right = 'auto';
-        phraseEl.style.width = `${r.width.toFixed(1)}px`;
+        phraseEl.style.top = `${quoteTop.toFixed(1)}px`;
+        phraseEl.style.left = '0';
+        phraseEl.style.right = '0';
+        phraseEl.style.width = 'auto';
         phraseEl.style.margin = '0';
         phraseEl.style.zIndex = '600';
         document.body.appendChild(phraseEl);
@@ -334,8 +348,19 @@
         const baseW = expandedBaseW || card.offsetWidth;
 
         const margin = isNarrow ? 14 : 20;
+        // the quote is now pinned relative to the section eyebrow, not
+        // wherever it happened to already be sitting (see setExpanded)
+        // — a reliable, predictable position rather than one that
+        // varied with layout. That's what makes it safe to treat
+        // quoteRect.bottom as a hard floor here: the card's top can
+        // never end up above it, so the two can no longer overlap. A
+        // previous version instead capped how far down this floor
+        // could sit (to guarantee the card a minimum size), which
+        // could let the floor slide up *past* the quote's real
+        // position when space was tight — exactly what showed up as
+        // the quote and the expanded card overlapping on iPhone.
         const quoteRect = phraseEl ? phraseEl.getBoundingClientRect() : null;
-        const rawTopBound = quoteRect && quoteRect.bottom > 0
+        const topBound = quoteRect && quoteRect.bottom > 0
           ? quoteRect.bottom + margin
           : window.innerHeight * 0.26;
         // stopping short of the very bottom of the viewport (rather
@@ -348,20 +373,6 @@
         const bottomBound = isNarrow
           ? Math.min(window.innerHeight - margin, window.innerHeight * 0.86)
           : Math.min(window.innerHeight - margin, window.innerHeight * 0.84);
-        // guarantees at least enough room for a modest expansion
-        // (1.15x the card's own resting height), regardless of where
-        // the quote actually is on screen at the moment of tapping —
-        // tapping a card before the sticky section has fully "stuck"
-        // (or any other moment the quote's on-screen position is
-        // unexpectedly low/tall) could otherwise leave topBound close
-        // to or past bottomBound, next to no room left to expand into.
-        // That's exactly what showed up on iPhone as the card
-        // *shrinking* instead of expanding and dropping toward the
-        // bottom of the screen — centerY below is derived directly
-        // from topBound, so a topBound that's too large drags it down
-        // right along with it.
-        const minAvailable = baseH * 1.15;
-        const topBound = Math.max(0, Math.min(rawTopBound, bottomBound - minAvailable));
         const availableHeight = Math.max(120, bottomBound - topBound);
         const uncappedScale = isNarrow ? 1.55 : 1.75;
         const maxCardHeight = Math.min(availableHeight, window.innerHeight * 0.8);
