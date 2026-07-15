@@ -213,31 +213,73 @@ body, a, .cta{ cursor:none; }
   }
 }
 
-/* a plain positioning container now, not a <canvas> — js/particles.js
-   fills it with one real .field-tile element per tile, each moved via
-   transform/opacity only, so the browser can update them by
-   recompositing already-rasterized layers instead of repainting a
-   shared bitmap every frame (see the note at the top of particles.js
-   for why that's what actually fixed the hero freeze on iOS) */
-#fieldCanvas{
+/* container for the gold liquid field — js/liquid-field.js fills it
+   with a handful of .liquid-blob elements, each moved only via
+   transform (never top/left/width/height), so the browser can update
+   them by recompositing already-rasterized layers rather than
+   repainting anything every frame. isolation:isolate scopes each
+   blob's mix-blend-mode:screen (see below) to blending against its
+   sibling blobs and this container's own background, instead of
+   bleeding through to whatever sits behind the hero section. */
+#liquidField{
   position:absolute;
   inset:0;
   overflow:hidden;
   pointer-events:none;
+  isolation:isolate;
 }
 
-.field-tile{
+.liquid-blob{
   position:absolute;
   left:0;
   top:0;
   opacity:0;
-  transform-origin:center center;
-  /* each tile its own compositor layer, decoupled both from its
-     sibling tiles and from the hero copy sitting on top of the field
-     (the title/subtitle characters changing transform every frame
-     right alongside it) — without this they could end up sharing a
-     paint/layer boundary, where one repainting drags the others along */
-  will-change:transform, opacity;
+  will-change:transform;
+  /* screen blend: where two blobs' bright cores cross, their gold
+     brightens together instead of one flatly covering the other —
+     reads as pooling liquid rather than stacked, opaque shapes */
+  mix-blend-mode:screen;
+  /* the "thick, shiny" look comes entirely from this gradient (a
+     bright off-centre highlight easing down through gold to a dark
+     edge) rather than from a filter:blur() — blur is a paint-level
+     effect that has to be recomputed whenever the content beneath it
+     changes, which is exactly the kind of per-frame repaint iOS
+     defers during an active touch-scroll (see the note at the top of
+     js/liquid-field.js). A gradient's own soft color stops give the
+     same soft-edged glow for free, entirely through compositing. */
+  background:radial-gradient(circle at 32% 28%,
+    #fffbe8 0%,
+    #ffe9a8 10%,
+    #ffcf5c 26%,
+    #eba828 46%,
+    #b9781a 66%,
+    #6b430c 86%,
+    #2c1a04 100%);
+  box-shadow:0 0 46px 12px rgba(255,190,60,.22);
+  /* a slow, gentle organic morph, independent of and decoupled from
+     the JS position loop — each blob gets its own randomized duration/
+     delay (set inline by liquid-field.js) so they never move in lockstep */
+  animation-name:liquidMorph;
+  animation-timing-function:ease-in-out;
+  animation-iteration-count:infinite;
+}
+.liquid-blob::before{
+  /* the glossy specular highlight — again a soft-edged gradient, not a
+     blurred element, for the same compositor-safety reason as above */
+  content:'';
+  position:absolute;
+  top:12%;
+  left:16%;
+  width:36%;
+  height:24%;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(255,255,255,.9) 0%, rgba(255,255,255,0) 72%);
+}
+@keyframes liquidMorph{
+  0%, 100%{ border-radius:72% 28% 61% 39% / 38% 65% 35% 62%; }
+  25%{ border-radius:34% 66% 30% 70% / 68% 42% 58% 32%; }
+  50%{ border-radius:65% 35% 74% 26% / 30% 55% 45% 70%; }
+  75%{ border-radius:30% 70% 40% 60% / 62% 34% 66% 38%; }
 }
 
 /* a soft diagonal sheen so the field reads as glass, not just a blurred
@@ -379,6 +421,25 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   max-width:980px;
   width:100%;
   text-align:center;
+}
+/* a soft dark scrim behind the whole copy block — the liquid field's
+   blobs are bright enough (by design, for the "thick shiny gold" look)
+   that whichever one happens to be drifting behind the text at any
+   given moment could otherwise wash out its contrast. Painted first
+   (default ::before stacking, no z-index needed) so it sits behind the
+   eyebrow/title/cta/sub but above the field, keeping the text legible
+   no matter where the blobs currently are, without having to
+   choreograph their drift to avoid this area. */
+.hero-copy::before{
+  content:'';
+  position:absolute;
+  inset:-10% -8%;
+  background:radial-gradient(ellipse at center,
+    rgba(6,5,2,.5) 0%,
+    rgba(6,5,2,.34) 42%,
+    rgba(6,5,2,.12) 68%,
+    rgba(6,5,2,0) 85%);
+  pointer-events:none;
 }
 
 .hero-title-row{
