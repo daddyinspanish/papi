@@ -178,7 +178,7 @@
         // that layout, and guarantees "quote below the section title"
         // as a hard rule rather than an incidental side effect.
         const eyebrowRect = eyebrowEl ? eyebrowEl.getBoundingClientRect() : null;
-        const gap = window.innerWidth < 640 ? 22 : 28;
+        const gap = window.innerWidth < 640 ? 40 : 48;
         const quoteTop = eyebrowRect ? eyebrowRect.bottom + gap : window.innerHeight * 0.14;
         phraseEl.style.position = 'fixed';
         phraseEl.style.top = `${quoteTop.toFixed(1)}px`;
