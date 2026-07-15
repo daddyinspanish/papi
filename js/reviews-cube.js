@@ -246,6 +246,32 @@
     return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
   }
 
+  // curRx/curRy/curScale/tiltX/tiltY all ease toward a target by a fixed
+  // *fraction* of the remaining distance each call — e.g. curRx +=
+  // (targetRx-curRx)*0.12 closes 12% of the gap "per frame." That's only
+  // actually 12% of the gap per ~16.7ms if frame() is in fact called
+  // every ~16.7ms. iOS Safari pausing JS for the length of a whole touch
+  // drag, then delivering one frame right as the finger lifts, breaks
+  // that assumption: targetRx/targetRy are a pure function of the
+  // current (now much further along) scrollY, so they're already
+  // correct the instant frame() resumes — but curRx is still wherever it
+  // was before the drag started, and a single 0.12 step only closes 12%
+  // of what can be a very large gap. The following several frames (which
+  // *do* arrive in a quick burst once JS resumes) then visibly sweep the
+  // rest of the way — reading as the same "freeze, then catch up" glitch
+  // as the particles field, just via a different mechanism (a stale lerp
+  // base) rather than an accumulator jump.
+  // timeAlpha scales the fraction by how much real time actually passed
+  // since the last frame instead of assuming a fixed ~16.7ms: a normal
+  // frame gap still closes ~12%, same as before, but a 700ms gap closes
+  // essentially the whole distance in that one frame — because that's
+  // how much a continuous ease *would* have closed over 700ms of normal
+  // frames, just computed directly instead of walked frame by frame.
+  function timeAlpha(perFrameRate, dt){
+    return 1 - Math.pow(1 - perFrameRate, dt / 16.6667);
+  }
+  let lastFrameTs = null;
+
   let focusedFace = null;
   let curRx = BASE_RX, curRy = BASE_RY, curScale = 1;
 
@@ -302,7 +328,7 @@
     });
   }
 
-  function frame(){
+  function frame(ts){
     // this loop runs forever regardless of scroll position, doing a
     // forced-layout getBoundingClientRect() read plus several style
     // writes every single frame — harmless while the section is
@@ -323,14 +349,27 @@
       return;
     }
 
+    // real time since the last frame that actually ran this block — used
+    // below to scale the tilt/rotation easing so it's frame-rate- and
+    // pause-length-independent (see the comment above timeAlpha).
+    // Deliberately left un-set by the invisible branch just above: the
+    // gap between the last visible frame and this one, however long
+    // (a whole scroll-past-and-back, or a paused-JS touch drag), is
+    // exactly what should make this frame's ease land at — or
+    // essentially at — the correct value right away, instead of
+    // sweeping into view from a stale angle over several frames.
+    const dt = lastFrameTs === null ? 16.6667 : ts - lastFrameTs;
+    lastFrameTs = ts;
+
     const rect = stage.getBoundingClientRect();
     const cx = rect.left + rect.width/2;
     const cy = rect.top + rect.height/2;
     const normX = Math.max(-1, Math.min(1, (mouseX - cx) / (rect.width/2 || 1)));
     const normY = Math.max(-1, Math.min(1, (mouseY - cy) / (rect.height/2 || 1)));
 
-    tiltX += (normX - tiltX) * 0.045;
-    tiltY += (normY - tiltY) * 0.045;
+    const tiltAlpha = timeAlpha(0.045, dt);
+    tiltX += (normX - tiltX) * tiltAlpha;
+    tiltY += (normY - tiltY) * tiltAlpha;
 
     // counts from the moment the section's top edge crosses into the
     // viewport from the bottom (same convention as the quote form's
@@ -423,9 +462,10 @@
       targetScale = 1 + (1 - cubeEased) * 0.08;
     }
 
-    curRx += (targetRx - curRx) * 0.12;
-    curRy += (targetRy - curRy) * 0.12;
-    curScale += (targetScale - curScale) * 0.12;
+    const rotAlpha = timeAlpha(0.12, dt);
+    curRx += (targetRx - curRx) * rotAlpha;
+    curRy += (targetRy - curRy) * rotAlpha;
+    curScale += (targetScale - curScale) * rotAlpha;
     cube.style.transform = `scale(${curScale.toFixed(3)}) rotateX(${curRx.toFixed(2)}deg) rotateY(${curRy.toFixed(2)}deg)`;
 
     // the fall itself lives on the group (not the wrap or cube, which

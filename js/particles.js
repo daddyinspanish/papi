@@ -46,12 +46,14 @@
   }
 
   // --- color sweep state ---
-  let colorIndex = 0;
-  let direction = 1;          // 1 = sweeps bottom -> top, -1 = top -> bottom
-  let sweepProgress = 0;      // 0..1 (+feather) across the current sweep
+  // deliberately NOT "current progress + a per-frame increment" — see
+  // the note above step() for why that shape is exactly what caused
+  // the visible "restart" glitch, and why every piece of state in this
+  // file is now computed fresh from elapsed real time instead.
+  let sweepStart = null;
   const SWEEP_DURATION = 7200; // ms — slow, smooth wash
   const FEATHER = 0.2;        // width of the soft blend band
-  let lastTime = null;
+  const CYCLE_LEN = SWEEP_DURATION * (1 + FEATHER); // ms for one full sweep, including the feather overshoot before it resets
 
   // --- intro reveal state:
   //   pending -> hidden, before the loader hands off
@@ -78,8 +80,9 @@
   // the flat "pop to full brightness" look, just resolved much faster.
   const COLOR_WARMUP_DURATION = 650;
 
-  // continuous orbit of the cluster around its centre, forever
-  let orbitPhase = 0;
+  // continuous orbit of the cluster around its centre, forever — also
+  // computed fresh from elapsed time each frame (orbitPhase = elapsed *
+  // ORBIT_SPEED), not accumulated frame to frame
   const ORBIT_SPEED = 0.00022; // radians/ms — noticeably faster than the old ~90s/turn drift
 
   function smoothstep(edge0, edge1, x){
@@ -268,45 +271,64 @@
   const SPRING = 0.03;
   const DAMPING = .88;
 
+  // ---------------------------------------------------------------
+  // Every piece of ongoing state below (the sweep, its color index
+  // and direction, the orbit angle) used to be a per-frame accumulator
+  // — advanced by "elapsed since last frame * rate" and carried
+  // forward frame to frame. That's fine as long as frames keep
+  // arriving roughly every 16ms, but iOS Safari deliberately pauses
+  // JS (rAF included) for as long as a finger is actively dragging the
+  // screen, then delivers one frame with however much real time
+  // actually elapsed since the last one — sometimes several hundred
+  // milliseconds. Fed into "elapsed * rate" that's a single-frame
+  // jump to a wildly different value: the orbit snapping to a new
+  // angle, the sweep jumping partway through a cycle, all in one
+  // frame. That's the "restart" — not the animation actually
+  // restarting, but a discontinuity landing exactly when Safari's
+  // paused JS catches up.
+  //
+  // Every one of these is now instead computed fresh each frame
+  // directly from *how much real time has passed since a fixed start
+  // point* (matching the pattern the breathing cycle already used
+  // correctly). There is no accumulator left to jump — a long gap
+  // between frames just means the next frame computes the exact
+  // angle/progress that real elapsed time says it should be, and
+  // paints it directly. Whatever the gap was, the motion itself is
+  // still just a continuous, ordinary function of time; it never
+  // stops being that function, it just isn't sampled as often for
+  // that one gap.
   function step(ts){
-    if(lastTime === null) lastTime = ts;
-    const dt = ts - lastTime;
-    lastTime = ts;
-
     let heroVisible = true;
     if(heroEl){
       const r = heroEl.getBoundingClientRect();
       heroVisible = r.bottom > 0 && r.top < window.innerHeight;
     }
-    // used to skip the whole redraw once the hero scrolled fully out of
-    // view, to stop it competing for frame time with whatever the next
-    // section was animating. On iPhone specifically that pause-then-
-    // resume was itself visible right at the edge of the hero's visible
-    // range (innerHeight shifting slightly as Safari's address bar
-    // collapses mid-scroll flips heroVisible back and forth), reading
-    // as the orbit stalling and restarting rather than running
-    // continuously. Letting it just run all the time avoids that
-    // entirely — simpler and never has a pause/resume seam to begin with.
 
     // release the cursor effect once the pointer has sat still a while
     if(mouse.active && ts - lastMoveTime > IDLE_MS) mouse.active = false;
     const pushActive = mouse.active && heroVisible;
 
-    // advance the sweep
-    sweepProgress += dt / SWEEP_DURATION;
-    if(sweepProgress > 1 + FEATHER){
-      sweepProgress = 0;
-      colorIndex = (colorIndex + 1) % palette().length;
-      direction *= -1;
-    }
+    // the sweep: a full cycle (0 -> 1+FEATHER, then reset) takes
+    // CYCLE_LEN ms. cycleCount is how many full cycles have completed
+    // since sweepStart; sweepProgress is just how far into the
+    // *current* cycle elapsed time now sits.
+    if(sweepStart === null) sweepStart = ts;
+    const sweepElapsed = ts - sweepStart;
+    const cycleFloat = sweepElapsed / CYCLE_LEN;
+    const cycleCount = Math.floor(cycleFloat);
+    const sweepProgress = (cycleFloat - cycleCount) * (1 + FEATHER);
+    const colorIndex = cycleCount % palette().length;
+    const direction = (cycleCount % 2 === 0) ? 1 : -1;
 
     // advance the intro reveal — a wide centre cluster that orbits and
     // breathes in size forever: expanding outward, then reversing back
     // into the tighter orbit, on a continuous loop
     let introProgress = 1;
+    let orbitPhase = 0;
     if(introPhase === 'held'){
-      orbitPhase += dt * ORBIT_SPEED;
-      const cyclePos = ((ts - heldStart) % BREATHE_PERIOD) / BREATHE_PERIOD; // 0..1
+      const heldElapsed = ts - heldStart;
+      orbitPhase = heldElapsed * ORBIT_SPEED;
+      const cyclePos = (heldElapsed % BREATHE_PERIOD) / BREATHE_PERIOD; // 0..1
       const tri = cyclePos < 0.5 ? cyclePos * 2 : (1 - cyclePos) * 2; // 0 -> 1 -> 0
       const eased = smoothstep(0, 1, tri); // soften the triangle's corners
       introProgress = lerp(HELD_REVEAL, EXPANDED_REVEAL, eased);
