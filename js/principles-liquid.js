@@ -1,29 +1,36 @@
 /* ===================================================================
-   Papi — Principles: one liquid sphere, seven embedded elements
-   A single realistic gold liquid sphere (a proper analytic 3D sphere
-   normal faked from a 2D distance field). Scrolling drives the camera
-   "into" it — the sphere grows to fill more of the screen — while
-   *panning* across a fixed abstract surface so a different, distinct
-   embedded element comes into focus at each of the seven stages,
-   rather than zooming toward one single, increasingly generic patch of
-   texture. Each element is its own simple shape (a solid core, a
-   flowing path, a ring, a soft glow, a sequence of nodes, parallel
-   motion streaks, a resolved point-in-a-ring) standing in for what it
-   represents, embedded right in the liquid rather than laid on top of
-   it as a separate flat icon.
+   Papi — Principles: one liquid mass that splits, merges, and shatters
+   No more zooming the camera into a single patch of surface. Instead,
+   one liquid orb is choreographed through a specific physical sequence
+   as the visitor scrolls, each move built to physically *feel* like
+   the principle it represents rather than just being labelled next to
+   generic footage:
 
-   Panning works by keeping seven fixed positions in an abstract
-   "surface space" (uFeaturePos, set once, never move) and easing
-   uPan — where in that space is currently centred under the camera —
-   toward the active stage's position. The visible surface noise and
-   every element's shape are both sampled relative to (screen position
-   - uPan), so panning is what actually swaps which element is in view.
+     Trust              — one whole, stable, settled orb
+     Reliable Navigation — splits into two, orbiting gently in place
+     Effective CTAs      — splits further into three, juggling each other
+     Customer Feeling    — the three rejoin into one, now rendered as a
+                            faceted liquid crystal rather than plain liquid
+     Clear Storytelling  — that crystal turns a full 360°, its facets
+                            catching the light in turn
+     Purposeful Motion   — the crystal shakes
+     Conversion          — the crystal shatters into fragments
 
-   Both radius (the sphere's growth) and pan are pure functions of
-   scroll position (eased for smoothness, never accumulated) — the
-   architecture proven throughout this site: scrolling back up walks
-   the exact same function backward, all the way to the first element,
-   for free.
+   The orb positions (1/2/3-way split), the facet rotation, and the
+   shatter progress are all pure functions of scroll position — the
+   established pattern across this whole site — so scrolling back up
+   reverses every stage of this cleanly: fragments reassemble, the
+   shake settles, the crystal turns back, and the three orbs rejoin
+   back down to one. The shake and the orbit/juggle wobble are the only
+   time-based (not scroll-based) motion here, layered on top for life;
+   neither one accumulates anything, both are pure functions of elapsed
+   time, so they can never drift or need to "catch up."
+
+   Material is deliberately not a flat matte fill: alpha and brightness
+   both vary with the fresnel term, so the body reads as more glass-
+   like/transparent while the rim and specular stay bright and sharp —
+   a shinier, less solid-looking liquid than the flat gold fill used
+   before.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
 
@@ -33,19 +40,19 @@ import * as THREE from './vendor/three.module.min.js';
   if(!section || !canvas) return;
 
   const STAGE_COUNT = 7;
+  const ORB_COUNT = 3;
 
   const CONFIG = {
-    radiusStart: 0.24,
-    radiusEnd: 2.3,      // enough growth to feel like diving in, without the ending patch going fully abstract
-    opacity: 0.97,       // near-solid — a clean liquid, not a translucent haze
-    edgeSoftness: 0.010, // crisp boundary
+    baseRadius: 0.30,
+    opacity: 0.96,
+    edgeSoftness: 0.010,
     mobileQuality: 0.55,
     mobileWidth: 640,
     maxDt: 1000/24,
-    easeRate: 0.16,
-    colorDeep:   [0.55, 0.38, 0.12],
+    easeRate: 0.15,
+    colorDeep:   [0.50, 0.34, 0.10],
     colorMid:    [0.90, 0.68, 0.28],
-    colorBright: [1.00, 0.90, 0.62],
+    colorBright: [1.00, 0.92, 0.68],
   };
 
   const isMobile = window.innerWidth < CONFIG.mobileWidth;
@@ -60,18 +67,26 @@ import * as THREE from './vendor/three.module.min.js';
     return Math.min(cap, 1 - Math.pow(1 - perFrameRate, dt / 16.6667));
   }
 
-  // fixed positions in abstract surface-space, one per stage — spaced
-  // far enough apart (see FEATURE_SCALE below) that only the adjacent
-  // one is ever partly visible during a transition, never two at once
-  const FEATURE_POS = [
-    [0.0, 0.0],
-    [1.9, 0.35],
-    [0.9, -1.7],
-    [-1.8, 0.8],
-    [-0.75, 1.9],
-    [1.7, -1.2],
-    [-1.9, -1.0],
+  // ===================================================================
+  // per-stage-boundary orb offsets (local units, aspect-corrected).
+  // Orb C deliberately overlaps orb A at stage 1 (only two are ever
+  // visually distinct there) and all three collapse back to (0,0) from
+  // stage 3 onward, where the crystal choreography (rotate/shake/
+  // shatter) takes over instead of position.
+  // ===================================================================
+  const ORB_PRESETS = [
+    [[0,0],        [0,0],        [0,0]],       // 0 start of Trust
+    [[-0.30,0],    [0.30,0],     [-0.30,0]],   // 1 end of Trust / Navigation split
+    [[-0.30,-0.20],[0.30,-0.20], [0,0.32]],    // 2 end of Navigation / CTA split (3-way)
+    [[0,0],        [0,0],        [0,0]],       // 3 end of CTA / Feeling — rejoined, crystal begins
+    [[0,0],        [0,0],        [0,0]],       // 4 end of Feeling / Storytelling
+    [[0,0],        [0,0],        [0,0]],       // 5 end of Storytelling / Motion
+    [[0,0],        [0,0],        [0,0]],       // 6 end of Motion / Conversion
+    [[0,0],        [0,0],        [0,0]],       // 7 end of Conversion
   ];
+  // per-stage orb radius (smaller once split, so total "volume" feels
+  // conserved rather than each split piece staying full-size)
+  const ORB_RADIUS_SCALE = [1.0, 0.62, 0.5, 1.0, 1.0, 1.0, 1.0, 1.0];
 
   const VERTEX = `
     varying vec2 vUv;
@@ -85,13 +100,15 @@ import * as THREE from './vendor/three.module.min.js';
     varying vec2 vUv;
     uniform vec2 uResolution;
     uniform float uTime;
-    uniform float uRadius;
-    uniform float uEdgeSoftness;
     uniform vec2 uCenter;
     uniform float uOpacity;
-    uniform vec2 uPan;
-    uniform float uActiveStageFloat;
-    uniform vec2 uFeaturePos[${STAGE_COUNT}];
+    uniform float uEdgeSoftness;
+    uniform vec2 uOrbPos[${ORB_COUNT}];
+    uniform float uOrbRadius;
+    uniform float uSurfaceTension;
+    uniform float uCrystalT;      // 0 = plain liquid, 1 = fully faceted crystal
+    uniform float uFacetRotation; // radians — turns the facet pattern (Storytelling)
+    uniform float uShatter;       // 0..1 — Conversion
     uniform vec3 uColorDeep;
     uniform vec3 uColorMid;
     uniform vec3 uColorBright;
@@ -121,104 +138,97 @@ import * as THREE from './vendor/three.module.min.js';
       }
       return v;
     }
-
-    float sdCircle(vec2 p, float r){ return length(p) - r; }
-    float sdSegment(vec2 p, vec2 a, vec2 b, float r){
-      vec2 pa = p-a, ba = b-a;
-      float h = clamp(dot(pa,ba)/dot(ba,ba), 0.0, 1.0);
-      return length(pa - ba*h) - r;
-    }
-    float sdAnnulus(vec2 p, float r, float w){ return abs(length(p)-r) - w; }
-
-    // one distinct shape per principle, embedded in the liquid surface —
-    // rendered wherever panning currently brings it under the camera,
-    // standing in for what each principle actually means rather than
-    // just being a generic zoomed-in patch of the same texture
-    float elementSDF(vec2 p, int idx){
-      if(idx == 0) return sdCircle(p, 0.30);                                    // Trust — one solid, stable core
-      if(idx == 1) return sdSegment(p, vec2(-0.36,-0.22), vec2(0.36,0.22), 0.075); // Reliable Navigation — a single flowing path
-      if(idx == 2) return sdAnnulus(p, 0.27, 0.055);                            // Effective CTAs — a ring, an opening to focus through
-      if(idx == 3) return sdCircle(p, 0.36);                                    // Customer Feeling — soft, enveloping (softened in shading below)
-      if(idx == 4){                                                             // Clear Storytelling — a sequence of connected nodes
-        float a = sdCircle(p-vec2(-0.30,0.0), 0.095);
-        float b = sdCircle(p, 0.095);
-        float c = sdCircle(p-vec2(0.30,0.0), 0.095);
-        return min(min(a,b),c);
-      }
-      if(idx == 5){                                                            // Purposeful Motion — parallel streaks
-        float a = sdSegment(p-vec2(0.0,-0.16), vec2(-0.28,0.0), vec2(0.28,0.0), 0.04);
-        float b = sdSegment(p,                 vec2(-0.34,0.0), vec2(0.34,0.0), 0.04);
-        float c = sdSegment(p-vec2(0.0,0.16),  vec2(-0.28,0.0), vec2(0.28,0.0), 0.04);
-        return min(min(a,b),c);
-      }
-      float core = sdCircle(p, 0.14);                                          // Conversion — a resolved point inside a ring
-      float ring = sdAnnulus(p, 0.30, 0.035);
-      return min(core, ring);
+    float smin(float a, float b, float k){
+      float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
+      return mix(b, a, h) - k*h*(1.0-h);
     }
 
     void main(){
       float aspect = uResolution.x / uResolution.y;
       vec2 p = vec2(vUv.x*aspect, vUv.y);
       vec2 center = vec2(uCenter.x*aspect, uCenter.y);
-      vec2 d = p - center;
-      float dist = length(d);
+      vec2 q = p - center;
 
-      float alpha = 1.0 - smoothstep(uRadius - uEdgeSoftness, uRadius, dist);
-      if(alpha <= 0.003) discard;
+      // shatter: work out which of a ring of wedges this fragment
+      // belongs to, then sample backward along that wedge's own
+      // outward direction — what renders at an already-displaced pixel
+      // is whatever the liquid looked like further toward the centre,
+      // which is what makes each wedge read as having physically
+      // moved outward, leaving empty space behind it as uShatter grows
+      const float WEDGES = 9.0;
+      float ang = atan(q.y, q.x);
+      float wedgeAngle = (floor(ang/(6.28318/WEDGES)) + 0.5) * (6.28318/WEDGES);
+      vec2 wedgeDir = vec2(cos(wedgeAngle), sin(wedgeAngle));
+      float shatterDist = uShatter * 0.85;
+      float shatterSpin = uShatter * (mod(wedgeAngle, 2.0) - 1.0) * 0.6;
+      vec2 sq = q - wedgeDir*shatterDist;
+      float cs = cos(-shatterSpin), sn = sin(-shatterSpin);
+      sq = mat2(cs,-sn,sn,cs) * sq;
 
-      float zLocal = sqrt(max(0.0, uRadius*uRadius - dist*dist));
-      vec3 normal = normalize(vec3(d, zLocal));
-
-      // world position on the abstract surface — d (screen offset from
-      // the sphere's centre) plus the current pan, so panning is what
-      // slides a different part of that abstract surface under view
-      vec2 worldP = d*2.6 + uPan;
-
-      vec2 noiseP = worldP*2.2 + uTime*0.012;
-      float eps = 0.01;
-      float n  = fbm(noiseP);
-      float n1 = fbm(noiseP+vec2(eps,0.0));
-      float n2 = fbm(noiseP+vec2(0.0,eps));
-      vec3 bumpNormal = normalize(normal + vec3((n1-n), (n2-n), 0.0) * 2.6);
-
-      // whichever element is nearest under the current pan, and how
-      // "active" its stage currently is (fades in/out over the one
-      // stage either side of it, matching how far panning has to travel)
-      float glow = 0.0;
-      float elementInside = 0.0;
-      for(int i=0;i<${STAGE_COUNT};i++){
-        vec2 local = worldP - uFeaturePos[i];
-        float sd = elementSDF(local, i);
-        float diff = abs(uActiveStageFloat - float(i));
-        float activation = 1.0 - smoothstep(0.0, 1.05, diff);
-        float edge = (1.0 - smoothstep(-0.03, 0.05, sd)) * activation;
-        glow = max(glow, edge);
-        if(sd < 0.0) elementInside = max(elementInside, activation);
+      // liquid field — up to three smooth-min-blended orbs, collapsing
+      // to one once ORB_PRESETS brings them back to (0,0)
+      float f = 1.0e5;
+      for(int i=0;i<${ORB_COUNT};i++){
+        float d = length(sq - uOrbPos[i]) - uOrbRadius;
+        f = smin(f, d, uSurfaceTension);
       }
 
-      vec3 viewDir = vec3(0.0, 0.0, 1.0);
+      float alphaShape = 1.0 - smoothstep(-uEdgeSoftness, uEdgeSoftness, f);
+      // fragments fade out a little as they fly apart, like dust
+      // trailing off rather than stopping dead
+      float shatterFade = 1.0 - uShatter*0.55;
+      float alpha = alphaShape * shatterFade;
+      if(alpha <= 0.003) discard;
+
+      // fake 3D normal from the field's own gradient
+      float eps = 0.006;
+      float fx = ( (length((sq+vec2(eps,0.0)) - uOrbPos[0]) - uOrbRadius) - f );
+      float fy = ( (length((sq+vec2(0.0,eps)) - uOrbPos[0]) - uOrbRadius) - f );
+      // (approximate gradient using orb 0 alone is fine — used only for
+      // shading direction, not the field value itself, and reads
+      // correctly near whichever orb currently dominates locally)
+      vec3 normal = normalize(vec3(-fx, -fy, eps*2.2));
+
+      // crystal facets: snap the normal's angle to a coarse set of
+      // directions for a cut-gem look, blended in by uCrystalT and
+      // turned by uFacetRotation (the Storytelling "360 view")
+      float nAngle = atan(normal.y, normal.x) + uFacetRotation;
+      float facetCount = 12.0;
+      float snapped = (floor(nAngle/(6.28318/facetCount) + 0.5)) * (6.28318/facetCount) - uFacetRotation;
+      vec2 facetXY = vec2(cos(snapped), sin(snapped)) * length(normal.xy);
+      vec3 facetNormal = normalize(vec3(facetXY, normal.z));
+      vec3 shadeNormal = normalize(mix(normal, facetNormal, uCrystalT));
+
+      // fine liquid-surface grain, faded out as the crystal takes over
+      // (a cut crystal shouldn't look like it has a wet, grainy skin)
+      vec2 noiseP = sq*7.0 + uTime*0.01;
+      float n  = fbm(noiseP);
+      float n1 = fbm(noiseP+vec2(eps*4.0,0.0));
+      float n2 = fbm(noiseP+vec2(0.0,eps*4.0));
+      vec3 bumpNormal = normalize(shadeNormal + vec3((n1-n),(n2-n),0.0) * 1.6 * (1.0-uCrystalT*0.7));
+
+      vec3 viewDir = vec3(0.0,0.0,1.0);
       vec3 lightDir = normalize(vec3(-0.4, 0.55, 0.7));
 
-      float diff2 = max(0.0, dot(bumpNormal, lightDir));
-      float spec = pow(max(0.0, dot(reflect(-lightDir, bumpNormal), viewDir)), 46.0);
-      float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.0);
+      float diff = max(0.0, dot(bumpNormal, lightDir));
+      float specExp = mix(46.0, 90.0, uCrystalT); // tighter, sharper highlight once crystal
+      float spec = pow(max(0.0, dot(reflect(-lightDir, bumpNormal), viewDir)), specExp);
+      float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 2.4);
 
       float depthT = clamp(dot(normal, viewDir), 0.0, 1.0);
       vec3 base = mix(uColorDeep, uColorMid, smoothstep(0.0, 0.6, depthT));
-      base = mix(base, uColorBright, smoothstep(0.5, 1.0, depthT)*0.45);
+      base = mix(base, uColorBright, smoothstep(0.5, 1.0, depthT)*0.5);
 
-      vec3 color = base*(0.45 + 0.55*diff2)
-        + vec3(1.0, 0.95, 0.82) * spec * 0.55
-        + vec3(1.0, 0.82, 0.45) * fresnel * 0.5;
+      // shinier, more transparent material: body brightness leans more
+      // on the fresnel/rim term than a flat fill, and alpha itself
+      // dips in the body (more glass-like) while staying solid at the
+      // rim — a stronger version of this once crystal
+      float bodyAlpha = mix(0.82, 0.62, uCrystalT) + fresnel*mix(0.18,0.38,uCrystalT);
+      vec3 color = base*(0.4 + 0.4*diff)
+        + vec3(1.0, 0.96, 0.85) * spec * mix(0.6, 1.0, uCrystalT)
+        + vec3(1.0, 0.85, 0.5) * fresnel * mix(0.55, 0.8, uCrystalT);
 
-      // the active element itself reads as a distinctly brighter,
-      // slightly paler-gold emissive marking on the liquid surface —
-      // not a different colour (stays gold, on-brand), just clearly lit
-      // from within rather than only reflecting the same key light
-      color = mix(color, vec3(1.0, 0.93, 0.72), elementInside*0.35);
-      color += vec3(1.0, 0.88, 0.55) * glow * 0.6;
-
-      gl_FragColor = vec4(color, alpha*uOpacity);
+      gl_FragColor = vec4(color, alpha*uOpacity*bodyAlpha);
     }
   `;
 
@@ -230,13 +240,15 @@ import * as THREE from './vendor/three.module.min.js';
   const uniforms = {
     uResolution: { value: new THREE.Vector2(1,1) },
     uTime: { value: 0 },
-    uRadius: { value: CONFIG.radiusStart },
-    uEdgeSoftness: { value: CONFIG.edgeSoftness },
     uCenter: { value: new THREE.Vector2(0.5, 0.5) },
     uOpacity: { value: CONFIG.opacity },
-    uPan: { value: new THREE.Vector2(0, 0) },
-    uActiveStageFloat: { value: 0 },
-    uFeaturePos: { value: FEATURE_POS.map(p => new THREE.Vector2(p[0], p[1])) },
+    uEdgeSoftness: { value: CONFIG.edgeSoftness },
+    uOrbPos: { value: [new THREE.Vector2(0,0), new THREE.Vector2(0,0), new THREE.Vector2(0,0)] },
+    uOrbRadius: { value: CONFIG.baseRadius },
+    uSurfaceTension: { value: 0.10 },
+    uCrystalT: { value: 0 },
+    uFacetRotation: { value: 0 },
+    uShatter: { value: 0 },
     uColorDeep: { value: new THREE.Vector3(...CONFIG.colorDeep) },
     uColorMid: { value: new THREE.Vector3(...CONFIG.colorMid) },
     uColorBright: { value: new THREE.Vector3(...CONFIG.colorBright) },
@@ -250,11 +262,21 @@ import * as THREE from './vendor/three.module.min.js';
     depthWrite: false,
   });
   scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), material));
-
   let W = 1, H = 1;
   function resize(){
-    W = canvas.clientWidth || window.innerWidth;
-    H = canvas.clientHeight || window.innerHeight;
+    // both clientWidth and window.innerWidth can legitimately read 0 for
+    // a brief moment (a tab not yet laid out, briefly backgrounded,
+    // etc.) — feeding that straight to uResolution turns the shader's
+    // very first line (aspect = x/y) into 0/0 = NaN, which silently
+    // discards every fragment for the rest of that render. Skipping the
+    // update when either dimension is still 0 just keeps whatever the
+    // last valid size was (1x1 initially) until a real measurement
+    // comes in, rather than ever handing the shader a NaN to propagate.
+    const w = canvas.clientWidth || window.innerWidth;
+    const h = canvas.clientHeight || window.innerHeight;
+    if(!w || !h) return;
+    W = w;
+    H = h;
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2) * qualityScale;
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(W, H, false);
@@ -297,8 +319,8 @@ import * as THREE from './vendor/three.module.min.js';
     return 1 - smoothstep(0.8, 1.0, local);
   }
 
-  let curRadius = CONFIG.radiusStart;
-  let curPanX = FEATURE_POS[0][0], curPanY = FEATURE_POS[0][1];
+  let curOrbX = [0,0,0], curOrbY = [0,0,0];
+  let curRadiusScale = 1;
   let lastTs = null;
   let sectionVisible = true;
 
@@ -314,22 +336,55 @@ import * as THREE from './vendor/three.module.min.js';
     const alpha = timeAlpha(CONFIG.easeRate, dt, 0.6);
 
     const stageFloat = getStageFloat();
-    const overall = stageFloat / STAGE_COUNT;
     const stageIndex = Math.min(STAGE_COUNT - 1, Math.floor(stageFloat));
-    const stageNext = Math.min(STAGE_COUNT - 1, stageIndex + 1);
+    const stageNext = stageIndex + 1;
     const stageFrac = smoothstep(0, 1, stageFloat - stageIndex);
 
-    const targetRadius = CONFIG.radiusStart + (CONFIG.radiusEnd - CONFIG.radiusStart) * overall;
-    const targetPanX = FEATURE_POS[stageIndex][0] + (FEATURE_POS[stageNext][0] - FEATURE_POS[stageIndex][0]) * stageFrac;
-    const targetPanY = FEATURE_POS[stageIndex][1] + (FEATURE_POS[stageNext][1] - FEATURE_POS[stageIndex][1]) * stageFrac;
+    // idle wobble — a gentle time-based orbit/juggle, amplitude scaled
+    // by how far apart the orbs currently are (so it's invisible while
+    // merged, and reads as "moving in place"/"juggling" once split) —
+    // a pure function of elapsed time, never accumulated
+    const t = ts / 1000;
 
-    curRadius += (targetRadius - curRadius) * alpha;
-    curPanX += (targetPanX - curPanX) * alpha;
-    curPanY += (targetPanY - curPanY) * alpha;
+    for(let i=0;i<ORB_COUNT;i++){
+      const a = ORB_PRESETS[stageIndex][i];
+      const b = ORB_PRESETS[stageNext][i];
+      let tx = a[0] + (b[0]-a[0]) * stageFrac;
+      let ty = a[1] + (b[1]-a[1]) * stageFrac;
+      const spread = Math.hypot(tx, ty);
+      const wobble = Math.min(1, spread / 0.25);
+      tx += Math.sin(t*1.3 + i*2.1) * 0.035 * wobble;
+      ty += Math.cos(t*1.05 + i*2.7) * 0.035 * wobble;
+      curOrbX[i] += (tx - curOrbX[i]) * alpha;
+      curOrbY[i] += (ty - curOrbY[i]) * alpha;
+      uniforms.uOrbPos.value[i].set(curOrbX[i], curOrbY[i]);
+    }
 
-    uniforms.uRadius.value = curRadius;
-    uniforms.uPan.value.set(curPanX, curPanY);
-    uniforms.uActiveStageFloat.value = stageFloat;
+    const radiusA = ORB_RADIUS_SCALE[stageIndex];
+    const radiusB = ORB_RADIUS_SCALE[stageNext];
+    const targetRadiusScale = radiusA + (radiusB - radiusA) * stageFrac;
+    curRadiusScale += (targetRadiusScale - curRadiusScale) * alpha;
+    uniforms.uOrbRadius.value = CONFIG.baseRadius * curRadiusScale;
+
+    // crystal blend ramps in as the three orbs finish rejoining (stage
+    // 2 -> 3), then stays fully crystal for every stage after
+    uniforms.uCrystalT.value = smoothstep(2.4, 3.2, stageFloat);
+
+    // Storytelling (stage index 4, i.e. stageFloat 4..5): one full
+    // rotation of the facet pattern, start to finish across that stage
+    uniforms.uFacetRotation.value = smoothstep(4, 5, stageFloat) * Math.PI * 2;
+
+    // Purposeful Motion (stage index 5, stageFloat 5..6): a shake —
+    // several sine waves at different frequencies, amplitude ramped in
+    // and back out across the stage so it doesn't cut in/out abruptly
+    const motionActive = smoothstep(5, 5.15, stageFloat) * (1 - smoothstep(5.85, 6, stageFloat));
+    const shakeX = (Math.sin(t*38.0) + Math.sin(t*17.0)*0.6) * 0.028 * motionActive;
+    const shakeY = (Math.cos(t*33.0) + Math.sin(t*21.0)*0.6) * 0.028 * motionActive;
+    uniforms.uCenter.value.set(0.5 + shakeX, 0.5 + shakeY);
+
+    // Conversion (stage index 6, stageFloat 6..7): shatter
+    uniforms.uShatter.value = smoothstep(6, 6.9, stageFloat);
+
     uniforms.uTime.value = ts / 1000;
     renderer.render(scene, camera);
 
@@ -350,9 +405,7 @@ import * as THREE from './vendor/three.module.min.js';
   measure();
 
   if(prefersReducedMotion){
-    uniforms.uRadius.value = CONFIG.radiusStart;
-    uniforms.uPan.value.set(FEATURE_POS[0][0], FEATURE_POS[0][1]);
-    uniforms.uActiveStageFloat.value = 0;
+    uniforms.uOrbRadius.value = CONFIG.baseRadius;
     renderer.render(scene, camera);
     if(introEl) introEl.style.opacity = '0';
     stageTextEls.forEach((el, i)=>{ el.style.opacity = i === 0 ? '1' : '0'; });

@@ -385,8 +385,17 @@ import * as THREE from './vendor/three.module.min.js';
 
   let W = 1, H = 1;
   function resize(){
-    W = canvas.clientWidth || window.innerWidth;
-    H = canvas.clientHeight || window.innerHeight;
+    // both clientWidth and window.innerWidth can legitimately read 0 for
+    // a brief moment (a tab not yet laid out, briefly backgrounded,
+    // etc.) — feeding that straight to uResolution turns the shader's
+    // very first line (aspect = x/y) into 0/0 = NaN, which silently
+    // discards every fragment. Skip the update rather than ever handing
+    // the shader a NaN to propagate; W/H just keep their last valid size.
+    const w = canvas.clientWidth || window.innerWidth;
+    const h = canvas.clientHeight || window.innerHeight;
+    if(!w || !h) return;
+    W = w;
+    H = h;
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2) * qualityScale;
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(W, H, false);
