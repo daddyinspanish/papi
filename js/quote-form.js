@@ -150,13 +150,39 @@
   const formTabs = Array.from(document.querySelectorAll('.quote-form-tab'));
   if(formStack && formTabs.length){
     const panels = Array.from(formStack.children);
+    // always recomputed fresh rather than trusted from a stored
+    // variable — syncStackHeight used to read a separately-tracked
+    // `activePanel` that updateActiveTab only updates on its own
+    // rAF-throttled schedule. The two could fall out of step (rAF and
+    // the scroll-position math don't run in lockstep), so
+    // syncStackHeight would occasionally set the height for whichever
+    // panel *used to* be active rather than the one actually on
+    // screen — a real, wrong height, not just a mid-animation one,
+    // which is exactly what kept exposing the section's own gold
+    // background at the bottom of the form on some swipes (and on tab
+    // clicks, which scroll the same stack). Computing the closest panel
+    // fresh every time removes the possibility of that mismatch outright.
+    function getClosestPanelIndex(){
+      const stackRect = formStack.getBoundingClientRect();
+      const center = stackRect.left + stackRect.width / 2;
+      let closest = 0, closestDist = Infinity;
+      panels.forEach((panel, i)=>{
+        const r = panel.getBoundingClientRect();
+        const dist = Math.abs((r.left + r.width / 2) - center);
+        if(dist < closestDist){ closestDist = dist; closest = i; }
+      });
+      return closest;
+    }
     // the stack's own height always matches whichever panel is active
-    // (see the CSS transition on it) rather than stretching every
-    // panel to match the tallest one — the call-back panel has far
-    // fewer fields than the quote form, and stretching it left a dead
-    // gap at the bottom that read as part of the form being missing
+    // rather than stretching every panel to match the tallest one —
+    // the call-back panel has far fewer fields than the quote form,
+    // and stretching it left a dead gap at the bottom that read as
+    // part of the form being missing. No CSS transition drives this
+    // (see the height rule itself) — it snaps straight to the new
+    // value, so there's no window where the box and its content
+    // disagree on height.
     function syncStackHeight(){
-      const panel = panels[activePanel];
+      const panel = panels[getClosestPanelIndex()];
       if(panel) formStack.style.height = `${panel.scrollHeight}px`;
     }
     function goToPanel(i){
@@ -167,17 +193,8 @@
       tab.addEventListener('click', ()=> goToPanel(i));
     });
     let activePanel = 0;
-    // only swaps which tab is highlighted — cheap, safe to do on every
-    // scroll frame while the swipe is still in motion
     function updateActiveTab(){
-      const stackRect = formStack.getBoundingClientRect();
-      const center = stackRect.left + stackRect.width / 2;
-      let closest = 0, closestDist = Infinity;
-      panels.forEach((panel, i)=>{
-        const r = panel.getBoundingClientRect();
-        const dist = Math.abs((r.left + r.width / 2) - center);
-        if(dist < closestDist){ closestDist = dist; closest = i; }
-      });
+      const closest = getClosestPanelIndex();
       if(closest === activePanel) return;
       activePanel = closest;
       formTabs.forEach((tab, i)=>{
@@ -185,39 +202,14 @@
         tab.classList.toggle('is-active', active);
         tab.setAttribute('aria-selected', active ? 'true' : 'false');
       });
+      syncStackHeight();
     }
     let tabTicking = false;
-    // syncStackHeight used to be called straight from updateActiveTab,
-    // the instant the closest panel flipped — which happens as soon as
-    // a swipe crosses the halfway point, well before the finger lifts
-    // or the scroll-snap settles. That kicked off the height CSS
-    // transition mid-drag, while the stack was still visibly sliding
-    // between two very differently-sized panels: for a moment the box
-    // was the wrong height for what was on screen, showing a gap of
-    // the section's own background (a gold gradient) instead of form,
-    // and reading as a jitter/flash right in the middle of the swipe.
-    // Settling the height only once the scroll gesture actually stops
-    // (native 'scrollend' where supported, a short debounce as a
-    // fallback everywhere else) keeps the resize entirely after the
-    // panel has already landed, instead of racing the swipe itself.
-    let settleTimer = null;
-    function scheduleHeightSync(){
-      clearTimeout(settleTimer);
-      settleTimer = setTimeout(syncStackHeight, 120);
-    }
     formStack.addEventListener('scroll', ()=>{
-      if(!tabTicking){
-        tabTicking = true;
-        requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
-      }
-      scheduleHeightSync();
+      if(tabTicking) return;
+      tabTicking = true;
+      requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
     }, { passive:true });
-    if('onscrollend' in window){
-      formStack.addEventListener('scrollend', ()=>{
-        clearTimeout(settleTimer);
-        syncStackHeight();
-      });
-    }
     window.addEventListener('resize', syncStackHeight);
     // measure once layout has actually settled — measuring in the same
     // tick as creation can catch fonts/images still reflowing, which

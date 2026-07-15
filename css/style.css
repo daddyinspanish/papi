@@ -444,12 +444,14 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
    (iPhone, iPad portrait) is untouched. */
 @media (min-width:861px){
   .showcase-sticky{
+    --showcase-left-col: clamp(200px, 24vw, 300px);
+    --showcase-col-gap: clamp(2.5rem, 5vw, 4.5rem);
     display:grid;
-    grid-template-columns: clamp(200px, 24vw, 300px) 1fr;
-    column-gap: clamp(2.5rem, 5vw, 4.5rem);
+    grid-template-columns: var(--showcase-left-col) 1fr;
+    column-gap: var(--showcase-col-gap);
     align-items:center;
   }
-  .showcase-sticky.has-expanded-card{ column-gap: clamp(2.5rem, 5vw, 4.5rem); }
+  .showcase-sticky.has-expanded-card{ column-gap: var(--showcase-col-gap); }
   .showcase-eyebrow{ grid-column:1; grid-row:1; text-align:left; }
   .showcase-items{ grid-column:1; grid-row:2; }
   .showcase-item{ text-align:left; }
@@ -607,6 +609,25 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .showcase-phrase::before{ content:'\201C'; }
 .showcase-phrase::after{ content:'\201D'; }
 
+/* .showcase-phrase's containing block is .showcase-fan, which above
+   ~860px is only the right-hand column (see the showcase-sticky grid
+   below), off-centre from the section as a whole — but the expanded
+   card centers itself on the full viewport (position:fixed; left:50%)
+   same as it always has. Left alone, the quote stayed centered on the
+   fan's own narrower box instead, visibly drifting toward the
+   expanded card's right edge/corner instead of sitting over its
+   centre. Extending the quote's own left edge back out by exactly the
+   width the left column + gap take re-spans it across the *whole*
+   section again, so text-align:center centers it on the same middle
+   the expanded card uses. (Placed after the base rule above, not
+   inside the grid media query further up, so it actually wins the
+   cascade against that rule's own left:0 at equal specificity.) */
+@media (min-width:861px){
+  .showcase-phrase{
+    left: calc(-1 * (var(--showcase-left-col) + var(--showcase-col-gap)));
+  }
+}
+
 /* a different entrance plays each time (picked at random in
    showcase.js, one class added per expand) — the point is that the
    phrase itself keeps drawing the eye every time a card opens, rather
@@ -696,6 +717,66 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   margin-bottom:calc(.45rem * var(--card-scale));
 }
 .fan-card .fan-line.short{ width:55%; }
+
+/* feature badges — only shown while a card is expanded, since a small
+   angled fan card doesn't have room to hint at these without looking
+   cluttered. Vivid, varied gradients (not the site's own gold-on-black
+   palette) are the point — they need to pop as their own accent color
+   against the card, not blend into the brand */
+.fan-icons{
+  position:absolute;
+  top:calc(.8rem * var(--card-scale));
+  right:calc(.8rem * var(--card-scale));
+  z-index:5;
+  display:flex;
+  flex-direction:column;
+  gap:calc(.55rem * var(--card-scale));
+  pointer-events:none;
+}
+.fan-icon{
+  width:calc(2.15rem * var(--card-scale));
+  height:calc(2.15rem * var(--card-scale));
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  box-shadow:0 8px 18px -6px rgba(0,0,0,.55);
+  transform:scale(0);
+  opacity:0;
+  transition:transform .4s cubic-bezier(.34,1.56,.64,1), opacity .25s ease;
+}
+.fan-icon svg{
+  width:calc(1.05rem * var(--card-scale));
+  height:calc(1.05rem * var(--card-scale));
+}
+.fan-icon--call{ background:linear-gradient(135deg, #ff8a4c, #ff3d68); }
+.fan-icon--video{ background:linear-gradient(135deg, #4facfe, #7c3aed); }
+.fan-icon--ai{ background:linear-gradient(135deg, #34e0a1, #06b6d4); }
+
+/* pop in one after another rather than all at once — reads as each
+   capability being called out in turn instead of a single flat reveal */
+.fan-card.is-expanded .fan-icon{ transform:scale(1); opacity:1; }
+.fan-card.is-expanded .fan-icon--call{ transition-delay:.05s; }
+.fan-card.is-expanded .fan-icon--video{ transition-delay:.16s; }
+.fan-card.is-expanded .fan-icon--ai{ transition-delay:.27s; }
+
+/* closing plays this instead of the entrance in reverse — scaling
+   past 1 while fading out reads like a soap bubble popping rather than
+   the icon just shrinking away. A transition alone can't overshoot
+   like this on its way out, hence a dedicated keyframe animation,
+   toggled on/off via .is-bursting in showcase.js. */
+@keyframes fanIconBurst{
+  0%{ transform:scale(1); opacity:1; }
+  40%{ transform:scale(1.6); opacity:.7; }
+  100%{ transform:scale(2.1); opacity:0; }
+}
+.fan-icons.is-bursting .fan-icon{
+  animation:fanIconBurst .38s ease-out forwards;
+  transition:none;
+}
+.fan-icons.is-bursting .fan-icon--video{ animation-delay:.04s; }
+.fan-icons.is-bursting .fan-icon--ai{ animation-delay:.08s; }
 
 .showcase-eyebrow{
   position:relative;
