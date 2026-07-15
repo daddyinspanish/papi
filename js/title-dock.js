@@ -148,13 +148,15 @@
 
   const showcaseEl = document.getElementById('showcase');
   const heroEl = document.getElementById('hero');
+  const contrastHeadingEl = document.querySelector('.contrast-heading-wrap');
+  const contrastSectionEl = document.getElementById('contrastSection');
 
   // the docked top-right word swaps per section as the visitor scrolls
   // through the page — one word standing in for what that section is
   // about, rather than a single label that only ever meant "showcase"
   const sectionDock = document.getElementById('sectionDock');
   const sectionWords = [
-    { el: document.getElementById('principlesSection'), word: 'Fundamentals' },
+    { el: contrastSectionEl, word: 'Difference' },
     { el: showcaseEl, word: 'Craft' },
     { el: document.getElementById('testimonialsSection'), word: 'Proof' },
   ];
@@ -204,14 +206,20 @@
       }
     }
 
-    // the brand mark only needs to adapt live (via --style-contrast)
-    // while it's actually over the hero's own sweeping gold/black
-    // field — that's what was going invisible (gold-on-gold). Every
-    // other section already has a fixed dark background, where a
-    // static gold reads fine on its own; leaving it on the dynamic
-    // color there risked it swinging to near-black-on-near-black.
+    // the brand mark/docked label only need to flip to dark-on-light
+    // while over one of this site's white zones — the hero's own
+    // sweeping gold/black field (gold-on-gold was going invisible
+    // there), and now the contrast section, also white. Every other
+    // section has a fixed dark background, where the static gold/
+    // cream colors already read fine on their own.
     const onHero = heroEl ? window.scrollY < heroEl.offsetHeight : false;
-    document.body.classList.toggle('on-hero-section', onHero);
+    let onContrast = false;
+    if(contrastHeadingEl && contrastSectionEl){
+      const zoneTop = contrastHeadingEl.offsetTop;
+      const zoneBottom = contrastSectionEl.offsetTop + contrastSectionEl.offsetHeight;
+      onContrast = window.scrollY >= zoneTop && window.scrollY < zoneBottom;
+    }
+    document.body.classList.toggle('on-light-section', onHero || onContrast);
   }
 
   // batch to one update per animation frame — this reads offsetTop/

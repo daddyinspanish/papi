@@ -65,32 +65,20 @@ import * as THREE from './vendor/three.module.min.js';
     mouseForce: 0.22,        // strength of the cursor push/pull
     mouseRadius: 0.30,       // how close the cursor needs to be (aspect-corrected 0..1 space) to affect a point
     mergeDistance: 1.35,     // multiplies surfaceTension for points explicitly flagged as a "linked pair" (see WANDER_LINKS)
-    opacity: 0.95,           // near-solid — a clean, opaque liquid rather than a translucent haze
+    opacity: 0.92,           // overall opacity ceiling — actual per-pixel transparency is driven
+                             // by the glass material's own fresnel-based bodyAlpha below, not this alone
     highlightIntensity: 0.4,
-    edgeSoftness: 0.012,     // a crisp boundary rather than a soft, blurred-looking fade
+    edgeSoftness: 0.004,     // a crisp boundary rather than a soft, blurred-looking fade
     mobileQuality: 0.55,     // resolution + point-count scale under MOBILE_WIDTH
     mobileWidth: 640,
     stretchAmount: 5.5,      // how much a point elongates along its velocity direction
     compressAmount: 1.8,     // how much it compresses perpendicular to that direction while moving
-    // these three MUST be monotonically increasing in luminance, edge
-    // to core — the first attempt at a lightened palette picked a mid
-    // tone that was, by luminance, darker than both the edge and core
-    // colors either side of it, which rendered as a dark ring around
-    // every point no matter how smoothly the two were interpolated:
-    // smooth interpolation only guarantees a smooth transition *between*
-    // the colors you give it, not that the result brightens in one
-    // consistent direction. Edge is a warm-but-fairly-rich gold rather
-    // than pale white — the alpha fade (edgeSoftness) already handles
-    // blending the true boundary into the white page; this is the color
-    // just inside that, not the boundary itself.
-    // entirely gold — no white/cream anywhere in the ramp, including
-    // the "core" (that used to run all the way up to near-white/cream,
-    // which read as a white highlight rather than shiny gold). Still
-    // monotonically increasing in luminance edge to core (see above)
-    // to avoid the dark-ring bug, just staying gold the whole way.
-    colorEdge:  [0.75, 0.55, 0.18],
-    colorMid:   [0.92, 0.72, 0.30],
-    colorCore:  [1.00, 0.82, 0.35],
+    // real transparent glass, not a flat gold fill: the shader refracts
+    // a view ray through the surface and samples a baked, non-repeating
+    // texture (pale near the top, richer amber lower down) through that
+    // bent direction, then tints the result with these two colors
+    colorMid:    [0.90, 0.68, 0.28],
+    colorBright: [1.00, 0.92, 0.68],
     maxDt: 1000/24,          // caps the simulation step so a long paused-JS gap (see file header) resumes
                              // with a normal-sized step instead of one huge one — same lesson learned the
                              // hard way earlier rebuilding this hero background: an uncapped dt fed into a
@@ -127,9 +115,9 @@ import * as THREE from './vendor/three.module.min.js';
     uniform float uEdgeSoftness;
     uniform float uStretchAmount;
     uniform float uCompressAmount;
-    uniform vec3 uColorEdge;
     uniform vec3 uColorMid;
-    uniform vec3 uColorCore;
+    uniform vec3 uColorBright;
+    uniform sampler2D uEnvMap;
 
     float hash(vec2 p){
       p = fract(p*vec2(123.34, 456.21));
@@ -159,6 +147,19 @@ import * as THREE from './vendor/three.module.min.js';
     float smin(float a, float b, float k){
       float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
       return mix(b, a, h) - k*h*(1.0-h);
+    }
+    // a real (locally-generated, non-repeating) image to refract — a
+    // baked raster texture, not a live formula. A procedural repeating
+    // pattern (sin() bands, the first attempt at this) reads as a
+    // spiral/pinwheel "optical illusion" once bent through a curved
+    // surface, the same way a barber pole looks warped through a lens —
+    // technically proves refraction is happening, but reads as a
+    // circus effect rather than glass. An irregular image has no
+    // repeating structure to spiral, so bending it just looks like
+    // looking *through* something.
+    vec3 envSample(vec2 dir){
+      vec2 uv = clamp(dir*0.5 + 0.5, 0.0, 1.0);
+      return texture2D(uEnvMap, uv).rgb;
     }
 
     // aspect passed in explicitly rather than each call recomputing it —
@@ -207,42 +208,139 @@ import * as THREE from './vendor/three.module.min.js';
       float edge = 1.0 - smoothstep(0.0, uEdgeSoftness, f);
       if(edge <= 0.003) discard;
 
-      // fake normal from the field's own gradient, used only for soft
-      // diffuse shading (rounded, cloud-like depth) — deliberately no
-      // specular term here anymore: a sharp specular highlight is
-      // exactly what read as "pointy" hotspots on the mass rather than
-      // a smooth, heavy liquid surface
+      // an SDF's own gradient is shaped like a *cone* — constant tilt
+      // angle, radiating outward at a fixed slope from a singular
+      // point at each blob's peak — not a rounded *dome* (flat at the
+      // peak, curving smoothly toward the rim). Using it directly as a
+      // fake normal (the previous attempt) is exactly why refraction
+      // kept showing a radiating sunburst/pinwheel pattern centred on
+      // each blob no matter how the colour or contrast was tuned: a
+      // cone refracts light into spokes, a dome doesn't. Fixed by
+      // keeping only the gradient's *direction* (still correct even
+      // under merging, since it points toward the nearest surface
+      // feature) and rebuilding a properly rounded dome profile for
+      // its magnitude from the same smooth depth metric used for
+      // colour below — flat (no tilt) at each peak, growing toward
+      // fully horizontal right at the true rim.
       float eps = 0.006;
       float fx = field(p+vec2(eps,0.0), aspect) - field(p-vec2(eps,0.0), aspect);
       float fy = field(p+vec2(0.0,eps), aspect) - field(p-vec2(0.0,eps), aspect);
-      vec3 normal = normalize(vec3(-fx, -fy, eps*2.4));
+      float gLen = length(vec2(fx, fy));
+      vec2 gDir = gLen > 0.00001 ? vec2(fx, fy)/gLen : vec2(1.0, 0.0);
 
+      // 0 at the true boundary (rim), 1 well inside (each blob's peak)
+      // — also reused below, unchanged, for colour absorption
+      float pathT = clamp(-f / (uSlimeSize*0.55), 0.0, 1.0);
+      float domeHoriz = clamp(1.0 - pathT, 0.0, 1.0);
+      float domeVert = sqrt(max(0.0, 1.0 - domeHoriz*domeHoriz));
+      vec3 normal = normalize(vec3(-gDir*domeHoriz, domeVert + 0.02));
+
+      // fine liquid-surface grain — much lighter than before. At 1.4
+      // this noise perturbation dominated wherever the base normal's
+      // own xy components shrank toward zero (near each blob's own
+      // local peak), because a tiny noise vector added to a near-zero
+      // vector still points in a full range of directions — that's
+      // exactly what produced the radiating pinched-crease look (like
+      // a tufted cushion) instead of a single clean highlight. A much
+      // smaller weight keeps this as subtle grain rather than a
+      // direction-dominating artifact.
+      vec2 noiseP = p*7.0 + uTime*0.05;
+      float ng  = fbm(noiseP);
+      float ng1 = fbm(noiseP+vec2(eps*4.0,0.0));
+      float ng2 = fbm(noiseP+vec2(0.0,eps*4.0));
+      vec3 bumpNormal = normalize(normal + vec3((ng1-ng),(ng2-ng),0.0) * 0.3);
+
+      vec3 viewDir = vec3(0.0, 0.0, 1.0);
       vec3 lightDir = normalize(vec3(-0.35, 0.55, 0.7));
-      // remapped into a narrower, higher floor range — the raw dot
-      // product put each point's own dead-centre (where the surface
-      // faces the camera straight-on, not the light) noticeably dimmer
-      // than the area actually facing the light beside it, which
-      // rendered as a small dark dot at every point's centre
-      float diff = clamp(dot(normal, lightDir), 0.0, 1.0);
-      diff = 0.6 + diff * 0.4;
 
-      // a clean two-segment monotonic ramp (edge -> mid -> core) rather
-      // than two independent additive blends — the previous version
-      // mixed edge->mid over most of the range and *separately* faded
-      // in up to 50% core on top of that, which dipped through a
-      // darker middle tone before brightening again toward the centre.
-      // That dip, combined with the true boundary already fading pale
-      // via alpha, was rendering as a dark ring around each point
-      // instead of one smoothly-lit mass.
-      float depthT = clamp(-f / (uSlimeSize*0.85), 0.0, 1.0);
-      vec3 base = depthT < 0.5
-        ? mix(uColorEdge, uColorMid, smoothstep(0.0, 0.5, depthT))
-        : mix(uColorMid, uColorCore, smoothstep(0.5, 1.0, depthT));
-      // highlightIntensity now scales how much the diffuse (soft, broad)
-      // shading brightens the lit side — no sharp specular term at all
-      vec3 color = base*(0.62 + diff*(0.3 + uHighlightIntensity*0.25));
+      float diff = max(0.0, dot(bumpNormal, lightDir));
+      vec3 reflectDir = reflect(-lightDir, bumpNormal);
+      // a real glass sparkle is small, tight, and bright — not the
+      // broad soft dimple a low exponent produces
+      float spec = pow(max(0.0, dot(reflectDir, viewDir)), 220.0);
+      // a second, much broader/softer highlight on top of the tight
+      // sparkle — real glass and liquid surfaces show both a pinpoint
+      // hotspot *and* a wider glossy sheen around it; a single tight
+      // exponent alone reads as hard plastic rather than glossy liquid
+      float sheen = pow(max(0.0, dot(reflectDir, viewDir)), 12.0);
+      float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.2);
 
-      gl_FragColor = vec4(color, edge*uOpacity);
+      // bend a view ray through the true sphere surface (Snell's law via
+      // GLSL's built-in refract()) and sample the high-contrast
+      // procedural "world" above through that bent direction — with a
+      // normal that actually curves across the whole face (not just the
+      // rim), this now visibly distorts rather than reading as a flat
+      // colour fill.
+      //
+      // real glass doesn't bend every wavelength by the same amount —
+      // that's why a prism splits white light. Refracting each colour
+      // channel at a slightly different index of refraction (a tiny
+      // red/blue fringe at the edges) is one of the strongest "this is
+      // actually glass, not a tinted shape" cues, and costs only two
+      // extra texture samples.
+      vec3 refractDirG = refract(-viewDir, bumpNormal, 1.0/1.55);
+      if(dot(refractDirG, refractDirG) < 0.0001) refractDirG = -viewDir;
+      vec3 refractDirR = refract(-viewDir, bumpNormal, 1.0/1.51);
+      if(dot(refractDirR, refractDirR) < 0.0001) refractDirR = -viewDir;
+      vec3 refractDirB = refract(-viewDir, bumpNormal, 1.0/1.59);
+      if(dot(refractDirB, refractDirB) < 0.0001) refractDirB = -viewDir;
+      float bendScale = 2.1;
+      vec3 envColor = vec3(
+        envSample(refractDirR.xy * bendScale).r,
+        envSample(refractDirG.xy * bendScale).g,
+        envSample(refractDirB.xy * bendScale).b
+      );
+
+      // Beer's-law-style absorption: light that travels further through
+      // the glass (deep toward a point's own centre) picks up more of
+      // the glass's own colour; near a rim, where the geometric path is
+      // short, it stays close to clear — the same reason real glass
+      // edges look thin and pale while the body reads richly coloured
+      float absorb = pow(pathT, 0.7);
+      vec3 tint = mix(vec3(1.0), mix(uColorMid, uColorBright, 0.4), absorb);
+      vec3 color = envColor * tint;
+
+      color += vec3(1.0, 0.98, 0.94) * spec * (1.6 + uHighlightIntensity);
+      color += vec3(1.0, 0.95, 0.82) * sheen * 0.22;
+      color = mix(color, vec3(1.0, 0.97, 0.9), fresnel * 0.6);
+      // real contrast — a shallow 0.85..1.0 range (the first attempt)
+      // reads as flat, soft plastic; glass needs a genuine dark side to
+      // read as reflective/refractive rather than uniformly lit paint
+      color *= 0.42 + 0.58*diff;
+
+      // several of the steps above (the fresnel-white mix, the specular
+      // add) each individually wash a little toward white — stacked
+      // together they left a slightly pink/neutral cast, so simply
+      // boosting saturation amplified *that* cast into peach/salmon
+      // rather than gold. Remapping onto a fixed gold ramp keyed by
+      // luminance guarantees the hue itself is always gold, rather
+      // than just amplifying whatever hue happened to survive the
+      // steps above; 35% of the original shading detail is kept
+      // through so specular/fresnel/refraction dimension still shows
+      float lum = dot(color, vec3(0.299, 0.587, 0.114));
+      // pushed further from pale/creamy toward vivid, saturated gold —
+      // more separation between R/G and B at both ends of the ramp
+      // pushed further: a bright end that's still fairly pale (as
+      // before) reads as cream/yellow rather than gold once blended —
+      // more separation between R and G/B gives an unambiguously
+      // saturated gold instead
+      vec3 goldRef = mix(vec3(0.45, 0.26, 0.05), vec3(1.0, 0.68, 0.18), lum);
+      color = mix(color, goldRef, 0.88);
+
+      // real page content (the hero title/subtitle/CTA) sits behind
+      // this canvas — alpha blending toward a white page dilutes even a
+      // fully-saturated colour toward pale at low alpha, no matter how
+      // rich the computed colour itself is (confirmed by direct
+      // comparison: the pre-alpha colour alone renders as vivid
+      // saturated gold; the composited result only looked pale because
+      // of this dilution, not a colour bug). Transparency and colour
+      // vividness genuinely trade off against each other over a white
+      // backdrop — 0.36 keeps meaningfully more see-through than the
+      // original opaque version while reading as clearly gold rather
+      // than washed out
+      float bodyAlpha = mix(0.36, 0.97, fresnel);
+
+      gl_FragColor = vec4(color, edge*uOpacity*bodyAlpha);
     }
   `;
 
@@ -302,10 +400,12 @@ import * as THREE from './vendor/three.module.min.js';
     lastMoveTime = performance.now();
   }, { passive:true });
 
-  const WANDER_RANGE = 0.30; // how far from center (0.5,0.5) a target can wander — normalized units,
+  const WANDER_RANGE = 0.46; // how far from center (0.5,0.5) a target can wander — normalized units,
                               // scaled the same way as the point positions themselves (see the aspect
                               // fix in the shader's field()), so this roams proportionally regardless
-                              // of whether the viewport is portrait or landscape
+                              // of whether the viewport is portrait or landscape. Raised from 0.30 so the
+                              // mass actually roams across the whole hero section instead of staying
+                              // clustered near the centre.
   const WANDER_SPEED = 0.00028; // how fast the noise field driving targets itself evolves
 
   function stepPoints(dtMs, elapsedMs){
@@ -347,6 +447,60 @@ import * as THREE from './vendor/three.module.min.js';
   }
 
   // ===================================================================
+  // a real (baked, non-repeating) image for the glass to refract —
+  // rendered once to an offscreen canvas rather than sampled live from
+  // a formula. A live periodic pattern (sin() bands, the first attempt)
+  // spirals into a circus/pinwheel look once bent through a curved
+  // surface; an irregular raster image, like a real photo, has nothing
+  // repeating in it to spiral, so bending it just reads as looking
+  // *through* something. Soft blurred blobs at varied, randomized
+  // scales/positions stand in for out-of-focus background detail.
+  // ===================================================================
+  function makeEnvTexture(){
+    const size = 512;
+    const c = document.createElement('canvas');
+    c.width = size; c.height = size;
+    const ctx = c.getContext('2d');
+
+    // vivid gold throughout — no brown/desaturated stops. A muddy dark
+    // stop here (the first attempt used a flat brown low end) reads as
+    // dirt rather than shine no matter how the rest of the shader is
+    // tuned, since this is the actual colour being refracted/tinted.
+    const base = ctx.createLinearGradient(0, 0, 0, size);
+    base.addColorStop(0, '#fffaf0');
+    base.addColorStop(0.55, '#ffcf5c');
+    base.addColorStop(1, '#c67d1e');
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, size, size);
+
+    const blobColors = ['#fffbe8', '#ffe6a8', '#ffcf5c', '#f0aa3c', '#d68a2a'];
+    let seed = 42;
+    function rand(){
+      seed = (seed*1103515245 + 12345) & 0x7fffffff;
+      return (seed % 10000) / 10000;
+    }
+    for(let i=0;i<22;i++){
+      const r = size*(0.08 + rand()*0.22);
+      const x = rand()*size, y = rand()*size;
+      ctx.filter = `blur(${Math.round(size*0.012 + rand()*size*0.02)}px)`;
+      ctx.globalAlpha = 0.4 + rand()*0.4;
+      ctx.fillStyle = blobColors[i % blobColors.length];
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r*(0.6+rand()*0.6), rand()*Math.PI, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.filter = 'none';
+    ctx.globalAlpha = 1;
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    tex.needsUpdate = true;
+    return tex;
+  }
+  const envTexture = makeEnvTexture();
+
+  // ===================================================================
   // three.js setup
   // ===================================================================
   const renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:false, powerPreference:'low-power' });
@@ -367,9 +521,9 @@ import * as THREE from './vendor/three.module.min.js';
     uEdgeSoftness: { value: CONFIG.edgeSoftness },
     uStretchAmount: { value: CONFIG.stretchAmount },
     uCompressAmount: { value: CONFIG.compressAmount },
-    uColorEdge: { value: new THREE.Vector3(...CONFIG.colorEdge) },
     uColorMid: { value: new THREE.Vector3(...CONFIG.colorMid) },
-    uColorCore: { value: new THREE.Vector3(...CONFIG.colorCore) },
+    uColorBright: { value: new THREE.Vector3(...CONFIG.colorBright) },
+    uEnvMap: { value: envTexture },
   };
 
   const material = new THREE.ShaderMaterial({
@@ -458,31 +612,7 @@ import * as THREE from './vendor/three.module.min.js';
     rafId = requestAnimationFrame(loop);
   }
 
-  // a plain-JS approximation of "how covered is this screen point by
-  // the mass right now" — used by title.js to swap "purpose"'s color
-  // between a dark-on-white default and a light-on-gold alternate
-  // depending on whether the slime currently happens to be behind it.
-  // Deliberately just the single closest point's distance, not a full
-  // smooth-min merge across all of them: this only needs to be a
-  // reasonable, smooth proxy for "is the mass roughly here," not a
-  // pixel-accurate match to the shader's own rendered edge.
   window.Papi = window.Papi || {};
-  window.Papi.getSlimeCoverage = function(clientX, clientY){
-    const rect = canvas.getBoundingClientRect();
-    if(!rect.width || !rect.height) return 0;
-    const x = (clientX - rect.left) / rect.width;
-    const y = (clientY - rect.top) / rect.height;
-    const aspect = rect.width / rect.height;
-    let minDist = Infinity;
-    for(let i=0;i<points.length;i++){
-      const p = points[i];
-      const dx = (x - p.x) * aspect;
-      const dy = (y - p.y);
-      const dist = Math.sqrt(dx*dx + dy*dy) - CONFIG.slimeSize;
-      if(dist < minDist) minDist = dist;
-    }
-    return 1 - Math.max(0, Math.min(1, minDist / (CONFIG.slimeSize * 0.9)));
-  };
   window.Papi.resizeField = resize;
   window.Papi.revealField = function(){
     if(revealed) return;

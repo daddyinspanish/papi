@@ -58,62 +58,100 @@ window.scrollTo(0, 0);
           <i></i>
         </a>
       </div>
-      <p class="hero-sub" id="heroSub">Designed to build trust, communicate clearly, and guide visitors to act.</p>
+      <p class="hero-sub" id="heroSub">Designed to build <span class="sub-word" id="heroSubWord"></span></p>
     </div>
   </section>
 
 </main>
 
-<!-- ============ PRINCIPLES — one persistent 3D liquid sphere that the
-     visitor scrolls into: it grows and reveals progressively finer
-     surface detail (eventually the fine "grain" it's made of), each
-     depth connected by a single leader line to the principle it
-     represents ============ -->
-<section class="principles-section" id="principlesSection">
-  <div class="principles-sticky">
-    <canvas id="principlesCanvas" aria-hidden="true"></canvas>
-    <svg id="principlesLines" aria-hidden="true"><line id="principlesLine" x1="50%" y1="58%" x2="50%" y2="76%"></line></svg>
-    <div class="principles-content">
-      <p class="principles-intro" id="principlesIntro">Every Papi website is shaped around what makes people trust, understand, and act.</p>
-
-      <div class="principles-stage" data-stage="0">
-        <p class="principles-eyebrow">Trust</p>
-        <p class="principles-copy">Before customers take action, they need to believe they are in the right place.</p>
+<!-- ============ CONTRAST — the same fake business shown as two
+     websites: a flat generic template underneath, and an immersive
+     Papi-built version that wipes across on top as the visitor
+     scrolls. Makes the value of the design work visible rather than
+     just claimed in copy. The heading lives in normal document flow,
+     outside contrastSection, for the same reason the old principles
+     heading did: the scroll-driven wipe math measures that section's
+     own offsetTop/offsetHeight directly, so keeping the heading
+     external means it can't shift that measurement. ============ -->
+<div class="contrast-heading-wrap">
+  <p class="contrast-eyebrow">Same Business. Two Websites.</p>
+  <h2 class="contrast-heading">One of these turns visitors into customers.<br><em>The other gets ignored.</em></h2>
+</div>
+<section class="contrast-section" id="contrastSection">
+  <div class="contrast-sticky">
+    <div class="contrast-stage" id="contrastStage">
+      <div class="mock mock-before">
+        <div class="mock-nav">
+          <span class="mock-logo">Anderson Plumbing</span>
+          <span class="mock-links">Home&nbsp;&nbsp;&nbsp;Services&nbsp;&nbsp;&nbsp;About&nbsp;&nbsp;&nbsp;Contact</span>
+        </div>
+        <div class="mock-hero">
+          <h3>Welcome to Anderson Plumbing</h3>
+          <p>We provide plumbing services for homes and businesses.</p>
+          <span class="mock-btn">Contact Us</span>
+        </div>
+        <div class="mock-cards">
+          <div class="mock-card">Drain Cleaning</div>
+          <div class="mock-card">Water Heaters</div>
+          <div class="mock-card">Leak Repair</div>
+        </div>
       </div>
-
-      <div class="principles-stage" data-stage="1">
-        <p class="principles-eyebrow">Reliable Navigation</p>
-        <p class="principles-copy">Customers should always know where they are and where to go next.</p>
+      <div class="mock mock-after" id="mockAfter">
+        <div class="mock-nav mock-nav--after">
+          <span class="mock-logo mock-logo--after">Anderson <em>Plumbing</em></span>
+          <span class="mock-btn mock-btn--after mock-btn--small">Get a Quote</span>
+        </div>
+        <div class="mock-hero mock-hero--after">
+          <div class="mock-hero-bg">
+            <div class="mock-hero-glow mock-hero-glow--a"></div>
+            <div class="mock-hero-glow mock-hero-glow--b"></div>
+          </div>
+          <div class="mock-hero-grid">
+            <div class="mock-hero-copy">
+              <p class="mock-eyebrow--after">Trusted Local Plumbers</p>
+              <h3>Built to <em>protect</em><br>what matters most</h3>
+              <p class="mock-sub--after">Fast, reliable plumbing — from first leak to full install.</p>
+              <span class="mock-btn mock-btn--after">Book a Free Estimate</span>
+              <div class="mock-stats">
+                <div class="mock-stat">
+                  <strong class="mock-counter" data-target="500">0</strong>
+                  <span>Jobs Completed</span>
+                </div>
+                <div class="mock-stat">
+                  <strong class="mock-counter" data-target="49" data-decimal="1">0</strong>
+                  <span>Average Rating</span>
+                </div>
+              </div>
+            </div>
+            <div class="mock-hero-visual">
+              <div class="mock-photo-card">
+                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M32 6C32 6 14 26 14 39a18 18 0 0 0 36 0C50 26 32 6 32 6Z" stroke="#fff6d8" stroke-width="2" stroke-linejoin="round"/>
+                  <path d="M23 39a9 9 0 0 0 9 9" stroke="#ffd23f" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <div class="mock-review-float">
+                <div class="mock-review-avatar">JD</div>
+                <div class="mock-review-body">
+                  <span class="mock-review-stars">★★★★★</span>
+                  <p>“Fixed our leak in under an hour. Incredible service.”</p>
+                  <span class="mock-review-name">Jamie D., verified customer</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mock-cards mock-cards--after">
+          <div class="mock-card mock-card--after">Drain Cleaning</div>
+          <div class="mock-card mock-card--after">Water Heaters</div>
+          <div class="mock-card mock-card--after">Leak Repair</div>
+        </div>
       </div>
-
-      <div class="principles-stage" data-stage="2">
-        <p class="principles-eyebrow">Effective Calls to Action</p>
-        <p class="principles-copy">Attention should always lead somewhere.</p>
-        <a href="#showcase" class="principles-cta">Explore the Work</a>
-      </div>
-
-      <div class="principles-stage" data-stage="3">
-        <p class="principles-eyebrow">Customer Feeling</p>
-        <p class="principles-copy">People remember how a website made them feel before they remember what it said.</p>
-      </div>
-
-      <div class="principles-stage" data-stage="4">
-        <p class="principles-eyebrow">Clear Storytelling</p>
-        <p class="principles-copy">Every section should answer the next question in the customer's mind.</p>
-      </div>
-
-      <div class="principles-stage" data-stage="5">
-        <p class="principles-eyebrow">Purposeful Motion</p>
-        <p class="principles-copy">Motion should guide attention, explain change, and create feeling.</p>
-      </div>
-
-      <div class="principles-stage" data-stage="6">
-        <p class="principles-eyebrow">Conversion</p>
-        <p class="principles-copy">A beautiful website matters most when it helps someone confidently take the next step.</p>
-        <p class="principles-closing">Papi builds digital experiences that turn attention into trust—and trust into action.</p>
-        <a href="#quoteSection" class="principles-cta">Build With Papi</a>
-      </div>
+      <div class="contrast-divider" id="contrastDivider"><i></i></div>
+      <span class="contrast-label contrast-label--before">Outdated Website</span>
+      <span class="contrast-label contrast-label--after">Built by Papi</span>
     </div>
+    <p class="contrast-caption">Scroll to reveal the difference</p>
   </div>
 </section>
 
@@ -404,8 +442,8 @@ window.scrollTo(0, 0);
 <script type="module" src="js/hero-slime.js"></script>
 <script src="js/title.js"></script>
 <script src="js/title-dock.js"></script>
+<script src="js/contrast.js"></script>
 <script src="js/showcase.js"></script>
-<script type="module" src="js/principles-liquid.js"></script>
 <script src="js/testimonials.js"></script>
 <script src="js/comparison-chart.js"></script>
 <script src="js/faq.js"></script>

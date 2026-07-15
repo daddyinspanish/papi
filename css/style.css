@@ -225,13 +225,10 @@ body, a, .cta{ cursor:none; }
   text-shadow:0 2px 20px rgba(0,0,0,.5);
   transition:color .8s var(--ease-out), text-shadow .5s var(--ease-out);
 }
-/* only goes dynamic while actually over the hero's own sweeping
-   gold/black field — gold-on-gold (when the field itself sweeps to
-   bright gold) was going invisible. Every other section already has
-   a fixed dark background, where the static gold above reads fine on
-   its own — leaving it dynamic everywhere risked swinging to
-   near-black over an already near-black section instead. */
-body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
+/* dark-on-light while over the hero's own white background — every
+   other section has a fixed dark background, where the static gold
+   above already reads fine on its own. */
+body.on-light-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .brand-mark span{ display:inline-block; opacity:0; transition:opacity .9s var(--ease-out); }
 
 /* small title label that crossfades in below the brand mark once the
@@ -277,6 +274,14 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   transition:opacity .7s var(--ease-out), transform .7s var(--ease-out);
 }
 .title-dock-word.is-visible{ opacity:1; transform:translateY(0); }
+
+/* dark-on-light for the brief window where the docked label has
+   already faded in but the visitor hasn't fully scrolled past the
+   hero's white background yet (see body.on-light-section, above) —
+   the fixed gold/cream colors above assume a dark backdrop */
+body.on-light-section .title-dock{ color:rgb(var(--style-contrast)); text-shadow:none; }
+body.on-light-section .title-dock em{ color:var(--gold-deep); }
+body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 
 /* closing brand signature — bottom-center, fades in only once the
    quote section is reached, as a closing echo of the top-right brand
@@ -378,17 +383,42 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .hero-title em{
   font-style:italic;
   font-weight:400;
-  /* default: dark, matching the rest of the title, for when it's over
-     the plain white background. .is-on-slime (toggled by title.js,
-     which tracks whether the slime mass currently sits behind this
-     specific word) swaps it to a light color instead, for when the
-     gold mass itself is what's behind it */
-  color:rgb(var(--style-contrast));
-  transition:color .4s ease;
+  /* a fixed, defined gold glow — always visible and legible on its own,
+     rather than swapping color based on whether the slime mass happens
+     to be behind it (the previous approach, removed: it meant "purpose"
+     read differently depending on the mass's current position). The
+     glow itself lives here (text-shadow is inherited, so it reaches the
+     per-letter .char spans below); very subtly pulses rather than
+     sitting at one fixed intensity forever. */
+  color:var(--gold-deep);
+  animation:purposeGlowPulse 3.6s ease-in-out infinite;
 }
-.hero-title em.is-on-slime{
-  color:#fffaf0;
-  text-shadow:0 1px 10px rgba(0,0,0,.25);
+@keyframes purposeGlowPulse{
+  0%, 100%{
+    text-shadow:
+      0 0 9px rgba(203,168,105,.4),
+      0 0 20px rgba(203,168,105,.24),
+      0 0 36px rgba(203,168,105,.14);
+  }
+  50%{
+    text-shadow:
+      0 0 13px rgba(203,168,105,.62),
+      0 0 28px rgba(203,168,105,.4),
+      0 0 48px rgba(203,168,105,.24);
+  }
+}
+/* the metallic gold fill itself — a vertical sweep (bright near the
+   top, richer bronze toward the bottom) applied per-letter rather than
+   across the whole word, since "purpose" is split into individual
+   .char spans for the push/ripple physics elsewhere in this file; a
+   vertical gradient looks identical regardless of which letter it's
+   on, so it doesn't need the letters to share one continuous
+   horizontal sweep to read as one cohesive metallic surface */
+.hero-title em .char{
+  background:linear-gradient(180deg, #fff6d8 0%, #e8c874 32%, #cba869 62%, #8a6a1f 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
 }
 .hero-title .char{
   display:inline-block;
@@ -423,6 +453,22 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 .word-wrap{
   display:inline-block;
   white-space:nowrap;
+}
+
+/* the subtitle's rotating word (title.js scrambles its text between
+   "trust"/"direction"/"action") — a fixed min-width sized to the
+   longest of the three keeps the sentence from visibly reflowing as
+   the word's length changes, both mid-scramble and once it settles.
+   text-align:left (rather than inheriting the hero copy's centered
+   alignment) keeps the word itself hugging "build" — without it,
+   shorter words like "trust" centered within the reserved min-width
+   box instead, opening up a visible gap right after "build" */
+.sub-word{
+  display:inline-block;
+  min-width:9.2ch;
+  text-align:left;
+  color:var(--gold-deep);
+  font-weight:600;
 }
 
 .hero-sub{
@@ -466,6 +512,510 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   border-color:rgba(var(--style-contrast),.9);
 }
 .cta:hover i{ transform:rotate(-45deg) translate(2px,-2px); }
+
+/* ===================================================================
+   CONTRAST — the same fake business ("Anderson Plumbing") built two
+   ways: a flat generic template underneath, an immersive Papi-style
+   version wiping across on top as the visitor scrolls (js/contrast.js
+   drives --wipe, a 0%..100% custom property, off scroll position —
+   same tall-outer-section-plus-sticky-inner-viewport pattern as the
+   showcase/testimonials sections below it). Kept in normal document
+   flow for the heading, same reasoning as the old principles section:
+   the scroll math measures contrastSection's own offsetTop/
+   offsetHeight, so the heading has to live outside it.
+=================================================================== */
+.contrast-heading-wrap{
+  background:#ffffff;
+  padding:clamp(4rem, 10vw, 7rem) 1.5rem clamp(2.5rem, 6vw, 4rem);
+  text-align:center;
+}
+.contrast-eyebrow{
+  font-size:.78rem;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--gold-deep);
+  margin-bottom:.9rem;
+}
+.contrast-heading{
+  font-family:'Fraunces', serif;
+  font-weight:500;
+  font-size:clamp(1.6rem, 3.6vw, 2.5rem);
+  line-height:1.35;
+  max-width:640px;
+  margin:0 auto;
+  color:var(--paper-ink);
+}
+.contrast-heading em{
+  font-style:italic;
+  font-weight:400;
+  color:var(--paper-dim);
+}
+
+.contrast-section{
+  position:relative;
+  height:320vh;
+  background:#f2efe8;
+  z-index:1;
+}
+.contrast-sticky{
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:1.6rem;
+}
+.contrast-stage{
+  position:relative;
+  width:min(980px, 90vw);
+  aspect-ratio:16/10;
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 40px 90px rgba(11,11,12,.22);
+}
+
+/* shared base for both mocked-up "websites" — identical box, stacked
+   exactly on top of each other so the wipe reads as one screen
+   changing, not two separate panels */
+.mock{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+}
+
+/* ---- BEFORE: deliberately bland — default system font, a harsh
+   "generic web" blue, boxy shadowless cards, no motion. Not a strawman
+   so much as what a huge number of small-business sites actually look
+   like. ---- */
+.mock-before{
+  background:#ffffff;
+  font-family:Arial, Helvetica, sans-serif;
+  color:#333;
+  z-index:1;
+}
+.mock-before .mock-nav{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:1.1rem 1.6rem;
+  border-bottom:1px solid #e2e2e2;
+  font-size:.85rem;
+}
+.mock-before .mock-logo{ font-weight:700; color:#222; }
+.mock-before .mock-links{ color:#1a5fb4; letter-spacing:.01em; }
+.mock-before .mock-hero{
+  text-align:center;
+  padding:clamp(1.6rem,5vw,3.2rem) 1.5rem clamp(1.2rem,3vw,2rem);
+}
+.mock-before .mock-hero h3{
+  font-size:clamp(1.15rem, 3vw, 1.7rem);
+  font-weight:700;
+  color:#222;
+  margin-bottom:.6rem;
+}
+.mock-before .mock-hero p{
+  font-size:.85rem;
+  color:#555;
+  margin-bottom:1.1rem;
+}
+.mock-before .mock-btn{
+  display:inline-block;
+  background:#2563eb;
+  color:#fff;
+  font-size:.82rem;
+  font-weight:700;
+  padding:.55rem 1.3rem;
+  border-radius:3px;
+  box-shadow:0 2px 4px rgba(0,0,0,.2);
+}
+.mock-before .mock-cards{
+  display:flex;
+  gap:.9rem;
+  padding:0 1.5rem 1.5rem;
+}
+.mock-before .mock-card{
+  flex:1;
+  background:#fff;
+  border:1px solid #ddd;
+  border-radius:4px;
+  padding:.9rem .7rem;
+  text-align:center;
+  font-size:.78rem;
+  font-weight:700;
+  color:#444;
+  box-shadow:0 1px 3px rgba(0,0,0,.08);
+}
+
+/* ---- AFTER: the Papi treatment of the exact same business/content —
+   Fraunces serif, gold accents, generous space, the site's own real
+   pill-button language. Clipped by --wipe (js/contrast.js), revealing
+   left-to-right over .mock-before beneath it. ---- */
+.mock-after{
+  background:linear-gradient(160deg, #fffaf0 0%, #ffffff 60%);
+  font-family:'Fraunces', serif;
+  color:var(--paper-ink);
+  z-index:2;
+  clip-path:inset(0 var(--wipe, 100%) 0 0);
+}
+.mock-nav--after{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:1.3rem 1.8rem;
+}
+.mock-logo--after{ font-size:1rem; letter-spacing:.02em; }
+.mock-logo--after em{ font-style:italic; color:var(--gold-deep); }
+
+/* the "after" hero isn't just the same layout in nicer type — a dark,
+   immersive banner (ambient blurred gold glows drifting slowly behind
+   the text, a shine-sweep on the emphasized word, a floating trust
+   badge straddling the seam below it) is what actually reads as
+   "immersive," where the first attempt at this (same content, just
+   Fraunces + gold instead of Arial + blue) only ever read as "a
+   nicer-looking version of the same page." */
+.mock-hero--after{
+  position:relative;
+  overflow:visible;
+  background:radial-gradient(120% 100% at 50% 15%, #241c12 0%, #14100a 65%, #0b0906 100%);
+  text-align:center;
+  padding:clamp(1.8rem,4.5vw,2.8rem) 1.5rem clamp(2rem,4.5vw,2.8rem);
+  color:#f3ede2;
+}
+.mock-hero-bg{
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  pointer-events:none;
+}
+.mock-hero-glow{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(34px);
+}
+.mock-hero-glow--a{
+  width:60%;
+  aspect-ratio:1;
+  top:-22%;
+  left:-12%;
+  background:radial-gradient(circle, rgba(255,205,90,.5), transparent 70%);
+  animation:mockGlowDrift 9s ease-in-out infinite;
+}
+.mock-hero-glow--b{
+  width:50%;
+  aspect-ratio:1;
+  bottom:-26%;
+  right:-10%;
+  background:radial-gradient(circle, rgba(203,168,105,.38), transparent 70%);
+  animation:mockGlowDrift 11s ease-in-out infinite reverse;
+}
+@keyframes mockGlowDrift{
+  0%, 100%{ transform:translate(0,0) scale(1); }
+  50%{ transform:translate(5%,6%) scale(1.15); }
+}
+/* a real two-column hero — headline/CTA/stats on one side, a photo
+   panel + a floating customer review on the other — rather than the
+   single centred text block every generic template (and the first
+   "after" attempt) uses. This is the structural change that actually
+   reads as a different, richer page, not just a recolored one. */
+.mock-hero-grid{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:1.8rem;
+  align-items:center;
+  text-align:left;
+  max-width:840px;
+  margin:0 auto;
+}
+.mock-eyebrow--after{
+  font-size:.68rem;
+  font-weight:600;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--gold-soft);
+  margin-bottom:.7rem;
+}
+.mock-hero--after h3{
+  font-size:clamp(1.2rem, 2.8vw, 1.8rem);
+  font-weight:500;
+  line-height:1.25;
+  margin-bottom:.7rem;
+  color:#f9f5ec;
+}
+/* the same metallic shine-sweep technique as .quote-form-title —
+   a moving gradient clipped to the text, not a flat gold fill */
+.mock-hero--after h3 em{
+  font-style:italic;
+  font-weight:400;
+  background:linear-gradient(100deg, #8a6a1f 0%, #ffd23f 30%, #fff6d8 50%, #ffd23f 70%, #8a6a1f 100%);
+  background-size:250% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  animation:mockShine 5s ease-in-out infinite;
+}
+@keyframes mockShine{
+  0%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+  100%{ background-position:0% 50%; }
+}
+.mock-sub--after{
+  font-size:.85rem;
+  color:rgba(243,237,226,.68);
+  max-width:32ch;
+  margin:0 0 1.2rem;
+}
+.mock-btn--after{
+  display:inline-flex;
+  align-items:center;
+  gap:.4rem;
+  border:1px solid rgba(23,24,26,.3);
+  background:rgba(203,168,105,.14);
+  color:var(--paper-ink);
+  font-size:.76rem;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  padding:.7rem 1.3rem;
+  border-radius:999px;
+}
+/* the hero's own CTA sits on a dark background, so it needs the
+   light-on-dark treatment the base rule above doesn't give it —
+   glossy gold rather than the subtle bordered-pill look that reads
+   fine elsewhere on a light background */
+.mock-hero--after .mock-btn--after{
+  border:1px solid rgba(228,205,154,.6);
+  background:linear-gradient(135deg, rgba(203,168,105,.32), rgba(203,168,105,.14));
+  color:#fff6d8;
+  box-shadow:0 10px 26px rgba(203,168,105,.28);
+}
+.mock-btn--small{ font-size:.68rem; padding:.5rem 1rem; }
+
+/* animated stat pair under the CTA — the numbers count up once (see
+   js/contrast.js) the first time this mock scrolls into view */
+.mock-stats{
+  display:flex;
+  gap:1.6rem;
+  margin-top:1.1rem;
+}
+.mock-stat{ display:flex; flex-direction:column; }
+.mock-stat strong{
+  font-size:1.3rem;
+  font-weight:600;
+  color:#fff6d8;
+  line-height:1.1;
+}
+.mock-stat span{
+  font-size:.62rem;
+  color:rgba(243,237,226,.55);
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+
+/* the "picture" side of the hero — since there's no real customer
+   photography to use, a soft gradient panel with a simple line-art
+   mark reads as an intentional, elegant visual rather than an empty
+   placeholder box, and it gently bobs rather than sitting static */
+.mock-hero-visual{
+  position:relative;
+  display:flex;
+  justify-content:center;
+}
+.mock-photo-card{
+  width:100%;
+  max-width:200px;
+  aspect-ratio:4/5;
+  border-radius:16px;
+  background:linear-gradient(150deg, #3a2c18 0%, #1c1509 70%);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 20px 50px rgba(0,0,0,.35);
+  animation:mockPhotoFloat 6s ease-in-out infinite;
+}
+.mock-photo-card svg{ width:38%; height:38%; opacity:.9; }
+@keyframes mockPhotoFloat{
+  0%, 100%{ transform:translateY(0); }
+  50%{ transform:translateY(-8px); }
+}
+/* a real customer review, not just a "trust badge" — an avatar, a
+   rating, a quote, a name — floating over the seam between the photo
+   card and the seam below it, on its own gentle bob so it doesn't
+   read as a static sticker */
+.mock-review-float{
+  position:absolute;
+  left:-4%;
+  bottom:-8%;
+  z-index:2;
+  display:flex;
+  gap:.55rem;
+  align-items:flex-start;
+  background:#fff;
+  border-radius:14px;
+  padding:.7rem .9rem;
+  max-width:190px;
+  text-align:left;
+  box-shadow:0 16px 34px rgba(11,11,12,.28);
+  animation:mockReviewIn .6s var(--ease-out) .2s both, mockReviewFloat 5s ease-in-out 1s infinite;
+}
+.mock-review-avatar{
+  flex:none;
+  width:26px;
+  height:26px;
+  border-radius:50%;
+  background:linear-gradient(135deg, #cba869, #8a6a1f);
+  color:#fff;
+  font-size:.6rem;
+  font-weight:700;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.mock-review-stars{ display:block; color:#e0a92e; font-size:.62rem; letter-spacing:.02em; }
+.mock-review-body p{
+  font-size:.66rem;
+  color:var(--paper-ink);
+  line-height:1.35;
+  margin:.2rem 0;
+}
+.mock-review-name{ font-size:.58rem; color:var(--paper-dim); }
+@keyframes mockReviewFloat{
+  0%, 100%{ transform:translateY(0); }
+  50%{ transform:translateY(-6px); }
+}
+@keyframes mockReviewIn{
+  from{ opacity:0; transform:translateY(10px) scale(.94); }
+  to{ opacity:1; transform:translateY(0) scale(1); }
+}
+.mock-cards--after{
+  display:flex;
+  gap:1rem;
+  padding:0 1.8rem 1.8rem;
+}
+.mock-card--after{
+  flex:1;
+  background:#fff;
+  border-radius:10px;
+  padding:1.1rem .8rem;
+  text-align:center;
+  font-size:.78rem;
+  font-weight:500;
+  color:var(--paper-ink);
+  box-shadow:0 10px 26px rgba(23,24,26,.08);
+}
+
+/* the wipe seam itself — tracks --wipe so it always sits exactly at
+   the current reveal edge */
+.contrast-divider{
+  position:absolute;
+  top:0;
+  bottom:0;
+  left:calc(100% - var(--wipe, 100%));
+  width:2px;
+  background:rgba(255,255,255,.9);
+  box-shadow:0 0 16px rgba(11,11,12,.35);
+  z-index:3;
+  transform:translateX(-50%);
+  pointer-events:none;
+}
+.contrast-divider i{
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  background:#fff;
+  box-shadow:0 4px 14px rgba(11,11,12,.3);
+}
+.contrast-divider i::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  margin:auto;
+  width:12px;
+  height:12px;
+  border-left:1.5px solid var(--paper-ink);
+  border-bottom:1.5px solid var(--paper-ink);
+  transform:rotate(45deg);
+}
+
+.contrast-label{
+  position:absolute;
+  top:1rem;
+  z-index:4;
+  font-size:.68rem;
+  font-weight:600;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  padding:.4rem .8rem;
+  border-radius:999px;
+  pointer-events:none;
+}
+.contrast-label--before{
+  left:1rem;
+  background:rgba(255,255,255,.85);
+  color:#555;
+}
+.contrast-label--after{
+  right:1rem;
+  background:rgba(23,24,26,.85);
+  color:var(--gold-soft);
+}
+
+.contrast-caption{
+  font-size:.8rem;
+  color:var(--paper-dim);
+  letter-spacing:.02em;
+  transition:opacity .4s ease;
+}
+
+@media (max-width:640px){
+  /* the stage sits in a flex column alongside the caption inside a
+     100vh sticky container — flexbox silently shrinks it to fit
+     whenever the combined content exceeds the viewport height, no
+     matter how tall aspect-ratio asks for it to be (confirmed
+     directly: raising the ratio further had zero effect once this was
+     already happening). The fix has to be making the mock's own
+     content shorter, not asking for an ever-taller box. */
+  .contrast-caption{ display:none; }
+  .contrast-stage{ aspect-ratio:2/4.4; }
+  .mock-before .mock-links{ display:none; }
+  .mock-cards, .mock-cards--after{ flex-direction:column; gap:.5rem; }
+  .mock-before .mock-hero{ padding:1.2rem 1.2rem .8rem; }
+  .mock-hero--after{ padding:.8rem 1rem .5rem; }
+  .mock-before .mock-nav, .mock-nav--after{ padding:.85rem 1.2rem; }
+  .mock-cards, .mock-cards--after{ padding:0 1.2rem 1rem; }
+  /* the two-column hero (copy + photo/review) stacks into one column;
+     the review card drops out of absolute positioning into normal
+     flow, right below the photo card, rather than risking it
+     overlapping/clipping on a narrow screen. The photo card itself
+     shrinks a lot here too — at its desktop size, stacked *and*
+     centred above the review card and stats, it alone accounted for
+     a large share of the overflow this layout had at this width. */
+  .mock-hero-grid{ grid-template-columns:1fr; text-align:center; gap:.6rem; }
+  .mock-hero-copy{ text-align:center; }
+  .mock-sub--after{ margin:0 auto .8rem; }
+  .mock-stats{ justify-content:center; margin-top:.7rem; }
+  .mock-hero-visual{ flex-direction:column; align-items:center; margin-top:.2rem; padding-bottom:1.8rem; }
+  .mock-photo-card{ max-width:110px; }
+  .mock-review-float{
+    position:absolute;
+    left:50%;
+    bottom:-1rem;
+    transform:translateX(-50%);
+    padding:.55rem .7rem;
+    max-width:170px;
+    animation:mockReviewIn .6s var(--ease-out) .2s both;
+  }
+}
 
 /* ===================================================================
    SHOWCASE — fan of live-demo previews (left) + business list (right),
@@ -858,146 +1408,6 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
      base rule gives — on the stacked mobile layout the quote was
      sitting close enough to read as crowding the section title above it */
   .showcase-phrase{ margin-top:2.5rem; }
-}
-
-/* ===================================================================
-   PRINCIPLES — one persistent liquid-gold scene (js/principles-liquid.js)
-   morphing through seven stages as the visitor scrolls. Same tall-
-   outer-section-plus-sticky-inner-viewport pattern as the showcase
-   section: the extra height beyond 100vh is what gives the scroll-
-   driven morph enough room to actually play out across all seven
-   stages before the next section appears.
-=================================================================== */
-.principles-section{
-  position:relative;
-  height:800vh;
-  background:var(--ink);
-  z-index:1;
-}
-.principles-sticky{
-  position:sticky;
-  top:0;
-  height:100vh;
-  overflow:hidden;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-#principlesCanvas{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  display:block;
-  pointer-events:none;
-}
-.principles-content{
-  position:relative;
-  z-index:2;
-  width:100%;
-  height:100%;
-  /* individual stages/CTAs re-enable this themselves once active —
-     otherwise whichever stage is fading in/out would still be able to
-     intercept clicks meant for the canvas or the section beneath */
-  pointer-events:none;
-}
-/* the connecting line — one single fixed element (a short vertical
-   connector below the sphere's centre, where every element comes into
-   focus via panning — see principles-liquid.js), not seven separate
-   ones jumping between sides. Only its opacity changes, driven by
-   whichever stage is currently active. */
-#principlesLines{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  z-index:1;
-  pointer-events:none;
-  overflow:visible;
-}
-#principlesLine{
-  stroke:rgba(228,205,154,.75);
-  stroke-width:1.25;
-  opacity:0;
-}
-.principles-intro{
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%);
-  width:min(560px, 84vw);
-  text-align:center;
-  font-family:'Fraunces', serif;
-  font-style:italic;
-  font-weight:400;
-  font-size:clamp(1.3rem, 3vw, 1.9rem);
-  color:var(--cream);
-  line-height:1.4;
-  opacity:1;
-}
-/* per-stage callouts: one fixed position for all seven (below the
-   sphere, where the connecting line ends) — only opacity changes,
-   driven every frame from scroll position in principles-liquid.js. No
-   CSS transition here, which would just fight a value that's already
-   being driven continuously. Deliberately not different per stage:
-   the previous alternating left/right placement read as the text just
-   jumping from side to side rather than settling anywhere. */
-.principles-stage{
-  position:absolute;
-  left:50%;
-  top:78%;
-  transform:translate(-50%,-50%);
-  width:min(420px, 80vw);
-  text-align:center;
-  opacity:0;
-}
-.principles-eyebrow{
-  font-family:'Fraunces', serif;
-  font-weight:500;
-  font-style:italic;
-  font-size:clamp(1.3rem, 2.6vw, 1.7rem);
-  color:#ffdd7a;
-  text-shadow:0 0 30px rgba(255,205,90,.3);
-  margin-bottom:.5rem;
-}
-.principles-copy{
-  font-size:.92rem;
-  color:var(--cream-dim);
-  line-height:1.5;
-}
-.principles-closing{
-  margin-top:1rem;
-  font-size:.92rem;
-  color:var(--cream-dim);
-  font-style:italic;
-}
-.principles-cta{
-  display:inline-flex;
-  align-items:center;
-  gap:.6rem;
-  margin-top:1.2rem;
-  padding:.8rem 1.5rem;
-  border-radius:999px;
-  border:1px solid rgba(228,205,154,.5);
-  background:rgba(203,168,105,.14);
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
-  color:var(--cream);
-  font-size:.76rem;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  text-decoration:none;
-  transition:background .3s ease, border-color .3s ease;
-}
-.principles-cta:hover{
-  background:rgba(203,168,105,.28);
-  border-color:rgba(228,205,154,.85);
-}
-
-@media (max-width:640px){
-  .principles-stage{ width:min(300px, 82vw); top:80%; }
-  .principles-eyebrow{ font-size:1.2rem; }
-  .principles-copy{ font-size:.85rem; }
 }
 
 /* ===================================================================

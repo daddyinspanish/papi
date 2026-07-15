@@ -23,6 +23,7 @@
 (function(){
   const title = document.getElementById('heroTitle');
   if(!title) return;
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function smoothstep(edge0, edge1, x){
     const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
@@ -259,22 +260,87 @@
   // still animates the whole element; these are just along for the ride
   // until the ripple physics takes over their individual transforms.
   // Sinks straight down and fades on scroll-exit ('drop' mode) rather
-  // than repeating the title's own outward-explode effect. ----
+  // than repeating the title's own outward-explode effect.
+  //
+  // Only the static prefix ("Designed to build ") is split into these
+  // per-letter spans — the rotating word after it (#heroSubWord) is
+  // kept as one intact element instead, since its own text keeps
+  // changing (see the scramble-cycle below) and needs a stable node to
+  // rewrite, not 70 individual one-off letter spans rebuilt each time.
+  // It still fades with the rest of #heroSub (title-dock.js fades the
+  // whole element), just without the extra per-letter drift on exit. ----
   const sub = document.getElementById('heroSub');
   let subChars = [];
   let subGroup = null;
   let subEffectsLive = false;
+  let subWordEl = null;
   if(sub){
-    const text = sub.textContent;
+    const prefixText = 'Designed to build ';
     sub.innerHTML = '';
-    appendWordWrapped(sub, text, subChars);
+    appendWordWrapped(sub, prefixText, subChars);
+    subWordEl = document.createElement('span');
+    subWordEl.className = 'sub-word';
+    subWordEl.id = 'heroSubWord';
+    sub.appendChild(subWordEl);
     subGroup = createCharGroup(subChars, 'drop');
   }
   window.addEventListener('papi:subtitlerevealed', ()=>{
     if(!subGroup) return;
     subGroup.computeHomes();
     subEffectsLive = true;
+    startSubWordCycle();
   });
+
+  // ---- subtitle's rotating word: a "decoding" scramble reveal rather
+  // than a typewriter — every letter is visible immediately as random
+  // glyphs, then each one locks into its real letter at its own
+  // slightly-staggered moment, reading like a code/cipher resolving
+  // rather than being typed out one character at a time. Cycles through
+  // a fixed word list forever, holding on each real word for a beat. ----
+  const SUB_WORDS = ['trust', 'direction', 'action'];
+  const SCRAMBLE_CHARS = '!<>-_/[]{}=+*^?#01';
+  function scrambleTo(el, text, duration, onDone){
+    const len = text.length;
+    const start = performance.now();
+    // spread out when each letter "locks in" across most of the
+    // duration, with a little randomness so they don't all resolve in
+    // one visible wave left-to-right
+    const lockTimes = Array.from({ length: len }, (_, i) =>
+      (i / Math.max(1, len - 1)) * duration * 0.6 + Math.random() * duration * 0.4
+    );
+    function step(now){
+      const elapsed = now - start;
+      let out = '';
+      for(let i=0;i<len;i++){
+        out += elapsed >= lockTimes[i] ? text[i] : SCRAMBLE_CHARS[Math.floor(Math.random()*SCRAMBLE_CHARS.length)];
+      }
+      el.textContent = out;
+      if(elapsed < duration){
+        requestAnimationFrame(step);
+      } else {
+        el.textContent = text;
+        if(onDone) onDone();
+      }
+    }
+    requestAnimationFrame(step);
+  }
+  let subWordCycleStarted = false;
+  function startSubWordCycle(){
+    if(!subWordEl || subWordCycleStarted) return;
+    subWordCycleStarted = true;
+    if(prefersReducedMotion){ subWordEl.textContent = SUB_WORDS[0]; return; }
+    const HOLD_MS = 1900;
+    let idx = 0;
+    function next(){
+      scrambleTo(subWordEl, SUB_WORDS[idx], 650, ()=>{
+        setTimeout(()=>{
+          idx = (idx + 1) % SUB_WORDS.length;
+          next();
+        }, HOLD_MS);
+      });
+    }
+    next();
+  }
 
   // ---- eyebrow ("Est. Business-Ready Websites"): same per-letter
   // cursor push physics as the title/subtitle, plus its own entrance —
@@ -436,22 +502,7 @@
     if(subEffectsLive) subGroup.update(idle, curExplodeProgress);
     if(eyebrowEffectsLive) eyebrowGroup.update(idle, 0);
 
-    // "purpose" contrasts whatever is currently behind it — the plain
-    // white hero background, or the slime mass when it happens to be
-    // drifting past — rather than a single fixed color that would only
-    // ever look right against one of the two
-    if(window.Papi && window.Papi.getSlimeCoverage && em){
-      const emRect = em.getBoundingClientRect();
-      const coverage = window.Papi.getSlimeCoverage(emRect.left + emRect.width/2, emRect.top + emRect.height/2);
-      const onSlime = coverage > 0.35;
-      if(onSlime !== emOnSlime){
-        emOnSlime = onSlime;
-        em.classList.toggle('is-on-slime', onSlime);
-      }
-    }
-
     requestAnimationFrame(frame);
   }
-  let emOnSlime = false;
   frame();
 })();
