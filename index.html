@@ -64,22 +64,58 @@ window.scrollTo(0, 0);
 
 </main>
 
-<!-- ============ REVIEWS — a single glowing yellow cube, falls in from the hero,
-     then tumbles/is clickable for the rest of its scroll ============ -->
-<section class="cube-section" id="cubeSection">
-  <div class="cube-sticky">
-    <div class="cube-bg" id="cubeBg" aria-hidden="true">
-      <span class="glow glow--a"></span>
-      <span class="glow glow--b"></span>
-      <span class="glow glow--c"></span>
-    </div>
-    <div class="cube-content">
-      <p class="cube-eyebrow">What every Papi website is built on</p>
-      <div class="cube-stage" id="cubeStage">
-        <div class="cube-group" id="cubeGroup"></div>
+<!-- ============ PRINCIPLES — one persistent liquid-gold scene that
+     morphs through seven stages as the visitor scrolls, each revealing
+     a principle Papi builds every website around ============ -->
+<section class="principles-section" id="principlesSection">
+  <div class="principles-sticky">
+    <canvas id="principlesCanvas" aria-hidden="true"></canvas>
+    <div class="principles-content">
+      <p class="principles-intro" id="principlesIntro">Every Papi website is shaped around what makes people trust, understand, and act.</p>
+
+      <div class="principles-stage" data-stage="0">
+        <p class="principles-eyebrow">Trust</p>
+        <p class="principles-copy">Before customers take action, they need to believe they are in the right place.</p>
       </div>
-      <p class="cube-interact-hint" id="cubeInteractHint">Tap a face to explore · Scroll to rotate</p>
-      <button type="button" class="cube-exit-hint" id="cubeExitHint">✕ Tap to exit</button>
+
+      <div class="principles-stage" data-stage="1">
+        <p class="principles-eyebrow">Reliable Navigation</p>
+        <p class="principles-copy">Customers should always know where they are and where to go next.</p>
+      </div>
+
+      <div class="principles-stage" data-stage="2">
+        <p class="principles-eyebrow">Effective Calls to Action</p>
+        <p class="principles-copy">Attention should always lead somewhere.</p>
+        <a href="#showcase" class="principles-cta">Explore the Work</a>
+      </div>
+
+      <div class="principles-stage" data-stage="3">
+        <p class="principles-eyebrow">Customer Feeling</p>
+        <p class="principles-copy">People remember how a website made them feel before they remember what it said.</p>
+      </div>
+
+      <div class="principles-stage" data-stage="4">
+        <p class="principles-eyebrow">Clear Storytelling</p>
+        <p class="principles-copy">Every section should answer the next question in the customer's mind.</p>
+        <div class="principles-prompts" id="principlesPrompts">
+          <span>What is this?</span>
+          <span>Why should I care?</span>
+          <span>Why should I trust it?</span>
+          <span>What should I do next?</span>
+        </div>
+      </div>
+
+      <div class="principles-stage" data-stage="5">
+        <p class="principles-eyebrow">Purposeful Motion</p>
+        <p class="principles-copy">Motion should guide attention, explain change, and create feeling.</p>
+      </div>
+
+      <div class="principles-stage" data-stage="6">
+        <p class="principles-eyebrow">Conversion</p>
+        <p class="principles-copy">A beautiful website matters most when it helps someone confidently take the next step.</p>
+        <p class="principles-closing">Papi builds digital experiences that turn attention into trust—and trust into action.</p>
+        <a href="#quoteSection" class="principles-cta">Build With Papi</a>
+      </div>
     </div>
   </div>
 </section>
@@ -372,7 +408,7 @@ window.scrollTo(0, 0);
 <script src="js/title.js"></script>
 <script src="js/title-dock.js"></script>
 <script src="js/showcase.js"></script>
-<script src="js/reviews-cube.js"></script>
+<script type="module" src="js/principles-liquid.js"></script>
 <script src="js/testimonials.js"></script>
 <script src="js/comparison-chart.js"></script>
 <script src="js/faq.js"></script>

@@ -56,7 +56,7 @@ import * as THREE from './vendor/three.module.min.js';
   const CONFIG = {
     numControlPoints: 7,     // how many metaballs make up the mass — more reads as a bigger, busier organism
     slimeSize: 0.105,        // base radius of each control point, in aspect-corrected 0..1 space
-    movementSpeed: 0.12,     // how quickly points travel toward their (slowly wandering) targets
+    movementSpeed: 0.24,     // how quickly points travel toward their (slowly wandering) targets
     viscosity: 0.88,         // resistance to *changing* velocity — higher = heavier, slower to redirect
     damping: 0.94,           // raw velocity decay every frame — higher = keeps drifting longer before settling
     elasticity: 0.18,        // how strongly a point accelerates toward its current wander target
@@ -83,9 +83,14 @@ import * as THREE from './vendor/three.module.min.js';
     // than pale white — the alpha fade (edgeSoftness) already handles
     // blending the true boundary into the white page; this is the color
     // just inside that, not the boundary itself.
-    colorEdge:  [0.85, 0.64, 0.32],
-    colorMid:   [0.96, 0.82, 0.50],
-    colorCore:  [1.00, 0.97, 0.87],
+    // entirely gold — no white/cream anywhere in the ramp, including
+    // the "core" (that used to run all the way up to near-white/cream,
+    // which read as a white highlight rather than shiny gold). Still
+    // monotonically increasing in luminance edge to core (see above)
+    // to avoid the dark-ring bug, just staying gold the whole way.
+    colorEdge:  [0.75, 0.55, 0.18],
+    colorMid:   [0.92, 0.72, 0.30],
+    colorCore:  [1.00, 0.82, 0.35],
     maxDt: 1000/24,          // caps the simulation step so a long paused-JS gap (see file header) resumes
                              // with a normal-sized step instead of one huge one — same lesson learned the
                              // hard way earlier rebuilding this hero background: an uncapped dt fed into a
@@ -301,7 +306,7 @@ import * as THREE from './vendor/three.module.min.js';
                               // scaled the same way as the point positions themselves (see the aspect
                               // fix in the shader's field()), so this roams proportionally regardless
                               // of whether the viewport is portrait or landscape
-  const WANDER_SPEED = 0.00012; // how fast the noise field driving targets itself evolves
+  const WANDER_SPEED = 0.00028; // how fast the noise field driving targets itself evolves
 
   function stepPoints(dtMs, elapsedMs){
     if(mouse.active && performance.now() - lastMoveTime > MOUSE_IDLE_MS) mouse.active = false;
