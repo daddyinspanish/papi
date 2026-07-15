@@ -85,6 +85,43 @@
   // ORBIT_SPEED), not accumulated frame to frame
   const ORBIT_SPEED = 0.00022; // radians/ms — noticeably faster than the old ~90s/turn drift
 
+  // orbitPhase above is always correct — a pure function of elapsed
+  // time, verified on-device to never jump to a wrong value even after
+  // a real multi-hundred-ms Safari JS pause. But "correct" doesn't mean
+  // "doesn't visibly teleport": each tile's home position is a direct
+  // function of orbitPhase, and if JS was genuinely paused for 700ms,
+  // there was simply no repaint at all for that whole stretch — the
+  // last frame anyone saw is wherever the cluster was *before* the
+  // pause, and the very next frame reflects the fully-caught-up, far
+  // -advanced angle *after* it, with nothing shown in between. Handing
+  // that big-but-correct jump straight to the tiles' spring physics
+  // below gives every tile's home position a single huge one-frame
+  // displacement, and the spring (tuned for the tiny per-frame deltas
+  // of normal motion) responds with a visible kick/recoil — reading as
+  // exactly the same "snap" the accumulator bug caused, just via a
+  // different mechanism this time (a legitimately-moved target instead
+  // of a wrongly-computed one).
+  // orbitDisplay chases orbitPhase at a capped max rate instead of
+  // jumping straight to it, so tile homes only ever move a small,
+  // bounded amount per repaint — turning an arbitrarily long gap into a
+  // brief, quick catch-up glide (a handful of frames, arriving in a
+  // burst right as JS resumes) rather than an instant teleport. The
+  // trade is that orbitDisplay briefly lags behind the "true" angle
+  // after an unusually long gap instead of being perfectly exact the
+  // instant JS resumes — the right trade for a decorative background
+  // field, where a smooth catch-up reads as intentional and a snap
+  // reads as broken.
+  // the max step is deliberately NOT scaled by that frame's own measured
+  // dt — sizing it off the very gap it's meant to cap would make the
+  // cap grow right along with the jump it's supposed to be limiting
+  // (a 700ms gap produces both a ~0.15rad true delta *and*, if scaled by
+  // that same 700ms, a max step comfortably bigger than 0.15rad — never
+  // actually capping anything). It's a fixed budget instead: at most
+  // ORBIT_CATCHUP_MULT times what a single normal ~16.7ms frame would
+  // have moved, no matter how long the real gap was.
+  let orbitDisplay = null;
+  const ORBIT_CATCHUP_MULT = 4; // display can move at most 4x a normal frame's worth of orbit per repaint
+
   function smoothstep(edge0, edge1, x){
     const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
@@ -334,12 +371,23 @@
       introProgress = lerp(HELD_REVEAL, EXPANDED_REVEAL, eased);
     }
 
+    // orbitDisplay chases the always-correct orbitPhase at a capped max
+    // rate (see the note above ORBIT_CATCHUP_MULT) — this is what the
+    // tiles' home positions actually use below, so an unusually long
+    // gap resolves as a brief catch-up glide instead of every tile
+    // teleporting to its new home in one frame. Fixed budget per call,
+    // not scaled by this frame's own dt — see the note above.
+    if(orbitDisplay === null) orbitDisplay = orbitPhase;
+    const orbitMaxStep = ORBIT_SPEED * 16.6667 * ORBIT_CATCHUP_MULT;
+    const orbitRawDelta = orbitPhase - orbitDisplay;
+    orbitDisplay += Math.max(-orbitMaxStep, Math.min(orbitMaxStep, orbitRawDelta));
+
     // no-op unless ?debug=1 was used to turn on js/debug-hud.js — flags
     // any frame gap long enough to be a real Safari JS pause (not
     // ordinary jitter) and records what these values were right when it
     // happened, so a gap that shows up on a real iPhone leaves hard
     // numbers behind instead of just "it froze again"
-    window.PapiDebug.log('particles', { ts, sweepProgress, orbitPhase, introProgress });
+    window.PapiDebug.log('particles', { ts, sweepProgress, orbitPhase, orbitDisplay, introProgress });
 
     // 0 right as the field first appears, easing to 1 over
     // COLOR_WARMUP_DURATION — blended in below toward a paler, softer
@@ -382,8 +430,8 @@
         // as the static hx/hy grid slot — otherwise the very first
         // orbiting frame lands half a cell away from where the tile
         // actually is and the whole cluster bounces
-        const homeX = orbiting ? centerX + t.radius * Math.cos(t.angle0 + orbitPhase) - cell/2 : t.hx;
-        const homeY = orbiting ? centerY + t.radius * Math.sin(t.angle0 + orbitPhase) - cell/2 : t.hy;
+        const homeX = orbiting ? centerX + t.radius * Math.cos(t.angle0 + orbitDisplay) - cell/2 : t.hx;
+        const homeY = orbiting ? centerY + t.radius * Math.sin(t.angle0 + orbitDisplay) - cell/2 : t.hy;
 
         t.vx += (homeX - t.x) * SPRING;
         t.vy += (homeY - t.y) * SPRING;

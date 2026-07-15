@@ -255,20 +255,27 @@
   // that assumption: targetRx/targetRy are a pure function of the
   // current (now much further along) scrollY, so they're already
   // correct the instant frame() resumes — but curRx is still wherever it
-  // was before the drag started, and a single 0.12 step only closes 12%
-  // of what can be a very large gap. The following several frames (which
-  // *do* arrive in a quick burst once JS resumes) then visibly sweep the
-  // rest of the way — reading as the same "freeze, then catch up" glitch
-  // as the particles field, just via a different mechanism (a stale lerp
-  // base) rather than an accumulator jump.
+  // was before the drag started.
   // timeAlpha scales the fraction by how much real time actually passed
-  // since the last frame instead of assuming a fixed ~16.7ms: a normal
-  // frame gap still closes ~12%, same as before, but a 700ms gap closes
-  // essentially the whole distance in that one frame — because that's
-  // how much a continuous ease *would* have closed over 700ms of normal
-  // frames, just computed directly instead of walked frame by frame.
-  function timeAlpha(perFrameRate, dt){
-    return 1 - Math.pow(1 - perFrameRate, dt / 16.6667);
+  // since the last frame instead of assuming a fixed ~16.7ms, so a
+  // normal frame gap still closes ~12% same as before. A first pass at
+  // this let a long gap's alpha climb all the way to ~1, closing nearly
+  // the whole distance in that single frame — verified correct on real
+  // device data (curRx landed within hundredths of a degree of
+  // targetRx), but *still visibly snapped*, because nothing painted at
+  // all during the pause: the last frame anyone saw was wherever the
+  // cube was before the drag, and the very next painted frame showed it
+  // already sitting at the new, far-rotated target, with nothing shown
+  // in between. Being correct doesn't help if the correct value is only
+  // ever shown instantaneously. Capping alpha below prevents that:
+  // even an enormous dt can only close ROT_ALPHA_CAP of the gap in one
+  // frame, so the remaining distance plays out over the next several
+  // *quick* frames (arriving in a burst right as JS resumes) as a fast
+  // but visible catch-up glide instead of a single-frame teleport.
+  const ROT_ALPHA_CAP = 0.3;
+  const TILT_ALPHA_CAP = 0.3;
+  function timeAlpha(perFrameRate, dt, cap){
+    return Math.min(cap, 1 - Math.pow(1 - perFrameRate, dt / 16.6667));
   }
   let lastFrameTs = null;
 
@@ -367,7 +374,7 @@
     const normX = Math.max(-1, Math.min(1, (mouseX - cx) / (rect.width/2 || 1)));
     const normY = Math.max(-1, Math.min(1, (mouseY - cy) / (rect.height/2 || 1)));
 
-    const tiltAlpha = timeAlpha(0.045, dt);
+    const tiltAlpha = timeAlpha(0.045, dt, TILT_ALPHA_CAP);
     tiltX += (normX - tiltX) * tiltAlpha;
     tiltY += (normY - tiltY) * tiltAlpha;
 
@@ -462,7 +469,7 @@
       targetScale = 1 + (1 - cubeEased) * 0.08;
     }
 
-    const rotAlpha = timeAlpha(0.12, dt);
+    const rotAlpha = timeAlpha(0.12, dt, ROT_ALPHA_CAP);
     curRx += (targetRx - curRx) * rotAlpha;
     curRy += (targetRy - curRy) * rotAlpha;
     curScale += (targetScale - curScale) * rotAlpha;
