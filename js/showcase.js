@@ -88,15 +88,33 @@
   // clicking a card enlarges it in place (straightened, well above the
   // rest of the fan) so its preview is actually readable, rather than
   // only ever being seen at the small, angled size the rest of the fan
-  // uses — collapses on a second click, clicking any other card,
-  // clicking anywhere outside the fan, or resuming scroll (see the
-  // scroll listener below)
+  // uses — collapses on a second click, clicking the close button, or
+  // clicking anywhere outside the fan. Page scroll is locked for as
+  // long as a card is expanded (same lock the cube section uses for a
+  // focused face) — without this, an ordinary scroll to keep reading
+  // the page would silently swap or exit the expanded card, which felt
+  // like losing your place by accident.
   let expandedIndex = null;
-  let expandedAt = 0;
   function setExpanded(i){
+    const wasExpanded = expandedIndex !== null;
+    const prevIndex = expandedIndex;
     expandedIndex = i;
-    if(i !== null) expandedAt = performance.now();
     cards.forEach((c, ci)=> c.classList.toggle('is-expanded', ci === i));
+    // re-parented straight onto <body> while expanded, and back into
+    // its normal slot in the fan on collapse. .fan-card.is-expanded is
+    // position:fixed so it centers on the actual viewport — but
+    // .showcase-sticky (its normal ancestor) has its own transform
+    // applied for the entrance animation, and CSS spec makes any
+    // transformed ancestor become the fixed-position containing block
+    // instead of the viewport, which was silently throwing off the
+    // centering (and the cutoff-prevention math along with it).
+    if(i !== null){
+      document.body.appendChild(cards[i]);
+    } else if(prevIndex !== null){
+      const nextCard = cards[prevIndex + 1];
+      if(nextCard && nextCard.parentNode === fanEl) fanEl.insertBefore(cards[prevIndex], nextCard);
+      else fanEl.appendChild(cards[prevIndex]);
+    }
     // sits where the trade names normally do (those fade out below,
     // in the items loop) — keeps the focus on the image itself rather
     // than adding another caption on top of the card
@@ -118,25 +136,20 @@
     // while one actually is expanded
     if(sticky) sticky.classList.toggle('has-expanded-card', i !== null);
     fanEl.classList.toggle('has-expanded-card', i !== null);
+    // documentElement only (not body too) — matching the cube
+    // section's own face-focus lock exactly. Also locking body pulls
+    // in body.scroll-lock's explicit height:100vh, which was
+    // resetting scrollY to 0 the instant it was applied.
+    if(i !== null && !wasExpanded){
+      document.documentElement.classList.add('scroll-lock');
+    } else if(i === null && wasExpanded){
+      document.documentElement.classList.remove('scroll-lock');
+    }
     requestUpdate();
   }
   document.addEventListener('click', (e)=>{
     if(expandedIndex !== null && !e.target.closest('.fan-card')) setExpanded(null);
   });
-  // resuming scroll exits the expanded state immediately — without
-  // this, the enlarged card just sat there frozen no matter how far
-  // you scrolled (it doesn't track scroll position while expanded),
-  // which read as scrolling having stopped doing anything; collapsing
-  // right away hands scrolling straight back to the normal, fast-
-  // moving carousel instead of it feeling stuck behind the expanded card.
-  // Ignored for a brief moment right after expanding — clicking a
-  // focusable card makes the browser focus it, and focusing an element
-  // that's just been transform-scaled larger can itself trigger a
-  // native "scroll to reveal" adjustment, which was immediately
-  // collapsing the card the instant it opened.
-  window.addEventListener('scroll', ()=>{
-    if(expandedIndex !== null && performance.now() - expandedAt > 300) setExpanded(null);
-  }, { passive:true });
 
   categories.forEach((cat, i)=>{
     const c = palette()[i % palette().length];
@@ -144,7 +157,8 @@
 
     const card = document.createElement('div');
     card.className = 'fan-card';
-    card.style.borderColor = `rgba(${rgb},.4)`;
+    // no more per-category border tint — the new frosted-glass look
+    // uses one consistent white border/glow across every card
     card.setAttribute('role', 'button');
     card.setAttribute('tabindex', '0');
     card.setAttribute('aria-label', `Jump to ${cat.name}`);
@@ -162,7 +176,8 @@
         <div class="fan-line"></div>
         <div class="fan-line short"></div>
       </div>
-      <button type="button" class="fan-card-close" aria-label="Close preview">✕</button>`;
+      <button type="button" class="fan-card-close" aria-label="Close preview">✕</button>
+      <span class="fan-card-exit-hint">✕ Tap to exit</span>`;
     // a mouse click focusing the card is what was triggering the
     // browser's own "scroll newly focused element into view" behavior
     // (worse once the card is scaled up 1.75x) — preventing default on
@@ -244,22 +259,29 @@
       const ty = lerp(26, minTy, blend);
 
       if(i === expandedIndex){
-        // straightened, well above the rest of the fan, and notably
-        // larger than even the normal "active" size — the point is to
-        // actually be able to read the preview, not just recenter it.
-        // A small, fixed nudge (not tied to minTy, which was tuned for
-        // the small non-expanded position) rather than a big offset —
-        // the CSS pivot for this state is centered (not bottom), so
-        // growth is already symmetric and doesn't need much compensating
-        const expandScale = (isNarrow ? 1.55 : 1.75);
-        const expandOffset = isNarrow ? -10 : -20;
-        card.style.transform = `translateY(${expandOffset}px) rotate(0deg) scale(${expandScale})`;
+        // fixed + centered in the viewport (see .fan-card.is-expanded)
+        // rather than scaled up in place, so it's centered on-screen
+        // wherever the visitor currently is, and the scale cap below
+        // only has to account for its own size, not its position too
+        const uncappedScale = isNarrow ? 1.55 : 1.75;
+        const maxCardHeight = window.innerHeight * (isNarrow ? 0.72 : 0.8);
+        const expandScale = Math.min(uncappedScale, maxCardHeight / card.offsetHeight);
+        card.style.transform = `translate(-50%, -50%) scale(${expandScale.toFixed(3)})`;
         card.style.opacity = '1';
         card.style.zIndex = '500';
+        card.style.pointerEvents = '';
+      } else if(expandedIndex !== null){
+        // fully hidden (not just faded/angled away) while another card
+        // is expanded — leaving them at their normal fan opacity meant
+        // a neighboring card could still peek out from around/behind
+        // the expanded one, reading as visual clutter under its name
+        card.style.opacity = '0';
+        card.style.pointerEvents = 'none';
       } else {
         card.style.transform = `translateY(${ty.toFixed(1)}px) rotate(${angle.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
         card.style.opacity = opacity.toFixed(2);
         card.style.zIndex = String(Math.round(blend * 100) + 1);
+        card.style.pointerEvents = '';
       }
       card.classList.toggle('is-active', blend > 0.82);
     });

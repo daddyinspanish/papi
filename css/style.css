@@ -410,8 +410,15 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 /* opened up only while a fan card is expanded — normally this clips
    the fan's own rotated/off-centre cards to the section, but the
    expanded card is deliberately larger than that footprint so it can
-   actually be read */
-.showcase-sticky.has-expanded-card{ overflow:visible; }
+   actually be read. The big gap above exists to keep the trade-name
+   carousel clear of the cards — moot while expanded (those names are
+   faded out and the quote takes their place instead), so it's pulled
+   in tight here to bring the card right up under the quote instead of
+   leaving it stranded far below. */
+.showcase-sticky.has-expanded-card{
+  overflow:visible;
+  gap:clamp(.5rem, 2vw, 1rem);
+}
 
 .showcase-fan{
   position:relative;
@@ -429,19 +436,24 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   width:clamp(200px, 20vw, 280px);
   height:clamp(260px, 26vw, 360px);
   border-radius:18px;
-  background:linear-gradient(165deg, rgba(255,255,255,.07), rgba(255,255,255,.02));
-  border:1px solid rgba(255,221,122,.14);
-  box-shadow:0 30px 70px -26px rgba(0,0,0,.6);
+  /* a frosted, "Safari blurred" glass look — translucent white over
+     whatever's behind it, with a soft white glow, rather than the
+     previous flat dark tint with a gold border */
+  background:rgba(255,255,255,.1);
+  backdrop-filter:blur(22px) saturate(160%);
+  -webkit-backdrop-filter:blur(22px) saturate(160%);
+  border:1px solid rgba(255,255,255,.22);
+  box-shadow:0 30px 70px -26px rgba(0,0,0,.6), 0 0 30px rgba(255,255,255,.06);
   overflow:hidden;
   transform-origin:center bottom;
   will-change:transform, opacity;
   transition:transform .35s var(--ease-out), opacity .3s var(--ease-out), box-shadow .35s var(--ease-out), border-color .35s var(--ease-out);
   cursor:none;
 }
-.fan-card:hover{ box-shadow:0 34px 80px -24px rgba(0,0,0,.7); }
+.fan-card:hover{ box-shadow:0 34px 80px -24px rgba(0,0,0,.7), 0 0 30px rgba(255,255,255,.1); }
 .fan-card.is-active{
-  border-color:rgba(255,221,122,.4);
-  box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,221,122,.18);
+  border-color:rgba(255,255,255,.45);
+  box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.25);
   /* a slow breathing glow, so the front card feels alive rather than
      static once it's settled into place — safe to animate box-shadow
      here since (unlike transform/opacity) nothing else writes to it
@@ -449,19 +461,25 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   animation:fanCardGlow 3.4s ease-in-out infinite;
 }
 @keyframes fanCardGlow{
-  0%, 100%{ box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,221,122,.18); }
-  50%{ box-shadow:0 46px 120px -20px rgba(0,0,0,.8), 0 0 34px 2px rgba(255,221,122,.3); }
+  0%, 100%{ box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.25); }
+  50%{ box-shadow:0 46px 120px -20px rgba(0,0,0,.8), 0 0 42px 4px rgba(255,255,255,.35); }
 }
 .fan-card.is-expanded{
+  /* fixed to the viewport and centered there directly, rather than
+     scaled up from its normal position within the fan — the fan sits
+     wherever the section's scroll happens to have it, which could be
+     anywhere from top to bottom of a very tall section, and scaling up
+     in place could push the card's edges past the screen on shorter
+     monitors regardless of how the scale itself was capped. Centering
+     in the viewport sidesteps that entirely: it's never off-screen no
+     matter where the fan itself currently sits. */
+  position:fixed;
+  top:50%;
+  left:50%;
   z-index:500;
   cursor:pointer;
-  box-shadow:0 60px 140px -20px rgba(0,0,0,.85), 0 0 0 1.5px rgba(255,221,122,.5), 0 0 50px 4px rgba(255,221,122,.28);
+  box-shadow:0 60px 140px -20px rgba(0,0,0,.85), 0 0 0 1.5px rgba(255,255,255,.6), 0 0 60px 6px rgba(255,255,255,.32);
   animation:none;
-  /* the base card pivots from its bottom edge (so the fan reads as
-     rooted to one spot) — expanding from that same pivot meant almost
-     all of the scale-up growth happened upward, reaching up into the
-     phrase/trade-name area above it. Centering the pivot for just the
-     expanded state halves how far the top edge intrudes upward. */
   transform-origin:center center;
 }
 .fan-card-close{
@@ -489,6 +507,32 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   pointer-events:auto;
 }
 .fan-card-close:hover{ border-color:rgba(255,221,122,.7); color:#ffdd7a; }
+
+/* the explicit "how do I get out of this" affordance to go with the
+   scroll lock while a card is expanded — same idea as the cube
+   section's own exit hint, so the two match */
+.fan-card-exit-hint{
+  position:absolute;
+  left:50%;
+  bottom:.7rem;
+  z-index:2;
+  transform:translateX(-50%);
+  padding:.45em 1.1em;
+  border-radius:999px;
+  border:1px solid rgba(255,221,122,.35);
+  background:rgba(10,9,8,.65);
+  backdrop-filter:blur(8px);
+  color:rgba(243,237,226,.9);
+  font-size:.72rem;
+  letter-spacing:.02em;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .3s var(--ease-out);
+}
+.fan-card.is-expanded .fan-card-exit-hint{
+  opacity:1;
+  animation:cubeHintGlow 2.8s ease-in-out infinite;
+}
 
 /* a short encouraging line that takes over the trade-name carousel's
    own spot (below the "Real websites. Every industry." eyebrow, above
