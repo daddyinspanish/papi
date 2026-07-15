@@ -66,8 +66,12 @@
   }
 
   // ---- title: split into per-letter spans, tagged by which entrance
-  // group they belong to (em/br preserved). "purpose" stays one
-  // unbroken unit inside <em> so its color styling applies cleanly. ----
+  // group they belong to (em/br preserved). "purpose"'s letters are
+  // spans nested inside <em> rather than the <em> itself being one
+  // unit — the color styling still applies cleanly since color
+  // inherits down to the nested spans, and this way "purpose" gets the
+  // same letter-by-letter push/ripple physics as the rest of the title
+  // instead of moving as one rigid block. ----
   const units = [];
   const groups = [];
   function appendGroup(parent, text, type, order){
@@ -85,10 +89,8 @@
   title.innerHTML = '';
   appendGroup(title, 'Built with ', 'fly-left', 0);
   const em = document.createElement('em');
-  em.textContent = 'purpose';
   title.appendChild(em);
-  units.push(em);
-  groups.push({ type:'fly-right', order:1, startIdx: units.length - 1, endIdx: units.length - 1 });
+  appendGroup(em, 'purpose', 'fly-right', 1);
   title.appendChild(document.createElement('br'));
   appendGroup(title, 'not ', 'bounce', 2);
   appendGroup(title, 'just ', 'bounce', 3);

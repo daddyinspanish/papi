@@ -17,18 +17,17 @@
   window.Papi.palette = palette;
 
   // ---------------------------------------------------------------
-  // shared scroll lock — used by the hero's field-grow and the cube
-  // section's focused-face view (the showcase fan card's expanded view
-  // keeps its own simpler html-only lock — it re-parents onto <body>
-  // for its own position:fixed centering, which would itself get
-  // hijacked if body became position:fixed too, so it can't share this).
+  // shared scroll lock — used by the cube section's focused-face view
+  // (the showcase fan card's expanded view keeps its own simpler
+  // html-only lock — it re-parents onto <body> for its own
+  // position:fixed centering, which would itself get hijacked if body
+  // became position:fixed too, so it can't share this).
   //
   // Plain overflow:hidden on html/body isn't reliably enough to block
   // iOS Safari's own touch-driven momentum scrolling — a stray touch
   // could still drag the page slightly during a "locked" animation,
   // and the snap-back once the lock released was what showed up as a
-  // pause/freeze right when scrolling from the hero into the next
-  // section. The standard position:fixed-on-body trick fixes that,
+  // pause/freeze. The standard position:fixed-on-body trick fixes that,
   // but here it would just move the problem: .site-header/.title-dock
   // are themselves position:fixed, and any position:fixed element's
   // containing block becomes the nearest position:fixed ANCESTOR — so

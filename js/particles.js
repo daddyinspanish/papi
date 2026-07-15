@@ -12,13 +12,16 @@
    releases and tiles ease straight back to rest.
 
    On first reveal (window.Papi.revealField, called from loader.js),
-   the field holds still as a wide "world of cubes" cluster around
-   the title, gently orbiting its centre — until the visitor starts
-   scrolling and the subtitle appears (window.Papi.growField, called
-   from title-dock.js), at which point the same cluster continues
-   growing outward from exactly the reveal amount it already had (no
-   restart, no fade-to-black) until it fills the whole screen. A
-   'papi:fieldgrown' event fires on window once it's done.
+   the field shows a "world of cubes" cluster around the title that
+   orbits its centre continuously, breathing in size as it goes —
+   expanding outward, then reversing back into the tighter orbit,
+   forever. This used to instead do a one-shot grow-to-fill-the-
+   screen triggered by the visitor scrolling, gated behind a scroll
+   lock so the page couldn't move until it finished — that read as a
+   freeze/stutter right when scrolling from the hero into the next
+   section, and it meant the animation only ever played once. The
+   breathing loop is fully self-contained and independent of scroll,
+   so there's nothing left to gate scrolling on.
 =================================================================== */
 (function(){
   const canvas = document.getElementById('fieldCanvas');
@@ -52,21 +55,14 @@
 
   // --- intro reveal state:
   //   pending -> hidden, before the loader hands off
-  //   held    -> wide centre cluster shown, holds still
-  //   active  -> growing outward from centre
-  //   done    -> always fully shown
+  //   held    -> the "world of cubes" cluster, shown forever from here
+  //              on — continuously orbiting and breathing in size
   let introPhase = 'pending';
-  let introStart = null;
-  // was 2100ms — title-dock.js locks page scroll for this entire
-  // stretch while the field grows, so a visitor scrolling from the
-  // hero into the next section had their scroll gesture abruptly
-  // frozen for over 2 seconds, reading as the page "pausing"/glitching
-  // (especially noticeable on iPhone, where a fast flick just stops
-  // dead instead of decelerating). Still a real grow animation, just a
-  // much shorter lock.
-  const INTRO_DURATION = 950;
+  let heldStart = null;
   const INTRO_FEATHER = 0.2;
-  const HELD_REVEAL = 0.24; // a wide "world of cubes" cluster while held
+  const HELD_REVEAL = 0.24;     // tightest point of the breathing cluster
+  const EXPANDED_REVEAL = 0.5;  // widest point — how far out it expands
+  const BREATHE_PERIOD = 4200;  // ms for one full expand-then-reverse cycle
 
   // the very first color the field shows eases up from a soft, pale
   // tint rather than snapping straight to the fully saturated/bright
@@ -82,11 +78,9 @@
   // the flat "pop to full brightness" look, just resolved much faster.
   const COLOR_WARMUP_DURATION = 650;
 
-  // slow continuous orbit of the held cluster around its centre —
-  // only while held; once growth starts the tiles settle to their
-  // true static grid spot so a full screen of tiles never has to orbit
+  // continuous orbit of the cluster around its centre, forever
   let orbitPhase = 0;
-  const ORBIT_SPEED = 0.00007; // radians/ms — one turn roughly every 90s
+  const ORBIT_SPEED = 0.00022; // radians/ms — noticeably faster than the old ~90s/turn drift
 
   function smoothstep(edge0, edge1, x){
     const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
@@ -272,31 +266,16 @@
       direction *= -1;
     }
 
-    // advance the intro reveal (wide centre cluster growing outward)
+    // advance the intro reveal — a wide centre cluster that orbits and
+    // breathes in size forever: expanding outward, then reversing back
+    // into the tighter orbit, on a continuous loop
     let introProgress = 1;
     if(introPhase === 'held'){
-      introProgress = HELD_REVEAL;
       orbitPhase += dt * ORBIT_SPEED;
-    } else if(introPhase === 'active'){
-      const raw = Math.min(1, (ts - introStart) / INTRO_DURATION);
-      const eased = raw < 0.5 ? 2*raw*raw : 1 - Math.pow(-2*raw+2, 2)/2; // ease-in-out, fluid
-      // continue smoothly from exactly the reveal amount held already
-      // showed — never restart from 0, or the cluster would visibly
-      // fade to black and rebuild from the centre
-      //
-      // target 1 + INTRO_FEATHER, not 1 — reveal is a smoothstep band
-      // (dist - FEATHER .. dist + FEATHER), and the farthest tiles sit
-      // at dist ~= 1 (normalized against the diagonal corner distance).
-      // Stopping at exactly 1 left every tile past dist ~0.8 still
-      // mid-fade when the phase flipped to 'done' and reveal got
-      // hard-set to 1 — a visible pop on wide desktop screens, where
-      // whole edges of tiles sit above that 0.8 line (barely any do on
-      // a narrow, tall phone screen, which is why it was desktop-only)
-      introProgress = lerp(HELD_REVEAL, 1 + INTRO_FEATHER, eased);
-      if(raw >= 1){
-        introPhase = 'done';
-        window.dispatchEvent(new Event('papi:fieldgrown'));
-      }
+      const cyclePos = ((ts - heldStart) % BREATHE_PERIOD) / BREATHE_PERIOD; // 0..1
+      const tri = cyclePos < 0.5 ? cyclePos * 2 : (1 - cyclePos) * 2; // 0 -> 1 -> 0
+      const eased = smoothstep(0, 1, tri); // soften the triangle's corners
+      introProgress = lerp(HELD_REVEAL, EXPANDED_REVEAL, eased);
     }
 
     // 0 right as the field first appears, easing to 1 over
@@ -334,13 +313,12 @@
           }
         }
 
-        // while held, the whole cluster slowly orbits its centre; once
-        // growth starts it settles smoothly to its true static spot
-        // orbit target is expressed around the tile's cell-centre (to
-        // keep the circular path true), then shifted back to the same
-        // top-left convention as the static hx/hy grid slot — otherwise
-        // the very first orbiting frame lands half a cell away from
-        // where the tile actually is and the whole cluster bounces
+        // the whole cluster orbits its centre forever — orbit target is
+        // expressed around the tile's cell-centre (to keep the circular
+        // path true), then shifted back to the same top-left convention
+        // as the static hx/hy grid slot — otherwise the very first
+        // orbiting frame lands half a cell away from where the tile
+        // actually is and the whole cluster bounces
         const homeX = orbiting ? centerX + t.radius * Math.cos(t.angle0 + orbitPhase) - cell/2 : t.hx;
         const homeY = orbiting ? centerY + t.radius * Math.sin(t.angle0 + orbitPhase) - cell/2 : t.hy;
 
@@ -364,7 +342,7 @@
         const [r,g,b] = hslToRgb(hh, ss2, ll2);
 
         let reveal = 1;
-        if(introPhase === 'active' || introPhase === 'held'){
+        if(introPhase === 'held'){
           reveal = smoothstep(t.dist - INTRO_FEATHER, t.dist + INTRO_FEATHER, introProgress);
           if(reveal <= 0.001) continue;
         }
@@ -429,31 +407,13 @@
   window.Papi = window.Papi || {};
   window.Papi.resizeField = resize;
 
-  // if the visitor somehow starts scrolling (browser scroll-position
-  // restore on reload, an iOS quirk, anything) before the loader has
-  // handed off, growField() below can get called while introPhase is
-  // still 'pending' — remember that request instead of dropping it, so
-  // revealField() can act on it once the field is actually ready. Not
-  // remembering it was the bug: the fill would silently never run, and
-  // the visitor would just land straight in the next section.
-  let pendingGrow = false;
-  function startGrow(){
-    introStart = performance.now();
-    introPhase = 'active';
-  }
-
-  // shows the wide still centre cluster and holds — called once the
-  // loader hands off
+  // shows the orbiting, breathing "world of cubes" cluster — called
+  // once the loader hands off. Runs forever from here; nothing else
+  // ever changes introPhase again.
   window.Papi.revealField = function(){
     if(introPhase !== 'pending') return;
     introPhase = 'held';
+    heldStart = performance.now();
     colorWarmupStart = performance.now();
-    if(pendingGrow) startGrow();
   };
-  // starts the outward grow — called once the visitor begins scrolling
-  window.Papi.growField = function(){
-    if(introPhase === 'held') startGrow();
-    else if(introPhase === 'pending') pendingGrow = true;
-  };
-  window.Papi.isFieldGrown = function(){ return introPhase === 'done'; };
 })();

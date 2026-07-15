@@ -338,7 +338,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   margin:1.8rem auto 2.6rem;
   font-size:clamp(1.15rem, 2.4vw, 1.6rem);
   line-height:1.4;
-  color:var(--cream-dim);
+  color:#fff;
   font-weight:300;
   text-shadow:0 2px 16px rgba(0,0,0,.6);
   opacity:0;
@@ -1698,8 +1698,15 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
    opens the platform's own calendar (day-of-month picker) rather than
    free-text. Like <select>, it doesn't support :placeholder-shown, so
    the floated-label state is driven by the same .has-value class
-   (toggled in quote-form.js) instead. */
-.quote-field--date input{ color:#0f1f3d; }
+   (toggled in quote-form.js) instead.
+   overflow:hidden is load-bearing here, not decorative — iOS Safari's
+   native date control is a shadow-DOM layout of separate day/month/
+   year segments plus the calendar glyph, and on a narrow field it can
+   render wider than the input's own box without the browser clipping
+   it on its own; only overflow:hidden directly on the input forces
+   that shadow content back inside the border-box, which is what
+   showed up as the control spilling out past the form's edge. */
+.quote-field--date input{ color:#0f1f3d; overflow:hidden; }
 .quote-field--date input:focus + label,
 .quote-field--date input.has-value + label{
   top:.4rem;

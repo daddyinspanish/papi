@@ -167,6 +167,8 @@
       tab.addEventListener('click', ()=> goToPanel(i));
     });
     let activePanel = 0;
+    // only swaps which tab is highlighted — cheap, safe to do on every
+    // scroll frame while the swipe is still in motion
     function updateActiveTab(){
       const stackRect = formStack.getBoundingClientRect();
       const center = stackRect.left + stackRect.width / 2;
@@ -183,14 +185,39 @@
         tab.classList.toggle('is-active', active);
         tab.setAttribute('aria-selected', active ? 'true' : 'false');
       });
-      syncStackHeight();
     }
     let tabTicking = false;
+    // syncStackHeight used to be called straight from updateActiveTab,
+    // the instant the closest panel flipped — which happens as soon as
+    // a swipe crosses the halfway point, well before the finger lifts
+    // or the scroll-snap settles. That kicked off the height CSS
+    // transition mid-drag, while the stack was still visibly sliding
+    // between two very differently-sized panels: for a moment the box
+    // was the wrong height for what was on screen, showing a gap of
+    // the section's own background (a gold gradient) instead of form,
+    // and reading as a jitter/flash right in the middle of the swipe.
+    // Settling the height only once the scroll gesture actually stops
+    // (native 'scrollend' where supported, a short debounce as a
+    // fallback everywhere else) keeps the resize entirely after the
+    // panel has already landed, instead of racing the swipe itself.
+    let settleTimer = null;
+    function scheduleHeightSync(){
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(syncStackHeight, 120);
+    }
     formStack.addEventListener('scroll', ()=>{
-      if(tabTicking) return;
-      tabTicking = true;
-      requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
+      if(!tabTicking){
+        tabTicking = true;
+        requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
+      }
+      scheduleHeightSync();
     }, { passive:true });
+    if('onscrollend' in window){
+      formStack.addEventListener('scrollend', ()=>{
+        clearTimeout(settleTimer);
+        syncStackHeight();
+      });
+    }
     window.addEventListener('resize', syncStackHeight);
     // measure once layout has actually settled — measuring in the same
     // tick as creation can catch fonts/images still reflowing, which
