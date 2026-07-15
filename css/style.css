@@ -43,28 +43,22 @@ html,body{
    position:sticky for the showcase section */
 html{ overflow-x:hidden; }
 
-/* briefly locks scrolling while the background field grows to fill
-   the screen, so the hero doesn't move until it's finished. Locking
-   only html (not body too) doesn't reliably block iOS Safari's
-   touch-driven scrolling — the same gap fixed for .no-scroll below —
-   which let a stray touch keep dragging the page slightly during the
-   "locked" fill, and the mismatch showed up as a pause/catch-up right
-   as the real unlock happened. body's explicit height:100vh (that
-   used to sit here) turned out to be the wrong way to get that
-   extra coverage — combined with overflow:hidden it could snap
-   scrollY back to 0 the instant the lock engaged, which read as the
-   page freezing right as you scrolled from the hero into the next
-   section. Plain overflow:hidden on both, without constraining
-   body's height, gets the same touch-blocking without that side
-   effect. */
+/* briefly locks scrolling — while the hero's background field grows
+   to fill the screen, while the cube section has a face focused, and
+   while a showcase fan card is expanded. Plain overflow:hidden on
+   html/body (what used to live here) isn't reliably enough to block
+   iOS Safari's own touch-driven momentum scrolling: a stray touch
+   could still drag the page slightly during a "locked" animation, and
+   the snap-back once the lock released was what showed up as a pause/
+   freeze right as you scrolled from the hero into the next section.
+   window.Papi.lockScroll()/unlockScroll() (see accent.js) now pins
+   body with position:fixed instead, which fully removes it from any
+   scrollable context — the standard, well-tested fix for this on iOS.
+   This class just hides the root's own scrollbar/rubber-band to match. */
 html.scroll-lock{ overflow:hidden; }
-body.scroll-lock{ overflow:hidden; }
 
-/* on body alone, this doesn't reliably block touch-driven scrolling
-   on iOS Safari (a known WebKit quirk) — locking the root element too
-   is what actually stops it there */
 html.no-scroll{ overflow:hidden; }
-body.no-scroll{ overflow:hidden; height:100vh; }
+body.no-scroll{ overflow:hidden; }
 
 ::selection{ background:rgba(var(--accent),.4); color:var(--cream); }
 
@@ -1624,11 +1618,18 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   gap:1.3rem;
 }
 
-.quote-field{ position:relative; }
+/* grid items default to a min-width based on their content's own
+   intrinsic size, not the track's — a native date input's internal
+   day/month/year + calendar-icon layout on iOS has a wide enough
+   intrinsic minimum that it could force its whole grid track past the
+   form's own edge instead of shrinking to fit, which is what showed up
+   as the date field sticking out past the form on iPhone */
+.quote-field{ position:relative; min-width:0; }
 .quote-field input,
 .quote-field textarea,
 .quote-field select{
   width:100%;
+  min-width:0;
   font-family:'Inter', sans-serif;
   font-size:1rem;
   color:#0f1f3d;

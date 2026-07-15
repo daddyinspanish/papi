@@ -156,19 +156,14 @@
     // the background field holds still (a wide centre cluster) until
     // the visitor starts scrolling — then it grows out to fill the
     // screen. Scrolling is locked for that stretch so the section
-    // doesn't move until it's finished; we re-assert the scroll
-    // position right after locking in case toggling overflow causes
-    // the browser to jump to the top (a known quirk in some engines).
+    // doesn't move until it's finished (see window.Papi.lockScroll in
+    // accent.js for why this isn't just a CSS overflow toggle).
     if(!grown && rawProgress > 0.001){
       grown = true;
-      const lockedY = window.scrollY;
-      document.documentElement.classList.add('scroll-lock');
-      document.body.classList.add('scroll-lock');
-      window.scrollTo(0, lockedY);
+      if(window.Papi && window.Papi.lockScroll) window.Papi.lockScroll();
       if(window.Papi && window.Papi.growField) window.Papi.growField();
       window.addEventListener('papi:fieldgrown', ()=>{
-        document.documentElement.classList.remove('scroll-lock');
-        document.body.classList.remove('scroll-lock');
+        if(window.Papi && window.Papi.unlockScroll) window.Papi.unlockScroll();
       }, { once:true });
       // safety net: if 'papi:fieldgrown' never fires for any reason
       // (e.g. growField() was called before the field had finished
@@ -176,8 +171,7 @@
       // scrolling locked forever — release it shortly after the grow
       // (INTRO_DURATION in particles.js) should have finished
       setTimeout(()=>{
-        document.documentElement.classList.remove('scroll-lock');
-        document.body.classList.remove('scroll-lock');
+        if(window.Papi && window.Papi.unlockScroll) window.Papi.unlockScroll();
       }, 1800);
     }
 

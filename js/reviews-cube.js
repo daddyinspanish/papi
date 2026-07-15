@@ -248,9 +248,7 @@
     if(focusedFace === key) return;
     dismissHint();
     if(!focusedFace){
-      const lockedY = window.scrollY;
-      document.documentElement.classList.add('scroll-lock');
-      window.scrollTo(0, lockedY);
+      if(window.Papi && window.Papi.lockScroll) window.Papi.lockScroll();
       if(sticky) sticky.classList.add('is-focused');
     }
     focusedFace = key;
@@ -269,7 +267,7 @@
   function unfocusFace(){
     if(!focusedFace) return;
     focusedFace = null;
-    document.documentElement.classList.remove('scroll-lock');
+    if(window.Papi && window.Papi.unlockScroll) window.Papi.unlockScroll();
     if(sticky) sticky.classList.remove('is-focused');
   }
 
