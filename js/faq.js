@@ -52,7 +52,15 @@
     });
   });
 
+  // width-only guard — matches the same pattern used elsewhere on the
+  // site: an iOS address-bar-collapse resize (fired on the first
+  // scroll of a session) changes innerHeight, not innerWidth, and
+  // shouldn't be treated as a real layout change
+  let lastResizeWFaq = window.innerWidth;
   window.addEventListener('resize', ()=>{
+    const w = window.innerWidth;
+    if(w === lastResizeWFaq) return;
+    lastResizeWFaq = w;
     items.forEach(item=>{
       if(!item.classList.contains('is-open')) return;
       const answer = item.querySelector('.faq-answer');

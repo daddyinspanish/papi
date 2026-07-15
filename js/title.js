@@ -266,7 +266,19 @@
     subEffectsLive = true;
   });
 
+  // width-only guard — on iOS Safari, scrolling for the very first time
+  // in a session collapses the address bar, which fires a 'resize'
+  // event that changes innerHeight but not innerWidth. Without this
+  // check, that one resize would trigger a full recompute here: a
+  // forced getBoundingClientRect() read for every one of the title's
+  // and subtitle's 100+ individual letter spans, combined, landing
+  // right at the exact moment of the first scroll — one real
+  // contributor to something reacting badly right then.
+  let lastResizeWTitle = window.innerWidth;
   window.addEventListener('resize', ()=>{
+    const w = window.innerWidth;
+    if(w === lastResizeWTitle) return;
+    lastResizeWTitle = w;
     clearTimeout(window.__papiTitleResizeT);
     window.__papiTitleResizeT = setTimeout(()=>{
       if(effectsLive) computeHomes();

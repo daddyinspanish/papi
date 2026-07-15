@@ -453,7 +453,19 @@
   }
 
   window.addEventListener('scroll', requestUpdate, { passive:true });
-  window.addEventListener('resize', ()=>{ measureStep(); requestUpdate(); });
+  // width-only guard — on iOS Safari, scrolling for the first time in a
+  // session collapses the address bar, firing a 'resize' that changes
+  // innerHeight but not innerWidth. Without this, that one resize
+  // would run a full recompute across every fan card and trade-name
+  // item, landing right at the exact moment of the first scroll.
+  let lastResizeWShowcase = window.innerWidth;
+  window.addEventListener('resize', ()=>{
+    const w = window.innerWidth;
+    if(w === lastResizeWShowcase) return;
+    lastResizeWShowcase = w;
+    measureStep();
+    requestUpdate();
+  });
   update();
   updateEntrance();
 })();

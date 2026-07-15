@@ -74,7 +74,18 @@
     requestAnimationFrame(()=>{ updateReveal(); ticking = false; });
   }
   window.addEventListener('scroll', requestUpdate, { passive:true });
-  window.addEventListener('resize', requestUpdate);
+  // width-only guard — on iOS Safari, scrolling for the first time in a
+  // session collapses the address bar, firing a 'resize' that changes
+  // innerHeight but not innerWidth. Without this, that one resize would
+  // trigger a recompute here too, right at the exact moment of the
+  // first scroll, on top of whatever else reacts to that same event.
+  let lastResizeWQuote = window.innerWidth;
+  window.addEventListener('resize', ()=>{
+    const w = window.innerWidth;
+    if(w === lastResizeWQuote) return;
+    lastResizeWQuote = w;
+    requestUpdate();
+  });
   updateReveal();
 
   // neither a <select> nor a date input has a :placeholder-shown state
@@ -218,7 +229,18 @@
       tabTicking = true;
       requestAnimationFrame(()=>{ updateActiveTab(); tabTicking = false; });
     }, { passive:true });
-    window.addEventListener('resize', syncStackHeight);
+    // same width-only guard reasoning as the outer resize listener
+    // above (its own tracking variable — sharing one across both
+    // listeners would race, since whichever fires first updates it
+    // before the second one reads it) — an iOS address-bar-collapse
+    // resize shouldn't re-measure panel heights either
+    let lastResizeWStack = window.innerWidth;
+    window.addEventListener('resize', ()=>{
+      const w = window.innerWidth;
+      if(w === lastResizeWStack) return;
+      lastResizeWStack = w;
+      syncStackHeight();
+    });
     // measure once layout has actually settled — measuring in the same
     // tick as creation can catch fonts/images still reflowing, which
     // is what showed up as the panel's height being locked in too short

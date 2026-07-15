@@ -158,7 +158,19 @@
     requestAnimationFrame(()=>{ updateActive(); ticking = false; });
   }
   stack.addEventListener('scroll', requestUpdate, { passive:true });
-  window.addEventListener('resize', ()=>{ requestUpdate(); updateEntrance(); });
+  // width-only guard — on iOS Safari, scrolling for the first time in a
+  // session collapses the address bar, firing a 'resize' that changes
+  // innerHeight but not innerWidth. Without this, that one resize
+  // would trigger a recompute here too, right at the exact moment of
+  // the first scroll, on top of whatever else reacts to that same event.
+  let lastResizeWTestimonials = window.innerWidth;
+  window.addEventListener('resize', ()=>{
+    const w = window.innerWidth;
+    if(w === lastResizeWTestimonials) return;
+    lastResizeWTestimonials = w;
+    requestUpdate();
+    updateEntrance();
+  });
 
   let entranceTicking = false;
   window.addEventListener('scroll', ()=>{
