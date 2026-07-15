@@ -901,10 +901,11 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
      intercept clicks meant for the canvas or the section beneath */
   pointer-events:none;
 }
-/* the connecting line — a single shared element, repositioned and
-   relabelled each frame to point from wherever the sphere's currently-
-   visible surface is toward whichever one stage is active, rather than
-   seven separate lines. Sits between the canvas and the text layer. */
+/* the connecting line — one single fixed element (a short vertical
+   connector below the sphere's centre, where every element comes into
+   focus via panning — see principles-liquid.js), not seven separate
+   ones jumping between sides. Only its opacity changes, driven by
+   whichever stage is currently active. */
 #principlesLines{
   position:absolute;
   inset:0;
@@ -934,16 +935,20 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
   line-height:1.4;
   opacity:1;
 }
-/* per-stage callouts: JS sets transform (translate to the line's fixed
-   outer endpoint) and opacity every frame from scroll position — no
+/* per-stage callouts: one fixed position for all seven (below the
+   sphere, where the connecting line ends) — only opacity changes,
+   driven every frame from scroll position in principles-liquid.js. No
    CSS transition here, which would just fight a value that's already
-   being driven continuously. left:0;top:0 so the JS translate is the
-   element's entire position, not an offset from some other layout. */
+   being driven continuously. Deliberately not different per stage:
+   the previous alternating left/right placement read as the text just
+   jumping from side to side rather than settling anywhere. */
 .principles-stage{
   position:absolute;
-  left:0;
-  top:0;
-  width:min(280px, 56vw);
+  left:50%;
+  top:78%;
+  transform:translate(-50%,-50%);
+  width:min(420px, 80vw);
+  text-align:center;
   opacity:0;
 }
 .principles-eyebrow{
@@ -990,7 +995,7 @@ body.on-hero-section .brand-mark{ color:rgb(var(--style-contrast)); }
 }
 
 @media (max-width:640px){
-  .principles-stage{ width:min(220px, 50vw); }
+  .principles-stage{ width:min(300px, 82vw); top:80%; }
   .principles-eyebrow{ font-size:1.2rem; }
   .principles-copy{ font-size:.85rem; }
 }

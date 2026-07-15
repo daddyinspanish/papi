@@ -1,33 +1,29 @@
 /* ===================================================================
-   Papi — Principles: one liquid sphere the visitor scrolls INTO
+   Papi — Principles: one liquid sphere, seven embedded elements
    A single realistic gold liquid sphere (a proper analytic 3D sphere
-   normal faked from a 2D distance field — not the multi-point metaball
-   mass the hero uses — so it reads as one coherent, round, glossy
-   object rather than several blobs merging). Scrolling drives two
-   things at once, both pure functions of scroll position:
+   normal faked from a 2D distance field). Scrolling drives the camera
+   "into" it — the sphere grows to fill more of the screen — while
+   *panning* across a fixed abstract surface so a different, distinct
+   embedded element comes into focus at each of the seven stages,
+   rather than zooming toward one single, increasingly generic patch of
+   texture. Each element is its own simple shape (a solid core, a
+   flowing path, a ring, a soft glow, a sequence of nodes, parallel
+   motion streaks, a resolved point-in-a-ring) standing in for what it
+   represents, embedded right in the liquid rather than laid on top of
+   it as a separate flat icon.
 
-   1. uRadius grows continuously, so the sphere appears to fill more
-      and more of the screen — the "camera pushing in" — until, by the
-      final stage, its edge is pushed off-screen entirely and the whole
-      viewport is filled with its surface, as if the visitor is now
-      standing inside it.
-   2. uDetailLevel rises from 0 to 1, progressively revealing finer
-      octaves of procedural surface noise. At the start the surface is
-      smooth and calm; by the end, the finest, highest-frequency octave
-      is fully revealed — a fine, granular texture standing in for "the
-      tiny particles that build the entire mass."
+   Panning works by keeping seven fixed positions in an abstract
+   "surface space" (uFeaturePos, set once, never move) and easing
+   uPan — where in that space is currently centred under the camera —
+   toward the active stage's position. The visible surface noise and
+   every element's shape are both sampled relative to (screen position
+   - uPan), so panning is what actually swaps which element is in view.
 
-   Each of the seven principles gets one moment along this same
-   continuous push-in, announced by a single leader line (one shared
-   SVG <line>, not seven) drawn from wherever the sphere's currently-
-   visible surface is out to that principle's own fixed label position
-   — "connect each part... with a line," per spec, one at a time.
-
-   Reversible for free: every value here (radius, detail, line
-   endpoints, label opacity) is computed fresh each frame directly from
-   the current scroll position, never accumulated — scrolling back up
-   just walks the same function backward, all the way to the original
-   whole, smooth, ungrown sphere.
+   Both radius (the sphere's growth) and pan are pure functions of
+   scroll position (eased for smoothness, never accumulated) — the
+   architecture proven throughout this site: scrolling back up walks
+   the exact same function backward, all the way to the first element,
+   for free.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
 
@@ -39,13 +35,14 @@ import * as THREE from './vendor/three.module.min.js';
   const STAGE_COUNT = 7;
 
   const CONFIG = {
-    radiusStart: 0.20,   // sphere radius at scroll-start, aspect-corrected 0..1 units
-    radiusEnd: 4.2,      // radius at scroll-end — big enough that the edge is well off-screen
-    opacity: 1,
+    radiusStart: 0.24,
+    radiusEnd: 2.3,      // enough growth to feel like diving in, without the ending patch going fully abstract
+    opacity: 0.97,       // near-solid — a clean liquid, not a translucent haze
+    edgeSoftness: 0.010, // crisp boundary
     mobileQuality: 0.55,
     mobileWidth: 640,
     maxDt: 1000/24,
-    easeRate: 0.16,      // how quickly radius/detail ease toward their scroll-derived target each frame
+    easeRate: 0.16,
     colorDeep:   [0.55, 0.38, 0.12],
     colorMid:    [0.90, 0.68, 0.28],
     colorBright: [1.00, 0.90, 0.62],
@@ -63,9 +60,19 @@ import * as THREE from './vendor/three.module.min.js';
     return Math.min(cap, 1 - Math.pow(1 - perFrameRate, dt / 16.6667));
   }
 
-  // ===================================================================
-  // shader
-  // ===================================================================
+  // fixed positions in abstract surface-space, one per stage — spaced
+  // far enough apart (see FEATURE_SCALE below) that only the adjacent
+  // one is ever partly visible during a transition, never two at once
+  const FEATURE_POS = [
+    [0.0, 0.0],
+    [1.9, 0.35],
+    [0.9, -1.7],
+    [-1.8, 0.8],
+    [-0.75, 1.9],
+    [1.7, -1.2],
+    [-1.9, -1.0],
+  ];
+
   const VERTEX = `
     varying vec2 vUv;
     void main(){
@@ -79,9 +86,12 @@ import * as THREE from './vendor/three.module.min.js';
     uniform vec2 uResolution;
     uniform float uTime;
     uniform float uRadius;
-    uniform float uDetailLevel;
+    uniform float uEdgeSoftness;
     uniform vec2 uCenter;
     uniform float uOpacity;
+    uniform vec2 uPan;
+    uniform float uActiveStageFloat;
+    uniform vec2 uFeaturePos[${STAGE_COUNT}];
     uniform vec3 uColorDeep;
     uniform vec3 uColorMid;
     uniform vec3 uColorBright;
@@ -101,57 +111,95 @@ import * as THREE from './vendor/three.module.min.js';
       vec2 u = f*f*(3.0-2.0*f);
       return mix(a,b,u.x) + (c-a)*u.y*(1.0-u.x) + (d-b)*u.x*u.y;
     }
-    // reveals one more, finer octave as uDetailLevel climbs from 0 to 1 —
-    // the actual mechanism behind "more and more detail as you zoom in,
-    // down to the tiny particles"
-    const int OCTAVES = 4;
-    float progressiveFbm(vec2 p, float detail){
+    float fbm(vec2 p){
       float v = 0.0;
       float amp = 0.5;
-      vec2 pp = p;
-      for(int i=0;i<OCTAVES;i++){
-        float reveal = smoothstep(float(i)/float(OCTAVES), float(i+1)/float(OCTAVES), detail);
-        v += amp * valueNoise(pp) * reveal;
-        pp *= 2.15;
+      for(int i=0;i<3;i++){
+        v += amp * valueNoise(p);
+        p *= 2.1;
         amp *= 0.55;
       }
       return v;
     }
 
+    float sdCircle(vec2 p, float r){ return length(p) - r; }
+    float sdSegment(vec2 p, vec2 a, vec2 b, float r){
+      vec2 pa = p-a, ba = b-a;
+      float h = clamp(dot(pa,ba)/dot(ba,ba), 0.0, 1.0);
+      return length(pa - ba*h) - r;
+    }
+    float sdAnnulus(vec2 p, float r, float w){ return abs(length(p)-r) - w; }
+
+    // one distinct shape per principle, embedded in the liquid surface —
+    // rendered wherever panning currently brings it under the camera,
+    // standing in for what each principle actually means rather than
+    // just being a generic zoomed-in patch of the same texture
+    float elementSDF(vec2 p, int idx){
+      if(idx == 0) return sdCircle(p, 0.30);                                    // Trust — one solid, stable core
+      if(idx == 1) return sdSegment(p, vec2(-0.36,-0.22), vec2(0.36,0.22), 0.075); // Reliable Navigation — a single flowing path
+      if(idx == 2) return sdAnnulus(p, 0.27, 0.055);                            // Effective CTAs — a ring, an opening to focus through
+      if(idx == 3) return sdCircle(p, 0.36);                                    // Customer Feeling — soft, enveloping (softened in shading below)
+      if(idx == 4){                                                             // Clear Storytelling — a sequence of connected nodes
+        float a = sdCircle(p-vec2(-0.30,0.0), 0.095);
+        float b = sdCircle(p, 0.095);
+        float c = sdCircle(p-vec2(0.30,0.0), 0.095);
+        return min(min(a,b),c);
+      }
+      if(idx == 5){                                                            // Purposeful Motion — parallel streaks
+        float a = sdSegment(p-vec2(0.0,-0.16), vec2(-0.28,0.0), vec2(0.28,0.0), 0.04);
+        float b = sdSegment(p,                 vec2(-0.34,0.0), vec2(0.34,0.0), 0.04);
+        float c = sdSegment(p-vec2(0.0,0.16),  vec2(-0.28,0.0), vec2(0.28,0.0), 0.04);
+        return min(min(a,b),c);
+      }
+      float core = sdCircle(p, 0.14);                                          // Conversion — a resolved point inside a ring
+      float ring = sdAnnulus(p, 0.30, 0.035);
+      return min(core, ring);
+    }
+
     void main(){
       float aspect = uResolution.x / uResolution.y;
       vec2 p = vec2(vUv.x*aspect, vUv.y);
-      vec2 d = p - uCenter;
+      vec2 center = vec2(uCenter.x*aspect, uCenter.y);
+      vec2 d = p - center;
       float dist = length(d);
 
-      float edgeSoft = 0.014;
-      float alpha = 1.0 - smoothstep(uRadius - edgeSoft, uRadius, dist);
+      float alpha = 1.0 - smoothstep(uRadius - uEdgeSoftness, uRadius, dist);
       if(alpha <= 0.003) discard;
 
-      // fake a true 3D sphere from this 2D distance field: a point at
-      // distance dist from centre, on a sphere of radius uRadius, has
-      // a z-depth of sqrt(radius squared minus dist squared) by the
-      // sphere equation — this gives a real, correctly-curved spherical
-      // normal (brightest facing the light, dimming smoothly toward the
-      // silhouette edge) rather than a flat disc or a fake gradient
       float zLocal = sqrt(max(0.0, uRadius*uRadius - dist*dist));
       vec3 normal = normalize(vec3(d, zLocal));
 
-      // surface noise sampled at a fixed screen-space frequency (not
-      // scaled by uRadius) — as the sphere grows, the *same* noise
-      // features simply take up more of the screen, which is exactly
-      // what "zooming in on existing detail" should look like
-      vec2 noiseP = p*9.0 + uTime*0.015;
+      // world position on the abstract surface — d (screen offset from
+      // the sphere's centre) plus the current pan, so panning is what
+      // slides a different part of that abstract surface under view
+      vec2 worldP = d*2.6 + uPan;
+
+      vec2 noiseP = worldP*2.2 + uTime*0.012;
       float eps = 0.01;
-      float n  = progressiveFbm(noiseP, uDetailLevel);
-      float n1 = progressiveFbm(noiseP+vec2(eps,0.0), uDetailLevel);
-      float n2 = progressiveFbm(noiseP+vec2(0.0,eps), uDetailLevel);
-      vec3 bumpNormal = normalize(normal + vec3((n1-n), (n2-n), 0.0) * (2.0 + uDetailLevel*3.5));
+      float n  = fbm(noiseP);
+      float n1 = fbm(noiseP+vec2(eps,0.0));
+      float n2 = fbm(noiseP+vec2(0.0,eps));
+      vec3 bumpNormal = normalize(normal + vec3((n1-n), (n2-n), 0.0) * 2.6);
+
+      // whichever element is nearest under the current pan, and how
+      // "active" its stage currently is (fades in/out over the one
+      // stage either side of it, matching how far panning has to travel)
+      float glow = 0.0;
+      float elementInside = 0.0;
+      for(int i=0;i<${STAGE_COUNT};i++){
+        vec2 local = worldP - uFeaturePos[i];
+        float sd = elementSDF(local, i);
+        float diff = abs(uActiveStageFloat - float(i));
+        float activation = 1.0 - smoothstep(0.0, 1.05, diff);
+        float edge = (1.0 - smoothstep(-0.03, 0.05, sd)) * activation;
+        glow = max(glow, edge);
+        if(sd < 0.0) elementInside = max(elementInside, activation);
+      }
 
       vec3 viewDir = vec3(0.0, 0.0, 1.0);
       vec3 lightDir = normalize(vec3(-0.4, 0.55, 0.7));
 
-      float diff = max(0.0, dot(bumpNormal, lightDir));
+      float diff2 = max(0.0, dot(bumpNormal, lightDir));
       float spec = pow(max(0.0, dot(reflect(-lightDir, bumpNormal), viewDir)), 46.0);
       float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.0);
 
@@ -159,9 +207,16 @@ import * as THREE from './vendor/three.module.min.js';
       vec3 base = mix(uColorDeep, uColorMid, smoothstep(0.0, 0.6, depthT));
       base = mix(base, uColorBright, smoothstep(0.5, 1.0, depthT)*0.45);
 
-      vec3 color = base*(0.45 + 0.55*diff)
+      vec3 color = base*(0.45 + 0.55*diff2)
         + vec3(1.0, 0.95, 0.82) * spec * 0.55
         + vec3(1.0, 0.82, 0.45) * fresnel * 0.5;
+
+      // the active element itself reads as a distinctly brighter,
+      // slightly paler-gold emissive marking on the liquid surface —
+      // not a different colour (stays gold, on-brand), just clearly lit
+      // from within rather than only reflecting the same key light
+      color = mix(color, vec3(1.0, 0.93, 0.72), elementInside*0.35);
+      color += vec3(1.0, 0.88, 0.55) * glow * 0.6;
 
       gl_FragColor = vec4(color, alpha*uOpacity);
     }
@@ -176,9 +231,12 @@ import * as THREE from './vendor/three.module.min.js';
     uResolution: { value: new THREE.Vector2(1,1) },
     uTime: { value: 0 },
     uRadius: { value: CONFIG.radiusStart },
-    uDetailLevel: { value: 0 },
+    uEdgeSoftness: { value: CONFIG.edgeSoftness },
     uCenter: { value: new THREE.Vector2(0.5, 0.5) },
     uOpacity: { value: CONFIG.opacity },
+    uPan: { value: new THREE.Vector2(0, 0) },
+    uActiveStageFloat: { value: 0 },
+    uFeaturePos: { value: FEATURE_POS.map(p => new THREE.Vector2(p[0], p[1])) },
     uColorDeep: { value: new THREE.Vector3(...CONFIG.colorDeep) },
     uColorMid: { value: new THREE.Vector3(...CONFIG.colorMid) },
     uColorBright: { value: new THREE.Vector3(...CONFIG.colorBright) },
@@ -227,23 +285,6 @@ import * as THREE from './vendor/three.module.min.js';
     return Math.max(0, Math.min(STAGE_COUNT - 0.0001, raw * STAGE_COUNT));
   }
 
-  // ===================================================================
-  // per-stage fixed label anchors (fraction of the sticky viewport) —
-  // alternating sides for visual rhythm, the final stage centred low
-  // as a conclusive close. The leader line always points from the
-  // sphere's current surface toward whichever one of these is active.
-  // ===================================================================
-  const LABEL_ANCHORS = [
-    { x: 0.16, y: 0.26 }, // 0 Trust
-    { x: 0.80, y: 0.32 }, // 1 Reliable Navigation
-    { x: 0.14, y: 0.52 }, // 2 Effective Calls to Action
-    { x: 0.80, y: 0.50 }, // 3 Customer Feeling
-    { x: 0.16, y: 0.72 }, // 4 Clear Storytelling
-    { x: 0.78, y: 0.68 }, // 5 Purposeful Motion
-    { x: 0.50, y: 0.84 }, // 6 Conversion
-  ];
-  const ATTACH_RADIUS_CAP = 0.4; // visual attachment stays sensibly on-screen even once uRadius grows huge
-
   const stageTextEls = Array.from(document.querySelectorAll('.principles-stage'));
   const introEl = document.getElementById('principlesIntro');
   const lineEl = document.getElementById('principlesLine');
@@ -257,7 +298,7 @@ import * as THREE from './vendor/three.module.min.js';
   }
 
   let curRadius = CONFIG.radiusStart;
-  let curDetail = 0;
+  let curPanX = FEATURE_POS[0][0], curPanY = FEATURE_POS[0][1];
   let lastTs = null;
   let sectionVisible = true;
 
@@ -274,65 +315,35 @@ import * as THREE from './vendor/three.module.min.js';
 
     const stageFloat = getStageFloat();
     const overall = stageFloat / STAGE_COUNT;
+    const stageIndex = Math.min(STAGE_COUNT - 1, Math.floor(stageFloat));
+    const stageNext = Math.min(STAGE_COUNT - 1, stageIndex + 1);
+    const stageFrac = smoothstep(0, 1, stageFloat - stageIndex);
 
     const targetRadius = CONFIG.radiusStart + (CONFIG.radiusEnd - CONFIG.radiusStart) * overall;
-    const targetDetail = overall;
+    const targetPanX = FEATURE_POS[stageIndex][0] + (FEATURE_POS[stageNext][0] - FEATURE_POS[stageIndex][0]) * stageFrac;
+    const targetPanY = FEATURE_POS[stageIndex][1] + (FEATURE_POS[stageNext][1] - FEATURE_POS[stageIndex][1]) * stageFrac;
+
     curRadius += (targetRadius - curRadius) * alpha;
-    curDetail += (targetDetail - curDetail) * alpha;
+    curPanX += (targetPanX - curPanX) * alpha;
+    curPanY += (targetPanY - curPanY) * alpha;
 
     uniforms.uRadius.value = curRadius;
-    uniforms.uDetailLevel.value = curDetail;
+    uniforms.uPan.value.set(curPanX, curPanY);
+    uniforms.uActiveStageFloat.value = stageFloat;
     uniforms.uTime.value = ts / 1000;
     renderer.render(scene, camera);
 
-    // text sync — find whichever stage is currently dominant (for the
-    // line, which points at exactly one at a time) while still cross-
-    // fading every stage's own opacity independently
-    let activeStage = 0, activeOpacity = -1;
     if(introEl) introEl.style.opacity = (1 - smoothstep(0, 0.1, stageFloat)).toFixed(3);
+    let activeOpacity = 0;
     stageTextEls.forEach(el=>{
       const n = Number(el.dataset.stage);
       const o = stageOpacity(n, stageFloat);
-      const anchor = LABEL_ANCHORS[n];
-      const x = anchor.x * W;
-      const y = anchor.y * H;
       el.style.opacity = o.toFixed(3);
-      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
       const cta = el.querySelector('.principles-cta');
       if(cta) cta.style.pointerEvents = o > 0.6 ? 'auto' : 'none';
-      if(o > activeOpacity){ activeOpacity = o; activeStage = n; }
+      if(o > activeOpacity) activeOpacity = o;
     });
-
-    // leader line: from a point on the sphere's currently-visible
-    // surface, in the direction of the active stage's label, out to
-    // that same fixed label position
-    if(lineEl && activeOpacity > 0.02){
-      const anchor = LABEL_ANCHORS[activeStage];
-      const aspect = W / H;
-      const centerXpx = 0.5 * W;
-      const centerYpx = 0.5 * H;
-      const labelXpx = anchor.x * W;
-      const labelYpx = anchor.y * H;
-      const angle = Math.atan2(labelYpx - centerYpx, (labelXpx - centerXpx));
-      // convert the capped attachment radius (aspect-corrected shader
-      // units) into screen pixels along that same angle
-      const attachR = Math.min(curRadius, ATTACH_RADIUS_CAP);
-      // shader space -> pixel space: x scaled by (W/aspect-correction),
-      // y scaled by H directly (see uCenter/aspect handling in the
-      // fragment shader — x was multiplied by aspect there, so we
-      // divide back out here)
-      const dxShader = attachR * Math.cos(angle);
-      const dyShader = attachR * Math.sin(angle);
-      const startX = centerXpx + (dxShader / aspect) * W;
-      const startY = centerYpx + dyShader * H;
-      lineEl.setAttribute('x1', startX.toFixed(1));
-      lineEl.setAttribute('y1', startY.toFixed(1));
-      lineEl.setAttribute('x2', labelXpx.toFixed(1));
-      lineEl.setAttribute('y2', labelYpx.toFixed(1));
-      lineEl.style.opacity = activeOpacity.toFixed(3);
-    } else if(lineEl){
-      lineEl.style.opacity = '0';
-    }
+    if(lineEl) lineEl.style.opacity = activeOpacity.toFixed(3);
   }
 
   resize();
@@ -340,14 +351,12 @@ import * as THREE from './vendor/three.module.min.js';
 
   if(prefersReducedMotion){
     uniforms.uRadius.value = CONFIG.radiusStart;
-    uniforms.uDetailLevel.value = 0;
+    uniforms.uPan.value.set(FEATURE_POS[0][0], FEATURE_POS[0][1]);
+    uniforms.uActiveStageFloat.value = 0;
     renderer.render(scene, camera);
     if(introEl) introEl.style.opacity = '0';
-    stageTextEls.forEach((el, i)=>{
-      const anchor = LABEL_ANCHORS[i] || LABEL_ANCHORS[0];
-      el.style.opacity = i === 0 ? '1' : '0';
-      el.style.transform = `translate(${(anchor.x*W).toFixed(1)}px, ${(anchor.y*H).toFixed(1)}px)`;
-    });
+    stageTextEls.forEach((el, i)=>{ el.style.opacity = i === 0 ? '1' : '0'; });
+    if(lineEl) lineEl.style.opacity = '1';
   } else {
     requestAnimationFrame(step);
   }

@@ -154,7 +154,7 @@
   // about, rather than a single label that only ever meant "showcase"
   const sectionDock = document.getElementById('sectionDock');
   const sectionWords = [
-    { el: document.getElementById('principlesSection'), word: 'Principles' },
+    { el: document.getElementById('principlesSection'), word: 'Fundamentals' },
     { el: showcaseEl, word: 'Craft' },
     { el: document.getElementById('testimonialsSection'), word: 'Proof' },
   ];

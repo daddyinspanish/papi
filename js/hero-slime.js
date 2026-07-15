@@ -65,9 +65,9 @@ import * as THREE from './vendor/three.module.min.js';
     mouseForce: 0.22,        // strength of the cursor push/pull
     mouseRadius: 0.30,       // how close the cursor needs to be (aspect-corrected 0..1 space) to affect a point
     mergeDistance: 1.35,     // multiplies surfaceTension for points explicitly flagged as a "linked pair" (see WANDER_LINKS)
-    opacity: 0.7,            // kept low deliberately — this sits directly behind the hero title/CTA, which must stay readable
+    opacity: 0.95,           // near-solid — a clean, opaque liquid rather than a translucent haze
     highlightIntensity: 0.4,
-    edgeSoftness: 0.035,
+    edgeSoftness: 0.012,     // a crisp boundary rather than a soft, blurred-looking fade
     mobileQuality: 0.55,     // resolution + point-count scale under MOBILE_WIDTH
     mobileWidth: 640,
     stretchAmount: 5.5,      // how much a point elongates along its velocity direction
