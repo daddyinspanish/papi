@@ -130,6 +130,58 @@ body, a, .cta{ cursor:none; }
   opacity:1;
 }
 
+/* ---- pilot: native scroll-driven fade/lift for the hero copy ----
+   title-dock.js drives this same fade/lift by reading window.scrollY
+   in a requestAnimationFrame loop — which works, but iOS Safari (the
+   actual app, not other browsers using the same underlying engine)
+   deliberately pauses JS execution, including rAF callbacks, while a
+   finger is actively dragging the screen, to keep the native scroll
+   itself smooth, then runs everything it deferred in one burst once
+   the gesture settles. On a page with this much scroll-tied JS, that
+   surfaces as the hero visibly freezing mid-scroll and then jumping —
+   confirmed on video, and reproducible only in Safari specifically,
+   not in another iOS browser hitting the same page.
+   This does the same fade/lift as a native, compositor-driven
+   scroll-linked animation instead — not gated behind JS at all, so
+   Safari's JS-during-scroll pause can't touch it. Gated behind
+   @supports so it only applies where the browser actually understands
+   it; everywhere else, title-dock.js's own JS version (unchanged)
+   keeps working exactly as it already does. Scoped to just the
+   clearest win for now (eyebrow/title opacity, the hero-copy lift) —
+   the CTA and subtitle keep their existing JS-driven fade since both
+   also run their own separate entrance-reveal animation that would
+   otherwise race this. */
+@supports (animation-timeline: view()) {
+  #hero{
+    view-timeline-name: --hero-exit;
+    view-timeline-axis: block;
+  }
+  @keyframes heroExitFade{
+    0%, 42%{ opacity:1; }
+    52%{ opacity:.84; }
+    62%{ opacity:.5; }
+    72%{ opacity:.16; }
+    82%, 100%{ opacity:0; }
+  }
+  @keyframes heroExitLift{
+    0%, 42%{ transform:translateY(0); }
+    52%{ transform:translateY(-5px); }
+    62%{ transform:translateY(-17px); }
+    72%{ transform:translateY(-29px); }
+    82%, 100%{ transform:translateY(-34px); }
+  }
+  #heroEyebrow, #heroTitle{
+    animation: heroExitFade linear both;
+    animation-timeline: --hero-exit;
+    animation-range: exit 0% exit 100%;
+  }
+  #heroCopy{
+    animation: heroExitLift linear both;
+    animation-timeline: --hero-exit;
+    animation-range: exit 0% exit 100%;
+  }
+}
+
 #fieldCanvas{
   position:absolute;
   inset:0;
