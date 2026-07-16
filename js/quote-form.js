@@ -241,9 +241,20 @@
       lastResizeWStack = w;
       syncStackHeight();
     });
-    // measure once layout has actually settled — measuring in the same
-    // tick as creation can catch fonts/images still reflowing, which
-    // is what showed up as the panel's height being locked in too short
+    // measured more than once (same reasoning as contrast.js's
+    // sizeStage) — a single rAF right at script load can still land
+    // before the webfonts (Fraunces/Inter, loaded via a `display:swap`
+    // Google Fonts link) have swapped in, locking this height in off
+    // the fallback font's shorter metrics. That's what showed up as an
+    // empty gap where the form should be while scrolling in from the
+    // FAQ section above it: the section's true height (fonts settled)
+    // is taller than what got measured and locked in, so the extra
+    // real content is sitting below where the page had already laid
+    // everything else out. Re-measuring once fonts are actually ready
+    // (and again on window 'load', in case images elsewhere on the
+    // page are still shifting layout at that point) corrects it.
     requestAnimationFrame(syncStackHeight);
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(syncStackHeight);
+    window.addEventListener('load', syncStackHeight);
   }
 })();

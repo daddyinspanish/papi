@@ -19,6 +19,21 @@
     return t * t * (3 - 2 * t);
   }
 
+  // the "after" hero's background video sits fully clipped (0 visible
+  // width) behind the wipe for most of this section's scroll range —
+  // some browsers never actually start decoding an autoplay video that
+  // has zero rendered area at load time, so it was just sitting on its
+  // first frame once the wipe finally revealed it. Kicking playback
+  // off explicitly via JS (idempotent — safe to call again) sidesteps
+  // that rather than relying on the autoplay attribute alone.
+  const heroVideo = document.querySelector('.mock-hero-video');
+  function ensureVideoPlaying(){
+    if(!heroVideo || !heroVideo.paused) return;
+    const playPromise = heroVideo.play();
+    if(playPromise && playPromise.catch) playPromise.catch(()=>{});
+  }
+  ensureVideoPlaying();
+
   const afterTitle = document.querySelector('.mock-logo--after');
   const stageTitleBefore = document.querySelector('.contrast-stage-title-before');
   const stageTitleAfter = document.querySelector('.contrast-stage-title-after');
@@ -238,6 +253,13 @@
     if(afterTitle) afterTitle.style.opacity = String(smoothstep(0.55, 0.95, wipeT));
 
     if(wipeT > 0.3) startCounters();
+    // re-asserted every frame the wipe is active (not just once up
+    // front) — if the video ever got paused while it had zero visible
+    // area (some browsers do this as a background-tab/off-screen power
+    // optimization), this is what actually resumes it once the wipe
+    // gives it real pixels again. ensureVideoPlaying() is a no-op
+    // whenever it's already playing, so this is cheap.
+    if(wipeT > 0) ensureVideoPlaying();
   }
 
   // batch to one update per animation frame — raw 'scroll' events can

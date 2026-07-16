@@ -2258,8 +2258,14 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .faq-title em{ font-style:italic; color:#ffdd7a; }
 
+/* revealed with a bounce as the section scrolls into view — see
+   js/faq.js's updateEntrance, which drives opacity/transform per
+   frame (an easeOutBack overshoot past scale/position 1, then
+   settling), so no CSS transition is set here */
 .faq-item{
   border-bottom:1px solid rgba(255,221,122,.18);
+  opacity:0;
+  will-change:opacity, transform;
 }
 .faq-item:first-child{ border-top:1px solid rgba(255,221,122,.18); }
 .faq-question{
