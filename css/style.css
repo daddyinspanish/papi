@@ -1234,11 +1234,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   position:relative;
   z-index:1;
 }
-/* two full-size layers instead of one background — a radial-gradient
-   can't be cross-faded by animating its own property, so js/showcase.js
-   fades the light one in over the dark one (opacity, scroll-driven)
-   as the visitor nears the last couple of cards, rather than swapping
-   the section's background outright */
 .showcase-bg{
   position:absolute;
   inset:0;
@@ -1246,10 +1241,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .showcase-bg--dark{
   background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
-}
-.showcase-bg--light{
-  background:radial-gradient(120% 90% at 50% 100%, #fffaf0 0%, #f2efe8 55%, #ece6d8 100%);
-  opacity:0;
 }
 /* NOTE: a previous fix here bumped this section's own z-index above
    the expanded fan-card's while one was open, meaning to let the quote
@@ -1443,29 +1434,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 @keyframes fanCardGlow{
   0%, 100%{ box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.25); }
   50%{ box-shadow:0 46px 120px -20px rgba(0,0,0,.8), 0 0 42px 4px rgba(255,255,255,.35); }
-}
-/* the frosted white glass reads fine floating over black, but goes
-   nearly invisible — pale glass on a pale backdrop — once the section
-   crossfades to cream (see .is-light-bg, toggled in js/showcase.js).
-   A dark smoked-glass tint instead, so the cards keep popping against
-   whichever backdrop is actually behind them at the moment; the gold
-   name/text inside already reads fine against either. */
-.showcase-sticky.is-light-bg .fan-card{
-  background:rgba(20,16,10,.42);
-  border-color:rgba(20,16,10,.22);
-  box-shadow:0 30px 70px -26px rgba(0,0,0,.28), 0 0 30px rgba(0,0,0,.06);
-}
-.showcase-sticky.is-light-bg .fan-card:hover{
-  box-shadow:0 34px 80px -24px rgba(0,0,0,.34), 0 0 30px rgba(0,0,0,.1);
-}
-.showcase-sticky.is-light-bg .fan-card.is-active{
-  border-color:rgba(20,16,10,.42);
-  box-shadow:0 46px 110px -22px rgba(0,0,0,.38), 0 0 0 1px rgba(20,16,10,.3);
-  animation-name:fanCardGlowLight;
-}
-@keyframes fanCardGlowLight{
-  0%, 100%{ box-shadow:0 46px 110px -22px rgba(0,0,0,.38), 0 0 0 1px rgba(20,16,10,.3); }
-  50%{ box-shadow:0 46px 120px -20px rgba(0,0,0,.42), 0 0 36px 4px rgba(20,16,10,.22); }
 }
 .fan-card.is-expanded{
   /* fixed to the viewport, rather than scaled up from its normal
@@ -1684,12 +1652,44 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   line-height:1.6;
   max-width:42ch;
   color:var(--cream);
-  transition:color .6s var(--ease-out);
 }
-/* dark-on-cream once the section's own backdrop has crossfaded (see
-   .is-light-bg, toggled in js/showcase.js) — cream-on-cream would go
-   invisible otherwise */
-.showcase-sticky.is-light-bg .showcase-title{ color:var(--paper-ink); }
+/* a real glitch — chromatic-aberration ghosts sliced and offset, not
+   just scrambled characters (see js/showcase.js's titleLoop, which
+   toggles this class and keeps data-text in sync with the live
+   scramble noise) — active only while still decoding in; settles to
+   a single clean layer once titleRevealT reaches 1 */
+.showcase-title.is-glitching{ animation:showcaseGlitchFlicker .18s steps(1) infinite; }
+.showcase-title.is-glitching::before,
+.showcase-title.is-glitching::after{
+  content:attr(data-text);
+  position:absolute;
+  inset:0;
+  overflow:hidden;
+  mix-blend-mode:screen;
+  pointer-events:none;
+}
+.showcase-title.is-glitching::before{
+  color:#ff2d55;
+  animation:showcaseGlitchSliceA .32s steps(2) infinite;
+}
+.showcase-title.is-glitching::after{
+  color:#2de3ff;
+  animation:showcaseGlitchSliceB .26s steps(2) infinite reverse;
+}
+@keyframes showcaseGlitchFlicker{
+  0%, 100%{ opacity:1; }
+  50%{ opacity:.88; }
+}
+@keyframes showcaseGlitchSliceA{
+  0%{ transform:translate(2px,0); clip-path:inset(0 0 62% 0); }
+  50%{ transform:translate(-2px,1px); clip-path:inset(42% 0 18% 0); }
+  100%{ transform:translate(1px,-1px); clip-path:inset(12% 0 72% 0); }
+}
+@keyframes showcaseGlitchSliceB{
+  0%{ transform:translate(-2px,0); clip-path:inset(22% 0 40% 0); }
+  50%{ transform:translate(2px,-1px); clip-path:inset(64% 0 4% 0); }
+  100%{ transform:translate(-1px,1px); clip-path:inset(4% 0 58% 0); }
+}
 
 /* metallic gold, same shine-sweep technique as .quote-form-title, with
    a slow breathing scale/opacity layered on top for "pulsing" — gold
@@ -1750,14 +1750,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 .showcase-item.is-active{
   color:#ffdd7a;
   text-shadow:0 0 64px rgba(255,221,122,.35), 0 0 120px rgba(255,221,122,.18);
-}
-/* dark-on-cream once the backdrop has crossfaded (see .is-light-bg) —
-   the cream/gold tones tuned for the dark start read as barely-there
-   pale-on-pale against this section's own cream end otherwise */
-.showcase-sticky.is-light-bg .showcase-item{ color:rgba(23,24,26,.3); }
-.showcase-sticky.is-light-bg .showcase-item.is-active{
-  color:var(--gold-deep);
-  text-shadow:none;
 }
 
 @media (max-width:640px){
@@ -1929,6 +1921,24 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   opacity:0;
   will-change:opacity, transform;
 }
+/* a real mic icon (not an emoji) riding in right after "say" — solid
+   gold like the word beside it, same reason as .testimonials-heading-
+   word above: the parent's gradient text-clip only masks its own text
+   runs, so this needs its own explicit color rather than inheriting
+   the transparent fill */
+.testimonials-say-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:.72em;
+  height:.72em;
+  margin-left:.32em;
+  vertical-align:-.06em;
+  color:#ffb400;
+  opacity:0;
+  will-change:opacity, transform;
+}
+.testimonials-say-icon svg{ width:100%; height:100%; }
 
 .testimonials-hint{
   position:relative;
@@ -1966,6 +1976,11 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   -webkit-overflow-scrolling:touch;
   scrollbar-width:none;
   padding:.5rem clamp(1.5rem, 8vw, 12vw) 1.5rem;
+  /* fades each card out toward the edges as it scrolls past, rather
+     than an abrupt clip at the row's own bounding box — same
+     mask-image technique as .mock-services-marquee */
+  -webkit-mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
 }
 .testimonial-stack::-webkit-scrollbar{ display:none; }
 

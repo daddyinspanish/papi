@@ -27,6 +27,7 @@
   // its own slight rotation/swoop rather than the whole line just
   // fading in flat — reads more like a flourish than a plain reveal
   let headingWords = [];
+  let sayIcon = null;
   if(headingEl){
     const text = headingEl.textContent.trim();
     headingEl.innerHTML = '';
@@ -38,6 +39,16 @@
       headingEl.appendChild(document.createTextNode(' '));
       return span;
     });
+    // a real mic icon (not an emoji) right after "say" — a gradient-
+    // clipped-text run can't have a differently-colored child, so this
+    // is its own element with an explicit color, same reason
+    // .testimonials-heading-word sets its own color rather than
+    // inheriting the heading's transparent text-fill
+    sayIcon = document.createElement('span');
+    sayIcon.className = 'testimonials-say-icon';
+    sayIcon.setAttribute('aria-hidden', 'true');
+    sayIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10v1a7 7 0 0 0 14 0v-1"></path><line x1="12" y1="18" x2="12" y2="22"></line><line x1="8" y1="22" x2="16" y2="22"></line></svg>';
+    headingEl.appendChild(sayIcon);
   }
 
   // once, the first time the section has mostly settled into view, the
@@ -80,6 +91,15 @@
         const rot = (1 - wp) * (i % 2 === 0 ? -10 : 10);
         el.style.opacity = wp.toFixed(3);
         el.style.transform = `translateY(${((1 - wp) * 22).toFixed(1)}px) rotate(${rot.toFixed(1)}deg)`;
+        // the icon rides in on the same wp as "say" (the last word) so
+        // it lands in sync with it, with a little extra overshoot pop
+        // (a sine bulge that's back at 1 exactly when wp reaches 1)
+        // rather than just fading in flat like the words do
+        if(i === wn - 1 && sayIcon){
+          const pop = 1 + Math.sin(wp * Math.PI) * 0.25;
+          sayIcon.style.opacity = wp.toFixed(3);
+          sayIcon.style.transform = `translateY(${((1 - wp) * 22).toFixed(1)}px) scale(${pop.toFixed(3)})`;
+        }
       }
     }
   }

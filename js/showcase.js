@@ -20,7 +20,6 @@
   // so the subtitle's own bottom edge — not the title's — is the right
   // reference now that there are two lines here instead of one
   const eyebrowEl = document.querySelector('.showcase-subtitle');
-  const bgLight = document.querySelector('.showcase-bg--light');
   if(!section || !fanEl || !listEl) return;
 
   function smoothstep(edge0, edge1, x){
@@ -60,6 +59,12 @@
   // locked in" value is titleRevealT above (scroll-driven) instead of
   // elapsed time, and the flicker itself runs continuously (throttled,
   // not every frame) for as long as the section is on screen.
+  // While still resolving, .is-glitching drives a CSS chromatic-
+  // aberration/slice-displacement effect (see style.css) — the
+  // ::before/::after layers there read `data-text`, which is kept in
+  // sync with the live scrambled textContent below on every update so
+  // the RGB-split ghosts show the same noise as the base layer, offset
+  // in position/color, rather than a separate static duplicate.
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const SCRAMBLE_CHARS = '!<>-_/[]{}=+*^?#01';
   const SCRAMBLE_INTERVAL = 110; // ms between glyph re-randomizations — slower flicker reads as deliberate rather than a frantic buzz
@@ -73,7 +78,11 @@
     if(visible){
       const visibleCount = Math.floor(titleRevealT * titleText.length);
       if(visibleCount >= titleText.length){
-        if(titleEl.textContent !== titleText) titleEl.textContent = titleText;
+        if(titleEl.textContent !== titleText){
+          titleEl.textContent = titleText;
+          titleEl.dataset.text = titleText;
+        }
+        titleEl.classList.remove('is-glitching');
       } else if(ts - lastScrambleTs > SCRAMBLE_INTERVAL){
         lastScrambleTs = ts;
         let out = '';
@@ -82,11 +91,14 @@
           out += (ch === ' ' || i < visibleCount) ? ch : SCRAMBLE_CHARS[Math.floor(Math.random()*SCRAMBLE_CHARS.length)];
         }
         titleEl.textContent = out;
+        titleEl.dataset.text = out;
+        titleEl.classList.add('is-glitching');
       }
     }
     requestAnimationFrame(titleLoop);
   }
   if(titleEl){
+    titleEl.dataset.text = titleText;
     if(prefersReducedMotion) titleEl.textContent = titleText;
     else requestAnimationFrame(titleLoop);
   }
@@ -413,19 +425,6 @@
     const scrollable = Math.max(1, sectionHeight - window.innerHeight);
     const progress = Math.max(0, Math.min(1, (window.scrollY - sectionTop) / scrollable));
     const activeFloat = progress * (n - 1);
-
-    // the section's own backdrop shifts from black to cream approaching
-    // the last couple of cards — .showcase-bg--light is a second full-
-    // size layer stacked under the content, faded in over the dark one
-    // rather than trying to animate the radial-gradient itself. Text
-    // that sits directly on this background (not the fan cards' own
-    // separately-styled glass panels) flips to dark-on-cream past the
-    // halfway point of that same fade, via .is-light-bg.
-    if(bgLight){
-      const lightT = smoothstep(0.72, 0.94, progress);
-      bgLight.style.opacity = lightT.toFixed(3);
-      sticky.classList.toggle('is-light-bg', lightT > 0.5);
-    }
 
     bgIcons.forEach(icon=>{
       const span = icon.phaseEnd - icon.phaseStart;

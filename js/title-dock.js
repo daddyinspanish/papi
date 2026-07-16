@@ -157,7 +157,7 @@
   const sectionDock = document.getElementById('sectionDock');
   const sectionWords = [
     { el: contrastSectionEl, word: 'Difference' },
-    { el: showcaseEl, word: 'Craft' },
+    { el: showcaseEl, word: 'Industries' },
     { el: document.getElementById('testimonialsSection'), word: 'Proof' },
   ];
   let currentDockWord = null;
@@ -191,14 +191,26 @@
     }
     document.body.classList.toggle('on-light-section', onHero || onContrast);
 
+    // the showcase section's own background trade icons/fan cards fill
+    // enough of the top-right corner on narrow screens that the docked
+    // brand mark/word cluster sitting on top reads as clutter — same
+    // duck-out-of-the-way treatment already used for the contrast
+    // section's mock nav below
+    let onShowcase = false;
+    if(showcaseEl){
+      const zoneTop = showcaseEl.offsetTop;
+      const zoneBottom = zoneTop + showcaseEl.offsetHeight;
+      onShowcase = window.scrollY >= zoneTop && window.scrollY < zoneBottom;
+    }
+
     // on narrow screens the whole top-right cluster — brand mark and
     // the tagline/word dock beneath it — sits right on top of the
     // contrast section's own mock nav/CTA (there's no room for both at
     // this width) — duck both out of the way for that stretch only,
     // fading back in once the visitor scrolls past the section
-    const hideDockForMobileContrast = window.innerWidth <= 640 && onContrast;
-    titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileContrast);
-    if(siteHeader) siteHeader.classList.toggle('is-hidden', hideDockForMobileContrast);
+    const hideDockForMobileZone = window.innerWidth <= 640 && (onContrast || onShowcase);
+    titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileZone);
+    if(siteHeader) siteHeader.classList.toggle('is-hidden', hideDockForMobileZone);
 
     // pick whichever section the viewport's centre currently sits in
     if(sectionDock){
