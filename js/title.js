@@ -450,26 +450,32 @@
   const heroElForTilt = document.getElementById('hero');
   let lastFrameTs = null;
 
+  // heroBottom is measured once (plus on resize/fonts load), not read
+  // live via getBoundingClientRect() on every single frame forever —
+  // see the note below on what that forced-layout read was costing
+  let heroBottom = heroElForTilt ? heroElForTilt.offsetHeight : 0;
+  function measureHeroBottom(){
+    heroBottom = heroElForTilt ? heroElForTilt.offsetTop + heroElForTilt.offsetHeight : 0;
+  }
+  requestAnimationFrame(measureHeroBottom);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(measureHeroBottom);
+  window.addEventListener('load', measureHeroBottom);
+
   function frame(ts){
     if(ts === undefined) ts = performance.now();
     const dt = lastFrameTs === null ? 16.6667 : ts - lastFrameTs;
     lastFrameTs = ts;
 
-    // this ran unconditionally forever regardless of scroll position —
-    // a forced-layout getBoundingClientRect() read plus a full physics
-    // update across 100+ letter spans (title + subtitle combined),
-    // every single frame, for the entire rest of the page visit, long
-    // after the hero (and its title) had faded to invisible and
-    // scrolled away. None of that work has any visible effect once the
-    // title's own opacity has already reached 0, so skipping it once
-    // the hero is off-screen costs nothing visually — but it was
-    // measured, real, continuous work stacking on top of whatever else
-    // is animating, including right at the hero-to-next-section
-    // transition where a freeze was confirmed on video.
-    const heroVisible = !heroElForTilt || (()=>{
-      const r = heroElForTilt.getBoundingClientRect();
-      return r.bottom > 0 && r.top < window.innerHeight;
-    })();
+    // this used to call heroElForTilt.getBoundingClientRect() every
+    // single frame, forever, for the entire rest of the page visit,
+    // long after the hero (and its title) had faded to invisible and
+    // scrolled away — a forced-layout read plus a full physics update
+    // across 100+ letter spans (title + subtitle combined) that has no
+    // visible effect once the title's own opacity has already reached
+    // 0. heroBottom above gives the same on/off-screen answer via
+    // plain arithmetic against window.scrollY instead, with no forced
+    // layout at all.
+    const heroVisible = !heroElForTilt || window.scrollY < heroBottom;
     if(!heroVisible){
       requestAnimationFrame(frame);
       return;

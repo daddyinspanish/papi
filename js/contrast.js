@@ -213,7 +213,20 @@
       pinnedLow = false;
     }
     if(rawProgress > 1){
-      if(heroVideo && !heroVideo.paused) heroVideo.pause();
+      // rawProgress reaching 1 is when the sticky content is *about* to
+      // release, not when it's actually left the screen — the sticky
+      // still holds it fully visible for one more viewport-height of
+      // scroll after that. Pausing right at progress=1 (the previous
+      // behavior) froze the video on-screen, mid-view, for that entire
+      // stretch, which read as it just breaking rather than the section
+      // intentionally being done with it. Checking the section's real
+      // on-screen position instead means it keeps playing right up
+      // until it's actually scrolled out of view. Only checked while
+      // still playing, so this forced-layout read stops costing
+      // anything at all once the video is actually paused.
+      if(heroVideo && !heroVideo.paused && section.getBoundingClientRect().bottom <= 0){
+        heroVideo.pause();
+      }
       if(pinnedHigh) return;
       pinnedHigh = true;
     } else {

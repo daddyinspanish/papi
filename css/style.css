@@ -1250,29 +1250,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
    showcase.js now (the same way the card itself already is), which
    doesn't have that problem. */
 
-/* a handful of large, very faint trade icons drifting across the far
-   background as the visitor scrolls (js/showcase.js positions and
-   animates each one) — pure atmosphere, meant to read as "every trade
-   we build for" filling out the section rather than competing with the
-   cards/text in front of it. Sits above the black/cream backdrop
-   layers (z-index:0) but behind everything else in the sticky (which
-   starts at z-index:2). */
-.showcase-icons{
-  position:absolute;
-  inset:0;
-  z-index:1;
-  overflow:hidden;
-  pointer-events:none;
-}
-.showcase-icon{
-  position:absolute;
-  font-size:clamp(3.5rem, 9vw, 7rem);
-  line-height:1;
-  opacity:0;
-  will-change:transform, opacity;
-  filter:grayscale(.15);
-}
-
 /* stacked, in reading order: eyebrow, then the scrolling trade name,
    then the fan of preview cards underneath — was a two-column grid
    (fan left, name+eyebrow right); this reads top-to-bottom instead */
@@ -1636,9 +1613,9 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .fan-card .fan-line.short{ width:55%; }
 
-/* the section's own mission statement — decodes in from scrambled
-   glyphs the first time this section's entrance has visibly started
-   (see js/showcase.js's scrambleReveal), rather than a plain fade */
+/* the section's own mission statement — rises in with the rest of the
+   sticky's own fade (see js/showcase.js's updateEntrance) rather than a
+   separate effect of its own */
 /* Inter, not Fraunces — the mission statement is a full sentence, not
    a short display headline, and reads more like modern editorial copy
    in a clean sans at a light weight than as another serif headline */
@@ -1653,42 +1630,15 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   max-width:42ch;
   color:var(--cream);
 }
-/* a real glitch — chromatic-aberration ghosts sliced and offset, not
-   just scrambled characters (see js/showcase.js's titleLoop, which
-   toggles this class and keeps data-text in sync with the live
-   scramble noise) — active only while still decoding in; settles to
-   a single clean layer once titleRevealT reaches 1 */
-.showcase-title.is-glitching{ animation:showcaseGlitchFlicker .18s steps(1) infinite; }
-.showcase-title.is-glitching::before,
-.showcase-title.is-glitching::after{
-  content:attr(data-text);
-  position:absolute;
-  inset:0;
-  overflow:hidden;
-  mix-blend-mode:screen;
-  pointer-events:none;
+/* a slow, smooth breathing glow once the title has fully settled into
+   place (js/showcase.js toggles this class once its entrance reaches
+   1) — a plain CSS text-shadow pulse, no JS driving it per frame */
+.showcase-title.is-glowing{
+  animation:showcaseTitleGlow 3.6s ease-in-out infinite;
 }
-.showcase-title.is-glitching::before{
-  color:#ff2d55;
-  animation:showcaseGlitchSliceA .32s steps(2) infinite;
-}
-.showcase-title.is-glitching::after{
-  color:#2de3ff;
-  animation:showcaseGlitchSliceB .26s steps(2) infinite reverse;
-}
-@keyframes showcaseGlitchFlicker{
-  0%, 100%{ opacity:1; }
-  50%{ opacity:.88; }
-}
-@keyframes showcaseGlitchSliceA{
-  0%{ transform:translate(2px,0); clip-path:inset(0 0 62% 0); }
-  50%{ transform:translate(-2px,1px); clip-path:inset(42% 0 18% 0); }
-  100%{ transform:translate(1px,-1px); clip-path:inset(12% 0 72% 0); }
-}
-@keyframes showcaseGlitchSliceB{
-  0%{ transform:translate(-2px,0); clip-path:inset(22% 0 40% 0); }
-  50%{ transform:translate(2px,-1px); clip-path:inset(64% 0 4% 0); }
-  100%{ transform:translate(-1px,1px); clip-path:inset(4% 0 58% 0); }
+@keyframes showcaseTitleGlow{
+  0%, 100%{ text-shadow:0 0 16px rgba(255,221,122,.18); }
+  50%{ text-shadow:0 0 32px rgba(255,221,122,.4); }
 }
 
 /* metallic gold, same shine-sweep technique as .quote-form-title, with

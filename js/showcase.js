@@ -44,63 +44,15 @@
     const p = smoothstep(0, 1, Math.max(0, Math.min(1, raw)));
     sticky.style.opacity = p.toFixed(3);
     sticky.style.transform = `translateY(${((1 - p) * 30).toFixed(1)}px)`;
-    // spread across almost this whole entrance window rather than a
-    // quick burst right at the start — reads as a slower, more
-    // deliberate decode. Purely a function of `p` (itself just scroll
-    // position), so scrolling back down un-resolves characters back
-    // into scramble noise with no separate reverse logic.
-    titleRevealT = smoothstep(0.08, 0.92, p);
-  }
-
-  // the title decodes in from scrambled glyphs as the visitor scrolls
-  // the section into view, rather than on a fixed timer the instant it
-  // arrives — same per-character scramble/lock technique title.js uses
-  // for the hero subtitle's rotating word, but here the "how much has
-  // locked in" value is titleRevealT above (scroll-driven) instead of
-  // elapsed time, and the flicker itself runs continuously (throttled,
-  // not every frame) for as long as the section is on screen.
-  // While still resolving, .is-glitching drives a CSS chromatic-
-  // aberration/slice-displacement effect (see style.css) — the
-  // ::before/::after layers there read `data-text`, which is kept in
-  // sync with the live scrambled textContent below on every update so
-  // the RGB-split ghosts show the same noise as the base layer, offset
-  // in position/color, rather than a separate static duplicate.
-  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const SCRAMBLE_CHARS = '!<>-_/[]{}=+*^?#01';
-  const SCRAMBLE_INTERVAL = 110; // ms between glyph re-randomizations — slower flicker reads as deliberate rather than a frantic buzz
-  const titleText = titleEl ? titleEl.textContent : '';
-  let titleRevealT = 0;
-  let lastScrambleTs = 0;
-  function titleLoop(ts){
-    if(!titleEl){ return; }
-    const r = section.getBoundingClientRect();
-    const visible = r.bottom > 0 && r.top < window.innerHeight;
-    if(visible){
-      const visibleCount = Math.floor(titleRevealT * titleText.length);
-      if(visibleCount >= titleText.length){
-        if(titleEl.textContent !== titleText){
-          titleEl.textContent = titleText;
-          titleEl.dataset.text = titleText;
-        }
-        titleEl.classList.remove('is-glitching');
-      } else if(ts - lastScrambleTs > SCRAMBLE_INTERVAL){
-        lastScrambleTs = ts;
-        let out = '';
-        for(let i=0;i<titleText.length;i++){
-          const ch = titleText[i];
-          out += (ch === ' ' || i < visibleCount) ? ch : SCRAMBLE_CHARS[Math.floor(Math.random()*SCRAMBLE_CHARS.length)];
-        }
-        titleEl.textContent = out;
-        titleEl.dataset.text = out;
-        titleEl.classList.add('is-glitching');
-      }
-    }
-    requestAnimationFrame(titleLoop);
-  }
-  if(titleEl){
-    titleEl.dataset.text = titleText;
-    if(prefersReducedMotion) titleEl.textContent = titleText;
-    else requestAnimationFrame(titleLoop);
+    // once the entrance has fully played out, the title settles into a
+    // slow, continuous glow-pulse (see .showcase-title.is-glowing in
+    // style.css) — a plain reveal (riding along with the rest of the
+    // sticky's own fade-in above) rather than the scramble/chromatic-
+    // aberration glitch this used to do, which read as a rendering bug
+    // rather than an intentional effect. Purely a function of `p`
+    // (itself just scroll position), so scrolling back up before it's
+    // fully revealed turns the glow back off with no separate teardown.
+    if(titleEl) titleEl.classList.toggle('is-glowing', p >= 0.999);
   }
 
   const categories = [
@@ -119,36 +71,6 @@
   }
 
   const n = categories.length;
-
-  // a scattering of large, very faint trade icons in the far
-  // background — every one of the categories' own glyphs, repeated
-  // enough to feel "filled" rather than sparse. Each has its own
-  // scroll-driven fade-in/out window and a slow horizontal drift
-  // across that same window, staggered (and overlapping) across the
-  // full scroll range so several are always fading in, drifting, or
-  // fading out at any given point rather than all arriving at once.
-  const iconsEl = document.getElementById('showcaseIcons');
-  const ICON_COUNT = 14;
-  const bgIcons = [];
-  if(iconsEl){
-    for(let i=0;i<ICON_COUNT;i++){
-      const el = document.createElement('span');
-      el.className = 'showcase-icon';
-      el.textContent = categories[i % categories.length].icon;
-      iconsEl.appendChild(el);
-      const phaseStart = (i / ICON_COUNT) * 0.8;
-      bgIcons.push({
-        el,
-        topPct: 4 + ((i * 61) % 90),
-        leftPct: 2 + ((i * 43) % 92),
-        dir: i % 2 === 0 ? 1 : -1,
-        phaseStart,
-        phaseEnd: phaseStart + 0.42,
-        driftFrac: 0.12 + (i % 3) * 0.05,
-        maxOpacity: 0.16 + (i % 3) * 0.04,
-      });
-    }
-  }
 
   function scrollToIndex(i){
     const sectionTop = section.offsetTop;
@@ -455,19 +377,6 @@
 
     const progress = Math.max(0, Math.min(1, rawProgress));
     const activeFloat = progress * (n - 1);
-
-    bgIcons.forEach(icon=>{
-      const span = icon.phaseEnd - icon.phaseStart;
-      const t = Math.max(0, Math.min(1, (progress - icon.phaseStart) / span));
-      const fadeIn = smoothstep(0, 0.22, t);
-      const fadeOut = smoothstep(0.78, 1, t);
-      const opacity = fadeIn * (1 - fadeOut) * icon.maxOpacity;
-      const drift = t * icon.driftFrac * window.innerWidth * icon.dir;
-      icon.el.style.top = icon.topPct + '%';
-      icon.el.style.left = icon.leftPct + '%';
-      icon.el.style.opacity = opacity.toFixed(3);
-      icon.el.style.transform = `translate(${drift.toFixed(1)}px, -50%)`;
-    });
 
     // the fan's pop is toned down on narrow screens — full pop plus the
     // fixed-height mobile fan container was pushing the active card's

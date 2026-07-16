@@ -384,17 +384,28 @@ import * as THREE from './vendor/three.module.min.js';
   let lastMoveTime = 0;
   const MOUSE_IDLE_MS = 1200;
 
+  // cached once per rendered frame (see loop() below), not read fresh
+  // via canvas.getBoundingClientRect() on every single mousemove/
+  // touchmove event — touchmove in particular can fire dozens of times
+  // a second during an ordinary touch-scroll gesture (scrolling on a
+  // touch device *is* a touchmove gesture), which meant every scroll on
+  // iPhone was forcing an extra synchronous layout read on top of
+  // everything else already reacting to that same scroll. A frame or
+  // two of staleness on a rect used only for a soft cursor-push effect
+  // is imperceptible.
+  let canvasRect = { left: 0, top: 0, width: 1, height: 1 };
   function toLocalNorm(clientX, clientY){
-    const rect = canvas.getBoundingClientRect();
-    return [(clientX - rect.left) / rect.width, (clientY - rect.top) / rect.height];
+    return [(clientX - canvasRect.left) / canvasRect.width, (clientY - canvasRect.top) / canvasRect.height];
   }
   window.addEventListener('mousemove', (e)=>{
+    if(zone === 'gone') return;
     const [x,y] = toLocalNorm(e.clientX, e.clientY);
     mouse.x = x; mouse.y = y; mouse.active = true;
     lastMoveTime = performance.now();
   });
   window.addEventListener('mouseleave', ()=>{ mouse.active = false; });
   window.addEventListener('touchmove', (e)=>{
+    if(zone === 'gone') return;
     const t = e.touches && e.touches[0];
     if(!t) return;
     const [x,y] = toLocalNorm(t.clientX, t.clientY);
@@ -691,6 +702,10 @@ import * as THREE from './vendor/three.module.min.js';
       return;
     }
     lastRenderTs = ts;
+    // refreshed here (once per rendered frame, already capped above)
+    // rather than on every raw mousemove/touchmove event — see the
+    // note by canvasRect's declaration
+    canvasRect = canvas.getBoundingClientRect();
 
     const dt = lastTs === null ? 16.6667 : Math.min(ts - lastTs, CONFIG.maxDt);
     lastTs = ts;

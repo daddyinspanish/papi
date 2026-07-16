@@ -109,22 +109,16 @@
     mouseY = e.clientY;
   });
 
-  const heroElForMagnet = document.getElementById('hero');
-
   function magnetFrame(){
-    // this used to run unconditionally forever — a forced-layout
-    // getBoundingClientRect() read every single frame for the entire
-    // rest of the page's life, long after the CTA (and the hero it
-    // lives in) had scrolled out of view and stopped mattering at all.
-    // That's wasted work stacking on top of whatever else is
-    // animating, and it was still running at full cost exactly during
-    // the hero-to-next-section scroll transition — one real
-    // contributor to that freeze. Skipping it once the hero isn't
-    // visible removes it from the busiest moment entirely.
-    const heroVisible = !heroElForMagnet || (()=>{
-      const r = heroElForMagnet.getBoundingClientRect();
-      return r.bottom > 0 && r.top < window.innerHeight;
-    })();
+    // this used to call heroElForMagnet.getBoundingClientRect() every
+    // single frame, forever, for the entire rest of the page's life —
+    // a forced synchronous layout read that never stopped, even long
+    // after the hero (and the CTA inside it) had scrolled out of view.
+    // heroHeight (measured once at load and on resize by measureZones
+    // below, the same cached value update() uses for onHero) gives the
+    // same answer via plain arithmetic against window.scrollY instead,
+    // with no forced layout at all.
+    const heroVisible = window.scrollY < heroHeight;
     if(cta && ctaEntranceDone && heroVisible){
       const rect = cta.getBoundingClientRect();
       const cx = rect.left + rect.width/2;
@@ -145,7 +139,11 @@
     }
     requestAnimationFrame(magnetFrame);
   }
-  magnetFrame();
+  // deferred to the next frame (rather than called directly here) so
+  // that heroHeight below — declared further down this same script,
+  // but assigned before any rAF callback can actually fire — is never
+  // read while still in its temporal dead zone
+  requestAnimationFrame(magnetFrame);
 
   const showcaseEl = document.getElementById('showcase');
   const heroEl = document.getElementById('hero');
@@ -158,6 +156,7 @@
   const sectionWords = [
     { el: contrastSectionEl, word: 'Difference', top: 0, bottom: 0 },
     { el: showcaseEl, word: 'Industries', top: 0, bottom: 0 },
+    { el: document.getElementById('comparisonSection'), word: 'Results', top: 0, bottom: 0 },
     { el: document.getElementById('testimonialsSection'), word: 'Proof', top: 0, bottom: 0 },
   ];
   let currentDockWord = null;
