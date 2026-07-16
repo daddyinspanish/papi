@@ -80,13 +80,18 @@ window.scrollTo(0, 0);
   <div class="contrast-sticky">
     <div class="contrast-intro" id="contrastIntro">
       <p class="contrast-eyebrow">Same Business. Two Websites.</p>
-      <h2 class="contrast-heading">One of these turns visitors into customers.<br><em>The other gets ignored.</em></h2>
+      <h2 class="contrast-heading"><span class="contrast-heading-one" id="contrastHeadingOne">One</span> of these turns visitors into customers.<br><em id="contrastHeadingEm">The other gets ignored.</em></h2>
       <div class="contrast-scroll-cue" id="contrastScrollCue">
         <span class="contrast-scroll-cue-dot"></span>
         <span class="contrast-scroll-cue-label">Keep scrolling to see the transformation</span>
       </div>
     </div>
-    <div class="contrast-stage" id="contrastStage">
+    <div class="contrast-stage-wrap">
+      <div class="contrast-stage-title" id="contrastStageTitle">
+        <span class="contrast-stage-title-before">Old Website</span>
+        <span class="contrast-stage-title-after">Papi Website</span>
+      </div>
+      <div class="contrast-stage" id="contrastStage">
       <div class="mock mock-before">
         <div class="mock-nav">
           <span class="mock-logo">Anderson Plumbing</span>
@@ -179,7 +184,7 @@ window.scrollTo(0, 0);
         </div>
       </div>
       <div class="contrast-divider" id="contrastDivider"><i></i></div>
-      <span class="contrast-label contrast-label--before">Outdated Website</span>
+      </div>
     </div>
   </div>
 </section>

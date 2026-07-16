@@ -9,6 +9,7 @@
 (function(){
   const section = document.getElementById('contrastSection');
   const stage = document.getElementById('contrastStage');
+  const stageWrap = document.querySelector('.contrast-stage-wrap');
   if(!section || !stage) return;
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -18,12 +19,50 @@
     return t * t * (3 - 2 * t);
   }
 
-  const beforeLabel = document.querySelector('.contrast-label--before');
   const afterTitle = document.querySelector('.mock-logo--after');
+  const stageTitleBefore = document.querySelector('.contrast-stage-title-before');
+  const stageTitleAfter = document.querySelector('.contrast-stage-title-after');
 
   const introEyebrow = document.querySelector('#contrastIntro .contrast-eyebrow');
   const introHeading = document.querySelector('#contrastIntro .contrast-heading');
+  const introOne = document.getElementById('contrastHeadingOne');
   const introCue = document.getElementById('contrastScrollCue');
+
+  // "One" gets its own scale + color animation (not opacity — it still
+  // rides along with introHeading's own fade above, this just layers a
+  // distinct "arriving and turning gold" beat on top of that)
+  const INK_RGB = [23, 24, 26];
+  const GOLD_RGB = [138, 106, 31]; // --gold-deep
+  function lerpColor(a, b, t){
+    const r = Math.round(a[0] + (b[0]-a[0])*t);
+    const g = Math.round(a[1] + (b[1]-a[1])*t);
+    const bl = Math.round(a[2] + (b[2]-a[2])*t);
+    return `rgb(${r}, ${g}, ${bl})`;
+  }
+
+  // "The other gets ignored." is typed out character by character (see
+  // TYPE_START/TYPE_END in update()) rather than just fading in — split
+  // once here into per-character spans, plus a blinking caret appended
+  // right after them, both driven purely by scroll progress so typing
+  // (and reversing back to blank on scroll-up) needs no separate logic
+  const emEl = document.getElementById('contrastHeadingEm');
+  const emChars = [];
+  let emCursorEl = null;
+  if(emEl){
+    const text = emEl.textContent;
+    emEl.textContent = '';
+    Array.from(text).forEach(ch=>{
+      const span = document.createElement('span');
+      span.className = 'type-char';
+      span.textContent = ch === ' ' ? ' ' : ch;
+      emEl.appendChild(span);
+      emChars.push(span);
+    });
+    emCursorEl = document.createElement('span');
+    emCursorEl.className = 'contrast-heading-em-cursor';
+    emCursorEl.textContent = '|';
+    emEl.appendChild(emCursorEl);
+  }
 
   // the "after" mock's stat counters (Jobs Completed / Average Rating)
   // count up once, the first time the wipe has revealed enough of the
@@ -69,15 +108,16 @@
     return last.getBoundingClientRect().bottom - mock.getBoundingClientRect().top;
   }
   function sizeStage(){
-    // the stage now carries its own scroll-driven scale() transform
-    // (see update() below) — getBoundingClientRect reports POST-
-    // transform geometry, so measuring while that scale is anything
-    // but 1 would bake the current scale factor into the stored pixel
-    // height. Neutralize it for the measurement, then put it back.
-    const prevTransform = stage.style.transform;
-    stage.style.transform = 'none';
+    // .contrast-stage-wrap now carries its own scroll-driven scale()
+    // transform (see update() below) — getBoundingClientRect reports
+    // POST-transform geometry for every descendant, so measuring while
+    // that scale is anything but 1 would bake the current scale factor
+    // into the stored pixel height. Neutralize it for the measurement,
+    // then put it back.
+    const prevTransform = stageWrap ? stageWrap.style.transform : '';
+    if(stageWrap) stageWrap.style.transform = 'none';
     const h = Math.ceil(Math.max(contentHeight(beforeMock), contentHeight(afterMock)));
-    stage.style.transform = prevTransform;
+    if(stageWrap) stageWrap.style.transform = prevTransform;
     if(h > 0) stage.style.height = h + 'px';
   }
 
@@ -105,14 +145,19 @@
     window.__papiContrastResizeT = setTimeout(measure, 150);
   });
 
-  // the first ~40% of the section's scroll range is the intro scene
-  // (eyebrow -> heading -> "keep scrolling" cue -> handoff to the
-  // stage); the wipe itself gets the remaining ~60%, remapped below so
-  // its own internal pacing (label crossfade, counters) is unchanged
-  // relative to that narrower window. Every value here is a pure
-  // function of `progress`, so scrolling back up reverses the whole
-  // sequence — entrance included — with no separate teardown logic.
-  const WIPE_START = 0.40;
+  // the first ~2/3 of the section's scroll range is the intro scene —
+  // eyebrow -> heading ("One" arriving separately and turning gold) ->
+  // "The other gets ignored." typed out in red -> "keep scrolling" cue
+  // -> handoff to the stage. Slower/more spread out than a first pass
+  // at this (which had almost no dead time to fill before the liquid
+  // was made to roam through this section too — with that now filling
+  // the space, the reveal can afford to actually breathe). The wipe
+  // itself gets the remaining third, remapped below so its own internal
+  // pacing (label crossfade, counters) is unchanged relative to that
+  // narrower window. Every value here is a pure function of `progress`,
+  // so scrolling back up reverses the whole sequence — entrance
+  // included — with no separate teardown logic.
+  const WIPE_START = 0.66;
 
   // fades in over [inStart,inEnd], holds, then fades back out over
   // [outStart,outEnd] — returns the combined opacity plus a vertical
@@ -131,36 +176,51 @@
     const scrollable = Math.max(1, sectionHeight - viewportH);
     const progress = Math.max(0, Math.min(1, (window.scrollY - sectionTop) / scrollable));
 
-    // the moment the sticky grabs scroll, the visitor's already looking
-    // at a blank stretch of matching background (the hero's own fade-
-    // out tail runs out before this section is even reached) — a slow
-    // fade-in here stacked another empty beat on top of that, reading
-    // as a dead pause right where the pin engages. Eyebrow/heading now
-    // resolve almost immediately (still a soft rise, just a much
-    // shorter one) so there's something on screen right away; only the
-    // cue and the eventual handoff to the stage keep a slower pace.
     if(introEyebrow){
-      const s = fadeThrough(progress, 0, 0.03, 0.24, 0.34, 10, 18);
+      const s = fadeThrough(progress, 0, 0.09, 0.50, 0.62, 10, 18);
       introEyebrow.style.opacity = String(s.opacity);
       introEyebrow.style.transform = `translateY(${s.y.toFixed(1)}px)`;
     }
     if(introHeading){
-      const s = fadeThrough(progress, 0.015, 0.06, 0.24, 0.34, 14, 22);
+      const s = fadeThrough(progress, 0.06, 0.18, 0.50, 0.62, 14, 22);
       introHeading.style.opacity = String(s.opacity);
       introHeading.style.transform = `translateY(${s.y.toFixed(1)}px)`;
     }
+    // "One" rides along with introHeading's opacity/rise above (it's a
+    // child of it) but layers its own scale + ink-to-gold color on top,
+    // over a slightly longer window, so it visibly keeps "arriving" a
+    // beat after the rest of the sentence has already settled in place
+    if(introOne){
+      const oneT = smoothstep(0.06, 0.22, progress);
+      introOne.style.transform = `scale(${(0.6 + 0.4 * oneT).toFixed(3)})`;
+      introOne.style.color = lerpColor(INK_RGB, GOLD_RGB, oneT);
+    }
+    // "The other gets ignored." types itself out character by character
+    // — a hard per-character cut (no per-char fade) is what actually
+    // reads as typed rather than just a staggered fade-in
+    if(emChars.length){
+      const typeT = smoothstep(0.22, 0.46, progress);
+      const visibleCount = Math.floor(typeT * emChars.length);
+      emChars.forEach((el, i)=>{ el.style.opacity = i < visibleCount ? '1' : '0'; });
+      if(emCursorEl) emCursorEl.classList.toggle('is-typing', typeT > 0 && typeT < 1);
+    }
     if(introCue){
-      const s = fadeThrough(progress, 0.09, 0.15, 0.22, 0.30, 10, 14);
+      const s = fadeThrough(progress, 0.48, 0.54, 0.56, 0.62, 10, 14);
       introCue.style.opacity = String(s.opacity);
       introCue.style.transform = `translateY(${s.y.toFixed(1)}px)`;
     }
 
-    // the stage materializes as the intro clears out of the way —
-    // fading/scaling/rising into place rather than just being there
-    // the instant the section is reached
-    const stageIn = smoothstep(0.26, WIPE_START, progress);
-    stage.style.opacity = String(stageIn);
-    stage.style.transform = `translateY(${((1 - stageIn) * 26).toFixed(1)}px) scale(${(0.94 + 0.06 * stageIn).toFixed(3)})`;
+    // the stage (and its title above it) materialize together as the
+    // intro clears out of the way — fading/scaling/rising into place as
+    // one unit, rather than just being there the instant the section is
+    // reached. This has to target the wrap, not the stage alone — the
+    // stage-title sits outside #contrastStage as its sibling, so
+    // animating only the stage left the title appearing on its own,
+    // ahead of the box it's meant to be labeling.
+    const stageIn = smoothstep(0.56, WIPE_START, progress);
+    const stageInTarget = stageWrap || stage;
+    stageInTarget.style.opacity = String(stageIn);
+    stageInTarget.style.transform = `translateY(${((1 - stageIn) * 26).toFixed(1)}px) scale(${(0.94 + 0.06 * stageIn).toFixed(3)})`;
 
     const wipeT = smoothstep(WIPE_START, 1, progress);
 
@@ -169,11 +229,12 @@
     const wipePct = (1 - wipeT) * 100;
     stage.style.setProperty('--wipe', wipePct.toFixed(2) + '%');
 
-    // "Outdated Website" fades out over the same range the after mock's
-    // own title fades in, over — a crossfade rather than two labels
-    // just independently appearing/disappearing whenever the wipe
-    // geometry happens to uncover them
-    if(beforeLabel) beforeLabel.style.opacity = String(1 - smoothstep(0.55, 0.95, wipeT));
+    // the stage's own title crossfades from "Old Website" to "Papi
+    // Website" in gold over the same range the after mock's nav logo
+    // fades in — one more label describing which mock you're looking
+    // at, changing right along with the wipe instead of independently
+    if(stageTitleBefore) stageTitleBefore.style.opacity = String(1 - smoothstep(0.55, 0.95, wipeT));
+    if(stageTitleAfter) stageTitleAfter.style.opacity = String(smoothstep(0.55, 0.95, wipeT));
     if(afterTitle) afterTitle.style.opacity = String(smoothstep(0.55, 0.95, wipeT));
 
     if(wipeT > 0.3) startCounters();
@@ -192,14 +253,21 @@
     // skip the scroll-driven entrance entirely and land straight on the
     // settled end state — the stage visible at full size, the intro
     // (which only ever existed to choreograph getting there) hidden
-    stage.style.opacity = '1';
-    stage.style.transform = 'none';
+    (stageWrap || stage).style.opacity = '1';
+    (stageWrap || stage).style.transform = 'none';
     stage.style.setProperty('--wipe', '0%');
     if(introEyebrow) introEyebrow.style.opacity = '0';
     if(introHeading) introHeading.style.opacity = '0';
     if(introCue) introCue.style.opacity = '0';
-    if(beforeLabel) beforeLabel.style.opacity = '0';
+    if(stageTitleBefore) stageTitleBefore.style.opacity = '0';
+    if(stageTitleAfter) stageTitleAfter.style.opacity = '1';
     if(afterTitle) afterTitle.style.opacity = '1';
+    if(introOne){
+      introOne.style.transform = 'scale(1)';
+      introOne.style.color = lerpColor(INK_RGB, GOLD_RGB, 1);
+    }
+    emChars.forEach(el => { el.style.opacity = '1'; });
+    if(emCursorEl) emCursorEl.classList.remove('is-typing');
     counters.forEach(el=>{
       const target = Number(el.dataset.target || '0');
       const decimals = Number(el.dataset.decimal || '0');

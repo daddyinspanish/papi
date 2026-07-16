@@ -488,13 +488,25 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   color:var(--gold-deep);
   font-weight:600;
 }
+/* on narrow screens "Designed to build" wraps onto its own line above
+   the word instead of sharing a line with it, so there's no "build"
+   immediately to its left to hug anymore — the left-align above then
+   just reads as the whole word sitting off-centre inside its own
+   reserved box. Centering it here, only at this width, fixes that
+   without touching the desktop reasoning above. */
+@media (max-width:640px){
+  .sub-word{ text-align:center; }
+}
 
 .hero-sub{
   max-width:640px;
   margin:1.8rem auto 2.6rem;
   font-size:clamp(1.15rem, 2.4vw, 1.6rem);
   line-height:1.4;
-  color:var(--paper-dim);
+  /* was --paper-dim (50%-opacity ink) — too pale against the hero's
+     white background; a solid, much darker tone reads clearly while
+     still sitting a step below the main title's full-strength ink */
+  color:rgba(23,24,26,.78);
   font-weight:300;
   opacity:0;
   transition:opacity .3s ease;
@@ -543,7 +555,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 =================================================================== */
 .contrast-section{
   position:relative;
-  height:320vh;
+  height:400vh;
   background:#f2efe8;
   z-index:1;
 }
@@ -593,10 +605,40 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   margin:0 auto;
   color:var(--paper-ink);
 }
+/* "One" gets its own scroll-driven entrance (see js/contrast.js) — comes
+   in separately from the rest of the sentence and settles into gold
+   rather than just fading in the same ink color as everything else */
+.contrast-heading-one{
+  display:inline-block;
+}
+/* typed out character-by-character as the visitor scrolls (see
+   js/contrast.js) rather than just fading in — a deliberate reveal to
+   match how deliberately dismissive the line itself reads. Red rather
+   than the rest of the heading's ink/gold palette: this is the one
+   negative beat in the sequence ("...gets ignored"), and reads as a
+   warning precisely because it breaks from every other color used here */
 .contrast-heading em{
   font-style:italic;
   font-weight:400;
-  color:var(--paper-dim);
+  color:#b3392c;
+}
+.contrast-heading em .type-char{ opacity:0; }
+/* a thin blinking caret right after the last typed character — only
+   meaningful while typing is actually in progress; js/contrast.js
+   toggles .is-typing on/off around that window */
+.contrast-heading-em-cursor{
+  display:inline-block;
+  width:2px;
+  margin-left:1px;
+  color:#b3392c;
+  opacity:0;
+}
+.contrast-heading-em-cursor.is-typing{
+  animation:contrastCaretBlink .9s step-end infinite;
+}
+@keyframes contrastCaretBlink{
+  0%, 49%{ opacity:1; }
+  50%, 100%{ opacity:0; }
 }
 
 /* "keep scrolling" cue — same pulsing-ring technique as
@@ -630,9 +672,47 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   color:var(--paper-dim);
 }
 
-.contrast-stage{
+/* wraps the stage-title + the stage itself so they stack as one flex
+   child of .contrast-sticky, instead of .contrast-sticky needing its
+   own flex-direction just to stack two real children */
+.contrast-stage-wrap{
   position:relative;
   z-index:2;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  flex-shrink:0;
+}
+
+/* sits above the stage with room to breathe — reads "Old Website"
+   until the wipe crosses its own halfway point, then crossfades (the
+   same before/after-label technique used elsewhere in this section)
+   into "Papi Website" in gold, right in the same spot */
+.contrast-stage-title{
+  position:relative;
+  z-index:2;
+  height:1.7em;
+  min-width:14ch;
+  margin-bottom:1.3rem;
+}
+.contrast-stage-title-before,
+.contrast-stage-title-after{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+  font-family:'Fraunces', serif;
+  font-weight:600;
+  font-size:clamp(1rem, 2.4vw, 1.35rem);
+  letter-spacing:.03em;
+}
+.contrast-stage-title-before{ color:var(--paper-ink); }
+.contrast-stage-title-after{ color:var(--gold-deep); opacity:0; }
+
+.contrast-stage{
+  position:relative;
   width:min(980px, 90vw);
   aspect-ratio:16/10;
   border-radius:16px;
@@ -1105,30 +1185,14 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   transform:rotate(45deg);
 }
 
-.contrast-label{
-  position:absolute;
-  top:1rem;
-  z-index:4;
-  font-size:.68rem;
-  font-weight:600;
-  letter-spacing:.1em;
-  text-transform:uppercase;
-  padding:.4rem .8rem;
-  border-radius:999px;
-  pointer-events:none;
-}
-.contrast-label--before{
-  left:1rem;
-  background:rgba(255,255,255,.85);
-  color:#555;
-}
-
 @media (max-width:640px){
   /* sized to the after mock's actual content (nav + hero + services
      marquee) plus a small buffer — taller than this just leaves empty
      background showing below the marquee, which is exactly the "big
      empty white space" this was tuned to remove */
   .contrast-stage{ aspect-ratio:2/3.3; }
+  .contrast-stage-title{ height:1.4em; margin-bottom:.7rem; }
+  .contrast-stage-title-before, .contrast-stage-title-after{ font-size:.85rem; }
   .mock-before .mock-links{ display:none; }
   .mock-cards{ flex-direction:column; gap:.5rem; padding:0 1.2rem 1rem; }
   .mock-before .mock-hero{ padding:1.2rem 1.2rem .8rem; }
