@@ -49,9 +49,31 @@
     });
   }
 
+  // .mock-before/.mock-after are position:absolute;inset:0 (stacked
+  // exactly on top of each other for the wipe), so the stage's own
+  // height can't come from their content the normal way — it has to be
+  // set explicitly. A fixed aspect-ratio guessed at one viewport width
+  // drifts badly at others (text wraps differently, so real content
+  // height differs from the guess), which is exactly what left a slab
+  // of empty white space below the marquee/cards on real phones and on
+  // desktop. Measuring each mock's actual last child and sizing the
+  // stage to the taller of the two tracks real content at any width.
+  const beforeMock = document.querySelector('.mock-before');
+  const afterMock = document.querySelector('.mock-after');
+  function contentHeight(mock){
+    const last = mock && mock.lastElementChild;
+    if(!last) return 0;
+    return last.getBoundingClientRect().bottom - mock.getBoundingClientRect().top;
+  }
+  function sizeStage(){
+    const h = Math.ceil(Math.max(contentHeight(beforeMock), contentHeight(afterMock)));
+    if(h > 0) stage.style.height = h + 'px';
+  }
+
   let sectionTop = 0, sectionHeight = 0, viewportH = 0;
   function measure(){
     viewportH = window.innerHeight;
+    sizeStage();
     sectionTop = section.offsetTop;
     sectionHeight = section.offsetHeight;
   }
