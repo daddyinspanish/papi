@@ -473,6 +473,51 @@ window.scrollTo(0, 0);
   <span class="cursor-dot"></span>
 </div>
 
+<!-- ============ NEWSLETTER POPUP — triggered once, the first time the
+     visitor scrolls past the before/after section ============ -->
+<div class="newsletter-popup" id="newsletterPopup" aria-hidden="true">
+  <div class="newsletter-popup-backdrop" id="newsletterBackdrop"></div>
+  <div class="newsletter-popup-card" role="dialog" aria-modal="true" aria-labelledby="newsletterTitle">
+    <button type="button" class="newsletter-popup-close" id="newsletterClose" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <p class="newsletter-popup-eyebrow">Limited-Time Offer</p>
+    <h2 class="newsletter-popup-title" id="newsletterTitle">Get <span class="newsletter-popup-highlight">10% off</span> your website</h2>
+    <p class="newsletter-popup-sub">Subscribe to Papi and you'll be first in line for new features and Papi updates, exclusive discounts on future services — plus 10% off your build, just for signing up.</p>
+    <form class="newsletter-popup-form quote-form" id="newsletterForm" action="https://formspree.io/f/mrenblpj" method="POST" novalidate>
+      <input type="hidden" name="form_type" value="Newsletter signup">
+      <div class="quote-field">
+        <input type="text" id="nName" name="name" autocomplete="name" required placeholder=" ">
+        <label for="nName">Full name</label>
+      </div>
+      <div class="quote-field">
+        <input type="email" id="nEmail" name="email" autocomplete="email" required placeholder=" ">
+        <label for="nEmail">Email address</label>
+      </div>
+      <div class="quote-field quote-field--select">
+        <select id="nIndustry" name="industry" required>
+          <option value="" disabled selected hidden></option>
+          <option value="Roofing">Roofing</option>
+          <option value="Dentists">Dentists</option>
+          <option value="Plumbers">Plumbers</option>
+          <option value="Electricians">Electricians</option>
+          <option value="Real Estate">Real Estate</option>
+          <option value="Law Firms">Law Firms</option>
+          <option value="Restaurants">Restaurants</option>
+          <option value="Fitness Studios">Fitness Studios</option>
+          <option value="Other">Other</option>
+        </select>
+        <label for="nIndustry">Business / industry</label>
+      </div>
+      <button type="submit" class="quote-submit newsletter-popup-submit">
+        <span class="quote-submit-label">Get My 10% Off</span>
+        <svg class="quote-submit-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>
+      </button>
+      <p class="quote-success" id="newsletterSuccess" role="status">Thanks for subscribing — we'll be in touch with your discount code soon.</p>
+    </form>
+  </div>
+</div>
+
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
 <script type="module" src="js/hero-slime.js"></script>
@@ -484,6 +529,7 @@ window.scrollTo(0, 0);
 <script src="js/comparison-chart.js"></script>
 <script src="js/faq.js"></script>
 <script src="js/quote-form.js"></script>
+<script src="js/newsletter-popup.js"></script>
 <script src="js/cursor.js"></script>
 <script src="js/loader.js"></script>
 </body>
