@@ -138,6 +138,7 @@ body, a, .cta{ cursor:none; }
 #hero{
   position:relative;
   min-height:100vh;
+  min-height:100svh;
   width:100%;
   background:#ffffff;
   visibility:hidden;
@@ -356,6 +357,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   align-items:center;
   justify-content:center;
   min-height:100vh;
+  min-height:100svh;
   padding: 6vw 1.5rem 4rem;
   perspective:1400px;
 }
@@ -574,6 +576,26 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 .contrast-section{
   position:relative;
   height:400vh;
+  /* svh ("small" viewport height) instead of plain vh for this and
+     every other scroll-distance-defining height on the page — plain
+     vh tracks the browser chrome's CURRENT collapsed/expanded state on
+     several in-app browsers (Instagram/Facebook/TikTok's own embedded
+     WebViews chief among them; iOS Safari itself only recalculates
+     vh once, on the first scroll of a session, but these apps' own
+     chrome keeps sliding in and out continuously as you scroll). At a
+     4x multiplier (400vh) that live recompute doesn't just nudge this
+     section's own height — it swings the ENTIRE page's total
+     scrollable height by hundreds of pixels in real time while
+     scrolling, which is what read as sections "jumping" back and
+     forth between the numbers section and the form near the bottom of
+     the page: the visitor's actual scrollY (a fixed pixel offset) kept
+     landing on a completely different section every time the layout
+     above it re-settled. svh is pinned to the chrome's fully-expanded
+     (smallest) state and never changes as chrome auto-hides, so this
+     section's height — and the page's total height along with it —
+     stays put for the entire scroll. Old browsers without svh support
+     just ignore this line and keep the vh value above. */
+  height:400svh;
   background:#f2efe8;
   z-index:1;
 }
@@ -581,6 +603,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   position:sticky;
   top:0;
   height:100vh;
+  height:100svh;
   overflow:hidden;
   display:flex;
   align-items:center;
@@ -1289,6 +1312,10 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   position:sticky;
   top:0;
   height:100vh;
+  /* see the long comment on .contrast-section above — same fix, same
+     reason. This section's own outer height is set from JS in
+     showcase.js using the matching svh unit, for the same reason. */
+  height:100svh;
   display:flex;
   flex-direction:column;
   align-items:center;

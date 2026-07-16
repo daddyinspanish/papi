@@ -363,8 +363,18 @@
 
   // was n*80vh — a bit less scroll distance per trade name means the
   // carousel advances through all of them a little faster for the
-  // same amount of scrolling
-  section.style.height = (n * 68) + 'vh';
+  // same amount of scrolling.
+  //
+  // svh ("small" viewport height) instead of plain vh where supported
+  // — see the matching comment on .contrast-section in style.css. At
+  // this section's ~5-8x multiplier, in-app browsers (Instagram's own
+  // chief among them) that keep recomputing vh live as their own
+  // chrome slides in/out while scrolling would swing this section's
+  // (and so the whole page's) total height by hundreds of pixels
+  // mid-scroll — read as sections jumping around further down the
+  // page. svh stays pinned to the chrome's fully-expanded state instead.
+  const vhUnit = (window.CSS && CSS.supports && CSS.supports('height', '1svh')) ? 'svh' : 'vh';
+  section.style.height = (n * 68) + vhUnit;
 
   function lerp(a,b,t){ return a + (b-a)*t; }
 
