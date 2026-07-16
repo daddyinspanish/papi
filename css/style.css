@@ -1294,36 +1294,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .showcase-fan.has-expanded-card{ overflow:visible; }
 
-/* two small extra liquid masses (js/showcase-liquid.js) flanking the
-   fan — same glass/metaball material as the hero, much smaller, that
-   slide in from their own side as the visitor nears the last couple
-   of cards. Sits behind the cards (z-index:0 vs. their own 1+) so it
-   never competes with them for attention or clicks. */
-.showcase-liquid{
-  position:absolute;
-  top:50%;
-  z-index:0;
-  width:clamp(160px, 20vw, 230px);
-  height:clamp(160px, 20vw, 230px);
-  transform:translateY(-50%);
-  opacity:0;
-  pointer-events:none;
-}
-.showcase-liquid--left{ left:clamp(-40px, -4vw, 0px); }
-.showcase-liquid--right{ right:clamp(-40px, -4vw, 0px); }
-@media (max-width:640px){
-  /* smaller and pulled further toward the edge (rather than hidden
-     outright) — there's less room beside the fan at this width, so
-     they mostly peek in from off-screen instead of sitting fully
-     beside the cards the way they do on wider screens */
-  .showcase-liquid{
-    width:clamp(85px, 24vw, 120px);
-    height:clamp(85px, 24vw, 120px);
-  }
-  .showcase-liquid--left{ left:clamp(-45px, -10vw, -10px); }
-  .showcase-liquid--right{ right:clamp(-45px, -10vw, -10px); }
-}
-
 /* above ~860px there's enough width to give the trade names their own
    column on the left instead of stacking above the fan — scrolling
    through them no longer competes with the fan/cards for the same
