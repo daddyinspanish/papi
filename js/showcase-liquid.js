@@ -358,6 +358,18 @@ import * as THREE from './vendor/three.module.min.js';
   let lastTs = null, elapsedStart = null;
   let running = false;
 
+  // same reasoning as hero-slime.js's own render cap — two of these
+  // heavy per-pixel shaders render uncapped whenever this section is in
+  // view, at up to the display's native refresh rate (120Hz on newer
+  // iPhones); capping the actual render work to ~30fps cuts that
+  // sustained GPU load substantially with no visible difference for
+  // motion this slow. The opacity/transform slide-in above stays
+  // uncapped (cheap, and needs to track scroll smoothly) — only the
+  // physics+render pair below is throttled.
+  const RENDER_FPS = 30;
+  const RENDER_INTERVAL = 1000 / RENDER_FPS;
+  let lastRenderTs = 0;
+
   function loop(ts){
     const rect = section.getBoundingClientRect();
     const visible = rect.bottom > 0 && rect.top < window.innerHeight;
@@ -382,6 +394,12 @@ import * as THREE from './vendor/three.module.min.js';
       requestAnimationFrame(loop);
       return;
     }
+
+    if(ts - lastRenderTs < RENDER_INTERVAL){
+      requestAnimationFrame(loop);
+      return;
+    }
+    lastRenderTs = ts;
 
     const dt = lastTs === null ? 16.6667 : Math.min(ts - lastTs, CONFIG.maxDt);
     lastTs = ts;
