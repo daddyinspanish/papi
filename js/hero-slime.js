@@ -561,6 +561,19 @@ import * as THREE from './vendor/three.module.min.js';
     const w = canvas.clientWidth || window.innerWidth;
     const h = canvas.clientHeight || window.innerHeight;
     if(!w || !h) return;
+    // #hero and .contrast-sticky are both full-viewport (100svh)
+    // containers the canvas fills via inset:0, so re-parenting it
+    // between them at the hero/contrast boundary below almost always
+    // measures the exact same size here. renderer.setSize() reallocates
+    // the WebGL drawing buffer/render targets even when the size hasn't
+    // actually changed, which is real, synchronous GPU work landing
+    // right in the middle of that same scroll frame — a stutter that
+    // read as a "glitch hiccup" right as the visitor first scrolled
+    // past the hero, more noticeable in Instagram's in-app browser
+    // (less compositing headroom than a full native browser tab).
+    // Skipping the no-op case removes that cost entirely; a real size
+    // change (an actual rotation/resize) still goes through normally.
+    if(w === W && h === H) return;
     W = w;
     H = h;
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2) * qualityScale;
