@@ -368,14 +368,22 @@
     const scrollable = Math.max(1, sectionHeight - window.innerHeight);
     const rawProgress = (window.scrollY - sectionTop) / scrollable;
 
+    // the pin-and-skip below must never apply while a card is expanded
+    // — the LAST card only ever becomes active/clickable right at
+    // progress===1, the exact same boundary this pin exists to skip
+    // past, and real touch-scroll momentum overshoots it constantly.
+    // Skipping this whole function on the very update() call
+    // setExpanded() triggers meant the last card's expand never got as
+    // far as actually being positioned — it looked like the card just
+    // didn't open at all.
     if(rawProgress < 0){
-      if(pinnedLow) return;
+      if(pinnedLow && expandedIndex === null) return;
       pinnedLow = true;
     } else {
       pinnedLow = false;
     }
     if(rawProgress > 1){
-      if(pinnedHigh) return;
+      if(pinnedHigh && expandedIndex === null) return;
       pinnedHigh = true;
     } else {
       pinnedHigh = false;
