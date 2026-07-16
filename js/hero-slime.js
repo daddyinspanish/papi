@@ -623,26 +623,12 @@ import * as THREE from './vendor/three.module.min.js';
   const EXIT_FADE_RATIO = 0.28;
   let zone = 'hero'; // 'hero' | 'contrast' | 'gone'
 
-  // this shader is genuinely heavy per pixel (three field() evaluations
-  // just for the gradient, four fbm() calls each unrolling three
-  // octaves, three chromatic refraction samples) over a canvas that
-  // covers most of the hero — rendering that at the display's own
-  // native refresh rate (up to 120Hz on newer iPhones, via ProMotion)
-  // does roughly 2x the sustained GPU work a 60Hz device would, for a
-  // mass that's deliberately slow/heavy/viscous (see CONFIG) in the
-  // first place. This was rendering completely uncapped: every single
-  // requestAnimationFrame tick did a full render, forever, just from
-  // having the hero (or contrast) section anywhere in view — which
-  // happens automatically on page load, with no scrolling required.
-  // That sustained, uncapped GPU load is the most likely root cause of
-  // a phone getting noticeably hot from this page. Capping the actual
-  // render work to ~30fps (the rAF scheduling itself keeps running at
-  // full rate below, so scroll-driven zone/opacity updates stay smooth
-  // — only the expensive physics+render pair is skipped in between)
-  // cuts that sustained load roughly in half on 60Hz displays and by
-  // three-quarters on 120Hz ones, with no visible difference for
-  // motion this slow.
-  const RENDER_FPS = 30;
+  // capped at 60 rather than left fully uncapped — the hero is meant to
+  // be the smoothest thing on the page, so this stays at 60 even though
+  // it's the single biggest sustained GPU contributor (still saves real
+  // work on 120Hz ProMotion iPhones, without the visible slow-down a
+  // lower cap gave this motion when tried).
+  const RENDER_FPS = 60;
   const RENDER_INTERVAL = 1000 / RENDER_FPS;
   let lastRenderTs = 0;
 
