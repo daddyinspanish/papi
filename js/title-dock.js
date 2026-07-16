@@ -156,11 +156,45 @@
   // about, rather than a single label that only ever meant "showcase"
   const sectionDock = document.getElementById('sectionDock');
   const sectionWords = [
-    { el: contrastSectionEl, word: 'Difference' },
-    { el: showcaseEl, word: 'Industries' },
-    { el: document.getElementById('testimonialsSection'), word: 'Proof' },
+    { el: contrastSectionEl, word: 'Difference', top: 0, bottom: 0 },
+    { el: showcaseEl, word: 'Industries', top: 0, bottom: 0 },
+    { el: document.getElementById('testimonialsSection'), word: 'Proof', top: 0, bottom: 0 },
   ];
   let currentDockWord = null;
+
+  // this update() runs on every single 'scroll' event for the entire
+  // page, forever — offsetTop/offsetHeight force a synchronous layout
+  // read, so reading them here (previously: heroEl once, then each
+  // section AGAIN inside the sectionWords loop below, on top of a
+  // separate live read for onContrast/onShowcase — the same elements'
+  // layout measured twice a frame) meant this one script alone forced
+  // several extra reflows on every scroll frame, stacking on top of
+  // every other section's own scroll handler doing the same kind of
+  // thing. None of these positions change from scrolling — only from
+  // resize/content changes — so they're measured once (plus on resize/
+  // fonts load, same convention as contrast.js's own sizing) instead.
+  let heroHeight = 0;
+  function measureZones(){
+    heroHeight = heroEl ? heroEl.offsetHeight : 0;
+    sectionWords.forEach(s=>{
+      if(!s.el) return;
+      s.top = s.el.offsetTop;
+      s.bottom = s.top + s.el.offsetHeight;
+    });
+  }
+  requestAnimationFrame(measureZones);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(measureZones);
+  window.addEventListener('load', measureZones);
+  let lastResizeWZones = window.innerWidth;
+  window.addEventListener('resize', ()=>{
+    const w = window.innerWidth;
+    if(w === lastResizeWZones) return;
+    lastResizeWZones = w;
+    clearTimeout(window.__papiDockZonesResizeT);
+    window.__papiDockZonesResizeT = setTimeout(measureZones, 150);
+  });
+  const contrastZone = sectionWords[0];
+  const showcaseZone = sectionWords[1];
 
   function update(){
     const dist = viewportH * SCROLL_RANGE_RATIO;
@@ -182,13 +216,10 @@
     // there), and now the contrast section, also white. Every other
     // section has a fixed dark background, where the static gold/
     // cream colors already read fine on their own.
-    const onHero = heroEl ? window.scrollY < heroEl.offsetHeight : false;
-    let onContrast = false;
-    if(contrastSectionEl){
-      const zoneTop = contrastSectionEl.offsetTop;
-      const zoneBottom = zoneTop + contrastSectionEl.offsetHeight;
-      onContrast = window.scrollY >= zoneTop && window.scrollY < zoneBottom;
-    }
+    const onHero = window.scrollY < heroHeight;
+    const onContrast = contrastSectionEl
+      ? window.scrollY >= contrastZone.top && window.scrollY < contrastZone.bottom
+      : false;
     document.body.classList.toggle('on-light-section', onHero || onContrast);
 
     // the showcase section's own background trade icons/fan cards fill
@@ -196,12 +227,9 @@
     // brand mark/word cluster sitting on top reads as clutter — same
     // duck-out-of-the-way treatment already used for the contrast
     // section's mock nav below
-    let onShowcase = false;
-    if(showcaseEl){
-      const zoneTop = showcaseEl.offsetTop;
-      const zoneBottom = zoneTop + showcaseEl.offsetHeight;
-      onShowcase = window.scrollY >= zoneTop && window.scrollY < zoneBottom;
-    }
+    const onShowcase = showcaseEl
+      ? window.scrollY >= showcaseZone.top && window.scrollY < showcaseZone.bottom
+      : false;
 
     // on narrow screens the whole top-right cluster — brand mark and
     // the tagline/word dock beneath it — sits right on top of the
@@ -219,8 +247,7 @@
       for(let i=0;i<sectionWords.length;i++){
         const s = sectionWords[i];
         if(!s.el) continue;
-        const top = s.el.offsetTop, bottom = top + s.el.offsetHeight;
-        if(y >= top && y < bottom){ word = s.word; break; }
+        if(y >= s.top && y < s.bottom){ word = s.word; break; }
       }
       sectionDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !!word);
       if(word && word !== currentDockWord){

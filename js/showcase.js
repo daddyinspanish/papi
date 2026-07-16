@@ -419,11 +419,41 @@
   }
   measureStep();
 
+  // once fully scrolled past (or not yet reached), the cards/items/
+  // background icons below are already sitting at their pinned resting
+  // state — every section on this page runs its own scroll-driven
+  // update on every single 'scroll' event site-wide, so recomputing
+  // and re-writing styles across 8 cards + 8 trade names + 14
+  // background icons here on every scroll frame long after leaving
+  // this section was pure waste stacking on top of every other section
+  // doing the same thing — exactly the kind of accumulated per-frame
+  // cost that showed up as stutter scrolling through the sections
+  // below this one. pinnedLow/pinnedHigh let the resting state still
+  // get written exactly once when first settling into it (so the very
+  // first call, well before the section is ever scrolled to, still
+  // lays everything out correctly) and skip every redundant call after.
+  let pinnedLow = false, pinnedHigh = false;
+
   function update(){
     const sectionTop = section.offsetTop;
     const sectionHeight = section.offsetHeight;
     const scrollable = Math.max(1, sectionHeight - window.innerHeight);
-    const progress = Math.max(0, Math.min(1, (window.scrollY - sectionTop) / scrollable));
+    const rawProgress = (window.scrollY - sectionTop) / scrollable;
+
+    if(rawProgress < 0){
+      if(pinnedLow) return;
+      pinnedLow = true;
+    } else {
+      pinnedLow = false;
+    }
+    if(rawProgress > 1){
+      if(pinnedHigh) return;
+      pinnedHigh = true;
+    } else {
+      pinnedHigh = false;
+    }
+
+    const progress = Math.max(0, Math.min(1, rawProgress));
     const activeFloat = progress * (n - 1);
 
     bgIcons.forEach(icon=>{

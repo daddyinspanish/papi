@@ -187,9 +187,40 @@
     return { opacity, y };
   }
 
+  // once fully scrolled past (or not yet reached), every value update()
+  // touches is already pinned at its resting end/start state — every
+  // one of this page's sections runs its own scroll-driven update on
+  // every single 'scroll' event site-wide, forever, so recomputing and
+  // re-writing ~20 styles (plus the per-character typed-text loop)
+  // here on every scroll frame long after leaving this section was
+  // pure waste stacking on top of every other section doing the same
+  // thing — exactly the kind of accumulated per-frame cost that showed
+  // up as stutter/lag scrolling through the sections below this one.
+  // pinnedLow/pinnedHigh let the resting state still get written
+  // exactly once when first settling into it (so the very first call,
+  // before the visitor has scrolled at all, still lays everything out
+  // correctly) and skip every redundant call after.
+  let pinnedLow = false, pinnedHigh = false;
+
   function update(){
     const scrollable = Math.max(1, sectionHeight - viewportH);
-    const progress = Math.max(0, Math.min(1, (window.scrollY - sectionTop) / scrollable));
+    const rawProgress = (window.scrollY - sectionTop) / scrollable;
+
+    if(rawProgress < 0){
+      if(pinnedLow) return;
+      pinnedLow = true;
+    } else {
+      pinnedLow = false;
+    }
+    if(rawProgress > 1){
+      if(heroVideo && !heroVideo.paused) heroVideo.pause();
+      if(pinnedHigh) return;
+      pinnedHigh = true;
+    } else {
+      pinnedHigh = false;
+    }
+
+    const progress = Math.max(0, Math.min(1, rawProgress));
 
     if(introEyebrow){
       const s = fadeThrough(progress, 0, 0.09, 0.50, 0.62, 10, 18);

@@ -32,12 +32,32 @@
     return t * t * (3 - 2 * t);
   }
 
+  let revealPinnedLow = false, revealPinnedHigh = false;
   function updateReveal(){
     const rect = section.getBoundingClientRect();
     const vh = window.innerHeight;
     // 0 when the section's top edge is at the bottom of the viewport,
     // 1 once it's scrolled up to a bit above mid-screen
     const raw = (vh - rect.top) / (vh * 0.65);
+
+    // skip the redundant recompute once fully settled at either end —
+    // this section sits last on the page, so "not yet reached" covers
+    // the entire rest of the visit up to this point; re-running this on
+    // every single scroll event the whole time, everywhere else on the
+    // page, was pure waste once the values here can't change any further
+    if(raw < 0){
+      if(revealPinnedLow) return;
+      revealPinnedLow = true;
+    } else {
+      revealPinnedLow = false;
+    }
+    if(raw > 1){
+      if(revealPinnedHigh) return;
+      revealPinnedHigh = true;
+    } else {
+      revealPinnedHigh = false;
+    }
+
     const p = Math.max(0, Math.min(1, raw));
 
     const copyP = smoothstep(0, 0.7, p);

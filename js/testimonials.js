@@ -69,11 +69,30 @@
   // directly to scroll position (same convention as the cube title and
   // quote form) rather than a fixed-duration animation triggered once —
   // and the heading signs itself in, word by word, over the same window
+  let entrancePinnedLow = false, entrancePinnedHigh = false;
   function updateEntrance(){
     if(!sticky) return;
     const rect = section.getBoundingClientRect();
     const vh = window.innerHeight;
     const raw = (vh - rect.top) / (vh * 0.75);
+
+    // once fully settled at either end, skip the redundant recompute —
+    // this runs on every scroll event site-wide for the rest of the
+    // page, so once revealed there's no reason to keep re-writing the
+    // same handful of styles on every scroll frame from here on
+    if(raw < 0){
+      if(entrancePinnedLow) return;
+      entrancePinnedLow = true;
+    } else {
+      entrancePinnedLow = false;
+    }
+    if(raw > 1){
+      if(entrancePinnedHigh) return;
+      entrancePinnedHigh = true;
+    } else {
+      entrancePinnedHigh = false;
+    }
+
     const p = Math.max(0, Math.min(1, raw));
     const bodyP = smoothstep(0, 1, p);
     sticky.style.opacity = bodyP.toFixed(3);

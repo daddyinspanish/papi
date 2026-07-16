@@ -32,11 +32,30 @@
   // staggered left-to-right down the list rather than all landing at
   // once — tied directly to scroll position (same convention as the
   // showcase/testimonials entrances) so it reverses cleanly on scroll-up
+  let entrancePinnedLow = false, entrancePinnedHigh = false;
   function updateEntrance(){
     if(!section || prefersReducedMotion) return;
     const rect = section.getBoundingClientRect();
     const vh = window.innerHeight;
     const raw = (vh - rect.top) / (vh * 0.8);
+
+    // skip the redundant recompute once fully settled at either end —
+    // this runs on every scroll event site-wide for the rest of the
+    // page, so there's no reason to keep re-writing the same styles on
+    // every scroll frame once the questions have already bounced in
+    if(raw < 0){
+      if(entrancePinnedLow) return;
+      entrancePinnedLow = true;
+    } else {
+      entrancePinnedLow = false;
+    }
+    if(raw > 1){
+      if(entrancePinnedHigh) return;
+      entrancePinnedHigh = true;
+    } else {
+      entrancePinnedHigh = false;
+    }
+
     const p = Math.max(0, Math.min(1, raw));
     const n = items.length;
     items.forEach((item, i)=>{
