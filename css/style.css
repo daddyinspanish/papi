@@ -1259,6 +1259,29 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
    showcase.js now (the same way the card itself already is), which
    doesn't have that problem. */
 
+/* a handful of large, very faint trade icons drifting across the far
+   background as the visitor scrolls (js/showcase.js positions and
+   animates each one) — pure atmosphere, meant to read as "every trade
+   we build for" filling out the section rather than competing with the
+   cards/text in front of it. Sits above the black/cream backdrop
+   layers (z-index:0) but behind everything else in the sticky (which
+   starts at z-index:2). */
+.showcase-icons{
+  position:absolute;
+  inset:0;
+  z-index:1;
+  overflow:hidden;
+  pointer-events:none;
+}
+.showcase-icon{
+  position:absolute;
+  font-size:clamp(3.5rem, 9vw, 7rem);
+  line-height:1;
+  opacity:0;
+  will-change:transform, opacity;
+  filter:grayscale(.15);
+}
+
 /* stacked, in reading order: eyebrow, then the scrolling trade name,
    then the fan of preview cards underneath — was a two-column grid
    (fan left, name+eyebrow right); this reads top-to-bottom instead */
@@ -1350,12 +1373,23 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
     display:grid;
     grid-template-columns: var(--showcase-left-col) 1fr;
     column-gap: var(--showcase-col-gap);
+    /* tighter than the flex layout's own gap (that one's sized for the
+       *stacked* mobile layout, where the trade names need clearance
+       from the fan below them — here they're side by side instead) —
+       title+subtitle+items were reading as pushed down into the
+       bottom-left corner of the column, well below the fan's own
+       vertical centre, with that much space between each of them */
+    row-gap:.7rem;
     align-items:center;
   }
   .showcase-sticky.has-expanded-card{ column-gap: var(--showcase-col-gap); }
   .showcase-title{ grid-column:1; grid-row:1; text-align:left; }
   .showcase-subtitle{ grid-column:1; grid-row:2; text-align:left; }
-  .showcase-items{ grid-column:1; grid-row:3; }
+  /* pulled up to sit level with the fan's own vertical centre instead
+     of trailing at the bottom of the title+subtitle stack — align-self
+     here (rather than relying on the row's own auto height) is what
+     actually lets it move independently of how tall the title renders */
+  .showcase-items{ grid-column:1; grid-row:3; align-self:center; margin-top:-1.4rem; }
   .showcase-item{ text-align:left; }
   .showcase-fan{
     grid-column:2;
@@ -1637,14 +1671,18 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 /* the section's own mission statement — decodes in from scrambled
    glyphs the first time this section's entrance has visibly started
    (see js/showcase.js's scrambleReveal), rather than a plain fade */
+/* Inter, not Fraunces — the mission statement is a full sentence, not
+   a short display headline, and reads more like modern editorial copy
+   in a clean sans at a light weight than as another serif headline */
 .showcase-title{
   position:relative;
   z-index:2;
-  font-family:'Fraunces', serif;
-  font-weight:500;
-  font-size:clamp(1rem, 2.3vw, 1.35rem);
-  line-height:1.45;
-  max-width:46ch;
+  font-family:'Inter', sans-serif;
+  font-weight:300;
+  letter-spacing:.01em;
+  font-size:clamp(1.05rem, 2.3vw, 1.4rem);
+  line-height:1.6;
+  max-width:42ch;
   color:var(--cream);
   transition:color .6s var(--ease-out);
 }
