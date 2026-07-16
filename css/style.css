@@ -213,7 +213,12 @@ body, a, .cta{ cursor:none; }
   justify-content:flex-end;
   padding:clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 4vw, 3rem) 0;
   pointer-events:none;
+  transition:opacity .5s var(--ease-out);
 }
+/* ducked on narrow screens for the stretch of the contrast section —
+   see js/title-dock.js — where the brand mark would otherwise sit
+   directly on top of the mock's own nav/CTA at this width */
+.site-header.is-hidden{ opacity:0; }
 
 .brand-mark{
   font-family:'Fraunces', serif;
@@ -651,6 +656,41 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   color:#444;
   box-shadow:0 1px 3px rgba(0,0,0,.08);
 }
+/* dated "follow us" badges — a small, very recognizable "this hasn't
+   been touched in years" signal. Text-only approximations of the old
+   platforms' own look rather than reproductions of their actual marks. */
+.mock-social-row{
+  display:flex;
+  gap:.5rem;
+  padding:.6rem 1.6rem 0;
+}
+.mock-social-badge{
+  font-size:.66rem;
+  font-weight:700;
+  padding:.25rem .6rem;
+  border-radius:3px;
+  color:#fff;
+  font-family:Arial, Helvetica, sans-serif;
+}
+.mock-social-badge--myspace{ background:#003399; }
+.mock-social-badge--tumblr{ background:#001935; }
+/* the classic broken/empty-state placeholder — the fastest possible
+   signal that a page was never finished */
+.mock-photo-broken{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:.3rem;
+  margin:0 1.6rem 1.2rem;
+  padding:1.4rem 1rem;
+  border:1.5px dashed #ccc;
+  border-radius:4px;
+  background:#fafafa;
+  color:#999;
+  font-size:.72rem;
+}
+.mock-photo-broken-icon{ font-size:1.3rem; opacity:.6; }
 
 /* ---- AFTER: the Papi treatment of the exact same business/content —
    Fraunces serif, gold accents, generous space, the site's own real
@@ -670,28 +710,56 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   padding:1.3rem 1.8rem;
 }
 .mock-logo--after{ font-size:1rem; letter-spacing:.02em; }
-.mock-logo--after em{ font-style:italic; color:var(--gold-deep); }
+.mock-logo--after em{ font-style:italic; color:#2e6bff; }
 
 /* the "after" hero isn't just the same layout in nicer type — a dark,
-   immersive banner (ambient blurred gold glows drifting slowly behind
-   the text, a shine-sweep on the emphasized word, a floating trust
-   badge straddling the seam below it) is what actually reads as
-   "immersive," where the first attempt at this (same content, just
-   Fraunces + gold instead of Arial + blue) only ever read as "a
-   nicer-looking version of the same page." */
+   immersive banner (a real video behind the text, ambient blurred
+   glows drifting slowly, a shine-sweep on the emphasized word) is
+   what actually reads as "immersive," where the first attempt at this
+   (same content, just Fraunces + gold instead of Arial + blue) only
+   ever read as "a nicer-looking version of the same page." Blue/black
+   rather than the original gold — a deliberate palette swap so this
+   mock doesn't just look like a smaller copy of the real Papi hero. */
 .mock-hero--after{
   position:relative;
   overflow:visible;
-  background:radial-gradient(120% 100% at 50% 15%, #241c12 0%, #14100a 65%, #0b0906 100%);
+  background:radial-gradient(120% 100% at 50% 15%, #0d1b2e 0%, #060a10 65%, #020305 100%);
   text-align:center;
   padding:clamp(1.8rem,4.5vw,2.8rem) 1.5rem clamp(2rem,4.5vw,2.8rem);
-  color:#f3ede2;
+  color:#eaf1fb;
 }
 .mock-hero-bg{
   position:absolute;
   inset:0;
   overflow:hidden;
   pointer-events:none;
+}
+/* the real video, once one is attached at videos/plumbing-hero.mp4 —
+   until then there's simply no source to load, and .mock-hero--after's
+   own dark gradient (behind this element) shows through untouched */
+.mock-hero-video{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  /* pans the visible crop of the frame slowly from top to bottom and
+     back, on a loop independent of the video's own runtime — reads as
+     the page in the footage being scrolled down (and back up) so more
+     of the "after" template is visible over time, rather than the
+     video just sitting on one fixed crop the whole time it plays */
+  animation:mockVideoPan 14s ease-in-out infinite alternate;
+}
+@keyframes mockVideoPan{
+  0%{ object-position:50% 0%; }
+  100%{ object-position:50% 100%; }
+}
+/* darkens/evens out whatever the video actually shows so the copy and
+   CTA stay legible regardless of its own brightness/color */
+.mock-hero-overlay{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(180deg, rgba(2,4,8,.5) 0%, rgba(2,4,8,.72) 100%);
 }
 .mock-hero-glow{
   position:absolute;
@@ -703,7 +771,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   aspect-ratio:1;
   top:-22%;
   left:-12%;
-  background:radial-gradient(circle, rgba(255,205,90,.5), transparent 70%);
+  background:radial-gradient(circle, rgba(79,157,255,.45), transparent 70%);
   animation:mockGlowDrift 9s ease-in-out infinite;
 }
 .mock-hero-glow--b{
@@ -711,7 +779,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   aspect-ratio:1;
   bottom:-26%;
   right:-10%;
-  background:radial-gradient(circle, rgba(203,168,105,.38), transparent 70%);
+  background:radial-gradient(circle, rgba(46,107,255,.35), transparent 70%);
   animation:mockGlowDrift 11s ease-in-out infinite reverse;
 }
 @keyframes mockGlowDrift{
@@ -739,7 +807,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   font-weight:600;
   letter-spacing:.16em;
   text-transform:uppercase;
-  color:var(--gold-soft);
+  color:#7db2ff;
   margin-bottom:.7rem;
 }
 .mock-hero--after h3{
@@ -747,14 +815,14 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   font-weight:500;
   line-height:1.25;
   margin-bottom:.7rem;
-  color:#f9f5ec;
+  color:#f4f8ff;
 }
-/* the same metallic shine-sweep technique as .quote-form-title —
-   a moving gradient clipped to the text, not a flat gold fill */
+/* the same metallic shine-sweep technique as .quote-form-title — a
+   moving gradient clipped to the text, icy blue/white rather than gold */
 .mock-hero--after h3 em{
   font-style:italic;
   font-weight:400;
-  background:linear-gradient(100deg, #8a6a1f 0%, #ffd23f 30%, #fff6d8 50%, #ffd23f 70%, #8a6a1f 100%);
+  background:linear-gradient(100deg, #0a3d91 0%, #4f9dff 30%, #eaf4ff 50%, #4f9dff 70%, #0a3d91 100%);
   background-size:250% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -768,7 +836,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .mock-sub--after{
   font-size:.85rem;
-  color:rgba(243,237,226,.68);
+  color:rgba(234,241,251,.7);
   max-width:32ch;
   margin:0 0 1.2rem;
 }
@@ -785,15 +853,17 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   padding:.7rem 1.3rem;
   border-radius:999px;
 }
-/* the hero's own CTA sits on a dark background, so it needs the
-   light-on-dark treatment the base rule above doesn't give it —
-   glossy gold rather than the subtle bordered-pill look that reads
-   fine elsewhere on a light background */
+/* the hero's own CTA sits directly on top of a video background, so
+   it needs to hold up against arbitrary, unpredictable footage — a
+   solid, opaque, high-contrast fill reads reliably regardless of what
+   plays behind it, unlike the subtle bordered-pill look that's fine
+   over a flat light background elsewhere */
 .mock-hero--after .mock-btn--after{
-  border:1px solid rgba(228,205,154,.6);
-  background:linear-gradient(135deg, rgba(203,168,105,.32), rgba(203,168,105,.14));
-  color:#fff6d8;
-  box-shadow:0 10px 26px rgba(203,168,105,.28);
+  border:1px solid rgba(240,220,168,.55);
+  background:linear-gradient(135deg, #f5e2b3 0%, #cba869 45%, #8a6a1f 100%);
+  color:#241a04;
+  font-weight:700;
+  box-shadow:0 10px 26px rgba(0,0,0,.4);
 }
 .mock-btn--small{ font-size:.68rem; padding:.5rem 1rem; }
 
@@ -808,20 +878,20 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 .mock-stat strong{
   font-size:1.3rem;
   font-weight:600;
-  color:#fff6d8;
+  color:#eaf4ff;
   line-height:1.1;
 }
 .mock-stat span{
   font-size:.62rem;
-  color:rgba(243,237,226,.55);
+  color:rgba(234,241,251,.55);
   text-transform:uppercase;
   letter-spacing:.08em;
 }
 
-/* the "picture" side of the hero — since there's no real customer
-   photography to use, a soft gradient panel with a simple line-art
-   mark reads as an intentional, elegant visual rather than an empty
-   placeholder box, and it gently bobs rather than sitting static */
+/* the "picture" side of the hero — an actual generated photo now
+   (img/mock/plumber-handshake.jpg), with the dark gradient kept as the
+   card's own background so it still reads as an intentional framed
+   panel the instant it loads, rather than a flash of empty white */
 .mock-hero-visual{
   position:relative;
   display:flex;
@@ -832,14 +902,17 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   max-width:200px;
   aspect-ratio:4/5;
   border-radius:16px;
-  background:linear-gradient(150deg, #3a2c18 0%, #1c1509 70%);
-  display:flex;
-  align-items:center;
-  justify-content:center;
+  overflow:hidden;
+  background:linear-gradient(150deg, #16233a 0%, #060a12 70%);
   box-shadow:0 20px 50px rgba(0,0,0,.35);
   animation:mockPhotoFloat 6s ease-in-out infinite;
 }
-.mock-photo-card svg{ width:38%; height:38%; opacity:.9; }
+.mock-photo-card img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
 @keyframes mockPhotoFloat{
   0%, 100%{ transform:translateY(0); }
   50%{ transform:translateY(-8px); }
@@ -869,13 +942,23 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   width:26px;
   height:26px;
   border-radius:50%;
-  background:linear-gradient(135deg, #cba869, #8a6a1f);
+  overflow:hidden;
+  background:linear-gradient(135deg, #4f9dff, #0a3d91);
   color:#fff;
   font-size:.6rem;
   font-weight:700;
   display:flex;
   align-items:center;
   justify-content:center;
+}
+.mock-review-avatar img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  /* focuses on the face rather than the centre of the frame, which
+     for this particular photo would land between two people */
+  object-position:75% 30%;
 }
 .mock-review-stars{ display:block; color:#e0a92e; font-size:.62rem; letter-spacing:.02em; }
 .mock-review-body p{
@@ -893,21 +976,38 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   from{ opacity:0; transform:translateY(10px) scale(.94); }
   to{ opacity:1; transform:translateY(0) scale(1); }
 }
-.mock-cards--after{
-  display:flex;
-  gap:1rem;
-  padding:0 1.8rem 1.8rem;
+/* replaces the old static three-card row — an actual scrolling element
+   the visitor watches move, continuing the "immersive" idea into the
+   services area instead of stopping at the hero. Two identical copies
+   of the same pill list back to back, translated by exactly -50%,
+   is what makes the loop seamless rather than visibly snapping. */
+.mock-services-marquee{
+  overflow:hidden;
+  padding:1.1rem 0;
+  background:#04070d;
+  -webkit-mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
-.mock-card--after{
-  flex:1;
-  background:#fff;
-  border-radius:10px;
-  padding:1.1rem .8rem;
-  text-align:center;
-  font-size:.78rem;
+.mock-services-track{
+  display:flex;
+  gap:.7rem;
+  width:max-content;
+  animation:mockMarquee 16s linear infinite;
+}
+.mock-service-pill{
+  flex:none;
+  background:rgba(79,157,255,.12);
+  border:1px solid rgba(79,157,255,.35);
+  color:#cfe6ff;
+  font-size:.72rem;
   font-weight:500;
-  color:var(--paper-ink);
-  box-shadow:0 10px 26px rgba(23,24,26,.08);
+  padding:.5rem 1rem;
+  border-radius:999px;
+  white-space:nowrap;
+}
+@keyframes mockMarquee{
+  from{ transform:translateX(0); }
+  to{ transform:translateX(-50%); }
 }
 
 /* the wipe seam itself — tracks --wipe so it always sits exactly at
@@ -964,11 +1064,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   background:rgba(255,255,255,.85);
   color:#555;
 }
-.contrast-label--after{
-  right:1rem;
-  background:rgba(23,24,26,.85);
-  color:var(--gold-soft);
-}
 
 .contrast-caption{
   font-size:.8rem;
@@ -986,13 +1081,18 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
      already happening). The fix has to be making the mock's own
      content shorter, not asking for an ever-taller box. */
   .contrast-caption{ display:none; }
-  .contrast-stage{ aspect-ratio:2/4.4; }
+  /* sized to the after mock's actual content (nav + hero + services
+     marquee) plus a small buffer — taller than this just leaves empty
+     background showing below the marquee, which is exactly the "big
+     empty white space" this was tuned to remove */
+  .contrast-stage{ aspect-ratio:2/3.3; }
   .mock-before .mock-links{ display:none; }
-  .mock-cards, .mock-cards--after{ flex-direction:column; gap:.5rem; }
+  .mock-cards{ flex-direction:column; gap:.5rem; padding:0 1.2rem 1rem; }
   .mock-before .mock-hero{ padding:1.2rem 1.2rem .8rem; }
   .mock-hero--after{ padding:.8rem 1rem .5rem; }
   .mock-before .mock-nav, .mock-nav--after{ padding:.85rem 1.2rem; }
-  .mock-cards, .mock-cards--after{ padding:0 1.2rem 1rem; }
+  .mock-services-marquee{ padding:.8rem 0; }
+  .mock-service-pill{ font-size:.66rem; padding:.4rem .8rem; }
   /* the two-column hero (copy + photo/review) stacks into one column;
      the review card drops out of absolute positioning into normal
      flow, right below the photo card, rather than risking it

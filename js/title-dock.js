@@ -21,6 +21,7 @@
   const sub      = document.getElementById('heroSub');
   const cta      = document.getElementById('heroCta');
   const titleDock= document.getElementById('titleDock');
+  const siteHeader = document.getElementById('siteHeader');
   if(!heroCopy || !titleDock) return;
 
   const SCROLL_RANGE_RATIO = 0.95; // fraction of viewport height for the full transition
@@ -176,7 +177,29 @@
     heroCopy.style.transform = `translateY(${-fadeOut * 34}px)`;
     heroCopy.style.pointerEvents = fadeOut > 0.6 ? 'none' : 'auto';
 
-    titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD);
+    // the brand mark/docked label only need to flip to dark-on-light
+    // while over one of this site's white zones — the hero's own
+    // sweeping gold/black field (gold-on-gold was going invisible
+    // there), and now the contrast section, also white. Every other
+    // section has a fixed dark background, where the static gold/
+    // cream colors already read fine on their own.
+    const onHero = heroEl ? window.scrollY < heroEl.offsetHeight : false;
+    let onContrast = false;
+    if(contrastHeadingEl && contrastSectionEl){
+      const zoneTop = contrastHeadingEl.offsetTop;
+      const zoneBottom = contrastSectionEl.offsetTop + contrastSectionEl.offsetHeight;
+      onContrast = window.scrollY >= zoneTop && window.scrollY < zoneBottom;
+    }
+    document.body.classList.toggle('on-light-section', onHero || onContrast);
+
+    // on narrow screens the whole top-right cluster — brand mark and
+    // the tagline/word dock beneath it — sits right on top of the
+    // contrast section's own mock nav/CTA (there's no room for both at
+    // this width) — duck both out of the way for that stretch only,
+    // fading back in once the visitor scrolls past the section
+    const hideDockForMobileContrast = window.innerWidth <= 640 && onContrast;
+    titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileContrast);
+    if(siteHeader) siteHeader.classList.toggle('is-hidden', hideDockForMobileContrast);
 
     // pick whichever section the viewport's centre currently sits in
     if(sectionDock){
@@ -205,21 +228,6 @@
         }
       }
     }
-
-    // the brand mark/docked label only need to flip to dark-on-light
-    // while over one of this site's white zones — the hero's own
-    // sweeping gold/black field (gold-on-gold was going invisible
-    // there), and now the contrast section, also white. Every other
-    // section has a fixed dark background, where the static gold/
-    // cream colors already read fine on their own.
-    const onHero = heroEl ? window.scrollY < heroEl.offsetHeight : false;
-    let onContrast = false;
-    if(contrastHeadingEl && contrastSectionEl){
-      const zoneTop = contrastHeadingEl.offsetTop;
-      const zoneBottom = contrastSectionEl.offsetTop + contrastSectionEl.offsetHeight;
-      onContrast = window.scrollY >= zoneTop && window.scrollY < zoneBottom;
-    }
-    document.body.classList.toggle('on-light-section', onHero || onContrast);
   }
 
   // batch to one update per animation frame — this reads offsetTop/

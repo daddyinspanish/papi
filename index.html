@@ -85,10 +85,18 @@ window.scrollTo(0, 0);
           <span class="mock-logo">Anderson Plumbing</span>
           <span class="mock-links">Home&nbsp;&nbsp;&nbsp;Services&nbsp;&nbsp;&nbsp;About&nbsp;&nbsp;&nbsp;Contact</span>
         </div>
+        <div class="mock-social-row">
+          <span class="mock-social-badge mock-social-badge--myspace">myspace</span>
+          <span class="mock-social-badge mock-social-badge--tumblr">Tumblr</span>
+        </div>
         <div class="mock-hero">
           <h3>Welcome to Anderson Plumbing</h3>
           <p>We provide plumbing services for homes and businesses.</p>
           <span class="mock-btn">Contact Us</span>
+        </div>
+        <div class="mock-photo-broken">
+          <span class="mock-photo-broken-icon">🖼</span>
+          <span>No image uploaded</span>
         </div>
         <div class="mock-cards">
           <div class="mock-card">Drain Cleaning</div>
@@ -103,6 +111,14 @@ window.scrollTo(0, 0);
         </div>
         <div class="mock-hero mock-hero--after">
           <div class="mock-hero-bg">
+            <!-- drop the real file at videos/plumbing-hero.mp4 (any
+                 filename works, just update the src below) — until
+                 then this silently falls back to the dark gradient
+                 already set as .mock-hero-bg's own background -->
+            <video class="mock-hero-video" autoplay muted loop playsinline>
+              <source src="videos/plumbing-hero.mp4" type="video/mp4">
+            </video>
+            <div class="mock-hero-overlay"></div>
             <div class="mock-hero-glow mock-hero-glow--a"></div>
             <div class="mock-hero-glow mock-hero-glow--b"></div>
           </div>
@@ -125,13 +141,10 @@ window.scrollTo(0, 0);
             </div>
             <div class="mock-hero-visual">
               <div class="mock-photo-card">
-                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M32 6C32 6 14 26 14 39a18 18 0 0 0 36 0C50 26 32 6 32 6Z" stroke="#fff6d8" stroke-width="2" stroke-linejoin="round"/>
-                  <path d="M23 39a9 9 0 0 0 9 9" stroke="#ffd23f" stroke-width="2" stroke-linecap="round"/>
-                </svg>
+                <img src="img/mock/plumber-portrait.jpg" alt="" loading="lazy">
               </div>
               <div class="mock-review-float">
-                <div class="mock-review-avatar">JD</div>
+                <div class="mock-review-avatar"><img src="img/reviews/customer-1.jpg" alt="" loading="lazy"></div>
                 <div class="mock-review-body">
                   <span class="mock-review-stars">★★★★★</span>
                   <p>“Fixed our leak in under an hour. Incredible service.”</p>
@@ -141,15 +154,25 @@ window.scrollTo(0, 0);
             </div>
           </div>
         </div>
-        <div class="mock-cards mock-cards--after">
-          <div class="mock-card mock-card--after">Drain Cleaning</div>
-          <div class="mock-card mock-card--after">Water Heaters</div>
-          <div class="mock-card mock-card--after">Leak Repair</div>
+        <div class="mock-services-marquee">
+          <div class="mock-services-track">
+            <span class="mock-service-pill">Drain Cleaning</span>
+            <span class="mock-service-pill">Water Heaters</span>
+            <span class="mock-service-pill">Leak Repair</span>
+            <span class="mock-service-pill">Pipe Installation</span>
+            <span class="mock-service-pill">Emergency Service</span>
+            <span class="mock-service-pill">Bathroom Remodels</span>
+            <span class="mock-service-pill" aria-hidden="true">Drain Cleaning</span>
+            <span class="mock-service-pill" aria-hidden="true">Water Heaters</span>
+            <span class="mock-service-pill" aria-hidden="true">Leak Repair</span>
+            <span class="mock-service-pill" aria-hidden="true">Pipe Installation</span>
+            <span class="mock-service-pill" aria-hidden="true">Emergency Service</span>
+            <span class="mock-service-pill" aria-hidden="true">Bathroom Remodels</span>
+          </div>
         </div>
       </div>
       <div class="contrast-divider" id="contrastDivider"><i></i></div>
       <span class="contrast-label contrast-label--before">Outdated Website</span>
-      <span class="contrast-label contrast-label--after">Built by Papi</span>
     </div>
     <p class="contrast-caption">Scroll to reveal the difference</p>
   </div>

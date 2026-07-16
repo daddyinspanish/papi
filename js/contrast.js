@@ -19,7 +19,7 @@
   }
 
   const beforeLabel = document.querySelector('.contrast-label--before');
-  const afterLabel = document.querySelector('.contrast-label--after');
+  const afterTitle = document.querySelector('.mock-logo--after');
   const caption = document.querySelector('.contrast-caption');
 
   // the "after" mock's stat counters (Jobs Completed / Average Rating)
@@ -81,8 +81,12 @@
     const wipePct = (1 - progress) * 100;
     stage.style.setProperty('--wipe', wipePct.toFixed(2) + '%');
 
+    // "Outdated Website" fades out over the same range the after mock's
+    // own title fades in, over — a crossfade rather than two labels
+    // just independently appearing/disappearing whenever the wipe
+    // geometry happens to uncover them
     if(beforeLabel) beforeLabel.style.opacity = String(1 - smoothstep(0.55, 0.95, progress));
-    if(afterLabel) afterLabel.style.opacity = String(smoothstep(0, 0.35, progress));
+    if(afterTitle) afterTitle.style.opacity = String(smoothstep(0.55, 0.95, progress));
     if(caption) caption.style.opacity = String(1 - smoothstep(0, 0.06, progress));
 
     if(progress > 0.3) startCounters();
@@ -100,7 +104,7 @@
   if(prefersReducedMotion){
     stage.style.setProperty('--wipe', '0%');
     if(beforeLabel) beforeLabel.style.opacity = '0';
-    if(afterLabel) afterLabel.style.opacity = '1';
+    if(afterTitle) afterTitle.style.opacity = '1';
     if(caption) caption.style.opacity = '0';
     counters.forEach(el=>{
       const target = Number(el.dataset.target || '0');
