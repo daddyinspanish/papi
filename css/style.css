@@ -600,11 +600,16 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   color:var(--gold-deep);
   margin-bottom:.9rem;
 }
+/* Space Grotesk, not Fraunces — a firmer, more confident sans rather
+   than the softer editorial serif everything else near here uses;
+   already loaded elsewhere on the page (the testimonials heading) so
+   this doesn't add another font fetch */
 .contrast-heading{
-  font-family:'Fraunces', serif;
-  font-weight:500;
-  font-size:clamp(1.6rem, 3.6vw, 2.5rem);
-  line-height:1.35;
+  font-family:'Space Grotesk', 'Inter', sans-serif;
+  font-weight:700;
+  letter-spacing:-.01em;
+  font-size:clamp(1.5rem, 3.4vw, 2.35rem);
+  line-height:1.3;
   max-width:640px;
   margin:0 auto;
   color:var(--paper-ink);
@@ -669,11 +674,16 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   100%{ box-shadow:0 0 0 0 rgba(138,106,31,0); }
 }
 .contrast-scroll-cue-label{
-  font-size:.7rem;
-  font-weight:600;
+  font-size:clamp(.92rem, 2.1vw, 1.08rem);
+  font-weight:700;
   letter-spacing:.12em;
   text-transform:uppercase;
-  color:var(--paper-dim);
+  color:var(--gold-deep);
+  animation:contrastCueBlink 1.1s ease-in-out infinite;
+}
+@keyframes contrastCueBlink{
+  0%, 100%{ opacity:1; }
+  50%{ opacity:.32; }
 }
 
 /* wraps the stage-title + the stage itself so they stack as one flex
@@ -1350,18 +1360,16 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   width:clamp(210px, 22vw, 300px);
   height:clamp(280px, 29vw, 400px);
   border-radius:18px;
-  /* backdrop-filter used to sit here on the base rule, applied to all
-     8 cards in the fan at once — each one also getting a fresh
-     transform written by showcase.js on every scroll frame. That's a
-     severe, well-documented performance cliff on iOS WebKit (Safari
-     AND Chrome-on-iOS, since both use the same engine there) — nothing
-     like it shows up on desktop Chromium, which is exactly why this
-     went unnoticed until testing on an actual iPhone. Restricted below
-     to just the one active/expanded card; the other 7 (smaller,
-     rotated, receding into the fan) get a plain solid tint instead —
-     no glass distortion, but no per-frame backdrop recompositing
-     across 8 layers either. */
-  background:rgba(255,255,255,.07);
+  /* backdrop-filter removed everywhere on this card (it briefly lived
+     on .is-active/.is-expanded only) — that was still a real WebKit
+     cliff: dynamically ADDING backdrop-filter to a newly-expanding,
+     position:fixed card forces an expensive synchronous layer/backdrop
+     creation right at the moment of the tap, which is what showed up
+     as a several-second freeze (and the card appearing to just vanish
+     instead of opening) specifically on iPhone. A gradient tint gives
+     it some depth without ever sampling anything behind it, at any
+     card count or interaction. */
+  background:linear-gradient(160deg, rgba(255,255,255,.13), rgba(255,255,255,.05));
   border:1px solid rgba(255,255,255,.22);
   box-shadow:0 30px 70px -26px rgba(0,0,0,.6), 0 0 30px rgba(255,255,255,.06);
   overflow:hidden;
@@ -1384,12 +1392,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .fan-card:hover{ box-shadow:0 34px 80px -24px rgba(0,0,0,.7), 0 0 30px rgba(255,255,255,.1); }
 .fan-card.is-active{
-  /* the frosted-glass look lives here now instead of on the base rule
-     — only ever one card at a time, so at most one backdrop-filter
-     layer exists, rather than all 8 permanently */
-  background:rgba(255,255,255,.1);
-  backdrop-filter:blur(22px) saturate(160%);
-  -webkit-backdrop-filter:blur(22px) saturate(160%);
+  background:linear-gradient(160deg, rgba(255,255,255,.2), rgba(255,255,255,.08));
   border-color:rgba(255,255,255,.45);
   box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.25);
   /* a slow breathing glow, so the front card feels alive rather than
@@ -1421,9 +1424,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
      can be expanded by clicking any card in the fan, not only the one
      currently front-and-center, so the two classes don't always
      coincide */
-  background:rgba(255,255,255,.1);
-  backdrop-filter:blur(22px) saturate(160%);
-  -webkit-backdrop-filter:blur(22px) saturate(160%);
+  background:linear-gradient(160deg, rgba(255,255,255,.2), rgba(255,255,255,.08));
   box-shadow:0 60px 140px -20px rgba(0,0,0,.85), 0 0 0 1.5px rgba(255,255,255,.6), 0 0 60px 6px rgba(255,255,255,.32);
   animation:none;
 }
@@ -1626,6 +1627,11 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   line-height:1.6;
   max-width:42ch;
   color:var(--cream);
+  /* smooths the scroll-driven fade-out js/showcase.js writes every
+     frame (raw scroll steps, not one per pixel) into something that
+     reads as a continuous fade rather than a choppy stepped one, and
+     also softens the instant hide/restore when a card expands/collapses */
+  transition:opacity .25s var(--ease-out);
 }
 /* a slow, smooth breathing glow once the title has fully settled into
    place (js/showcase.js toggles this class once its entrance reaches

@@ -283,7 +283,12 @@
       if(emCursorEl) emCursorEl.classList.toggle('is-typing', typeT > 0 && typeT < 1);
     }
     if(introCue){
-      const s = fadeThrough(progress, 0.48, 0.54, 0.56, 0.62, 10, 14);
+      // widened considerably (was 0.48-0.62, a ~14%-of-progress window
+      // that held at full opacity for barely 2% of it before fading
+      // back out) — scrolling at any normal speed was passing straight
+      // through it. Starts a beat earlier, now holds at full opacity
+      // for a real stretch, and fades out later.
+      const s = fadeThrough(progress, 0.42, 0.5, 0.64, 0.72, 10, 14);
       introCue.style.opacity = String(s.opacity);
       introCue.style.transform = `translateY(${s.y.toFixed(1)}px)`;
     }

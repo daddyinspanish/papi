@@ -384,6 +384,17 @@
     const progress = Math.max(0, Math.min(1, rawProgress));
     const activeFloat = progress * (n - 1);
 
+    // the mission-statement title only needs to be read once, right as
+    // the section settles in — it fades out fairly early into the
+    // card-by-card scroll (rather than sitting at full opacity for the
+    // entire section) so it stops competing with the fan for attention,
+    // and is hidden outright while a card is expanded (nothing about an
+    // enlarged live-site preview needs a title floating above it)
+    if(titleEl){
+      const titleFadeOut = smoothstep(0.1, 0.32, progress);
+      titleEl.style.opacity = expandedIndex !== null ? '0' : (1 - titleFadeOut).toFixed(3);
+    }
+
     // the fan's pop is toned down on narrow screens — full pop plus the
     // fixed-height mobile fan container was pushing the active card's
     // top edge above the viewport (looked like it was cut off by the
@@ -407,6 +418,13 @@
       const ty = lerp(26, minTy, blend);
 
       if(i === expandedIndex){
+        // cleared in case this exact card was hidden behind a
+        // *different* expanded card earlier (see the branch below,
+        // which sets transition:none for an instant hide) — without
+        // this, that leftover inline override would silently kill this
+        // card's own smooth grow-into-place transition the next time
+        // it's the one being expanded
+        card.style.transition = '';
         // fixed + centered in the viewport (see .fan-card.is-expanded)
         // rather than scaled up in place, so it's centered on-screen
         // wherever the visitor currently is. Vertically centered in
@@ -470,7 +488,14 @@
         // fully hidden (not just faded/angled away) while another card
         // is expanded — leaving them at their normal fan opacity meant
         // a neighboring card could still peek out from around/behind
-        // the expanded one, reading as visual clutter under its name
+        // the expanded one, reading as visual clutter under its name.
+        // transition:none forces that hide to be instant rather than
+        // fading over the stylesheet's own .3s — this card is still
+        // sitting at its old (rotated, off-centre) fan transform, which
+        // isn't concentric with the expanded card's centered position,
+        // so during that .3s fade it was visibly poking out past the
+        // expanded card's edges instead of being covered by it.
+        card.style.transition = 'none';
         card.style.top = '';
         card.style.width = '';
         card.style.height = '';
@@ -482,7 +507,10 @@
         // plain CSS (the fan spread relies on the flex parent's
         // alignment plus a much smaller transform:scale for its static
         // position/size), so stale values left set would misplace or
-        // wrongly size it here
+        // wrongly size it here. transition restored (cleared above
+        // while hidden behind an expanded card) so the normal fan's own
+        // transform/opacity animations work again.
+        card.style.transition = '';
         card.style.top = '';
         card.style.width = '';
         card.style.height = '';
