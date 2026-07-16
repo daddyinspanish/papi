@@ -203,14 +203,19 @@ body, a, .cta{ cursor:none; }
   transition:opacity 1.4s ease;
 }
 #heroSlime.is-visible{ opacity:1; }
-/* js/hero-slime.js's handoff mode — once hero's own box has scrolled
-   fully past, position:absolute inside it is off-screen too, so this
-   switches to viewport-relative for the brief scroll distance the
-   mass takes to fade out into the next section. transition:none since
-   that fade-out opacity is set directly, every frame, from scroll
-   position — the 1.4s reveal transition above would otherwise lag it
-   into a smeared mismatch against the actual scroll position. */
-#heroSlime.is-handoff{ position:fixed; z-index:0; transition:none; }
+/* js/hero-slime.js reparents the canvas into .contrast-sticky while
+   that section is on screen (position:absolute there works exactly
+   like it does inside #hero — .contrast-sticky is position:sticky,
+   which is a positioned element same as #hero's position:relative) so
+   the mass keeps wandering there instead of just fading out at the
+   boundary. z-index:1 keeps it above that section's own background
+   (.contrast-intro/.contrast-stage are both z-index:2, above this) —
+   only needed while roaming there, since inside #hero the plain DOM
+   order already puts it behind .hero-content with no z-index at all.
+   transition:none since the exit fade near the end of that section is
+   set directly, every frame, from scroll position — the 1.4s reveal
+   transition above would otherwise lag it into a smeared mismatch. */
+#heroSlime.is-roaming{ z-index:1; transition:none; }
 
 /* ---- header / brand mark — fixed, always top right ---- */
 .site-header{
@@ -539,11 +544,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 .contrast-section{
   position:relative;
   height:320vh;
-  /* transparent for the same 30vh js/hero-slime.js's handoff mode
-     takes to fade the hero mass out — lets it show through for that
-     brief window instead of hard-cutting behind this section's own
-     opaque backdrop the instant it's reached; solid for the rest */
-  background:linear-gradient(180deg, transparent 0, #f2efe8 30vh, #f2efe8 100%);
+  background:#f2efe8;
   z-index:1;
 }
 .contrast-sticky{
@@ -631,6 +632,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 
 .contrast-stage{
   position:relative;
+  z-index:2;
   width:min(980px, 90vw);
   aspect-ratio:16/10;
   border-radius:16px;

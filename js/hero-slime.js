@@ -47,6 +47,8 @@ import * as THREE from './vendor/three.module.min.js';
   const canvas = document.getElementById('heroSlime');
   if(!canvas) return;
   const heroEl = document.getElementById('hero');
+  const contrastSectionEl = document.getElementById('contrastSection');
+  const contrastStickyEl = contrastSectionEl ? contrastSectionEl.querySelector('.contrast-sticky') : null;
 
   // ===================================================================
   // CONFIG — the knobs asked for, gathered in one place. Everything
@@ -579,54 +581,61 @@ import * as THREE from './vendor/three.module.min.js';
     renderer.render(scene, camera);
   }
 
-  // scaled-down "roam" past the hero: rather than the mass just
-  // vanishing the instant hero's own box scrolls out of view, it
-  // persists for a further HANDOFF_RATIO of one viewport height,
-  // fading out over that stretch — a soft dissolve into the next
-  // section instead of a hard cut at hero's bottom edge. Kept
-  // deliberately short (well under one screen) and it's *only* this
-  // fade-out tail, not a permanent site-wide field, to keep the actual
-  // GPU cost bounded to a brief, predictable window rather than an
-  // always-on layer behind the whole page.
-  const HANDOFF_RATIO = 0.30;
+  // the mass doesn't just belong to the hero — it follows the visitor
+  // into the contrast section too, reparented (the same "move the real
+  // node, don't duplicate the effect" trick showcase.js already uses
+  // for its expanded card/quote) into that section's own sticky so it
+  // keeps wandering there, at full opacity, for the whole time that
+  // section is pinned — not a brief fade-out tail. It only fades right
+  // at the very end, in the last EXIT_FADE_RATIO of one viewport
+  // height, as the sticky itself is about to let go into showcase.
+  // Reparenting is what makes this cheap: it's still the one canvas,
+  // one WebGL context, one simulation the whole time — never two
+  // instances running at once — so the extra cost is exactly the cost
+  // of rendering while the contrast section is on screen, not more.
+  const EXIT_FADE_RATIO = 0.28;
+  let zone = 'hero'; // 'hero' | 'contrast' | 'gone'
 
   function loop(ts){
     if(!revealed){ rafId = requestAnimationFrame(loop); return; }
 
-    let heroVisible = true;
-    let inHandoff = false;
-    let handoffOpacity = 0;
-    if(heroEl){
-      const r = heroEl.getBoundingClientRect();
-      heroVisible = r.bottom > 0 && r.top < window.innerHeight;
-      if(!heroVisible && r.bottom <= 0){
-        const handoffPx = window.innerHeight * HANDOFF_RATIO;
-        const pastPx = -r.bottom;
-        if(pastPx < handoffPx){
-          inHandoff = true;
-          handoffOpacity = 1 - pastPx / handoffPx;
-        }
+    const heroRect = heroEl ? heroEl.getBoundingClientRect() : null;
+    const inHero = heroRect ? heroRect.bottom > 0 : false;
+
+    let inContrast = false;
+    let exitOpacity = 1;
+    if(!inHero && contrastStickyEl){
+      const cRect = contrastSectionEl.getBoundingClientRect();
+      if(cRect.bottom > 0){
+        inContrast = true;
+        const exitPx = window.innerHeight * EXIT_FADE_RATIO;
+        if(cRect.bottom < exitPx) exitOpacity = Math.max(0, cRect.bottom / exitPx);
       }
     }
 
-    // the canvas is position:absolute within #hero for as long as
-    // hero's own box is what should be showing it (identical to
-    // before this existed); once hero has scrolled fully past, an
-    // absolute box inside an off-screen ancestor is off-screen too, so
-    // handoff mode switches it to position:fixed (full-viewport,
-    // see .is-handoff in style.css) purely for that brief fade-out
-    // window, then it's irrelevant again once fully faded
-    if(canvas.classList.contains('is-handoff') !== inHandoff){
-      canvas.classList.toggle('is-handoff', inHandoff);
+    const nextZone = inHero ? 'hero' : (inContrast ? 'contrast' : 'gone');
+    if(nextZone !== zone){
+      if(nextZone === 'contrast' && contrastStickyEl){
+        contrastStickyEl.insertBefore(canvas, contrastStickyEl.firstChild);
+        canvas.classList.add('is-roaming');
+      } else if(nextZone === 'hero' && heroEl){
+        heroEl.insertBefore(canvas, heroEl.firstChild);
+        canvas.classList.remove('is-roaming');
+      }
+      // 'gone': leave it parked wherever it last was — paused and
+      // faded to nothing, so its parent no longer matters until the
+      // visitor scrolls back up into one of the other two zones
+      zone = nextZone;
       resize();
     }
-    if(inHandoff){
-      canvas.style.opacity = String(handoffOpacity);
-    } else if(heroVisible && canvas.style.opacity){
+
+    if(zone === 'contrast'){
+      canvas.style.opacity = String(exitOpacity);
+    } else if(zone === 'hero' && canvas.style.opacity){
       canvas.style.opacity = ''; // hand control back to the .is-visible class's own transition
     }
 
-    if(!heroVisible && !inHandoff){ rafId = requestAnimationFrame(loop); return; }
+    if(zone === 'gone'){ rafId = requestAnimationFrame(loop); return; }
 
     const dt = lastTs === null ? 16.6667 : Math.min(ts - lastTs, CONFIG.maxDt);
     lastTs = ts;
