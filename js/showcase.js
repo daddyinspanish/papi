@@ -27,6 +27,16 @@
     return t * t * (3 - 2 * t);
   }
 
+  // a small buzz each time the active trade changes — iOS doesn't
+  // support the Vibration API at all (Safari has never implemented it,
+  // and every browser on iOS is WebKit underneath, so that's true for
+  // Chrome-on-iOS too), so this is silently a no-op there; it's a real,
+  // felt effect on Android Chrome/Firefox, which do support it
+  const canVibrate = 'vibrate' in navigator;
+  function hapticTick(){
+    if(canVibrate) navigator.vibrate(12);
+  }
+
   // the whole sticky content (eyebrow, trade names, fan of cards) rises
   // and fades in together as the section approaches from below, tied
   // directly to scroll position rather than a fixed-duration animation
@@ -361,6 +371,10 @@
   // first call, well before the section is ever scrolled to, still
   // lays everything out correctly) and skip every redundant call after.
   let pinnedLow = false, pinnedHigh = false;
+  // null (not 0) so the very first computation only sets the baseline
+  // instead of firing a buzz on page load, before the visitor has
+  // actually scrolled from one trade to another
+  let lastHapticIndex = null;
 
   function update(){
     const sectionTop = section.offsetTop;
@@ -391,6 +405,15 @@
 
     const progress = Math.max(0, Math.min(1, rawProgress));
     const activeFloat = progress * (n - 1);
+
+    // one small buzz per trade crossed, not one per scroll frame — only
+    // while actually browsing the fan (not while a card is expanded,
+    // where scroll is locked anyway and activeFloat can't change)
+    if(expandedIndex === null){
+      const nearestIndex = Math.round(activeFloat);
+      if(lastHapticIndex !== null && nearestIndex !== lastHapticIndex) hapticTick();
+      lastHapticIndex = nearestIndex;
+    }
 
     // the mission-statement title only needs to be read once, right as
     // the section settles in — it fades out fairly early into the
