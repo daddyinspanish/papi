@@ -245,6 +245,30 @@ window.scrollTo(0, 0);
   </div>
 </section>
 
+<!-- ============ LIVE DEMOS — real, live, scrollable embeds of sites
+     Papi has actually built (not screenshots or mockups) — swipe to
+     browse more than one, scroll *inside* the window itself to
+     explore that actual live site. Cards are built by js/live-demo.js
+     from a small data array, so adding another demo later is just
+     appending to it. ============ -->
+<section class="live-demo-section" id="liveDemoSection">
+  <div class="live-demo-inner">
+    <p class="live-demo-eyebrow">See It Live</p>
+    <h2 class="live-demo-title">Not a screenshot. <em>The real site.</em></h2>
+    <p class="live-demo-sub">Scroll inside the window below — it's the actual live website, not a mockup.</p>
+    <div class="live-demo-stack" id="liveDemoStack"></div>
+    <div class="live-demo-controls" id="liveDemoControls">
+      <button type="button" class="live-demo-arrow" id="liveDemoPrev" aria-label="Previous demo">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="live-demo-dots" id="liveDemoDots"></div>
+      <button type="button" class="live-demo-arrow" id="liveDemoNext" aria-label="Next demo">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+</section>
+
 <!-- ============ TESTIMONIALS — businesses across industries, swipe
      left/right to browse (independent of scrolling down the page) ============ -->
 <section class="testimonials-section" id="testimonialsSection">
@@ -527,6 +551,7 @@ window.scrollTo(0, 0);
 <script src="js/showcase.js"></script>
 <script src="js/testimonials.js"></script>
 <script src="js/comparison-chart.js"></script>
+<script src="js/live-demo.js"></script>
 <script src="js/faq.js"></script>
 <script src="js/quote-form.js"></script>
 <script src="js/newsletter-popup.js"></script>

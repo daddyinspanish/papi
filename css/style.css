@@ -2828,3 +2828,222 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   background:none;
   padding:0;
 }
+
+/* ===================================================================
+   LIVE DEMOS — real, live iframe embeds of sites Papi has actually
+   built (not screenshots) inside a browser-chrome-style frame; the
+   visitor scrolls *inside* the frame to explore the real site. Cards
+   are built by js/live-demo.js from a small data array — same
+   swipeable-row pattern as .testimonial-stack (native horizontal
+   scroll-snap, centered via side padding rather than justify-content,
+   which stays reachable-from-the-first-pixel regardless of item count
+   — justify-content:center on an overflowing flex row is a documented
+   cross-browser scroll trap that can strand content before the
+   visible start unreachable).
+=================================================================== */
+.live-demo-section{
+  position:relative;
+  z-index:1;
+  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
+  padding:clamp(3.5rem, 8vw, 6rem) 0;
+}
+.live-demo-inner{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:clamp(1.2rem, 3vw, 2rem);
+  padding:0 1.5rem;
+  text-align:center;
+  opacity:0;
+  will-change:opacity, transform;
+}
+.live-demo-eyebrow{
+  font-size:.76rem;
+  letter-spacing:.38em;
+  text-transform:uppercase;
+  color:#ffdd7a;
+}
+.live-demo-title{
+  font-family:'Fraunces', serif;
+  font-weight:400;
+  font-size:clamp(1.9rem, 4.4vw, 2.8rem);
+  line-height:1.15;
+  color:var(--cream);
+}
+.live-demo-title em{
+  font-style:italic;
+  color:#ffdd7a;
+}
+.live-demo-sub{
+  max-width:520px;
+  margin-top:-.6rem;
+  color:rgba(243,237,226,.68);
+  font-size:1rem;
+  line-height:1.5;
+}
+
+.live-demo-stack{
+  position:relative;
+  z-index:1;
+  width:100%;
+  max-width:1100px;
+  display:flex;
+  gap:clamp(1.2rem, 3vw, 2rem);
+  overflow-x:auto;
+  scroll-snap-type:x mandatory;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  padding:.5rem clamp(1.5rem, 8vw, 12vw) 1.5rem;
+}
+.live-demo-stack::-webkit-scrollbar{ display:none; }
+
+.live-demo-card{
+  flex:0 0 auto;
+  width:min(92vw, 640px);
+  scroll-snap-align:center;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.live-demo-browser{
+  width:100%;
+  border-radius:16px;
+  overflow:hidden;
+  background:#0d0d10;
+  border:1px solid rgba(255,221,122,.16);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
+}
+.live-demo-browser-bar{
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  padding:.65rem .9rem;
+  background:rgba(255,221,122,.06);
+}
+.live-demo-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:rgba(255,221,122,.22);
+  flex:0 0 auto;
+}
+.live-demo-url{
+  flex:1;
+  margin-left:.4rem;
+  font-size:.72rem;
+  color:rgba(243,237,226,.55);
+  background:rgba(255,255,255,.04);
+  border-radius:999px;
+  padding:.3em .9em;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+/* fixed clamp rather than a tall vh-multiplied value — this only sets
+   the iframe's own height, not anything that defines the page's total
+   scroll distance, so it doesn't carry the same in-app-browser risk
+   the site's tall sticky sections had to be fixed for elsewhere */
+.live-demo-frame-wrap{
+  position:relative;
+  width:100%;
+  height:clamp(420px, 70vh, 640px);
+  background:#fff;
+}
+.live-demo-iframe{
+  width:100%;
+  height:100%;
+  border:0;
+  display:block;
+  background:#fff;
+}
+/* shown in place of the iframe until it's actually scrolled near —
+   see js/live-demo.js's lazy-load — so the frame never sits blank-white
+   for a beat while the real site's own network request is in flight */
+.live-demo-loading{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:.8rem;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:rgba(15,31,61,.4);
+  background:#f8f6f2;
+  transition:opacity .4s ease;
+}
+.live-demo-card.is-loaded .live-demo-loading{
+  opacity:0;
+  pointer-events:none;
+}
+
+.live-demo-name{
+  margin-top:1.1rem;
+  font-family:'Fraunces', serif;
+  font-size:1.1rem;
+  color:var(--cream);
+}
+.live-demo-industry{
+  font-size:.72rem;
+  letter-spacing:.28em;
+  text-transform:uppercase;
+  color:rgba(243,237,226,.5);
+  margin-top:.3rem;
+}
+.live-demo-visit{
+  margin-top:.8rem;
+  font-size:.85rem;
+  color:#ffdd7a;
+  text-decoration:none;
+  border-bottom:1px solid rgba(255,221,122,.4);
+  padding-bottom:2px;
+  cursor:none;
+  transition:border-color .3s var(--ease-out);
+}
+.live-demo-visit:hover{ border-color:transparent; }
+
+.live-demo-controls{
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:center;
+  gap:1.4rem;
+}
+.live-demo-arrow{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:38px; height:38px;
+  border-radius:50%;
+  border:1px solid rgba(243,237,226,.25);
+  background:transparent;
+  color:rgba(243,237,226,.8);
+  cursor:none;
+  transition:border-color .3s var(--ease-out), color .3s var(--ease-out), background .3s var(--ease-out);
+}
+.live-demo-arrow:hover{ border-color:#ffdd7a; color:#ffdd7a; background:rgba(255,221,122,.08); }
+@media (hover:none), (pointer:coarse){ .live-demo-arrow{ display:none; } }
+/* hidden outright with a single demo — no point browsing a list of one */
+.live-demo-controls.is-single{ display:none; }
+
+.live-demo-dots{
+  display:flex;
+  gap:.55rem;
+  align-items:center;
+}
+.live-demo-dot-btn{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  border:none;
+  padding:0;
+  background:rgba(243,237,226,.25);
+  cursor:none;
+  transition:background .35s var(--ease-out), width .35s var(--ease-out);
+}
+.live-demo-dot-btn:hover{ background:rgba(243,237,226,.5); }
+.live-demo-dot-btn.is-active{
+  width:22px;
+  border-radius:5px;
+  background:#ffdd7a;
+}

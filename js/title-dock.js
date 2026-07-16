@@ -157,6 +157,7 @@
     { el: contrastSectionEl, word: 'Difference', top: 0, bottom: 0 },
     { el: showcaseEl, word: 'Industries', top: 0, bottom: 0 },
     { el: document.getElementById('comparisonSection'), word: 'Results', top: 0, bottom: 0 },
+    { el: document.getElementById('liveDemoSection'), word: 'Live', top: 0, bottom: 0 },
     { el: document.getElementById('testimonialsSection'), word: 'Proof', top: 0, bottom: 0 },
   ];
   let currentDockWord = null;
