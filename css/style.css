@@ -203,6 +203,14 @@ body, a, .cta{ cursor:none; }
   transition:opacity 1.4s ease;
 }
 #heroSlime.is-visible{ opacity:1; }
+/* js/hero-slime.js's handoff mode — once hero's own box has scrolled
+   fully past, position:absolute inside it is off-screen too, so this
+   switches to viewport-relative for the brief scroll distance the
+   mass takes to fade out into the next section. transition:none since
+   that fade-out opacity is set directly, every frame, from scroll
+   position — the 1.4s reveal transition above would otherwise lag it
+   into a smeared mismatch against the actual scroll position. */
+#heroSlime.is-handoff{ position:fixed; z-index:0; transition:none; }
 
 /* ---- header / brand mark — fixed, always top right ---- */
 .site-header{
@@ -531,7 +539,11 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 .contrast-section{
   position:relative;
   height:320vh;
-  background:#f2efe8;
+  /* transparent for the same 30vh js/hero-slime.js's handoff mode
+     takes to fade the hero mass out — lets it show through for that
+     brief window instead of hard-cutting behind this section's own
+     opaque backdrop the instant it's reached; solid for the rest */
+  background:linear-gradient(180deg, transparent 0, #f2efe8 30vh, #f2efe8 100%);
   z-index:1;
 }
 .contrast-sticky{
@@ -558,9 +570,9 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:center;
+  justify-content:flex-start;
   text-align:center;
-  padding:0 1.5rem;
+  padding:clamp(4rem, 12vh, 7rem) 1.5rem 0;
   pointer-events:none;
 }
 .contrast-eyebrow{

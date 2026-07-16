@@ -579,15 +579,54 @@ import * as THREE from './vendor/three.module.min.js';
     renderer.render(scene, camera);
   }
 
+  // scaled-down "roam" past the hero: rather than the mass just
+  // vanishing the instant hero's own box scrolls out of view, it
+  // persists for a further HANDOFF_RATIO of one viewport height,
+  // fading out over that stretch — a soft dissolve into the next
+  // section instead of a hard cut at hero's bottom edge. Kept
+  // deliberately short (well under one screen) and it's *only* this
+  // fade-out tail, not a permanent site-wide field, to keep the actual
+  // GPU cost bounded to a brief, predictable window rather than an
+  // always-on layer behind the whole page.
+  const HANDOFF_RATIO = 0.30;
+
   function loop(ts){
     if(!revealed){ rafId = requestAnimationFrame(loop); return; }
 
     let heroVisible = true;
+    let inHandoff = false;
+    let handoffOpacity = 0;
     if(heroEl){
       const r = heroEl.getBoundingClientRect();
       heroVisible = r.bottom > 0 && r.top < window.innerHeight;
+      if(!heroVisible && r.bottom <= 0){
+        const handoffPx = window.innerHeight * HANDOFF_RATIO;
+        const pastPx = -r.bottom;
+        if(pastPx < handoffPx){
+          inHandoff = true;
+          handoffOpacity = 1 - pastPx / handoffPx;
+        }
+      }
     }
-    if(!heroVisible){ rafId = requestAnimationFrame(loop); return; }
+
+    // the canvas is position:absolute within #hero for as long as
+    // hero's own box is what should be showing it (identical to
+    // before this existed); once hero has scrolled fully past, an
+    // absolute box inside an off-screen ancestor is off-screen too, so
+    // handoff mode switches it to position:fixed (full-viewport,
+    // see .is-handoff in style.css) purely for that brief fade-out
+    // window, then it's irrelevant again once fully faded
+    if(canvas.classList.contains('is-handoff') !== inHandoff){
+      canvas.classList.toggle('is-handoff', inHandoff);
+      resize();
+    }
+    if(inHandoff){
+      canvas.style.opacity = String(handoffOpacity);
+    } else if(heroVisible && canvas.style.opacity){
+      canvas.style.opacity = ''; // hand control back to the .is-visible class's own transition
+    }
+
+    if(!heroVisible && !inHandoff){ rafId = requestAnimationFrame(loop); return; }
 
     const dt = lastTs === null ? 16.6667 : Math.min(ts - lastTs, CONFIG.maxDt);
     lastTs = ts;
