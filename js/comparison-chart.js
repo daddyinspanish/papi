@@ -47,4 +47,36 @@
   } else {
     reveal();
   }
+
+  // IntersectionObserver only reports a crossing the browser actually
+  // renders a frame for — a fast enough scroll (a hard flick, or just
+  // a struggling/thermally-throttled phone rendering fewer frames per
+  // second) can jump straight past the 0.35 threshold without ever
+  // painting the in-between moment, leaving the observer's callback
+  // never fired and this chart stuck at its default (flat bars, 0%
+  // stats) state for the rest of the visit — confirmed directly: a
+  // single scrollTo() past this section skips the observer entirely.
+  // That's exactly what showed up as "the numbers section is blank
+  // until scrolling back up into it." This plain scroll fallback checks
+  // the section's actual on-screen position directly instead of
+  // relying on the observer ever getting a chance to fire, and removes
+  // itself once revealed, so it costs nothing for the rest of the visit.
+  if(!revealed){
+    let ticking = false;
+    function checkFallback(){
+      ticking = false;
+      if(revealed) return;
+      // true once the section has been reached OR scrolled past
+      // entirely — revealing something already off-screen is harmless
+      if(section.getBoundingClientRect().top < window.innerHeight) reveal();
+      if(revealed) window.removeEventListener('scroll', onScroll);
+    }
+    function onScroll(){
+      if(ticking) return;
+      ticking = true;
+      requestAnimationFrame(checkFallback);
+    }
+    window.addEventListener('scroll', onScroll, { passive:true });
+    checkFallback();
+  }
 })();

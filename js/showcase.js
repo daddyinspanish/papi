@@ -249,14 +249,20 @@
         fanEl.appendChild(phraseEl);
       }
     }
-    // documentElement only — matching the cube section's own
-    // face-focus lock, a user-triggered, briefly-held lock rather
-    // than the hero's automatic-on-scroll one (which needs body too
-    // for iOS touch-scroll coverage; see title-dock.js).
+    // window.Papi.lockScroll/unlockScroll (js/accent.js) rather than a
+    // plain classList.add('scroll-lock') here — a bare overflow:hidden
+    // isn't enough to actually stop iOS Safari's own touch-driven
+    // momentum scrolling; a stray touch can still drag the page while
+    // "locked," and the snap-back once that drag ended read as the
+    // whole page pausing/freezing right as a card was expanded. accent.js's
+    // version additionally intercepts the touchmove/wheel input itself,
+    // which is what actually stops that. It only touches
+    // document.documentElement (not body), so it doesn't conflict with
+    // the expanded card's own position:fixed centering below.
     if(i !== null && !wasExpanded){
-      document.documentElement.classList.add('scroll-lock');
+      window.Papi.lockScroll();
     } else if(i === null && wasExpanded){
-      document.documentElement.classList.remove('scroll-lock');
+      window.Papi.unlockScroll();
     }
     requestUpdate();
   }
