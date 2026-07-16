@@ -519,9 +519,13 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   padding:.95rem 1.8rem;
   border-radius:999px;
   border:1px solid rgba(var(--style-contrast),.55);
-  background:rgba(var(--accent),.16);
-  backdrop-filter:blur(10px) saturate(150%);
-  -webkit-backdrop-filter:blur(10px) saturate(150%);
+  /* backdrop-filter used to sit here — continuously re-composited by
+     title-dock.js's magnetic-pull loop, which writes a fresh transform
+     on this element every frame from the moment the page loads, for as
+     long as the hero is on screen. Combined with backdrop-filter that's
+     a real, sustained cost specifically on iOS WebKit. A slightly
+     stronger flat tint instead, no blur sampling needed. */
+  background:rgba(var(--accent),.22);
   font-size:.85rem;
   letter-spacing:.08em;
   text-transform:uppercase;
@@ -899,17 +903,21 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   inset:0;
   background:linear-gradient(180deg, rgba(2,4,8,.5) 0%, rgba(2,4,8,.72) 100%);
 }
+/* filter:blur() removed — even while contrast.js pauses the drift
+   keyframe below once scrolled out of view, the blur filter itself
+   still costs a WebKit recomposite on every frame the drift animation
+   IS running (the whole time this section is actually being viewed).
+   Multiple gradient stops give the same soft glow without it. */
 .mock-hero-glow{
   position:absolute;
   border-radius:50%;
-  filter:blur(34px);
 }
 .mock-hero-glow--a{
   width:60%;
   aspect-ratio:1;
   top:-22%;
   left:-12%;
-  background:radial-gradient(circle, rgba(79,157,255,.45), transparent 70%);
+  background:radial-gradient(circle, rgba(79,157,255,.32) 0%, rgba(79,157,255,.16) 35%, rgba(79,157,255,.05) 60%, transparent 80%);
   animation:mockGlowDrift 9s ease-in-out infinite;
 }
 .mock-hero-glow--b{
@@ -917,7 +925,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   aspect-ratio:1;
   bottom:-26%;
   right:-10%;
-  background:radial-gradient(circle, rgba(46,107,255,.35), transparent 70%);
+  background:radial-gradient(circle, rgba(46,107,255,.26) 0%, rgba(46,107,255,.13) 35%, rgba(46,107,255,.04) 60%, transparent 80%);
   animation:mockGlowDrift 11s ease-in-out infinite reverse;
 }
 @keyframes mockGlowDrift{
@@ -1342,12 +1350,18 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   width:clamp(210px, 22vw, 300px);
   height:clamp(280px, 29vw, 400px);
   border-radius:18px;
-  /* a frosted, "Safari blurred" glass look — translucent white over
-     whatever's behind it, with a soft white glow, rather than the
-     previous flat dark tint with a gold border */
-  background:rgba(255,255,255,.1);
-  backdrop-filter:blur(22px) saturate(160%);
-  -webkit-backdrop-filter:blur(22px) saturate(160%);
+  /* backdrop-filter used to sit here on the base rule, applied to all
+     8 cards in the fan at once — each one also getting a fresh
+     transform written by showcase.js on every scroll frame. That's a
+     severe, well-documented performance cliff on iOS WebKit (Safari
+     AND Chrome-on-iOS, since both use the same engine there) — nothing
+     like it shows up on desktop Chromium, which is exactly why this
+     went unnoticed until testing on an actual iPhone. Restricted below
+     to just the one active/expanded card; the other 7 (smaller,
+     rotated, receding into the fan) get a plain solid tint instead —
+     no glass distortion, but no per-frame backdrop recompositing
+     across 8 layers either. */
+  background:rgba(255,255,255,.07);
   border:1px solid rgba(255,255,255,.22);
   box-shadow:0 30px 70px -26px rgba(0,0,0,.6), 0 0 30px rgba(255,255,255,.06);
   overflow:hidden;
@@ -1370,6 +1384,12 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .fan-card:hover{ box-shadow:0 34px 80px -24px rgba(0,0,0,.7), 0 0 30px rgba(255,255,255,.1); }
 .fan-card.is-active{
+  /* the frosted-glass look lives here now instead of on the base rule
+     — only ever one card at a time, so at most one backdrop-filter
+     layer exists, rather than all 8 permanently */
+  background:rgba(255,255,255,.1);
+  backdrop-filter:blur(22px) saturate(160%);
+  -webkit-backdrop-filter:blur(22px) saturate(160%);
   border-color:rgba(255,255,255,.45);
   box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.25);
   /* a slow breathing glow, so the front card feels alive rather than
@@ -1397,6 +1417,13 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   left:50%;
   z-index:500;
   cursor:none;
+  /* explicit here too (not just inherited from .is-active) — a card
+     can be expanded by clicking any card in the fan, not only the one
+     currently front-and-center, so the two classes don't always
+     coincide */
+  background:rgba(255,255,255,.1);
+  backdrop-filter:blur(22px) saturate(160%);
+  -webkit-backdrop-filter:blur(22px) saturate(160%);
   box-shadow:0 60px 140px -20px rgba(0,0,0,.85), 0 0 0 1.5px rgba(255,255,255,.6), 0 0 60px 6px rgba(255,255,255,.32);
   animation:none;
 }
@@ -1769,20 +1796,26 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   overflow:hidden;
   pointer-events:none;
 }
+/* filter:blur(100px) used to sit here — a huge blur radius on two
+   large (up to 560px) always-on circles that never pause is severely
+   expensive specifically on iOS WebKit (both Safari and Chrome-on-iOS
+   use the same underlying engine there), invisible on desktop
+   Chromium. Multiple gradient stops instead of a single hard-edged
+   one give the same soft, hazy falloff without needing an actual blur
+   filter at all. */
 .t-glow{
   position:absolute;
   width:min(50vw, 560px);
   height:min(50vw, 560px);
   border-radius:50%;
-  filter:blur(100px);
 }
 .t-glow--a{
   top:-10%; left:-10%;
-  background:radial-gradient(circle, rgba(255,196,40,.28), transparent 70%);
+  background:radial-gradient(circle, rgba(255,196,40,.22) 0%, rgba(255,196,40,.12) 35%, rgba(255,196,40,.04) 60%, transparent 80%);
 }
 .t-glow--b{
   bottom:-14%; right:-8%;
-  background:radial-gradient(circle, rgba(202,153,20,.2), transparent 70%);
+  background:radial-gradient(circle, rgba(202,153,20,.16) 0%, rgba(202,153,20,.09) 35%, rgba(202,153,20,.03) 60%, transparent 80%);
 }
 
 /* opacity/transform driven directly, continuously, by scroll position
