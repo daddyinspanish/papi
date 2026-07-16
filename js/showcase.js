@@ -15,7 +15,12 @@
   const fanEl = document.getElementById('showcaseFan');
   const listEl = document.getElementById('showcaseItems');
   const phraseEl = document.getElementById('showcasePhrase');
-  const eyebrowEl = document.querySelector('.showcase-eyebrow');
+  const titleEl = document.getElementById('showcaseTitle');
+  // the quote anchors below the whole header block (title + subtitle),
+  // so the subtitle's own bottom edge — not the title's — is the right
+  // reference now that there are two lines here instead of one
+  const eyebrowEl = document.querySelector('.showcase-subtitle');
+  const bgLight = document.querySelector('.showcase-bg--light');
   if(!section || !fanEl || !listEl) return;
 
   function smoothstep(edge0, edge1, x){
@@ -40,6 +45,41 @@
     const p = smoothstep(0, 1, Math.max(0, Math.min(1, raw)));
     sticky.style.opacity = p.toFixed(3);
     sticky.style.transform = `translateY(${((1 - p) * 30).toFixed(1)}px)`;
+    maybeGlitchTitle(p);
+  }
+
+  // the title decodes in from scrambled glyphs the first time this
+  // section's own entrance has visibly started — same technique
+  // title.js uses for the hero subtitle's rotating word, run once here
+  // over the whole sentence instead of a cycling single word
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SCRAMBLE_CHARS = '!<>-_/[]{}=+*^?#01';
+  function scrambleReveal(el, text, duration){
+    const len = text.length;
+    const start = performance.now();
+    const lockTimes = Array.from({ length: len }, (_, i) =>
+      (i / Math.max(1, len - 1)) * duration * 0.7 + Math.random() * duration * 0.3
+    );
+    function step(now){
+      const elapsed = now - start;
+      let out = '';
+      for(let i=0;i<len;i++){
+        const ch = text[i];
+        out += (ch === ' ' || elapsed >= lockTimes[i]) ? ch : SCRAMBLE_CHARS[Math.floor(Math.random()*SCRAMBLE_CHARS.length)];
+      }
+      el.textContent = out;
+      if(elapsed < duration) requestAnimationFrame(step);
+      else el.textContent = text;
+    }
+    requestAnimationFrame(step);
+  }
+  let titleGlitched = false;
+  const titleText = titleEl ? titleEl.textContent : '';
+  function maybeGlitchTitle(p){
+    if(titleGlitched || !titleEl || p <= 0.04) return;
+    titleGlitched = true;
+    if(prefersReducedMotion){ titleEl.textContent = titleText; return; }
+    scrambleReveal(titleEl, titleText, 1300);
   }
 
   const categories = [
@@ -320,6 +360,19 @@
     const scrollable = Math.max(1, sectionHeight - window.innerHeight);
     const progress = Math.max(0, Math.min(1, (window.scrollY - sectionTop) / scrollable));
     const activeFloat = progress * (n - 1);
+
+    // the section's own backdrop shifts from black to cream approaching
+    // the last couple of cards — .showcase-bg--light is a second full-
+    // size layer stacked under the content, faded in over the dark one
+    // rather than trying to animate the radial-gradient itself. Text
+    // that sits directly on this background (not the fan cards' own
+    // separately-styled glass panels) flips to dark-on-cream past the
+    // halfway point of that same fade, via .is-light-bg.
+    if(bgLight){
+      const lightT = smoothstep(0.72, 0.94, progress);
+      bgLight.style.opacity = lightT.toFixed(3);
+      sticky.classList.toggle('is-light-bg', lightT > 0.5);
+    }
 
     // the fan's pop is toned down on narrow screens — full pop plus the
     // fixed-height mobile fan container was pushing the active card's

@@ -191,10 +191,15 @@ window.scrollTo(0, 0);
 
 <!-- ============ SHOWCASE — fan of live previews + business list ============ -->
 <section class="showcase" id="showcase">
+  <div class="showcase-bg showcase-bg--dark" aria-hidden="true"></div>
+  <div class="showcase-bg showcase-bg--light" aria-hidden="true"></div>
   <div class="showcase-sticky">
-    <p class="showcase-eyebrow">Real websites. Every industry.</p>
+    <h2 class="showcase-title" id="showcaseTitle">Papi&rsquo;s mission is to design an experience that guides your customer to buy from your company</h2>
+    <p class="showcase-subtitle">For every industry.</p>
     <div class="showcase-items" id="showcaseItems"></div>
     <div class="showcase-fan" id="showcaseFan">
+      <canvas class="showcase-liquid showcase-liquid--left" id="showcaseLiquidLeft" aria-hidden="true"></canvas>
+      <canvas class="showcase-liquid showcase-liquid--right" id="showcaseLiquidRight" aria-hidden="true"></canvas>
       <p class="showcase-phrase" id="showcasePhrase"></p>
     </div>
   </div>
@@ -478,6 +483,7 @@ window.scrollTo(0, 0);
 <script src="js/title-dock.js"></script>
 <script src="js/contrast.js"></script>
 <script src="js/showcase.js"></script>
+<script type="module" src="js/showcase-liquid.js"></script>
 <script src="js/testimonials.js"></script>
 <script src="js/comparison-chart.js"></script>
 <script src="js/faq.js"></script>

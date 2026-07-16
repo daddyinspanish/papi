@@ -1232,8 +1232,24 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
    cube/testimonials/form sections instead of the old white "paper" look */
 .showcase{
   position:relative;
-  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
   z-index:1;
+}
+/* two full-size layers instead of one background — a radial-gradient
+   can't be cross-faded by animating its own property, so js/showcase.js
+   fades the light one in over the dark one (opacity, scroll-driven)
+   as the visitor nears the last couple of cards, rather than swapping
+   the section's background outright */
+.showcase-bg{
+  position:absolute;
+  inset:0;
+  z-index:0;
+}
+.showcase-bg--dark{
+  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
+}
+.showcase-bg--light{
+  background:radial-gradient(120% 90% at 50% 100%, #fffaf0 0%, #f2efe8 55%, #ece6d8 100%);
+  opacity:0;
 }
 /* NOTE: a previous fix here bumped this section's own z-index above
    the expanded fan-card's while one was open, meaning to let the quote
@@ -1287,6 +1303,29 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .showcase-fan.has-expanded-card{ overflow:visible; }
 
+/* two small extra liquid masses (js/showcase-liquid.js) flanking the
+   fan — same glass/metaball material as the hero, much smaller, that
+   slide in from their own side as the visitor nears the last couple
+   of cards. Sits behind the cards (z-index:0 vs. their own 1+) so it
+   never competes with them for attention or clicks. */
+.showcase-liquid{
+  position:absolute;
+  top:50%;
+  z-index:0;
+  width:clamp(160px, 20vw, 230px);
+  height:clamp(160px, 20vw, 230px);
+  transform:translateY(-50%);
+  opacity:0;
+  pointer-events:none;
+}
+.showcase-liquid--left{ left:clamp(-40px, -4vw, 0px); }
+.showcase-liquid--right{ right:clamp(-40px, -4vw, 0px); }
+@media (max-width:640px){
+  /* no real space beside the fan on narrow screens for these to sit
+     without overlapping the cards themselves */
+  .showcase-liquid{ display:none; }
+}
+
 /* above ~860px there's enough width to give the trade names their own
    column on the left instead of stacking above the fan — scrolling
    through them no longer competes with the fan/cards for the same
@@ -1307,12 +1346,13 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
     align-items:center;
   }
   .showcase-sticky.has-expanded-card{ column-gap: var(--showcase-col-gap); }
-  .showcase-eyebrow{ grid-column:1; grid-row:1; text-align:left; }
-  .showcase-items{ grid-column:1; grid-row:2; }
+  .showcase-title{ grid-column:1; grid-row:1; text-align:left; }
+  .showcase-subtitle{ grid-column:1; grid-row:2; text-align:left; }
+  .showcase-items{ grid-column:1; grid-row:3; }
   .showcase-item{ text-align:left; }
   .showcase-fan{
     grid-column:2;
-    grid-row:1 / span 2;
+    grid-row:1 / span 3;
     height:min(48vh, 440px);
   }
 }
@@ -1515,7 +1555,11 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .fan-card .fan-hero{
   position:relative;
-  height:44%;
+  /* was 44% — too tight a crop to read as an actual site, more like a
+     sliver peeking out above the card's own name/lines. Taller window
+     (closer to a mini tablet screen than a thin letterbox) shows
+     meaningfully more of the real design underneath */
+  height:66%;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -1560,16 +1604,52 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 .fan-card .fan-line.short{ width:55%; }
 
-.showcase-eyebrow{
+/* the section's own mission statement — decodes in from scrambled
+   glyphs the first time this section's entrance has visibly started
+   (see js/showcase.js's scrambleReveal), rather than a plain fade */
+.showcase-title{
+  position:relative;
+  z-index:2;
+  font-family:'Fraunces', serif;
+  font-weight:500;
+  font-size:clamp(1rem, 2.3vw, 1.35rem);
+  line-height:1.45;
+  max-width:46ch;
+  color:var(--cream);
+  transition:color .6s var(--ease-out);
+}
+/* dark-on-cream once the section's own backdrop has crossfaded (see
+   .is-light-bg, toggled in js/showcase.js) — cream-on-cream would go
+   invisible otherwise */
+.showcase-sticky.is-light-bg .showcase-title{ color:var(--paper-ink); }
+
+/* metallic gold, same shine-sweep technique as .quote-form-title, with
+   a slow breathing scale/opacity layered on top for "pulsing" — gold
+   already reads fine on both this section's dark start and its cream
+   end, so this needs no light/dark variant of its own */
+.showcase-subtitle{
   position:relative;
   z-index:2;
   font-size:.76rem;
-  letter-spacing:.38em;
+  font-weight:600;
+  letter-spacing:.32em;
   text-transform:uppercase;
-  /* static gold, not the live hero-sweep accent — that accent cycles
-     all the way to near-black, which would go invisible against this
-     section's own fixed dark background */
-  color:#ffdd7a;
+  margin-top:.9rem;
+  background:linear-gradient(100deg, #8a6a1f 0%, #d4af37 25%, #fff6d8 50%, #d4af37 75%, #8a6a1f 100%);
+  background-size:250% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  animation:showcaseSubShine 6s ease-in-out infinite, showcaseSubPulse 2.6s ease-in-out infinite;
+}
+@keyframes showcaseSubShine{
+  0%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+  100%{ background-position:0% 50%; }
+}
+@keyframes showcaseSubPulse{
+  0%, 100%{ opacity:.88; transform:scale(1); }
+  50%{ opacity:1; transform:scale(1.035); }
 }
 .showcase-items{
   position:relative;
@@ -1602,6 +1682,14 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 .showcase-item.is-active{
   color:#ffdd7a;
   text-shadow:0 0 64px rgba(255,221,122,.35), 0 0 120px rgba(255,221,122,.18);
+}
+/* dark-on-cream once the backdrop has crossfaded (see .is-light-bg) —
+   the cream/gold tones tuned for the dark start read as barely-there
+   pale-on-pale against this section's own cream end otherwise */
+.showcase-sticky.is-light-bg .showcase-item{ color:rgba(23,24,26,.3); }
+.showcase-sticky.is-light-bg .showcase-item.is-active{
+  color:var(--gold-deep);
+  text-shadow:none;
 }
 
 @media (max-width:640px){
