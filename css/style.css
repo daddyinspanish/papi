@@ -43,11 +43,21 @@ html,body{
   font-family:'Inter', system-ui, sans-serif;
 }
 
-/* overflow-x:hidden only on html (not also on body) — setting it on
-   both makes each one's overflow-y compute to auto (a CSS quirk),
-   turning body into a competing scroll container that breaks
-   position:sticky for the showcase section */
-html{ overflow-x:hidden; }
+/* overflow-x:hidden on body only (not on html, and not on both) —
+   both was already ruled out (see below): it makes each one's
+   overflow-y compute to auto, turning body into a competing scroll
+   container that breaks position:sticky for the showcase section. But
+   html alone has its own, separate, well-documented WebKit/iOS bug:
+   *any* explicit overflow on the root <html> element makes fixed-
+   position descendants lay out in normal document flow instead of
+   pinning to the viewport — confirmed directly as the cause of the
+   showcase section's expanded fan card (reparented onto <body> with
+   position:fixed) rendering at the very bottom of the page, among the
+   last elements in body's own document flow, instead of centering
+   on-screen. Putting it on body alone avoids both: only one element
+   ends up with explicit overflow (no competing scroll container), and
+   it isn't the root element (no fixed-position bug). */
+body{ overflow-x:hidden; }
 
 /* briefly locks scrolling — while the hero's background field grows
    to fill the screen, while the cube section has a face focused, and
@@ -57,9 +67,11 @@ html{ overflow-x:hidden; }
    could still drag the page slightly during a "locked" animation, and
    the snap-back once the lock released was what showed up as a pause/
    freeze right as you scrolled from the hero into the next section.
-   window.Papi.lockScroll()/unlockScroll() (see accent.js) now pins
-   body with position:fixed instead, which fully removes it from any
-   scrollable context — the standard, well-tested fix for this on iOS.
+   window.Papi.lockScroll()/unlockScroll() (see accent.js) actually
+   fixes that by intercepting the touchmove/wheel input itself — NOT
+   via position:fixed on body, which would hijack the containing block
+   of every OTHER position:fixed element on the page (.site-header,
+   .title-dock, an expanded fan card...) for the duration of the lock.
    This class just hides the root's own scrollbar/rubber-band to match. */
 html.scroll-lock{ overflow:hidden; }
 
