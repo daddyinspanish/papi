@@ -1321,9 +1321,16 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 .showcase-liquid--left{ left:clamp(-40px, -4vw, 0px); }
 .showcase-liquid--right{ right:clamp(-40px, -4vw, 0px); }
 @media (max-width:640px){
-  /* no real space beside the fan on narrow screens for these to sit
-     without overlapping the cards themselves */
-  .showcase-liquid{ display:none; }
+  /* smaller and pulled further toward the edge (rather than hidden
+     outright) — there's less room beside the fan at this width, so
+     they mostly peek in from off-screen instead of sitting fully
+     beside the cards the way they do on wider screens */
+  .showcase-liquid{
+    width:clamp(85px, 24vw, 120px);
+    height:clamp(85px, 24vw, 120px);
+  }
+  .showcase-liquid--left{ left:clamp(-45px, -10vw, -10px); }
+  .showcase-liquid--right{ right:clamp(-45px, -10vw, -10px); }
 }
 
 /* above ~860px there's enough width to give the trade names their own
@@ -1402,6 +1409,29 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 @keyframes fanCardGlow{
   0%, 100%{ box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.25); }
   50%{ box-shadow:0 46px 120px -20px rgba(0,0,0,.8), 0 0 42px 4px rgba(255,255,255,.35); }
+}
+/* the frosted white glass reads fine floating over black, but goes
+   nearly invisible — pale glass on a pale backdrop — once the section
+   crossfades to cream (see .is-light-bg, toggled in js/showcase.js).
+   A dark smoked-glass tint instead, so the cards keep popping against
+   whichever backdrop is actually behind them at the moment; the gold
+   name/text inside already reads fine against either. */
+.showcase-sticky.is-light-bg .fan-card{
+  background:rgba(20,16,10,.42);
+  border-color:rgba(20,16,10,.22);
+  box-shadow:0 30px 70px -26px rgba(0,0,0,.28), 0 0 30px rgba(0,0,0,.06);
+}
+.showcase-sticky.is-light-bg .fan-card:hover{
+  box-shadow:0 34px 80px -24px rgba(0,0,0,.34), 0 0 30px rgba(0,0,0,.1);
+}
+.showcase-sticky.is-light-bg .fan-card.is-active{
+  border-color:rgba(20,16,10,.42);
+  box-shadow:0 46px 110px -22px rgba(0,0,0,.38), 0 0 0 1px rgba(20,16,10,.3);
+  animation-name:fanCardGlowLight;
+}
+@keyframes fanCardGlowLight{
+  0%, 100%{ box-shadow:0 46px 110px -22px rgba(0,0,0,.38), 0 0 0 1px rgba(20,16,10,.3); }
+  50%{ box-shadow:0 46px 120px -20px rgba(0,0,0,.42), 0 0 36px 4px rgba(20,16,10,.22); }
 }
 .fan-card.is-expanded{
   /* fixed to the viewport, rather than scaled up from its normal
