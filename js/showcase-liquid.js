@@ -358,15 +358,14 @@ import * as THREE from './vendor/three.module.min.js';
   let lastTs = null, elapsedStart = null;
   let running = false;
 
-  // same reasoning as hero-slime.js's own render cap — two of these
-  // heavy per-pixel shaders render uncapped whenever this section is in
-  // view, at up to the display's native refresh rate (120Hz on newer
-  // iPhones); capping the actual render work to ~30fps cuts that
-  // sustained GPU load substantially with no visible difference for
-  // motion this slow. The opacity/transform slide-in above stays
-  // uncapped (cheap, and needs to track scroll smoothly) — only the
-  // physics+render pair below is throttled.
-  const RENDER_FPS = 30;
+  // capped at 60 rather than left fully uncapped — still saves real
+  // work on 120Hz ProMotion iPhones, without the visible slow-down a
+  // lower cap (30fps was tried and reverted per feedback) gave this
+  // particular motion. These two only render at all for the short
+  // stretch this section is actually in view, unlike the hero's own
+  // metaball (see hero-slime.js), which is the far bigger, continuous
+  // contributor to sustained GPU load and stays capped lower.
+  const RENDER_FPS = 60;
   const RENDER_INTERVAL = 1000 / RENDER_FPS;
   let lastRenderTs = 0;
 

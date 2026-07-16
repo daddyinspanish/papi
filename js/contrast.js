@@ -34,6 +34,18 @@
   }
   ensureVideoPlaying();
 
+  // the "after" hero's two ambient glow orbs blur-filter a continuously
+  // animated transform, forever, via plain CSS — a filter:blur() layer
+  // that has to be recomposited by the GPU on every frame it's actually
+  // moving is one of the more expensive things a phone can be asked to
+  // keep doing, and CSS animations don't pause themselves just because
+  // their element scrolled off-screen. Paused/resumed at the exact same
+  // moment the video above is, piggybacking on that same visibility
+  // check rather than adding a second one.
+  const heroGlows = Array.from(document.querySelectorAll('.mock-hero-glow'));
+  function pauseGlows(){ heroGlows.forEach(el => { el.style.animationPlayState = 'paused'; }); }
+  function resumeGlows(){ heroGlows.forEach(el => { el.style.animationPlayState = ''; }); }
+
   const afterTitle = document.querySelector('.mock-logo--after');
   const stageTitleBefore = document.querySelector('.contrast-stage-title-before');
   const stageTitleAfter = document.querySelector('.contrast-stage-title-after');
@@ -207,6 +219,12 @@
     const rawProgress = (window.scrollY - sectionTop) / scrollable;
 
     if(rawProgress < 0){
+      // paused once on the way into this state (not every frame) —
+      // this also covers the very first call at page load, before the
+      // visitor has ever scrolled anywhere near this section, so the
+      // glow orbs' CSS animations never get a chance to run for free
+      // just from being in the DOM
+      if(!pinnedLow) pauseGlows();
       if(pinnedLow) return;
       pinnedLow = true;
     } else {
@@ -226,6 +244,7 @@
       // anything at all once the video is actually paused.
       if(heroVideo && !heroVideo.paused && section.getBoundingClientRect().bottom <= 0){
         heroVideo.pause();
+        pauseGlows();
       }
       if(pinnedHigh) return;
       pinnedHigh = true;
@@ -303,7 +322,14 @@
     // optimization), this is what actually resumes it once the wipe
     // gives it real pixels again. ensureVideoPlaying() is a no-op
     // whenever it's already playing, so this is cheap.
-    if(wipeT > 0) ensureVideoPlaying();
+    if(wipeT > 0){
+      ensureVideoPlaying();
+      resumeGlows();
+    } else {
+      // stays paused for the whole intro-text phase before the stage is
+      // even revealed, not just before/after the section entirely
+      pauseGlows();
+    }
   }
 
   // batch to one update per animation frame — raw 'scroll' events can
@@ -316,6 +342,7 @@
   }, { passive:true });
 
   if(prefersReducedMotion){
+    pauseGlows();
     // skip the scroll-driven entrance entirely and land straight on the
     // settled end state — the stage visible at full size, the intro
     // (which only ever existed to choreograph getting there) hidden
