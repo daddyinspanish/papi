@@ -233,7 +233,21 @@
         // as a hard rule rather than an incidental side effect.
         const eyebrowRect = eyebrowEl ? eyebrowEl.getBoundingClientRect() : null;
         const gap = window.innerWidth < 640 ? 40 : 48;
-        const quoteTop = eyebrowRect ? eyebrowRect.bottom + gap : window.innerHeight * 0.14;
+        // capped — the section title is now a full mission-statement
+        // sentence rather than a short one-line eyebrow, and wraps to
+        // several lines in the narrow desktop left column, which pushed
+        // this anchor (and the expand math in update() below, which
+        // treats wherever this actually renders as a hard floor) low
+        // enough to starve the expanded card down to a sliver docked at
+        // the bottom of the screen. Capping the value used here keeps
+        // the quote and the sizing math referencing the exact same
+        // point (unlike a previous attempt that capped only the sizing
+        // math's own copy of this number, letting the two drift apart
+        // and overlap on iPhone) — just a lower ceiling on both.
+        const quoteTop = Math.min(
+          eyebrowRect ? eyebrowRect.bottom + gap : window.innerHeight * 0.14,
+          window.innerHeight * 0.32
+        );
         phraseEl.style.position = 'fixed';
         phraseEl.style.top = `${quoteTop.toFixed(1)}px`;
         phraseEl.style.left = '0';
