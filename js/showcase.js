@@ -27,6 +27,23 @@
     return t * t * (3 - 2 * t);
   }
 
+  // a card should only ever be openable while .showcase-sticky is
+  // actually the thing pinned in the viewport — .showcase-sticky is
+  // position:sticky/top:0, so while genuinely stuck its own rect.top
+  // sits at ~0; the moment the section's scrollable range runs out it
+  // un-sticks and starts scrolling away with the page (rect.top goes
+  // negative) same as it hasn't reached top:0 yet on the way in (rect.top
+  // positive). Without this, the last (still fully opaque/"active") card
+  // stayed clickable for a beat after the numbers section had already
+  // scrolled into view underneath it — expanding it then re-parents it
+  // onto <body> as position:fixed, centered in whatever is currently on
+  // screen, which read as the card getting shoved on top of the next
+  // section instead of staying inside its own.
+  function isSectionPinned(){
+    if(!sticky) return true;
+    return Math.abs(sticky.getBoundingClientRect().top) < 2;
+  }
+
   // a small buzz each time the active trade changes — iOS doesn't
   // support the Vibration API at all (Safari has never implemented it,
   // and every browser on iOS is WebKit underneath, so that's true for
@@ -319,12 +336,13 @@
     // above would immediately undo the very scroll that opened it)
     card.addEventListener('click', (e)=>{
       if(expandedIndex === i){ setExpanded(null); return; }
+      if(!isSectionPinned()) return;
       setExpanded(i);
     });
     card.addEventListener('keydown', (e)=>{
       if(e.key === 'Enter' || e.key === ' '){
         e.preventDefault();
-        if(expandedIndex === i){ setExpanded(null); } else { setExpanded(i); }
+        if(expandedIndex === i){ setExpanded(null); } else if(isSectionPinned()){ setExpanded(i); }
       }
     });
     fanEl.appendChild(card);
@@ -375,33 +393,45 @@
   // instead of firing a buzz on page load, before the visitor has
   // actually scrolled from one trade to another
   let lastHapticIndex = null;
+  // tracks expandedIndex as of the last update() call that actually ran
+  // through (rather than being skipped by the pin below) — lets the
+  // pin tell "still sitting idle at the same pinned edge" apart from
+  // "a card just opened or closed while sitting at that edge"
+  let prevExpandedIndex = null;
 
   function update(){
     const sectionTop = section.offsetTop;
     const sectionHeight = section.offsetHeight;
     const scrollable = Math.max(1, sectionHeight - window.innerHeight);
     const rawProgress = (window.scrollY - sectionTop) / scrollable;
+    const expandedChanged = expandedIndex !== prevExpandedIndex;
 
-    // the pin-and-skip below must never apply while a card is expanded
-    // — the LAST card only ever becomes active/clickable right at
-    // progress===1, the exact same boundary this pin exists to skip
-    // past, and real touch-scroll momentum overshoots it constantly.
-    // Skipping this whole function on the very update() call
-    // setExpanded() triggers meant the last card's expand never got as
-    // far as actually being positioned — it looked like the card just
-    // didn't open at all.
+    // the pin-and-skip below must never swallow the one update() call
+    // right as a card opens OR closes — the LAST card only ever becomes
+    // active/clickable right at progress===1, the exact same boundary
+    // this pin exists to skip past, and real touch-scroll momentum
+    // overshoots it constantly. Requiring expandedIndex===null used to
+    // be enough to let an *opening* card through (expandedIndex is
+    // non-null right then), but collapsing a card while still pinned
+    // sets expandedIndex back to null on the very call that needs to
+    // run — which then matched the skip condition again and got
+    // swallowed, leaving the trade names stuck invisible (they'd been
+    // faded to 0 for the expanded card) until a later scroll un-pinned
+    // things for real. Tracking whether expandedIndex just changed
+    // catches that closing transition too.
     if(rawProgress < 0){
-      if(pinnedLow && expandedIndex === null) return;
+      if(pinnedLow && expandedIndex === null && !expandedChanged) return;
       pinnedLow = true;
     } else {
       pinnedLow = false;
     }
     if(rawProgress > 1){
-      if(pinnedHigh && expandedIndex === null) return;
+      if(pinnedHigh && expandedIndex === null && !expandedChanged) return;
       pinnedHigh = true;
     } else {
       pinnedHigh = false;
     }
+    prevExpandedIndex = expandedIndex;
 
     const progress = Math.max(0, Math.min(1, rawProgress));
     const activeFloat = progress * (n - 1);

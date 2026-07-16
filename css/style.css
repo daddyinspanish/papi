@@ -97,21 +97,23 @@ body, a, .cta{ cursor:none; }
   overflow:hidden;
 }
 
-/* Space Grotesk rather than the Fraunces used for headings elsewhere —
-   a clean geometric sans with generous tracking reads as a modern,
-   elegant wordmark treatment instead of a big heading; the rise
-   settles the whole word into place, then loader.js fades each letter
-   in on its own before pouring the gold fill through them in turn. */
+/* the same italic Fraunces treatment as "purpose" in the hero title
+   (see .hero-title em) — ties the very first thing a visitor sees to
+   the same on-brand serif/gold-italic moment they see again seconds
+   later, rather than a generic sans wordmark that has nothing to do
+   with the rest of the page. The rise settles the whole word into
+   place, then loader.js fades each letter in on its own before
+   pouring the gold fill through them in turn. */
 .loader-word{
   position:absolute;
   left:50%;
   top:50%;
   transform:translate(-50%,-50%) translateY(20px) scale(.94);
-  font-family:'Space Grotesk', sans-serif;
-  font-weight:600;
-  letter-spacing:.16em;
-  text-transform:uppercase;
-  font-size:clamp(2.4rem, 10vw, 5.6rem);
+  font-family:'Fraunces', serif;
+  font-style:italic;
+  font-weight:400;
+  letter-spacing:.02em;
+  font-size:clamp(2.6rem, 11vw, 6.2rem);
   line-height:1;
   display:flex;
   will-change:transform, opacity;
@@ -2106,6 +2108,25 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 .comparison-title em{
   font-style:italic;
   color:#ffdd7a;
+  /* the same pulsing-glow treatment as "purpose" in the hero title
+     (see purposeGlowPulse) — tuned to this heading's own gold
+     (#ffdd7a rather than the hero's --gold-deep) so it reads as the
+     same on-brand effect, not an identical color rebadged */
+  animation:comparisonGlowPulse 3.6s ease-in-out infinite;
+}
+@keyframes comparisonGlowPulse{
+  0%, 100%{
+    text-shadow:
+      0 0 9px rgba(255,221,122,.4),
+      0 0 20px rgba(255,221,122,.24),
+      0 0 36px rgba(255,221,122,.14);
+  }
+  50%{
+    text-shadow:
+      0 0 13px rgba(255,221,122,.62),
+      0 0 28px rgba(255,221,122,.4),
+      0 0 48px rgba(255,221,122,.24);
+  }
 }
 .comparison-sub{
   max-width:520px;

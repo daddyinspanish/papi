@@ -52,6 +52,15 @@
     });
   });
 
+  // tapping anywhere outside the FAQ list closes whichever question is
+  // open, the same "tap out to dismiss" pattern as the showcase fan
+  // cards — lets a visitor back out of a question without having to
+  // find and re-tap its own header first
+  document.addEventListener('click', (e)=>{
+    if(e.target.closest('.faq-item')) return;
+    items.forEach(item=>{ if(item.classList.contains('is-open')) closeItem(item); });
+  });
+
   // width-only guard — matches the same pattern used elsewhere on the
   // site: an iOS address-bar-collapse resize (fired on the first
   // scroll of a session) changes innerHeight, not innerWidth, and
