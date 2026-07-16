@@ -20,7 +20,10 @@
 
   const beforeLabel = document.querySelector('.contrast-label--before');
   const afterTitle = document.querySelector('.mock-logo--after');
-  const caption = document.querySelector('.contrast-caption');
+
+  const introEyebrow = document.querySelector('#contrastIntro .contrast-eyebrow');
+  const introHeading = document.querySelector('#contrastIntro .contrast-heading');
+  const introCue = document.getElementById('contrastScrollCue');
 
   // the "after" mock's stat counters (Jobs Completed / Average Rating)
   // count up once, the first time the wipe has revealed enough of the
@@ -66,7 +69,15 @@
     return last.getBoundingClientRect().bottom - mock.getBoundingClientRect().top;
   }
   function sizeStage(){
+    // the stage now carries its own scroll-driven scale() transform
+    // (see update() below) — getBoundingClientRect reports POST-
+    // transform geometry, so measuring while that scale is anything
+    // but 1 would bake the current scale factor into the stored pixel
+    // height. Neutralize it for the measurement, then put it back.
+    const prevTransform = stage.style.transform;
+    stage.style.transform = 'none';
     const h = Math.ceil(Math.max(contentHeight(beforeMock), contentHeight(afterMock)));
+    stage.style.transform = prevTransform;
     if(h > 0) stage.style.height = h + 'px';
   }
 
@@ -94,24 +105,78 @@
     window.__papiContrastResizeT = setTimeout(measure, 150);
   });
 
+  // the first ~40% of the section's scroll range is the intro scene
+  // (eyebrow -> heading -> "keep scrolling" cue -> handoff to the
+  // stage); the wipe itself gets the remaining ~60%, remapped below so
+  // its own internal pacing (label crossfade, counters) is unchanged
+  // relative to that narrower window. Every value here is a pure
+  // function of `progress`, so scrolling back up reverses the whole
+  // sequence — entrance included — with no separate teardown logic.
+  const WIPE_START = 0.40;
+
+  // fades in over [inStart,inEnd], holds, then fades back out over
+  // [outStart,outEnd] — returns the combined opacity plus a vertical
+  // offset that eases from riseIn px (entering) to 0 to -riseOut px
+  // (exiting), so each piece drifts up and away rather than just
+  // vanishing in place
+  function fadeThrough(progress, inStart, inEnd, outStart, outEnd, riseIn, riseOut){
+    const fadeIn = smoothstep(inStart, inEnd, progress);
+    const fadeOut = smoothstep(outStart, outEnd, progress);
+    const opacity = fadeIn * (1 - fadeOut);
+    const y = (1 - fadeIn) * riseIn - fadeOut * riseOut;
+    return { opacity, y };
+  }
+
   function update(){
     const scrollable = Math.max(1, sectionHeight - viewportH);
     const progress = Math.max(0, Math.min(1, (window.scrollY - sectionTop) / scrollable));
 
-    // 100% at the top of the section (fully hidden) down to 0% (fully
-    // revealed) — style.css's clip-path reads this directly
-    const wipePct = (1 - progress) * 100;
+    // the moment the sticky grabs scroll, the visitor's already looking
+    // at a blank stretch of matching background (the hero's own fade-
+    // out tail runs out before this section is even reached) — a slow
+    // fade-in here stacked another empty beat on top of that, reading
+    // as a dead pause right where the pin engages. Eyebrow/heading now
+    // resolve almost immediately (still a soft rise, just a much
+    // shorter one) so there's something on screen right away; only the
+    // cue and the eventual handoff to the stage keep a slower pace.
+    if(introEyebrow){
+      const s = fadeThrough(progress, 0, 0.03, 0.24, 0.34, 10, 18);
+      introEyebrow.style.opacity = String(s.opacity);
+      introEyebrow.style.transform = `translateY(${s.y.toFixed(1)}px)`;
+    }
+    if(introHeading){
+      const s = fadeThrough(progress, 0.015, 0.06, 0.24, 0.34, 14, 22);
+      introHeading.style.opacity = String(s.opacity);
+      introHeading.style.transform = `translateY(${s.y.toFixed(1)}px)`;
+    }
+    if(introCue){
+      const s = fadeThrough(progress, 0.09, 0.15, 0.22, 0.30, 10, 14);
+      introCue.style.opacity = String(s.opacity);
+      introCue.style.transform = `translateY(${s.y.toFixed(1)}px)`;
+    }
+
+    // the stage materializes as the intro clears out of the way —
+    // fading/scaling/rising into place rather than just being there
+    // the instant the section is reached
+    const stageIn = smoothstep(0.26, WIPE_START, progress);
+    stage.style.opacity = String(stageIn);
+    stage.style.transform = `translateY(${((1 - stageIn) * 26).toFixed(1)}px) scale(${(0.94 + 0.06 * stageIn).toFixed(3)})`;
+
+    const wipeT = smoothstep(WIPE_START, 1, progress);
+
+    // 100% at the start of the wipe phase (fully hidden) down to 0%
+    // (fully revealed) — style.css's clip-path reads this directly
+    const wipePct = (1 - wipeT) * 100;
     stage.style.setProperty('--wipe', wipePct.toFixed(2) + '%');
 
     // "Outdated Website" fades out over the same range the after mock's
     // own title fades in, over — a crossfade rather than two labels
     // just independently appearing/disappearing whenever the wipe
     // geometry happens to uncover them
-    if(beforeLabel) beforeLabel.style.opacity = String(1 - smoothstep(0.55, 0.95, progress));
-    if(afterTitle) afterTitle.style.opacity = String(smoothstep(0.55, 0.95, progress));
-    if(caption) caption.style.opacity = String(1 - smoothstep(0, 0.06, progress));
+    if(beforeLabel) beforeLabel.style.opacity = String(1 - smoothstep(0.55, 0.95, wipeT));
+    if(afterTitle) afterTitle.style.opacity = String(smoothstep(0.55, 0.95, wipeT));
 
-    if(progress > 0.3) startCounters();
+    if(wipeT > 0.3) startCounters();
   }
 
   // batch to one update per animation frame — raw 'scroll' events can
@@ -124,10 +189,17 @@
   }, { passive:true });
 
   if(prefersReducedMotion){
+    // skip the scroll-driven entrance entirely and land straight on the
+    // settled end state — the stage visible at full size, the intro
+    // (which only ever existed to choreograph getting there) hidden
+    stage.style.opacity = '1';
+    stage.style.transform = 'none';
     stage.style.setProperty('--wipe', '0%');
+    if(introEyebrow) introEyebrow.style.opacity = '0';
+    if(introHeading) introHeading.style.opacity = '0';
+    if(introCue) introCue.style.opacity = '0';
     if(beforeLabel) beforeLabel.style.opacity = '0';
     if(afterTitle) afterTitle.style.opacity = '1';
-    if(caption) caption.style.opacity = '0';
     counters.forEach(el=>{
       const target = Number(el.dataset.target || '0');
       const decimals = Number(el.dataset.decimal || '0');

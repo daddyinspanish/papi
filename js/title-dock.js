@@ -149,7 +149,6 @@
 
   const showcaseEl = document.getElementById('showcase');
   const heroEl = document.getElementById('hero');
-  const contrastHeadingEl = document.querySelector('.contrast-heading-wrap');
   const contrastSectionEl = document.getElementById('contrastSection');
 
   // the docked top-right word swaps per section as the visitor scrolls
@@ -185,9 +184,9 @@
     // cream colors already read fine on their own.
     const onHero = heroEl ? window.scrollY < heroEl.offsetHeight : false;
     let onContrast = false;
-    if(contrastHeadingEl && contrastSectionEl){
-      const zoneTop = contrastHeadingEl.offsetTop;
-      const zoneBottom = contrastSectionEl.offsetTop + contrastSectionEl.offsetHeight;
+    if(contrastSectionEl){
+      const zoneTop = contrastSectionEl.offsetTop;
+      const zoneBottom = zoneTop + contrastSectionEl.offsetHeight;
       onContrast = window.scrollY >= zoneTop && window.scrollY < zoneBottom;
     }
     document.body.classList.toggle('on-light-section', onHero || onContrast);

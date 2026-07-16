@@ -524,15 +524,44 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
    version wiping across on top as the visitor scrolls (js/contrast.js
    drives --wipe, a 0%..100% custom property, off scroll position —
    same tall-outer-section-plus-sticky-inner-viewport pattern as the
-   showcase/testimonials sections below it). Kept in normal document
-   flow for the heading, same reasoning as the old principles section:
-   the scroll math measures contrastSection's own offsetTop/
-   offsetHeight, so the heading has to live outside it.
+   showcase/testimonials sections below it). The heading/cue intro and
+   the stage both live inside the sticky now, sequenced by scroll
+   position rather than the heading sitting in normal flow before it.
 =================================================================== */
-.contrast-heading-wrap{
-  background:#ffffff;
-  padding:clamp(4rem, 10vw, 7rem) 1.5rem clamp(2.5rem, 6vw, 4rem);
+.contrast-section{
+  position:relative;
+  height:320vh;
+  background:#f2efe8;
+  z-index:1;
+}
+.contrast-sticky{
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* the heading/cue intro layer — absolutely positioned over the sticky
+   rather than a flex sibling of the stage, so it never competes with
+   the stage for vertical space (that fight is exactly what caused the
+   mobile empty-space bug the stage sizing already had to solve once).
+   It fades/rises in, then js/contrast.js fades it back out as the
+   stage fades/scales in over the same spot — a handoff, not two boxes
+   stacked in a column. */
+.contrast-intro{
+  position:absolute;
+  inset:0;
+  z-index:2;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
   text-align:center;
+  padding:0 1.5rem;
+  pointer-events:none;
 }
 .contrast-eyebrow{
   font-size:.78rem;
@@ -557,23 +586,37 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   color:var(--paper-dim);
 }
 
-.contrast-section{
-  position:relative;
-  height:320vh;
-  background:#f2efe8;
-  z-index:1;
-}
-.contrast-sticky{
-  position:sticky;
-  top:0;
-  height:100vh;
-  overflow:hidden;
+/* "keep scrolling" cue — same pulsing-ring technique as
+   .fan-card-exit-dot's hintPulse, retuned to gold-deep so the ring
+   reads against this section's light backdrop instead of the dark
+   sections that pattern was built for elsewhere */
+.contrast-scroll-cue{
+  margin-top:2.2rem;
   display:flex;
   flex-direction:column;
   align-items:center;
-  justify-content:center;
-  gap:1.6rem;
+  gap:.6rem;
 }
+.contrast-scroll-cue-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:var(--gold-deep);
+  animation:contrastCuePulse 1.8s ease-out infinite;
+}
+@keyframes contrastCuePulse{
+  0%{ box-shadow:0 0 0 0 rgba(138,106,31,.45); }
+  70%{ box-shadow:0 0 0 9px rgba(138,106,31,0); }
+  100%{ box-shadow:0 0 0 0 rgba(138,106,31,0); }
+}
+.contrast-scroll-cue-label{
+  font-size:.7rem;
+  font-weight:600;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--paper-dim);
+}
+
 .contrast-stage{
   position:relative;
   width:min(980px, 90vw);
@@ -581,6 +624,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   border-radius:16px;
   overflow:hidden;
   box-shadow:0 40px 90px rgba(11,11,12,.22);
+  flex-shrink:0;
 }
 
 /* shared base for both mocked-up "websites" — identical box, stacked
@@ -1065,22 +1109,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   color:#555;
 }
 
-.contrast-caption{
-  font-size:.8rem;
-  color:var(--paper-dim);
-  letter-spacing:.02em;
-  transition:opacity .4s ease;
-}
-
 @media (max-width:640px){
-  /* the stage sits in a flex column alongside the caption inside a
-     100vh sticky container — flexbox silently shrinks it to fit
-     whenever the combined content exceeds the viewport height, no
-     matter how tall aspect-ratio asks for it to be (confirmed
-     directly: raising the ratio further had zero effect once this was
-     already happening). The fix has to be making the mock's own
-     content shorter, not asking for an ever-taller box. */
-  .contrast-caption{ display:none; }
   /* sized to the after mock's actual content (nav + hero + services
      marquee) plus a small buffer — taller than this just leaves empty
      background showing below the marquee, which is exactly the "big

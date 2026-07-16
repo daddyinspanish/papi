@@ -68,17 +68,24 @@ window.scrollTo(0, 0);
      websites: a flat generic template underneath, and an immersive
      Papi-built version that wipes across on top as the visitor
      scrolls. Makes the value of the design work visible rather than
-     just claimed in copy. The heading lives in normal document flow,
-     outside contrastSection, for the same reason the old principles
-     heading did: the scroll-driven wipe math measures that section's
-     own offsetTop/offsetHeight directly, so keeping the heading
-     external means it can't shift that measurement. ============ -->
-<div class="contrast-heading-wrap">
-  <p class="contrast-eyebrow">Same Business. Two Websites.</p>
-  <h2 class="contrast-heading">One of these turns visitors into customers.<br><em>The other gets ignored.</em></h2>
-</div>
+     just claimed in copy. The heading now lives inside the pinned
+     sticky itself, as an absolutely-positioned intro layer that fades/
+     rises in, holds for a beat with a "keep scrolling" cue, then hands
+     off to the stage fading/scaling in over it — one continuous
+     scroll-driven scene instead of a static heading followed by a
+     separate reveal. Being position:absolute means it never competes
+     with the stage for the sticky's own vertical space (see
+     js/contrast.js for the timeline). ============ -->
 <section class="contrast-section" id="contrastSection">
   <div class="contrast-sticky">
+    <div class="contrast-intro" id="contrastIntro">
+      <p class="contrast-eyebrow">Same Business. Two Websites.</p>
+      <h2 class="contrast-heading">One of these turns visitors into customers.<br><em>The other gets ignored.</em></h2>
+      <div class="contrast-scroll-cue" id="contrastScrollCue">
+        <span class="contrast-scroll-cue-dot"></span>
+        <span class="contrast-scroll-cue-label">Keep scrolling to see the transformation</span>
+      </div>
+    </div>
     <div class="contrast-stage" id="contrastStage">
       <div class="mock mock-before">
         <div class="mock-nav">
@@ -174,7 +181,6 @@ window.scrollTo(0, 0);
       <div class="contrast-divider" id="contrastDivider"><i></i></div>
       <span class="contrast-label contrast-label--before">Outdated Website</span>
     </div>
-    <p class="contrast-caption">Scroll to reveal the difference</p>
   </div>
 </section>
 
