@@ -586,13 +586,29 @@ import * as THREE from './vendor/three.module.min.js';
   // node, don't duplicate the effect" trick showcase.js already uses
   // for its expanded card/quote) into that section's own sticky so it
   // keeps wandering there, at full opacity, for the whole time that
-  // section is pinned — not a brief fade-out tail. It only fades right
-  // at the very end, in the last EXIT_FADE_RATIO of one viewport
-  // height, as the sticky itself is about to let go into showcase.
-  // Reparenting is what makes this cheap: it's still the one canvas,
-  // one WebGL context, one simulation the whole time — never two
-  // instances running at once — so the extra cost is exactly the cost
-  // of rendering while the contrast section is on screen, not more.
+  // section is pinned. Reparenting alone made it *teleport* in though —
+  // the instant it became a plain inset:0 child of the (always-pinned-
+  // at-the-top) sticky, whatever was still off-screen above the old
+  // hero box was suddenly sitting in full view, since the new
+  // container's own on-screen position doesn't match where the old one
+  // had scrolled to. Fixed by compensating with a translateY that
+  // starts exactly cancelling that jump (so the very first frame in
+  // the new container looks identical to the last frame in the old
+  // one) and eases to zero over FALL_DIST — reading as gravity pulling
+  // the mass down into place rather than a cut. It's a pure function of
+  // how far past the hero/contrast boundary the scroll position is, so
+  // scrolling back up runs the exact same motion in reverse, right back
+  // through the same boundary, with no separate rise-up logic needed.
+  // It only fades near the very end of the section, in the last
+  // EXIT_FADE_RATIO of one viewport height, as the sticky is about to
+  // let go into showcase. Reparenting is still what keeps this cheap:
+  // it's the one canvas, one WebGL context, one simulation throughout —
+  // never two instances running at once.
+  function smoothstep(e0, e1, x){
+    const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
+    return t * t * (3 - 2 * t);
+  }
+  const FALL_RATIO = 0.7;
   const EXIT_FADE_RATIO = 0.28;
   let zone = 'hero'; // 'hero' | 'contrast' | 'gone'
 
@@ -604,10 +620,18 @@ import * as THREE from './vendor/three.module.min.js';
 
     let inContrast = false;
     let exitOpacity = 1;
+    let fallOffset = 0;
     if(!inHero && contrastStickyEl){
       const cRect = contrastSectionEl.getBoundingClientRect();
       if(cRect.bottom > 0){
         inContrast = true;
+
+        const pastPx = -heroRect.bottom; // how far we've scrolled beyond hero's own bottom edge
+        const fallDist = window.innerHeight * FALL_RATIO;
+        const fallT = smoothstep(0, fallDist, pastPx);
+        const canvasH = canvas.clientHeight || window.innerHeight;
+        fallOffset = -canvasH * (1 - fallT);
+
         const exitPx = window.innerHeight * EXIT_FADE_RATIO;
         if(cRect.bottom < exitPx) exitOpacity = Math.max(0, cRect.bottom / exitPx);
       }
@@ -621,6 +645,7 @@ import * as THREE from './vendor/three.module.min.js';
       } else if(nextZone === 'hero' && heroEl){
         heroEl.insertBefore(canvas, heroEl.firstChild);
         canvas.classList.remove('is-roaming');
+        canvas.style.transform = ''; // hero phase needs no JS transform at all — plain inset:0 already matches its normal scrolled-with-the-page position
       }
       // 'gone': leave it parked wherever it last was — paused and
       // faded to nothing, so its parent no longer matters until the
@@ -631,6 +656,7 @@ import * as THREE from './vendor/three.module.min.js';
 
     if(zone === 'contrast'){
       canvas.style.opacity = String(exitOpacity);
+      canvas.style.transform = `translateY(${fallOffset.toFixed(1)}px)`;
     } else if(zone === 'hero' && canvas.style.opacity){
       canvas.style.opacity = ''; // hand control back to the .is-visible class's own transition
     }
