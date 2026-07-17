@@ -7,13 +7,16 @@
    when there's more than one; a single demo just sits centered with
    no dots/arrows since there's nothing to browse between yet.
 
-   Each iframe's src is only assigned once its card is actually about
-   to scroll into view (a plain scroll-position check on the section,
-   not an IntersectionObserver alone — the same reasoning as
-   comparison-chart.js: a fast scroll/flick can skip clean past a
-   threshold the browser never renders an in-between frame for). Until
-   then the frame sits empty so a visit that never reaches this
-   section never pays for loading someone else's whole live website.
+   Each iframe's src is assigned shortly after the *page's own* load
+   event, not gated by scroll proximity — this section sits the 4th
+   one down (past Hero, Contrast, Showcase, Comparison), so even a
+   fast scroller takes a real beat to reach it, which is normally
+   plenty of lead time for someone else's whole website to finish
+   loading in the background. Waiting until the card was already
+   nearly in view instead meant the "Loading live site…" placeholder
+   was often still showing right as it scrolled in. The small delay
+   after 'load' keeps this from competing with the main page's own
+   critical first paint.
 =================================================================== */
 (function(){
   const section = document.getElementById('liveDemoSection');
@@ -87,20 +90,21 @@
     cards[clamped].scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
   }
 
-  // ---- lazy-load each card's iframe once it's actually about to
-  // scroll into view ----
-  const loadedCards = new Set();
-  function maybeLoadCards(){
+  // ---- start every card's iframe loading well ahead of scroll
+  // arrival — see the header comment above for why this isn't gated
+  // by scroll proximity at all ----
+  function loadAllCards(){
     cards.forEach(card=>{
-      if(loadedCards.has(card)) return;
-      const rect = card.getBoundingClientRect();
-      if(rect.top > window.innerHeight * 1.3 || rect.bottom < -200) return;
       const iframe = card.querySelector('iframe');
       if(!iframe || !iframe.dataset.src) return;
-      loadedCards.add(card);
       iframe.addEventListener('load', ()=> card.classList.add('is-loaded'), { once:true });
       iframe.src = iframe.dataset.src;
     });
+  }
+  if(document.readyState === 'complete'){
+    setTimeout(loadAllCards, 400);
+  } else {
+    window.addEventListener('load', ()=> setTimeout(loadAllCards, 400));
   }
 
   // ---- whichever card sits centered in the stack gets the active dot ----
@@ -164,7 +168,7 @@
   function requestUpdate(){
     if(ticking) return;
     ticking = true;
-    requestAnimationFrame(()=>{ updateEntrance(); maybeLoadCards(); ticking = false; });
+    requestAnimationFrame(()=>{ updateEntrance(); ticking = false; });
   }
   window.addEventListener('scroll', requestUpdate, { passive:true });
   // width-only guard — matches the same pattern used elsewhere on the
@@ -180,5 +184,4 @@
     requestUpdate();
   });
   updateEntrance();
-  maybeLoadCards();
 })();

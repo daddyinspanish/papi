@@ -2907,20 +2907,32 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   position:relative;
   z-index:1;
   width:100%;
-  max-width:1100px;
+  max-width:1200px;
   display:flex;
   gap:clamp(1.2rem, 3vw, 2rem);
   overflow-x:auto;
   scroll-snap-type:x mandatory;
   -webkit-overflow-scrolling:touch;
   scrollbar-width:none;
-  padding:.5rem clamp(1.5rem, 8vw, 12vw) 1.5rem;
+  /* far less side padding than testimonials' own version of this row —
+     that padding exists there to let adjacent cards peek in from the
+     edges, which matters much less here where the card itself needs
+     to be as wide as possible (see .live-demo-card below) */
+  padding:.5rem clamp(1rem, 4vw, 3rem) 1.5rem;
 }
 .live-demo-stack::-webkit-scrollbar{ display:none; }
 
 .live-demo-card{
   flex:0 0 auto;
-  width:min(92vw, 640px);
+  /* wide enough on desktop to clear the embedded site's own ~980px/
+     720px responsive breakpoints — at the old 640px cap every visitor
+     was seeing that site's *mobile* layout (hamburger nav, stacked
+     sections, its scroll-driven route animation turned off entirely)
+     squeezed into a short, wide frame, which read as cluttered rather
+     than showing off the real design. Comfortably narrower viewports
+     naturally still get a smaller card here too, so the embedded
+     site's own mobile layout keeps showing there, correctly */
+  width:min(94vw, 1040px);
   scroll-snap-align:center;
   display:flex;
   flex-direction:column;
@@ -2969,7 +2981,12 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 .live-demo-frame-wrap{
   position:relative;
   width:100%;
-  height:clamp(420px, 60vw, 640px);
+  /* raised alongside the card's own wider footprint above — the
+     embedded site's hero is a full scroll-driven "journey" section
+     that needs real height to read as intended rather than looking
+     cramped, and clearing its 720px-tall compact-mode breakpoint too
+     avoids it falling back to that shorter, tighter-spaced version */
+  height:clamp(480px, 60vw, 760px);
   background:#fff;
 }
 .live-demo-iframe{
