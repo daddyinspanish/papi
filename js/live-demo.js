@@ -41,6 +41,11 @@
       industry: 'Moving & Relocation',
       url: 'https://moving-website-three.vercel.app',
     },
+    {
+      name: 'Velocity Tire Co.',
+      industry: 'Tires & Auto Performance',
+      url: 'https://velocity-tire-co.vercel.app',
+    },
   ];
 
   const n = DEMOS.length;
