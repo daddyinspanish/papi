@@ -139,6 +139,9 @@ body, a, .cta{ cursor:none; }
   position:relative;
   min-height:100vh;
   min-height:100svh;
+  /* most robust layer — see the inline script in index.html's <head>
+     that computes --stable-vh */
+  min-height:calc(100 * var(--stable-vh, 1vh));
   width:100%;
   background:#ffffff;
   visibility:hidden;
@@ -358,6 +361,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   justify-content:center;
   min-height:100vh;
   min-height:100svh;
+  min-height:calc(100 * var(--stable-vh, 1vh));
   padding: 6vw 1.5rem 4rem;
   perspective:1400px;
 }
@@ -594,8 +598,17 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
      (smallest) state and never changes as chrome auto-hides, so this
      section's height — and the page's total height along with it —
      stays put for the entire scroll. Old browsers without svh support
-     just ignore this line and keep the vh value above. */
+     just ignore this line and keep the vh value above.
+
+     Turned out not to be enough on its own: some in-app browsers'
+     bundled WebKit predates real svh support, so the svh line above
+     silently never engages there and the original bug is right back.
+     --stable-vh (computed once by the inline script in index.html's
+     <head>, re-measured only on a genuine width change) is the
+     bulletproof final layer — plain arithmetic, no dependency on which
+     CSS units the browser happens to understand. */
   height:400svh;
+  height:calc(400 * var(--stable-vh, 1vh));
   background:#f2efe8;
   z-index:1;
 }
@@ -604,6 +617,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   top:0;
   height:100vh;
   height:100svh;
+  height:calc(100 * var(--stable-vh, 1vh));
   overflow:hidden;
   display:flex;
   align-items:center;
@@ -1314,8 +1328,9 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   height:100vh;
   /* see the long comment on .contrast-section above — same fix, same
      reason. This section's own outer height is set from JS in
-     showcase.js using the matching svh unit, for the same reason. */
+     showcase.js using the same --stable-vh custom property. */
   height:100svh;
+  height:calc(100 * var(--stable-vh, 1vh));
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -2939,14 +2954,16 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   text-overflow:ellipsis;
   white-space:nowrap;
 }
-/* fixed clamp rather than a tall vh-multiplied value — this only sets
-   the iframe's own height, not anything that defines the page's total
-   scroll distance, so it doesn't carry the same in-app-browser risk
-   the site's tall sticky sections had to be fixed for elsewhere */
+/* clamped against vw, not vh — this doesn't multiply into anything
+   that defines the page's total scroll distance the way the site's
+   tall sticky sections do, so it was never at risk of the dramatic
+   in-app-browser jump those needed --stable-vh to fix. Sized off vw
+   instead of vh anyway, purely so this card's own height has zero
+   dependency on viewport height at all rather than a bounded one. */
 .live-demo-frame-wrap{
   position:relative;
   width:100%;
-  height:clamp(420px, 70vh, 640px);
+  height:clamp(420px, 60vw, 640px);
   background:#fff;
 }
 .live-demo-iframe{

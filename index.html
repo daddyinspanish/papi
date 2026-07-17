@@ -10,6 +10,32 @@
 // was one way the hero's fill animation could get skipped entirely
 if('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.scrollTo(0, 0);
+
+// a stable stand-in for 100vh, computed once up front rather than
+// trusting the CSS vh unit directly — see the long comment on
+// .contrast-section in style.css. Some in-app browsers (Instagram's
+// own chief among them) keep recomputing vh continuously as their own
+// embedded chrome slides in/out while scrolling, not just once like
+// iOS Safari; adding the newer svh CSS unit as an override helped but
+// didn't fully fix it there, most likely because that app's bundled
+// WebKit build predates real svh support. A plain JS-measured value
+// that's only ever re-measured on a genuine width change (the same
+// guard every other script on this page already uses, for the same
+// "don't react to a toolbar collapsing" reason) sidesteps the whole
+// problem regardless of which CSS units the browser understands.
+(function(){
+  function setStableVh(){
+    document.documentElement.style.setProperty('--stable-vh', (window.innerHeight * 0.01) + 'px');
+  }
+  setStableVh();
+  var lastW = window.innerWidth;
+  window.addEventListener('resize', function(){
+    var w = window.innerWidth;
+    if(w === lastW) return;
+    lastW = w;
+    setStableVh();
+  });
+})();
 </script>
 <title>Papi — Business-Ready Websites, Built With Purpose</title>
 <meta name="description" content="Papi builds business-ready websites designed to build trust, communicate clearly, and guide visitors to their next step.">

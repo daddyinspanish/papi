@@ -365,16 +365,19 @@
   // carousel advances through all of them a little faster for the
   // same amount of scrolling.
   //
-  // svh ("small" viewport height) instead of plain vh where supported
-  // — see the matching comment on .contrast-section in style.css. At
-  // this section's ~5-8x multiplier, in-app browsers (Instagram's own
-  // chief among them) that keep recomputing vh live as their own
-  // chrome slides in/out while scrolling would swing this section's
-  // (and so the whole page's) total height by hundreds of pixels
-  // mid-scroll — read as sections jumping around further down the
-  // page. svh stays pinned to the chrome's fully-expanded state instead.
-  const vhUnit = (window.CSS && CSS.supports && CSS.supports('height', '1svh')) ? 'svh' : 'vh';
-  section.style.height = (n * 68) + vhUnit;
+  // --stable-vh (set once in index.html's <head>, in px) rather than
+  // the CSS vh/svh unit — see the long comment on .contrast-section in
+  // style.css. At this section's ~5-8x multiplier, in-app browsers
+  // (Instagram's own chief among them) that keep recomputing vh live
+  // as their own chrome slides in/out while scrolling would swing this
+  // section's (and so the whole page's) total height by hundreds of
+  // pixels mid-scroll — read as sections jumping around further down
+  // the page. svh alone wasn't a full fix since some of those apps'
+  // bundled WebKit predates real svh support; --stable-vh is plain
+  // arithmetic, so it works regardless of which CSS units the browser
+  // understands.
+  const stableVhPx = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stable-vh')) || (window.innerHeight * 0.01);
+  section.style.height = (n * 68 * stableVhPx) + 'px';
 
   function lerp(a,b,t){ return a + (b-a)*t; }
 
