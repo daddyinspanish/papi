@@ -256,7 +256,8 @@ window.scrollTo(0, 0);
 </section>
 
 <!-- ============ COMPARISON — a Papi-built site vs an outdated one,
-     across a few common metrics, as a grouped column chart ============ -->
+     across a few common metrics, as a line chart that draws itself in
+     left-to-right on scroll, plus a big "5X" headline stat ============ -->
 <section class="comparison-section" id="comparisonSection">
   <div class="comparison-inner">
     <p class="comparison-eyebrow">The Numbers</p>
@@ -266,33 +267,37 @@ window.scrollTo(0, 0);
       <span class="comparison-legend-item"><i class="comparison-dot comparison-dot--old"></i>Outdated site</span>
       <span class="comparison-legend-item"><i class="comparison-dot comparison-dot--papi"></i>Papi website</span>
     </div>
-    <div class="comparison-chart" id="comparisonChart">
-      <div class="comparison-group">
-        <div class="comparison-bars">
-          <div class="comparison-bar comparison-bar--old" style="--fill:38%"></div>
-          <div class="comparison-bar comparison-bar--papi" style="--fill:100%">
-            <span class="comparison-bar-stat" data-value="162">+0%</span>
-          </div>
+    <div class="comparison-content">
+      <div class="comparison-chart-wrap">
+        <div class="comparison-svg-box" id="comparisonChart">
+          <svg class="comparison-svg" viewBox="0 0 640 260" preserveAspectRatio="none" aria-hidden="true">
+            <line class="comparison-baseline" x1="20" y1="230" x2="620" y2="230"></line>
+            <path class="comparison-line comparison-line--old" id="comparisonLineOld" d="M80,202 L320,206 L560,196"></path>
+            <path class="comparison-line comparison-line--papi" id="comparisonLinePapi" d="M80,192 L320,108 L560,38"></path>
+            <g class="comparison-dot-group comparison-dot-group--old">
+              <circle cx="80" cy="202" r="4"></circle>
+              <circle cx="320" cy="206" r="4"></circle>
+              <circle cx="560" cy="196" r="4"></circle>
+            </g>
+            <g class="comparison-dot-group comparison-dot-group--papi">
+              <circle cx="80" cy="192" r="5"></circle>
+              <circle cx="320" cy="108" r="5"></circle>
+              <circle cx="560" cy="38" r="5"></circle>
+            </g>
+          </svg>
+          <div class="comparison-value" style="left:12.5%; top:73.8%"><span class="comparison-stat-value" data-value="162">+0%</span></div>
+          <div class="comparison-value" style="left:50%; top:41.5%"><span class="comparison-stat-value" data-value="178">+0%</span></div>
+          <div class="comparison-value" style="left:87.5%; top:14.6%"><span class="comparison-stat-value" data-value="203">+0%</span></div>
         </div>
-        <div class="comparison-group-label">Leads Generated</div>
+        <div class="comparison-axis">
+          <span>Leads Generated</span>
+          <span>Mobile Conversions</span>
+          <span>Return Visitors</span>
+        </div>
       </div>
-      <div class="comparison-group">
-        <div class="comparison-bars">
-          <div class="comparison-bar comparison-bar--old" style="--fill:33%"></div>
-          <div class="comparison-bar comparison-bar--papi" style="--fill:92%">
-            <span class="comparison-bar-stat" data-value="178">+0%</span>
-          </div>
-        </div>
-        <div class="comparison-group-label">Mobile Conversions</div>
-      </div>
-      <div class="comparison-group">
-        <div class="comparison-bars">
-          <div class="comparison-bar comparison-bar--old" style="--fill:29%"></div>
-          <div class="comparison-bar comparison-bar--papi" style="--fill:88%">
-            <span class="comparison-bar-stat" data-value="203">+0%</span>
-          </div>
-        </div>
-        <div class="comparison-group-label">Return Visitors</div>
+      <div class="comparison-stat" id="comparisonStat">
+        <div class="comparison-stat-number">5<span>X</span></div>
+        <p class="comparison-stat-label">More results with a Papi-built site.</p>
       </div>
     </div>
   </div>
