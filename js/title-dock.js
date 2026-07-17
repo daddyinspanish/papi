@@ -21,6 +21,7 @@
   const sub      = document.getElementById('heroSub');
   const cta      = document.getElementById('heroCta');
   const review   = document.getElementById('heroReview');
+  const social   = document.getElementById('heroSocial');
   const titleDock= document.getElementById('titleDock');
   const siteHeader = document.getElementById('siteHeader');
   if(!heroCopy || !titleDock) return;
@@ -120,10 +121,34 @@
     }, 650);
   }
 
+  // ---- social icon row: fades/rises in right away (it's the topmost
+  // element, doesn't need to wait on anything else settling first),
+  // then tracks the same fadeOut as the rest of hero-copy in update()
+  // below once its own entrance is done ----
+  let socialEntranceDone = false;
+  if(social){
+    social.style.transition = 'none';
+    social.style.opacity = '0';
+    social.style.transform = 'translateY(-14px)';
+  }
+  function revealSocial(){
+    if(!social) return;
+    requestAnimationFrame(()=>{
+      social.style.transition = 'opacity .6s ease, transform .6s var(--ease-out)';
+      social.style.opacity = '1';
+      social.style.transform = 'translateY(0)';
+    });
+    setTimeout(()=>{
+      socialEntranceDone = true;
+      social.style.transition = 'opacity .3s ease';
+    }, 650);
+  }
+
   window.Papi = window.Papi || {};
   window.Papi.revealSubtitle = revealSubtitle;
   window.Papi.revealCta = revealCta;
   window.Papi.revealReview = revealReview;
+  window.Papi.revealSocial = revealSocial;
 
   // magnetic pull — the button leans slightly toward a nearby cursor
   let mouseX = -9999, mouseY = -9999;
@@ -235,6 +260,7 @@
     if(cta && ctaEntranceDone) cta.style.opacity = String(1 - fadeOut);
     if(sub && subEntranceDone) sub.style.opacity = String(1 - fadeOut);
     if(review && reviewEntranceDone) review.style.opacity = String(1 - fadeOut);
+    if(social && socialEntranceDone) social.style.opacity = String(1 - fadeOut);
 
     heroCopy.style.transform = `translateY(${-fadeOut * 34}px)`;
     heroCopy.style.pointerEvents = fadeOut > 0.6 ? 'none' : 'auto';

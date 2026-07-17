@@ -64,6 +64,7 @@
     if(window.Papi && window.Papi.revealTitle) window.Papi.revealTitle();
     if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
     if(window.Papi && window.Papi.revealField) window.Papi.revealField();
+    if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
     setTimeout(()=>{
       if(window.Papi && window.Papi.revealCta) window.Papi.revealCta();
     }, 550);

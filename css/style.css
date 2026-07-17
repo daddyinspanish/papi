@@ -392,6 +392,32 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   margin-bottom:1.4rem;
   transition:opacity .3s ease;
 }
+
+/* the row of clickable social icons above the eyebrow — its own
+   simple fade+rise entrance (see js/title-dock.js's revealSocial) and
+   folded into the same scroll-tied fadeOut the rest of hero-copy
+   already gets, so it fades away scrolling down and reappears
+   scrolling back into the hero, same as everything else here */
+.hero-social{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.9rem;
+  margin-bottom:1.6rem;
+  opacity:0;
+  will-change:opacity, transform;
+}
+.hero-social-link{
+  display:flex;
+  cursor:none;
+}
+.hero-social-link svg{
+  width:34px;
+  height:34px;
+  border-radius:8px;
+  transition:transform .25s var(--ease-out);
+}
+.hero-social-link:hover svg{ transform:scale(1.12); }
 .eyebrow .char{
   display:inline-block;
   white-space:pre;
