@@ -2374,6 +2374,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   text-align:center;
 }
 .comparison-stat-number{
+  position:relative; /* anchors the ::before/::after echo rings below */
   font-family:'Fraunces', serif;
   font-weight:600;
   font-size:clamp(4.5rem, 11vw, 8rem);
@@ -2387,6 +2388,37 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   transition:opacity .7s var(--ease-out), transform .7s var(--ease-out);
 }
 .comparison-stat-number span{ font-size:.7em; }
+/* two "echoes" of the number itself — same gradient-clipped text,
+   stacked directly on top of the real one via ::before/::after — that
+   continuously zoom in and fade out, staggered half a cycle apart so
+   there's always one mid-pulse. The real "5X" text stays put and
+   fully legible throughout; only these copies pulse outward from it,
+   the way an echo radiates from a fixed source rather than the source
+   itself fading. Hardcoding the content here (rather than deriving it
+   from the real text) is fine since this number is static copy, not
+   dynamic data. */
+.comparison-stat-number::before,
+.comparison-stat-number::after{
+  content:'5X';
+  position:absolute;
+  inset:0;
+  background:inherit;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  pointer-events:none;
+  opacity:0;
+}
+.comparison-stat.is-visible .comparison-stat-number::before{
+  animation:comparisonStatEcho 3s ease-out 1s infinite;
+}
+.comparison-stat.is-visible .comparison-stat-number::after{
+  animation:comparisonStatEcho 3s ease-out 2.5s infinite;
+}
+@keyframes comparisonStatEcho{
+  0%{ opacity:.5; transform:scale(1); }
+  100%{ opacity:0; transform:scale(1.35); }
+}
 .comparison-stat-label{
   margin-top:.5rem;
   font-size:1rem;
