@@ -97,9 +97,11 @@ import * as THREE from './vendor/three.module.min.js';
     cubeSpacing: 0.24,       // half-distance (in each of x/y) from the cluster's own centre to a cube
                               // slot — sized so the 4 cubes sit close together near the middle of the
                               // hero with real, visible gaps between them (matching the reference
-                              // logo), not touching/fused into one blob. Verified in sandbox against
-                              // the worst-case tilt angle (see CUBE_TILT_*_MAX below) analytically —
-                              // adjacent cube centres never come closer than about a 0.12 gap
+                              // logo), not touching/fused into one blob. Verified in sandbox across
+                              // the full CUBE_TILT_*_MAX range with the isCubeExtra/fragment shrink
+                              // below in place — without that shrink, two invisible near-duplicate
+                              // metaballs stacked on every visible cube were quietly inflating each
+                              // one's effective radius through the smin fold and closing the gap
     // extra points that only ever reveal themselves once the mass has
     // fallen into the Contrast section — see the fragmentation system
     // below (search "fragment") for how these stay invisibly merged
@@ -118,6 +120,13 @@ import * as THREE from './vendor/three.module.min.js';
     viscosity: 0.88,         // resistance to *changing* velocity — higher = heavier, slower to redirect
     damping: 0.94,           // raw velocity decay every frame — higher = keeps drifting longer before settling
     elasticity: 0.18,        // how strongly a point accelerates toward its current wander target
+    cubeElasticity: 0.55,    // a much snappier elasticity used only once a point is locked into cube
+                              // formation (blended in by cubeFormT) — the soft, laggy free-wander
+                              // physics above is exactly what let a point overshoot and briefly touch
+                              // its neighbour while chasing the cube cluster's own moving (tumbling)
+                              // target; a tighter elasticity keeps it locked precisely to that target
+    cubeViscosity: 0.55,     // matching drop in viscosity for the same reason — less "heavy drift",
+                              // faster to actually redirect toward the tumbling target
     surfaceTension: 0.10,    // smooth-min blend radius between points — higher = merges/rounds off more readily
     noiseStrength: 0.16,     // how much procedural noise deforms the surface and shading
     mouseForce: 0.22,        // strength of the cursor push/pull
@@ -276,7 +285,7 @@ import * as THREE from './vendor/three.module.min.js';
         // runs every frame while uCubeT is mid-transition, not just at
         // the 0/1 endpoints)
         float circleDist = length(d) - r;
-        float boxD = boxDist(d, r*1.35, r*0.55);
+        float boxD = boxDist(d, r*1.35, r*0.4);
         float dist = mix(circleDist, boxD, uCubeT);
         f = smin(f, dist, uSurfaceTension);
       }
@@ -317,7 +326,16 @@ import * as THREE from './vendor/three.module.min.js';
       // 0 at the true boundary (rim), 1 well inside (each blob's peak)
       // — also reused below, unchanged, for colour absorption
       float pathT = clamp(-f / (uSlimeSize*0.55), 0.0, 1.0);
-      float domeHoriz = clamp(1.0 - pathT, 0.0, 1.0);
+      // raising this to a power > 1 keeps the two boundary conditions
+      // identical (still exactly 0 at the peak, still exactly 1 right
+      // at the rim) but compresses everything in between toward 0 —
+      // the difference between a full round dome (exponent 1, the
+      // liquid look everywhere else in this file) and a flat-faced
+      // cube with only its true edges rounded off (a higher exponent):
+      // a real cube's face doesn't gradually bulge from its centre
+      // outward, it stays flat until the actual edge. Blended in by
+      // uCubeT so ordinary liquid blobs elsewhere keep the round dome.
+      float domeHoriz = pow(clamp(1.0 - pathT, 0.0, 1.0), mix(1.0, 3.2, uCubeT));
       float domeVert = sqrt(max(0.0, 1.0 - domeHoriz*domeHoriz));
       vec3 normal = normalize(vec3(-gDir*domeHoriz, domeVert + 0.02));
 
@@ -476,12 +494,17 @@ import * as THREE from './vendor/three.module.min.js';
       // unaffected) — what makes the scattered droplets read as varied
       // little pieces instead of identical dots once shrunk
       sizeMul: isFragment ? (0.45 + Math.random()*0.4) : 1.0,
+      // primaries 0-3 are each slot's one true representative; any
+      // further primaries sharing that same slot (4-7, etc., when
+      // primaryCount > 4) are just as redundant there as the fragments
+      // are — two metaballs stacked near the same spot don't merely
+      // double up harmlessly, running both through the same smin fold
+      // measurably inflates that spot's effective radius, which was
+      // quietly closing the real gap between adjacent cubes. See the
+      // matching shrink in renderOnce().
+      isCubeExtra: !isFragment && i >= 4,
       cubeSignX,
       cubeSignY,
-      // deterministic per-point spread (not random — stays identical
-      // across reloads) so the 2 primaries sharing a slot (8 points / 4
-      // slots) don't sit exactly on top of one another
-      cubeJitter: (i * 0.6180339887) % 1,
       // last-computed depth (see project3D) while tumbling — read back
       // in renderOnce() for the per-point size-by-depth cue; harmless/
       // unused whenever cubeFormT is 0
@@ -603,16 +626,35 @@ import * as THREE from './vendor/three.module.min.js';
         // so once fully formed (cubeFormT pinned at 1) this is the only
         // thing moving the point at all, giving a precisely
         // scroll-scrubbed rotation rather than a free wander that
-        // merely happens to sit near a cube shape
-        const spacing = CONFIG.cubeSpacing * (1 + (p.cubeJitter - 0.5) * 0.3);
-        const slot = project3D(p.cubeSignX*spacing, p.cubeSignY*spacing, angleY, angleX);
+        // merely happens to sit near a cube shape. Every point sharing a
+        // slot aims at the exact same spacing (no per-point jitter) —
+        // the "extra" primary sharing this slot is invisible (see
+        // isCubeExtra in renderOnce) whenever cubeFormT>0, so there's no
+        // risk of two visible points exactly overlapping, and a uniform
+        // spacing keeps the real gap between adjacent cubes predictable
+        // rather than varying per point.
+        const slot = project3D(p.cubeSignX*CONFIG.cubeSpacing, p.cubeSignY*CONFIG.cubeSpacing, angleY, angleX);
         targetX = targetX + (slot.x - targetX) * cubeFormT;
         targetY = targetY + (slot.y - targetY) * cubeFormT;
         p.cubeDepth = slot.depth;
       }
 
-      let ax = (targetX - p.x) * CONFIG.elasticity;
-      let ay = (targetY - p.y) * CONFIG.elasticity;
+      // the free-wander elasticity/viscosity (soft, heavy, deliberately
+      // laggy — that's what reads as thick liquid) is exactly what let
+      // points overshoot past their target and briefly touch a
+      // neighbouring cube when the cluster's own target position keeps
+      // moving (the rotate phase re-aims every rendered frame). Once a
+      // point is actually locked into cube formation, it needs to track
+      // that moving target tightly instead — blended in by cubeFormT so
+      // the coalesce phase itself still eases in smoothly rather than
+      // snapping.
+      const pointElasticity = p.isFragment ? CONFIG.elasticity
+        : CONFIG.elasticity + (CONFIG.cubeElasticity - CONFIG.elasticity) * cubeFormT;
+      const pointViscosity = p.isFragment ? CONFIG.viscosity
+        : CONFIG.viscosity + (CONFIG.cubeViscosity - CONFIG.viscosity) * cubeFormT;
+
+      let ax = (targetX - p.x) * pointElasticity;
+      let ay = (targetY - p.y) * pointElasticity;
 
       if(mouse.active){
         const dx = p.x - mouse.x;
@@ -628,8 +670,8 @@ import * as THREE from './vendor/three.module.min.js';
       // viscosity resists how much new acceleration can change velocity
       // (thick fluid), damping decays existing velocity independently
       // (energy loss) — two distinct knobs for two distinct feelings
-      p.vx += ax * (1 - CONFIG.viscosity) * dtScale;
-      p.vy += ay * (1 - CONFIG.viscosity) * dtScale;
+      p.vx += ax * (1 - pointViscosity) * dtScale;
+      p.vy += ay * (1 - pointViscosity) * dtScale;
       p.vx *= CONFIG.damping;
       p.vy *= CONFIG.damping;
 
@@ -803,12 +845,32 @@ import * as THREE from './vendor/three.module.min.js';
       const p = points[i];
       const v = uniforms.uPoints.value[i];
       v.set(p.x, p.y, p.vx * CONFIG.movementSpeed, p.vy * CONFIG.movementSpeed);
-      // a point currently tumbled toward the viewer reads slightly
-      // larger, one tumbled away slightly smaller — the same "closer
-      // looks bigger" cue real 3D rotation has, faded in/out by
-      // cubeFormT itself so it never pops in ahead of the cube shape
-      const depthScale = (!p.isFragment && cubeFormT > 0) ? (1 + p.cubeDepth * CUBE_DEPTH_SIZE * cubeFormT) : 1;
-      uniforms.uPointSize.value[i] = p.sizeMul * depthScale;
+      let sizeMul = p.sizeMul;
+      if(p.isFragment || p.isCubeExtra){
+        // every fragment sits EXACTLY on its primary partner's position
+        // for as long as fragT is 0 — which is the entire cube phase,
+        // start to finish (fragT and cubeFormT are never both nonzero
+        // at once) — and any "extra" primary sharing a cube slot with
+        // another primary is in the same boat once cubeFormT rises.
+        // Two near-identical metaballs stacked on the same spot don't
+        // just double up harmlessly: running them both through the same
+        // smin fold measurably inflates that spot's effective radius
+        // (smin(x,x,k) computes to x - k/4, not x), which was quietly
+        // shrinking the real gap between adjacent cubes below what the
+        // target positions alone would suggest. Since both are 100%
+        // redundant here anyway, shrinking them to nothing while cubes
+        // are formed removes that inflation with zero visible change,
+        // and they fade back to full size the moment cubeFormT eases
+        // back toward 0.
+        sizeMul = p.sizeMul * (1 - cubeFormT);
+      } else if(cubeFormT > 0){
+        // a point currently tumbled toward the viewer reads slightly
+        // larger, one tumbled away slightly smaller — the same "closer
+        // looks bigger" cue real 3D rotation has, faded in/out by
+        // cubeFormT itself so it never pops in ahead of the cube shape
+        sizeMul = p.sizeMul * (1 + p.cubeDepth * CUBE_DEPTH_SIZE * cubeFormT);
+      }
+      uniforms.uPointSize.value[i] = sizeMul;
     }
     renderer.render(scene, camera);
   }
