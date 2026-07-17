@@ -25,6 +25,19 @@
   const siteHeader = document.getElementById('siteHeader');
   if(!heroCopy || !titleDock) return;
 
+  // eyebrow/title's own CSS (.eyebrow, .hero-title) carries a
+  // transition:opacity .3s ease rule meant for a one-off fade-in — but
+  // neither element's OWN opacity ever actually fades in that way (only
+  // their individual per-letter .char spans do, handled separately by
+  // title.js); fadeFrame below sets these two elements' opacity every
+  // single frame from page load onward, so that leftover CSS transition
+  // just perpetually chases a constantly-moving target, lagging the
+  // real (already fully-eased) value by a good fraction of 300ms. sub/
+  // review/social clear this same transition once their own entrance
+  // finishes, further down.
+  if(eyebrow) eyebrow.style.transition = 'none';
+  if(title) title.style.transition = 'none';
+
   const SCROLL_RANGE_RATIO = 0.95; // fraction of viewport height for the full transition
   const FADE_START    = 0.42; // everything starts fading out
   const FADE_END       = 0.82; // everything fully gone
@@ -69,6 +82,11 @@
     });
     setTimeout(()=>{
       subEntranceDone = true;
+      // hand off cleanly to fadeFrame's own continuous, already-eased
+      // per-frame opacity updates below — leaving the entrance's own
+      // transition active here would have it perpetually chasing that
+      // constantly-moving target instead
+      sub.style.transition = 'none';
       // lets title.js know it's safe to measure the subtitle's
       // characters and start their own scroll/cursor ripple — doing
       // that before the block-roll entrance settles would measure the
@@ -96,7 +114,11 @@
     });
     setTimeout(()=>{
       reviewEntranceDone = true;
-      review.style.transition = 'opacity .3s ease, border-color .3s var(--ease-out), background .3s var(--ease-out)';
+      // opacity dropped here (fadeFrame below drives it continuously,
+      // already eased — see the eyebrow/title note above); the other
+      // two are unrelated to scroll-fade (a hover state on the badge
+      // itself), so they keep their own transition
+      review.style.transition = 'border-color .3s var(--ease-out), background .3s var(--ease-out)';
     }, 650);
   }
 
@@ -123,7 +145,10 @@
     });
     setTimeout(()=>{
       socialEntranceDone = true;
-      social.style.transition = 'opacity .3s ease';
+      // fadeFrame below drives this continuously from here on — see
+      // the eyebrow/title note above for why keeping a CSS transition
+      // active on top of that would just add a perpetual lag
+      social.style.transition = 'none';
     }, 900);
   }
 
@@ -248,11 +273,25 @@
   const showcaseZone = sectionWords[1];
   const liveDemoZone = sectionWords[3];
 
-  function update(){
-    const dist = viewportH * SCROLL_RANGE_RATIO;
-    const progress = Math.max(0, Math.min(1, window.scrollY / dist));
-
-    const fadeOut = smoothstep(FADE_START, FADE_END, progress);
+  // continuous rAF loop (same pattern as magnetFrame above) rather than
+  // only reacting to 'scroll' events like update() below — title.js
+  // eases its shared progress value toward its target over several
+  // frames (deliberately, so a sudden scroll jump glides rather than
+  // snaps), and that easing keeps running every frame via title.js's
+  // own rAF loop even after the visitor stops scrolling. Computing
+  // opacity only inside update() (scroll-event-triggered) meant it
+  // froze at whatever value it last saw the instant scrolling stopped,
+  // while the letters kept drifting toward their real target for
+  // another beat — the title would sit fully visible over a stale,
+  // still-scattered layout (or the reverse: correctly repositioned
+  // letters at a stale, wrong opacity) until the next scroll event
+  // happened to fire. Running this every frame, independent of scroll
+  // events, keeps opacity and letter position in exact lockstep
+  // regardless of whether the visitor is actively scrolling right now.
+  function fadeFrame(){
+    const fadeOut = (window.Papi && window.Papi.getHeroFadeProgress)
+      ? window.Papi.getHeroFadeProgress()
+      : smoothstep(FADE_START, FADE_END, Math.max(0, Math.min(1, window.scrollY / (viewportH * SCROLL_RANGE_RATIO))));
 
     if(eyebrow) eyebrow.style.opacity = String(1 - fadeOut);
     if(title) title.style.opacity = String(1 - fadeOut);
@@ -262,6 +301,14 @@
 
     heroCopy.style.transform = `translateY(${-fadeOut * 34}px)`;
     heroCopy.style.pointerEvents = fadeOut > 0.6 ? 'none' : 'auto';
+
+    requestAnimationFrame(fadeFrame);
+  }
+  requestAnimationFrame(fadeFrame);
+
+  function update(){
+    const dist = viewportH * SCROLL_RANGE_RATIO;
+    const progress = Math.max(0, Math.min(1, window.scrollY / dist));
 
     // the brand mark/docked label only need to flip to dark-on-light
     // while over one of this site's white zones — the hero's own

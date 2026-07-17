@@ -216,6 +216,26 @@
 
   window.Papi = window.Papi || {};
   window.Papi.revealTitle = revealTitle;
+  // title-dock.js drives the title/eyebrow/subtitle/etc.'s own opacity
+  // fade from a fresh, un-eased read of scrollY on every scroll event —
+  // while curExplodeProgress below (declared further down, but this
+  // closure only ever gets CALLED after it's initialized) is eased
+  // toward that same target over several frames, deliberately, so a
+  // sudden jump in scroll position glides rather than snaps. Those two
+  // used to be two independent computations of "the same" progress:
+  // fine when scrolling slowly (both track the target closely enough
+  // that the gap is invisible), but a fast scroll — a hard flick, or
+  // scrolling back up quickly after diving deep into the page — let
+  // opacity snap back to fully visible instantly while the letters'
+  // own scatter/position was still several frames behind, mid-catch-up
+  // from wherever it had drifted to. That's what read as the title
+  // "freezing": a fully-opaque title sitting in a stale, still-
+  // scattered layout for a beat until the eased position finally
+  // caught up. Exposing the single eased value here and having
+  // title-dock.js use this instead of computing its own removes the
+  // gap entirely — opacity and position are now driven by the exact
+  // same number, every frame.
+  window.Papi.getHeroFadeProgress = () => curExplodeProgress;
 
   // splits text into per-letter spans for the push/ripple physics,
   // same as appendGroup above, but keeps each WORD wrapped in its own
@@ -515,7 +535,17 @@
 
     title.style.transform = `rotateX(${(-curY*MAX_TILT).toFixed(2)}deg) rotateY(${(curX*MAX_TILT).toFixed(2)}deg)`;
 
-    const targetExplode = (effectsLive || subEffectsLive) ? getExplodeProgress() : 0;
+    // always a live read of the real scroll-based target, not gated
+    // behind effectsLive/subEffectsLive — title-dock.js now drives the
+    // title/eyebrow/subtitle/etc.'s own opacity fade off this same
+    // value (see getHeroFadeProgress above), so pinning it to 0 until
+    // the entrance sequence finishes meant scrolling deep into the page
+    // during that multi-second window left the title stuck at full
+    // opacity no matter how far down the page you were — the gates
+    // below on titleGroup.update()/subGroup.update() already keep the
+    // per-letter scatter itself from fighting with the entrance's own
+    // CSS transition; the target/easing here has no such conflict.
+    const targetExplode = getExplodeProgress();
     const explodeAlpha = timeAlpha(0.12, dt, 0.4);
     curExplodeProgress += (targetExplode - curExplodeProgress) * explodeAlpha;
     if(effectsLive) titleGroup.update(idle, curExplodeProgress);
