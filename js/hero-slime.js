@@ -187,11 +187,10 @@ import * as THREE from './vendor/three.module.min.js';
     // the scattered droplets in Contrast read as varied little pieces
     // rather than identical dots
     uniform float uPointSize[${pointCount}];
-    // each point's own 3D spin (independent of the shared cluster
-    // tumble) — see rotateYX()/sdRoundBox3D() below and the JS-side
-    // CUBE_OWN_SPIN_RATE_* for why every cube rotates at its own rate
-    uniform float uPointAngleY[${pointCount}];
-    uniform float uPointAngleX[${pointCount}];
+    // the cube cluster's shared 3D tumble — every cube rotates in
+    // unison by this same angle (see rotateYX()/project3D() in JS)
+    uniform float uCubeAngleY;
+    uniform float uCubeAngleX;
     uniform float uSlimeSize;
     uniform float uSurfaceTension;
     // 0 = the normal round liquid metaballs used everywhere else in this
@@ -258,8 +257,7 @@ import * as THREE from './vendor/three.module.min.js';
       return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
     }
     // forward rotation: Y-axis first, then X-axis — the same convention
-    // project3D() uses in JS for the shared cluster tumble, so a cube's
-    // own spin and the cluster's orbit compose consistently
+    // project3D() uses in JS for the shared cluster tumble
     vec3 rotateYX(vec3 p, float angleY, float angleX){
       float cy = cos(angleY), sy = sin(angleY);
       vec3 p1 = vec3(p.x*cy + p.z*sy, p.y, -p.x*sy + p.z*cy);
@@ -353,10 +351,21 @@ import * as THREE from './vendor/three.module.min.js';
         // blended rather than switched, so the transition between round
         // liquid and cube liquid itself looks like a fluid morph (this
         // runs every frame while uCubeT is mid-transition, not just at
-        // the 0/1 endpoints)
+        // the 0/1 endpoints). This silhouette deliberately stays a
+        // plain, unrotated 2D box rather than the true rotated 3D one
+        // (see the comment by uCubeAngleY above and intersectBoxLocal
+        // below): rotating a real 3D box here, per point, per one of
+        // the 5 field() evaluations main() makes per fragment (this one
+        // plus 4 for the normal's finite-difference gradient), was 16
+        // points x 5 calls x ~8 trig calls each — real, measured jank
+        // once cubes were actually on screen. The shading below still
+        // does the true rotated-3D-box math, just once per fragment for
+        // whichever single point is nearest, which is what actually
+        // sells "this is rotating" — a soft liquid edge that stays a
+        // simple rounded square while the lit faces underneath visibly
+        // turn reads convincingly enough, for a small fraction of the cost.
         float circleDist = length(d) - r;
-        vec3 local3D = rotateYXInverse(vec3(d, 0.0), uPointAngleY[i], uPointAngleX[i]);
-        float boxD = sdRoundBox3D(local3D, vec3(r*1.35), r*0.42);
+        float boxD = boxDist(d, r*1.35, r*0.42);
         float dist = mix(circleDist, boxD, uCubeT);
         f = smin(f, dist, uSurfaceTension);
       }
@@ -440,22 +449,35 @@ import * as THREE from './vendor/three.module.min.js';
       // merely changes size. Found via a real ray-box intersection (see
       // intersectBoxLocal above), not just sampling the SDF at a fixed
       // depth — different faces genuinely rotate into and out of view
-      // as uPointAngleY/X change.
+      // as uCubeAngleY/X change. Every cube shares the same angle (they
+      // rotate in unison), so this is one shared rotation, not a
+      // per-point lookup.
+      //
+      // Kept in a SEPARATE variable rather than overwriting normal
+      // itself: normal still feeds fresnel below completely undiluted,
+      // which is what keeps the bright glass rim/outline around each
+      // cube's silhouette exactly as strong as every other liquid shape
+      // in this file. Blending the flat face normal into normal
+      // directly (the first attempt) diluted that same rim, since a
+      // flat, camera-facing normal has fresnel ~0 almost everywhere on
+      // a face — reading as flat matte plastic with no outline.
+      // shadingNormal below is what actually varies per face (feeding
+      // diffuse/specular/refraction), which is what sells "distinct 3D
+      // faces" without touching the rim at all.
+      vec3 shadingNormal = normal;
       if(uCubeT > 0.001){
         vec2 nearestD;
         int nearestIdx = findNearestPoint(p, aspect, nearestD);
         float nearestR = uSlimeSize * uPointSize[nearestIdx];
-        float nAngleY = uPointAngleY[nearestIdx];
-        float nAngleX = uPointAngleX[nearestIdx];
         // camera ray toward this fragment, travelling along -Z, rotated
         // into the box's own local frame (rotating a direction vector
         // uses the same transform as a position, just with no translation)
-        vec3 rayOriginLocal = rotateYXInverse(vec3(nearestD, 2.0), nAngleY, nAngleX);
-        vec3 rayDirLocal = rotateYXInverse(vec3(0.0, 0.0, -1.0), nAngleY, nAngleX);
+        vec3 rayOriginLocal = rotateYXInverse(vec3(nearestD, 2.0), uCubeAngleY, uCubeAngleX);
+        vec3 rayDirLocal = rotateYXInverse(vec3(0.0, 0.0, -1.0), uCubeAngleY, uCubeAngleX);
         vec3 hitNormalLocal;
         if(intersectBoxLocal(rayOriginLocal, rayDirLocal, vec3(nearestR*1.35), hitNormalLocal)){
-          vec3 faceNormal = rotateYX(hitNormalLocal, nAngleY, nAngleX);
-          normal = normalize(mix(normal, faceNormal, uCubeT));
+          vec3 faceNormal = rotateYX(hitNormalLocal, uCubeAngleY, uCubeAngleX);
+          shadingNormal = normalize(mix(normal, faceNormal, uCubeT * 0.85));
         }
       }
 
@@ -472,7 +494,7 @@ import * as THREE from './vendor/three.module.min.js';
       float ng  = fbm(noiseP);
       float ng1 = fbm(noiseP+vec2(eps*4.0,0.0));
       float ng2 = fbm(noiseP+vec2(0.0,eps*4.0));
-      vec3 bumpNormal = normalize(normal + vec3((ng1-ng),(ng2-ng),0.0) * 0.3);
+      vec3 bumpNormal = normalize(shadingNormal + vec3((ng1-ng),(ng2-ng),0.0) * 0.3);
 
       vec3 viewDir = vec3(0.0, 0.0, 1.0);
       vec3 lightDir = normalize(vec3(-0.35, 0.55, 0.7));
@@ -620,19 +642,12 @@ import * as THREE from './vendor/three.module.min.js';
       // quietly closing the real gap between adjacent cubes. See the
       // matching shrink in renderOnce().
       isCubeExtra: !isFragment && i >= 4,
-      cubeIndex,
       cubeSignX,
       cubeSignY,
       // last-computed depth (see project3D) while tumbling — read back
       // in renderOnce() for the per-point size-by-depth cue; harmless/
       // unused whenever cubeFormT is 0
       cubeDepth: 0,
-      // this cube's own independent spin (see CUBE_OWN_SPIN_RATE_* and
-      // stepPoints below) — separate from the shared cluster tumble
-      // (angleY/angleX), so every cube visibly rotates at its own rate
-      // rather than 4 copies moving in lockstep
-      ownAngleY: 0,
-      ownAngleX: 0,
     });
   }
 
@@ -701,14 +716,6 @@ import * as THREE from './vendor/three.module.min.js';
   // (see the depth-based uPointSize update in renderOnce())
   const CUBE_DEPTH_SIZE = 1.0;
 
-  // each of the 4 cubes spins on its own axis at its own distinct rate
-  // (see spinT in computeChoreography and stepPoints below) — indexed
-  // by cubeIndex (0-3, the same 2x2-grid slot assignment used for the
-  // cluster layout). Deliberately non-matching numbers so the 4 cubes
-  // visibly rotate independently rather than in lockstep.
-  const CUBE_OWN_SPIN_RATE_Y = [1.0, 0.7, 1.3, 0.85];
-  const CUBE_OWN_SPIN_RATE_X = [0.55, 1.15, 0.75, 1.35];
-
   // takes a cube slot's flat (offX, offY, z=0) resting offset from the
   // cluster's own centre and tumbles it in genuine 3D — rotated first
   // around the vertical (Y) axis, then around the horizontal (X) axis
@@ -731,7 +738,7 @@ import * as THREE from './vendor/three.module.min.js';
     return { x: 0.5 + x1*persp, y: 0.5 + y1*persp, depth: z2 };
   }
 
-  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, angleY, angleX, spinT){
+  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, angleY, angleX){
     if(mouse.active && performance.now() - lastMoveTime > MOUSE_IDLE_MS) mouse.active = false;
     const dtScale = dtMs / 16.6667; // normalizes physics to "per ~60fps frame" units, using the capped dt
 
@@ -769,15 +776,6 @@ import * as THREE from './vendor/three.module.min.js';
         targetX = targetX + (slot.x - targetX) * cubeFormT;
         targetY = targetY + (slot.y - targetY) * cubeFormT;
         p.cubeDepth = slot.depth;
-
-        // this cube's own independent spin — a full, continuous
-        // rotation (not bounded like the cluster tilt above, since one
-        // cube spinning in place has nothing to collide with) at this
-        // cube's own distinct rate, so it visibly turns and shows its
-        // other faces rather than just changing size/position with the
-        // cluster
-        p.ownAngleY = spinT * Math.PI * 2 * CUBE_OWN_SPIN_RATE_Y[p.cubeIndex];
-        p.ownAngleX = spinT * Math.PI * 2 * CUBE_OWN_SPIN_RATE_X[p.cubeIndex];
       }
 
       // the free-wander elasticity/viscosity (soft, heavy, deliberately
@@ -897,10 +895,10 @@ import * as THREE from './vendor/three.module.min.js';
     // every frame in renderOnce() for primaries currently tumbling as
     // part of the cube cluster (see CUBE_DEPTH_SIZE), same as uPoints
     uPointSize: { value: points.map(p => p.sizeMul) },
-    // each cube's own independent 3D spin — 0 for fragments/wander,
-    // rewritten every frame in renderOnce() while cubeFormT>0
-    uPointAngleY: { value: new Array(pointCount).fill(0) },
-    uPointAngleX: { value: new Array(pointCount).fill(0) },
+    // the cube cluster's shared tumble angle — every cube rotates in
+    // unison, rewritten every frame in loop() alongside uCubeT
+    uCubeAngleY: { value: 0 },
+    uCubeAngleX: { value: 0 },
     uSlimeSize: { value: CONFIG.slimeSize },
     uSurfaceTension: { value: CONFIG.surfaceTension },
     uCubeT: { value: 0 },
@@ -1016,8 +1014,6 @@ import * as THREE from './vendor/three.module.min.js';
         sizeMul = p.sizeMul * (1 + p.cubeDepth * CUBE_DEPTH_SIZE * cubeFormT);
       }
       uniforms.uPointSize.value[i] = sizeMul;
-      uniforms.uPointAngleY.value[i] = (p.isFragment || p.isCubeExtra) ? 0 : p.ownAngleY;
-      uniforms.uPointAngleX.value[i] = (p.isFragment || p.isCubeExtra) ? 0 : p.ownAngleX;
     }
     renderer.render(scene, camera);
   }
@@ -1089,21 +1085,12 @@ import * as THREE from './vendor/three.module.min.js';
   const CUBE_ROTATE_CYCLES_Y = 1.25; // how many full sine wobbles across the rotate phase
   const CUBE_ROTATE_CYCLES_X = 1.75; // a different, non-matching cycle count than Y so the combined
                                       // motion reads as an irregular tumble rather than a synced rock
-  // spinT (0→1 across the rotate phase, held at 1 through disperse) —
-  // drives each cube's *own* independent spin (see CUBE_OWN_SPIN_RATE_*
-  // and stepPoints below), separate from the cluster-level angleY/angleX
-  // tilt above. Unlike the cluster tilt, an individual cube spinning in
-  // place never risks colliding with a neighbour (nothing else moves
-  // relative to it), so this isn't bounded the same way — it's a full,
-  // continuous rotation, which is what actually reveals a cube's top/
-  // side faces as it turns rather than just changing its silhouette's
-  // perspective size.
   function computeChoreography(heroProgress){
     if(heroProgress <= CUBE_PHASE.wanderEnd){
-      return { cubeFormT: 0, angleY: 0, angleX: 0, spinT: 0 };
+      return { cubeFormT: 0, angleY: 0, angleX: 0 };
     }
     if(heroProgress <= CUBE_PHASE.formEnd){
-      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), angleY: 0, angleX: 0, spinT: 0 };
+      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), angleY: 0, angleX: 0 };
     }
     if(heroProgress <= CUBE_PHASE.rotateEnd){
       // a direct function of scroll position (not time), so this is
@@ -1113,7 +1100,6 @@ import * as THREE from './vendor/three.module.min.js';
         cubeFormT: 1,
         angleY: Math.sin(t * Math.PI * 2 * CUBE_ROTATE_CYCLES_Y) * CUBE_TILT_Y_MAX,
         angleX: Math.sin(t * Math.PI * 2 * CUBE_ROTATE_CYCLES_X) * CUBE_TILT_X_MAX,
-        spinT: t,
       };
     }
     if(heroProgress <= CUBE_PHASE.disperseEnd){
@@ -1122,10 +1108,9 @@ import * as THREE from './vendor/three.module.min.js';
         cubeFormT: 1 - t,
         angleY: Math.sin(Math.PI * 2 * CUBE_ROTATE_CYCLES_Y) * CUBE_TILT_Y_MAX,
         angleX: Math.sin(Math.PI * 2 * CUBE_ROTATE_CYCLES_X) * CUBE_TILT_X_MAX,
-        spinT: 1,
       };
     }
-    return { cubeFormT: 0, angleY: 0, angleX: 0, spinT: 0 };
+    return { cubeFormT: 0, angleY: 0, angleX: 0 };
   }
 
   const FALL_RATIO = 0.7;
@@ -1153,8 +1138,10 @@ import * as THREE from './vendor/three.module.min.js';
     // the very top of the document, so -heroRect.top is exactly how far
     // scrolled past its own top edge already
     const heroProgress = (inHero && heroRect) ? Math.max(0, Math.min(1, -heroRect.top / heroScrollableHeight)) : 0;
-    const { cubeFormT, angleY, angleX, spinT } = computeChoreography(heroProgress);
+    const { cubeFormT, angleY, angleX } = computeChoreography(heroProgress);
     uniforms.uCubeT.value = cubeFormT;
+    uniforms.uCubeAngleY.value = angleY;
+    uniforms.uCubeAngleX.value = angleX;
 
     let inContrast = false;
     let exitOpacity = 1;
@@ -1232,7 +1219,7 @@ import * as THREE from './vendor/three.module.min.js';
     uniforms.uSlimeSize.value = CONFIG.slimeSize * (1 - fragT*(1 - CONFIG.fragmentSizeScale));
     uniforms.uSurfaceTension.value = CONFIG.surfaceTension * (1 - fragT*(1 - CONFIG.fragmentTensionScale));
 
-    stepPoints(dt, elapsed, fragT, cubeFormT, angleY, angleX, spinT);
+    stepPoints(dt, elapsed, fragT, cubeFormT, angleY, angleX);
     renderOnce(elapsed, cubeFormT);
 
     rafId = requestAnimationFrame(loop);
@@ -1245,7 +1232,7 @@ import * as THREE from './vendor/three.module.min.js';
   if(prefersReducedMotion){
     // a single static frame — settle the points near center once, no
     // ongoing simulation and no render loop at all
-    stepPoints(16.6667, 0, 0, 0, 0, 0, 0);
+    stepPoints(16.6667, 0, 0, 0, 0, 0);
     renderOnce(0, 0);
   } else {
     rafId = requestAnimationFrame(loop);
