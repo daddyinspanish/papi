@@ -125,6 +125,34 @@ import * as THREE from './vendor/three.module.min.js';
     // distinctly separated rather than nearly touching. Also picked via
     // the same worst-case-rotation simulation as cubeSpacingMobile above.
     cubeBoxScaleMobile: 0.5,
+    // once the cubes have finished forming, they draw closer together
+    // and grow — see computeCloseGeometry() below for how the actual
+    // per-frame spacing/scale are derived from these two numbers rather
+    // than applied directly: the *target* here is "close and big", but
+    // the numbers that actually reach the shader are solved from the
+    // current window's own aspect ratio so a real gap (cubeCloseMinGap)
+    // is geometrically guaranteed no matter how narrow or wide the
+    // viewport is — picking fixed close/big numbers by eye on one test
+    // window (like cubeSpacing/cubeBoxScale above originally were) is
+    // exactly what let cubes touch on a different aspect ratio before.
+    cubeCloseBoxScale: 1.35, // how much bigger each cube gets at full "close", if the current window
+                              // has room for it — the actual growth used may be less (see below)
+    cubeCloseMinGap: 0.03,   // the smallest gap ever allowed between a formed cube's own edge and its
+                              // neighbour's, in the same normalized space as cubeSpacing — this is what
+                              // "never touch" actually means numerically. On a roughly square window
+                              // (aspect near 1) each cube's own resting box size is already a big enough
+                              // fraction of cubeSpacing that there's genuinely very little room left to
+                              // both grow AND draw closer without this margin — computeCloseGeometry()
+                              // below correctly falls back toward little/no extra close-and-grow there
+                              // rather than cutting this margin thinner, since the "never touch" gap
+                              // itself matters more than the close/grow effect being equally dramatic on
+                              // every window shape. Wider windows (most real desktop browsers) have much
+                              // more room and show the fuller effect.
+    cubeTensionScale: 0.25,  // shrinks the smin() blend radius (surfaceTension, below) once cubes are
+                              // formed, blended in by cubeFormT — see the long comment where this is
+                              // actually applied (search "cubeTensionScale") for why a positive geometric
+                              // gap (cubeCloseMinGap above) wasn't enough on its own to stop a visible
+                              // connecting neck between two cubes that are close but not touching
     // extra points that only ever reveal themselves once the mass has
     // fallen into the Contrast section — see the fragmentation system
     // below (search "fragment") for how these stay invisibly merged
@@ -140,9 +168,20 @@ import * as THREE from './vendor/three.module.min.js';
                                 // catching once it lands in Contrast, not just structurally different
     slimeSize: 0.105,        // base radius of each control point, in aspect-corrected 0..1 space
     movementSpeed: 0.24,     // how quickly points travel toward their (slowly wandering) targets
-    viscosity: 0.88,         // resistance to *changing* velocity — higher = heavier, slower to redirect
+    // raised further still (was 0.88) — the free-wander open right after
+    // the loader was reading as too lively/erratic (points visibly
+    // darting toward each newly-picked target rather than drifting),
+    // since viscosity is what actually resists a SUDDEN change in
+    // direction; damping alone (which only decays existing velocity)
+    // can't smooth out a sharp direction change on its own
+    viscosity: 0.93,
     damping: 0.94,           // raw velocity decay every frame — higher = keeps drifting longer before settling
-    elasticity: 0.18,        // how strongly a point accelerates toward its current wander target
+    // lowered (was 0.18) — a gentler pull toward each wander target
+    // means less sudden acceleration when the (slowly-evolving) noise
+    // field hands a point a meaningfully different target, which is
+    // most of what actually read as "crazy/darting" rather than a slow
+    // smooth drift
+    elasticity: 0.11,
     cubeElasticity: 0.30,    // a snappier elasticity used only once a point is locked into cube
                               // formation (blended in by cubeFormT), so it tracks the cluster's own
                               // moving (tumbling) target instead of lagging behind it — no longer
@@ -204,6 +243,82 @@ import * as THREE from './vendor/three.module.min.js';
   const cubeSpacingActual = isMobile ? CONFIG.cubeSpacingMobile : CONFIG.cubeSpacing;
   const cubeBoxScale = isMobile ? CONFIG.cubeBoxScaleMobile : 1.0;
 
+  // solves, from the CURRENT window's own aspect ratio, how close
+  // together and how much bigger the 4 cubes can get (closeT===1) while
+  // still guaranteeing CONFIG.cubeCloseMinGap of real clearance — rather
+  // than applying CONFIG.cubeCloseBoxScale/a fixed closer spacing
+  // directly, which would only actually stay clear of touching on
+  // whichever single aspect ratio those numbers happened to be tuned
+  // against (exactly the mistake cubeSpacing/cubeBoxScale's own history
+  // above already ran into once). W/H (declared further below, updated
+  // by resize()) are read fresh on every call, not captured once, so
+  // this stays correct across a resize/rotation too.
+  //
+  // two things this has to account for, found the hard way (each one
+  // touching on a different test window before the previous fix):
+  //
+  // 1. rotation doesn't just grow a cube toward the viewer
+  //    (CUBE_DEPTH_SIZE), it also shrinks the PROJECTED distance between
+  //    adjacent cube centres (the same perspective divide in project3D
+  //    that makes a tilted cube read as closer/bigger also pulls its
+  //    projected x/y toward its neighbour's). CLOSE_RATIO_SAFE/
+  //    CLOSE_MAX_DEPTH_RATIO below are conservative constants fitted to
+  //    project3D's own worst case across the full CUBE_TILT_*_MAX
+  //    rotation range (simulated offline — see git history for the
+  //    sandbox Node script — safe for any spacing up to ~0.30,
+  //    comfortably above anything cubeSpacing/cubeSpacingMobile ever
+  //    are): adjacent-centre distance never shrinks below
+  //    CLOSE_RATIO_SAFE*(2*spacing), and no point's depth-driven size
+  //    pop ever exceeds CLOSE_MAX_DEPTH_RATIO*spacing.
+  //
+  // 2. field()'s own aspect correction (search "aspect" — p.x scaled by
+  //    aspect, p.y left alone) makes a SQUARE box look square in actual
+  //    screen pixels regardless of window shape, but it means the SAME
+  //    "spacing" value used symmetrically for both x and y cube-slot
+  //    offsets does NOT produce the same on-screen pixel gap in both
+  //    directions: the x-direction gap between LEFT/RIGHT cubes scales
+  //    with aspect, the y-direction gap between TOP/BOTTOM cubes doesn't
+  //    scale at all. On a wide window (aspect>1) that means the
+  //    vertical gap is the tighter one even though the horizontal gap
+  //    looks generous — bindingScaleFactor below is whichever of the
+  //    two (aspect, or 1) is smaller, i.e. whichever direction is
+  //    actually the binding constraint for THIS window's shape.
+  const CLOSE_RATIO_SAFE = 0.80;
+  const CLOSE_MAX_DEPTH_RATIO = 0.73;
+  function computeCloseGeometry(){
+    const aspect = W / H;
+    // p-space half-width — NOT divided by aspect: p-space is already
+    // the "square on screen" space field() itself works in (see point
+    // 2 above), so this is directly comparable to a p-space spacing
+    // once that's scaled by bindingScaleFactor below
+    const boxHalfP = CONFIG.slimeSize * 1.35 * cubeBoxScale;
+    const bindingScaleFactor = Math.min(aspect, 1);
+    const depthGrowMul = (spacing) => 1 + CUBE_DEPTH_SIZE * CLOSE_MAX_DEPTH_RATIO * spacing;
+
+    // the smallest spacing can ever be and still be safe with NO box
+    // growth at all (scaleMul===1) — solving
+    // CLOSE_RATIO_SAFE*2*s*bindingScaleFactor - 2*boxHalfP*depthGrowMul(s) === cubeCloseMinGap
+    // for s directly (linear in s once depthGrowMul is expanded)
+    const denom = 2*CLOSE_RATIO_SAFE*bindingScaleFactor - 2*boxHalfP*CUBE_DEPTH_SIZE*CLOSE_MAX_DEPTH_RATIO;
+    const minSafeSpacing = (CONFIG.cubeCloseMinGap + 2*boxHalfP) / denom;
+
+    // aim for a fixed fraction of the resting spacing (a visibly
+    // snugger cluster), but never tighter than minSafeSpacing — and
+    // never WIDER than the resting spacing itself, since the whole
+    // point is drawing closer, not further apart, if a narrow aspect
+    // ratio ever pushed minSafeSpacing past it
+    const targetSpacing = Math.min(
+      cubeSpacingActual,
+      Math.max(cubeSpacingActual * 0.65, minSafeSpacing)
+    );
+
+    const realGap = CLOSE_RATIO_SAFE*2*targetSpacing*bindingScaleFactor - 2*boxHalfP*depthGrowMul(targetSpacing);
+    const maxHalfP = boxHalfP + Math.max(0, realGap - CONFIG.cubeCloseMinGap) / (2*depthGrowMul(targetSpacing));
+    const maxScaleMul = Math.max(1, Math.min(CONFIG.cubeCloseBoxScale, maxHalfP / boxHalfP));
+
+    return { closeSpacing: targetSpacing, closeBoxScaleMul: maxScaleMul };
+  }
+
   // ===================================================================
   // shaders
   // ===================================================================
@@ -238,6 +353,10 @@ import * as THREE from './vendor/three.module.min.js';
     // on a wide desktop window; this corrects for that, set once at
     // load and never animated
     uniform float uCubeBoxScale;
+    // animated on top of uCubeBoxScale above — 1.0 at rest, rising
+    // toward computeCloseGeometry()'s solved-safe maximum as the cubes
+    // draw closer together later in the rotate phase (see closeT in JS)
+    uniform float uCubeCloseScale;
     uniform float uSlimeSize;
     uniform float uSurfaceTension;
     // 0 = the normal round liquid metaballs used everywhere else in this
@@ -434,7 +553,8 @@ import * as THREE from './vendor/three.module.min.js';
         // now 0.80 — a ~59%-rounded corner) so this reads as genuinely
         // soft, rounded liquid rather than a cube with a heavy chamfer;
         // still leaves enough flat face to read as a cube, not a sphere
-        float boxD = boxDist(d, r*1.35*uCubeBoxScale, r*0.80*uCubeBoxScale);
+        float cubeBoxTotalScale = uCubeBoxScale * uCubeCloseScale;
+        float boxD = boxDist(d, r*1.35*cubeBoxTotalScale, r*0.80*cubeBoxTotalScale);
         // eased rather than a direct 1:1 mix against uCubeT — the box's
         // corners/silhouette only start actually showing in the very
         // last stretch of the coalesce, once the points have
@@ -572,7 +692,7 @@ import * as THREE from './vendor/three.module.min.js';
         vec3 rayDirLocal = rotateYXInverse(vec3(0.0, 0.0, -1.0), uCubeAngleY, uCubeAngleX);
         vec3 hitNormalLocal;
         float edgeGlow;
-        if(intersectBoxLocal(rayOriginLocal, rayDirLocal, vec3(nearestR*1.35*uCubeBoxScale), hitNormalLocal, edgeGlow)){
+        if(intersectBoxLocal(rayOriginLocal, rayDirLocal, vec3(nearestR*1.35*uCubeBoxScale*uCubeCloseScale), hitNormalLocal, edgeGlow)){
           vec3 faceNormal = rotateYX(hitNormalLocal, uCubeAngleY, uCubeAngleX);
           // same easing as boxBlend in field() above — the flat-face
           // shading (and its edge glow) only phases in once the
@@ -647,6 +767,16 @@ import * as THREE from './vendor/three.module.min.js';
         envSample(refractDirG.xy * bendScale).g,
         envSample(refractDirB.xy * bendScale).b
       );
+      // the refracted sample above is what actually made a rotating
+      // cube's colour visibly shift — a different bumpNormal each frame
+      // bends the ray into a different patch of the procedural "world"
+      // behind it. Once formed into cubes, partially flattening this
+      // toward its own luminance (still refracting, just less of a hue
+      // swing as the sample position moves around) is the biggest single
+      // lever for "glowing, not changing colour" — full uCubeT here
+      // rather than tying it to rimGlow/diff, since the goal is exactly
+      // to remove the thing that correlates with rotation angle.
+      envColor = mix(envColor, vec3(dot(envColor, vec3(0.333))), uCubeT * 0.6);
 
       // Beer's-law-style absorption: light that travels further through
       // the glass (deep toward a point's own centre) picks up more of
@@ -662,8 +792,23 @@ import * as THREE from './vendor/three.module.min.js';
       color = mix(color, vec3(1.0, 0.97, 0.9), rimGlow * 0.72);
       // real contrast — a shallow 0.85..1.0 range (the first attempt)
       // reads as flat, soft plastic; glass needs a genuine dark side to
-      // read as reflective/refractive rather than uniformly lit paint
-      color *= 0.42 + 0.58*diff;
+      // read as reflective/refractive rather than uniformly lit paint.
+      // Once formed into cubes though, that same dark side is what read
+      // as each face "changing colour" as it turned — the darkest face
+      // dropping to 42% brightness while the lit one sat near 100%.
+      // Flattened toward a bright, even 0.92 as uCubeT rises so every
+      // face stays close to the same brightness regardless of which way
+      // it's currently turned, rather than removing the diffuse term
+      // outright (a little shading is still what sells these as solid
+      // 3D shapes rather than flat stickers).
+      color *= mix(0.42 + 0.58*diff, 0.92, uCubeT);
+
+      // a self-lit glow on top of everything above, scaled in by uCubeT
+      // — real reflected/refracted light alone reads as "a lit object",
+      // even a bright one; an additive term that ISN'T dependent on the
+      // light/view/rotation geometry at all is what actually reads as
+      // "glowing" rather than "well-lit"
+      color += vec3(1.0, 0.7, 0.22) * uCubeT * 0.4;
 
       // several of the steps above (the fresnel-white mix, the specular
       // add) each individually wash a little toward white — stacked
@@ -672,15 +817,15 @@ import * as THREE from './vendor/three.module.min.js';
       // rather than gold. Remapping onto a fixed gold ramp keyed by
       // luminance guarantees the hue itself is always a little gold,
       // rather than just amplifying whatever hue happened to survive
-      // the steps above — but blended in lightly now (was 0.88, an
-      // almost-total override that made this read as opaque liquid
-      // metal rather than tinted glass/water; most of the actual lit/
-      // refracted detail underneath is what gives glass and water their
-      // clarity, so keeping far more of it through is what makes this
-      // read as see-through material with a gold tint, not solid gold)
+      // the steps above — but blended in lightly at rest (0.56, so most
+      // of the actual lit/refracted detail underneath still comes
+      // through, keeping the see-through glass/water clarity there).
+      // Once formed into cubes, pushed much closer to a full override
+      // (0.9) — the whole point there is a locked, consistent colour,
+      // and refracted/lit detail is exactly what was making it drift.
       float lum = dot(color, vec3(0.299, 0.587, 0.114));
       vec3 goldRef = mix(vec3(0.45, 0.26, 0.05), vec3(1.0, 0.68, 0.18), lum);
-      color = mix(color, goldRef, 0.56);
+      color = mix(color, goldRef, mix(0.56, 0.9, uCubeT));
 
       // real page content (the hero title/subtitle/CTA) sits behind
       // this canvas — alpha blending toward a white page dilutes even a
@@ -691,8 +836,12 @@ import * as THREE from './vendor/three.module.min.js';
       // still climbs to nearly opaque at a grazing angle, exactly the
       // way a real glass or water surface brightens and turns opaque-
       // looking right at its own silhouette edge while staying clear
-      // through the middle.
-      float bodyAlpha = mix(0.32, 0.95, rimGlow);
+      // through the middle. Once formed into cubes (now on a dark
+      // background rather than the page showing through), raised the
+      // floor considerably so the glow above actually reads solid
+      // rather than translucent-over-black.
+      float bodyAlphaFloor = mix(0.32, 0.78, uCubeT);
+      float bodyAlpha = mix(bodyAlphaFloor, 0.97, rimGlow);
 
       gl_FragColor = vec4(color, edge*uOpacity*bodyAlpha);
     }
@@ -812,13 +961,18 @@ import * as THREE from './vendor/three.module.min.js';
     lastMoveTime = performance.now();
   }, { passive:true });
 
-  const WANDER_RANGE = 0.46; // how far from center (0.5,0.5) a target can wander — normalized units,
+  const WANDER_RANGE = 0.36; // how far from center (0.5,0.5) a target can wander — normalized units,
                               // scaled the same way as the point positions themselves (see the aspect
                               // fix in the shader's field()), so this roams proportionally regardless
-                              // of whether the viewport is portrait or landscape. Raised from 0.30 so the
-                              // mass actually roams across the whole hero section instead of staying
-                              // clustered near the centre.
-  const WANDER_SPEED = 0.00028; // how fast the noise field driving targets itself evolves
+                              // of whether the viewport is portrait or landscape. Pulled back in (was
+                              // 0.46, itself raised from an original 0.30) — combined with the slower
+                              // WANDER_SPEED below, the full 0.46 range meant a target could land a huge
+                              // distance from a point's current position and still get there fairly
+                              // quickly, which read as darting/erratic rather than a slow smooth drift.
+  const WANDER_SPEED = 0.00014; // how fast the noise field driving targets itself evolves — halved (was
+                                 // 0.00028) so each point's own wander target changes far more gradually,
+                                 // the main lever (together with elasticity/viscosity above) for a calmer,
+                                 // slower opening drift right after the loader hands off
 
   // how strongly a rotated-away point shrinks/shifts vs a rotated-toward
   // point grows/shifts — see project3D() below
@@ -849,9 +1003,18 @@ import * as THREE from './vendor/three.module.min.js';
     return { x: 0.5 + x1*persp, y: 0.5 + y1*persp, depth: z2 };
   }
 
-  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, angleY, angleX){
+  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, angleY, angleX, closeT){
     if(mouse.active && performance.now() - lastMoveTime > MOUSE_IDLE_MS) mouse.active = false;
     const dtScale = dtMs / 16.6667; // normalizes physics to "per ~60fps frame" units, using the capped dt
+    // see computeCloseGeometry() above — solved fresh from the current
+    // aspect ratio every frame (cheap: a handful of scalar ops) rather
+    // than cached, since a resize/rotation can change what's actually
+    // safe without a corresponding cubeFormT/closeT change to hook a
+    // recompute onto otherwise
+    const closeGeo = closeT > 0 ? computeCloseGeometry() : null;
+    const cubeSpacingNow = closeGeo
+      ? cubeSpacingActual + (closeGeo.closeSpacing - cubeSpacingActual) * closeT
+      : cubeSpacingActual;
 
     for(let i=0;i<points.length;i++){
       const p = points[i];
@@ -883,7 +1046,7 @@ import * as THREE from './vendor/three.module.min.js';
         // risk of two visible points exactly overlapping, and a uniform
         // spacing keeps the real gap between adjacent cubes predictable
         // rather than varying per point.
-        const slot = project3D(p.cubeSignX*cubeSpacingActual, p.cubeSignY*cubeSpacingActual, angleY, angleX);
+        const slot = project3D(p.cubeSignX*cubeSpacingNow, p.cubeSignY*cubeSpacingNow, angleY, angleX);
         targetX = targetX + (slot.x - targetX) * cubeFormT;
         targetY = targetY + (slot.y - targetY) * cubeFormT;
         p.cubeDepth = slot.depth;
@@ -1017,6 +1180,9 @@ import * as THREE from './vendor/three.module.min.js';
     // static per-device box scale (desktop 1.0, mobile cubeBoxScaleMobile)
     // — see cubeBoxScaleMobile in CONFIG
     uCubeBoxScale: { value: cubeBoxScale },
+    // animated every frame in loop() alongside uCubeT — see
+    // computeCloseGeometry() and closeT
+    uCubeCloseScale: { value: 1 },
     uSlimeSize: { value: CONFIG.slimeSize },
     uSurfaceTension: { value: CONFIG.surfaceTension },
     uCubeT: { value: 0 },
@@ -1053,6 +1219,11 @@ import * as THREE from './vendor/three.module.min.js';
     const h = heroEl.offsetHeight - window.innerHeight;
     if(h > 0) heroScrollableHeight = h;
   }
+
+  // see the hero background-color block in loop() below and
+  // window.Papi.getCubeFormT further down
+  let lastHeroBgVal = 255;
+  let latestCubeFormT = 0;
 
   let W = 1, H = 1;
   function resize(){
@@ -1179,6 +1350,8 @@ import * as THREE from './vendor/three.module.min.js';
   const CUBE_PHASE = {
     wanderEnd: 0.12,    // pure free wander, matches the look before this existed
     formEnd: 0.38,      // coalesce into the tight 4-cube cluster complete
+    closeEnd: 0.50,     // cubes finish drawing closer together/growing (see closeT below) and hold
+                        // that tighter formation for the rest of the tumble
     rotateEnd: 0.74,    // 3D tumble complete
     disperseEnd: 0.92,  // back to free liquid — the remaining stretch up to heroProgress===1
                         // is plain free wander again, so the handoff into Contrast's own
@@ -1205,19 +1378,31 @@ import * as THREE from './vendor/three.module.min.js';
                                       // motion reads as an irregular tumble rather than a synced rock
   function computeChoreography(heroProgress){
     if(heroProgress <= CUBE_PHASE.wanderEnd){
-      return { cubeFormT: 0, angleY: 0, angleX: 0 };
+      return { cubeFormT: 0, angleY: 0, angleX: 0, closeT: 0 };
     }
     if(heroProgress <= CUBE_PHASE.formEnd){
-      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), angleY: 0, angleX: 0 };
+      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), angleY: 0, angleX: 0, closeT: 0 };
+    }
+    if(heroProgress <= CUBE_PHASE.closeEnd){
+      // cubes are already fully formed (cubeFormT===1) by this point —
+      // closeT alone drives them drawing closer together/growing, see
+      // computeCloseGeometry() and its callers
+      return {
+        cubeFormT: 1,
+        angleY: 0,
+        angleX: 0,
+        closeT: smoothstep(CUBE_PHASE.formEnd, CUBE_PHASE.closeEnd, heroProgress),
+      };
     }
     if(heroProgress <= CUBE_PHASE.rotateEnd){
       // a direct function of scroll position (not time), so this is
       // precisely scroll-scrubbed and cleanly reversible on scroll-up
-      const t = (heroProgress - CUBE_PHASE.formEnd) / (CUBE_PHASE.rotateEnd - CUBE_PHASE.formEnd);
+      const t = (heroProgress - CUBE_PHASE.closeEnd) / (CUBE_PHASE.rotateEnd - CUBE_PHASE.closeEnd);
       return {
         cubeFormT: 1,
         angleY: Math.sin(t * Math.PI * 2 * CUBE_ROTATE_CYCLES_Y) * CUBE_TILT_Y_MAX,
         angleX: Math.sin(t * Math.PI * 2 * CUBE_ROTATE_CYCLES_X) * CUBE_TILT_X_MAX,
+        closeT: 1, // holds the closer/bigger formation for the rest of the tumble
       };
     }
     if(heroProgress <= CUBE_PHASE.disperseEnd){
@@ -1226,9 +1411,13 @@ import * as THREE from './vendor/three.module.min.js';
         cubeFormT: 1 - t,
         angleY: Math.sin(Math.PI * 2 * CUBE_ROTATE_CYCLES_Y) * CUBE_TILT_Y_MAX,
         angleX: Math.sin(Math.PI * 2 * CUBE_ROTATE_CYCLES_X) * CUBE_TILT_X_MAX,
+        // eases back out to the resting spacing/size in lockstep with
+        // cubeFormT's own decay, so the cubes are back to their normal
+        // spacing by the moment they've fully melted back into liquid
+        closeT: 1 - t,
       };
     }
-    return { cubeFormT: 0, angleY: 0, angleX: 0 };
+    return { cubeFormT: 0, angleY: 0, angleX: 0, closeT: 0 };
   }
 
   const FALL_RATIO = 0.7;
@@ -1256,10 +1445,32 @@ import * as THREE from './vendor/three.module.min.js';
     // the very top of the document, so -heroRect.top is exactly how far
     // scrolled past its own top edge already
     const heroProgress = (inHero && heroRect) ? Math.max(0, Math.min(1, -heroRect.top / heroScrollableHeight)) : 0;
-    const { cubeFormT, angleY, angleX } = computeChoreography(heroProgress);
+    const { cubeFormT, angleY, angleX, closeT } = computeChoreography(heroProgress);
     uniforms.uCubeT.value = cubeFormT;
     uniforms.uCubeAngleY.value = angleY;
     uniforms.uCubeAngleX.value = angleX;
+    // see computeCloseGeometry() — solved fresh each frame there too, so
+    // just interpolate the same way here for the shader's own box scale
+    const closeGeoNow = closeT > 0 ? computeCloseGeometry() : null;
+    uniforms.uCubeCloseScale.value = closeGeoNow
+      ? 1 + (closeGeoNow.closeBoxScaleMul - 1) * closeT
+      : 1;
+    // the hero's own background: white for the free-liquid look, easing
+    // to black as the cubes form (cubeFormT already carries exactly the
+    // right timing — 0 through wander, rising through the coalesce, held
+    // at 1 through the whole tumble, back down through disperse) so the
+    // glowing cube material below actually reads as glowing rather than
+    // as a lit shape on white paper. title-dock.js reads the same
+    // cubeFormT (via window.Papi.getCubeFormT) to keep the docked title
+    // label/on-light-section brand styling in sync with this same
+    // transition instead of computing its own separate approximation of
+    // "is the cube phase active" from scroll position.
+    latestCubeFormT = cubeFormT;
+    const bgVal = Math.round(255 * (1 - cubeFormT));
+    if(bgVal !== lastHeroBgVal){
+      lastHeroBgVal = bgVal;
+      heroEl.style.backgroundColor = `rgb(${bgVal},${bgVal},${bgVal})`;
+    }
 
     let inContrast = false;
     let exitOpacity = 1;
@@ -1335,9 +1546,23 @@ import * as THREE from './vendor/three.module.min.js';
     // separate into visibly distinct small droplets rather than just
     // becoming one smaller blob
     uniforms.uSlimeSize.value = CONFIG.slimeSize * (1 - fragT*(1 - CONFIG.fragmentSizeScale));
-    uniforms.uSurfaceTension.value = CONFIG.surfaceTension * (1 - fragT*(1 - CONFIG.fragmentTensionScale));
+    // smin()'s own blend radius (surfaceTension) is what actually reads
+    // as "touching" visually — two shapes geometrically apart by less
+    // than roughly this radius still show a soft connecting neck, even
+    // though their own edges never truly overlap. computeCloseGeometry()
+    // above only ever solves for a positive geometric gap; it was never
+    // enough on its own once that gap (by construction, deliberately
+    // small — see cubeCloseMinGap) dropped below the *un*-shrunk
+    // surfaceTension (0.10), which is exactly what a formed cube's own
+    // resting gap already can be on some window shapes even before
+    // drawing closer at all. Shrinking this the same way fragments
+    // already do above (search "fragmentTensionScale") keeps every
+    // formed cube's edge crisp enough to actually read as separate.
+    uniforms.uSurfaceTension.value = CONFIG.surfaceTension
+      * (1 - fragT*(1 - CONFIG.fragmentTensionScale))
+      * (1 - cubeFormT*(1 - CONFIG.cubeTensionScale));
 
-    stepPoints(dt, elapsed, fragT, cubeFormT, angleY, angleX);
+    stepPoints(dt, elapsed, fragT, cubeFormT, angleY, angleX, closeT);
     renderOnce(elapsed, cubeFormT);
 
     rafId = requestAnimationFrame(loop);
@@ -1350,7 +1575,7 @@ import * as THREE from './vendor/three.module.min.js';
   if(prefersReducedMotion){
     // a single static frame — settle the points near center once, no
     // ongoing simulation and no render loop at all
-    stepPoints(16.6667, 0, 0, 0, 0, 0);
+    stepPoints(16.6667, 0, 0, 0, 0, 0, 0);
     renderOnce(0, 0);
   } else {
     rafId = requestAnimationFrame(loop);
@@ -1358,6 +1583,10 @@ import * as THREE from './vendor/three.module.min.js';
 
   window.Papi = window.Papi || {};
   window.Papi.resizeField = resize;
+  // lets title-dock.js (docked title label, brand-mark/on-light-section
+  // styling) track the exact same cube-phase transition the background
+  // colour above is keyed off, instead of approximating it separately
+  window.Papi.getCubeFormT = () => latestCubeFormT;
   window.Papi.revealField = function(){
     if(revealed) return;
     revealed = true;

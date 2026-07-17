@@ -310,13 +310,24 @@
     const dist = viewportH * SCROLL_RANGE_RATIO;
     const progress = Math.max(0, Math.min(1, window.scrollY / dist));
 
+    // hero-slime.js fades the hero's own background from white to black
+    // as the liquid mass forms into cubes (see uCubeCloseScale/the
+    // background-colour block in its loop(), and getCubeFormT here) —
+    // reading its live cubeFormT rather than approximating "is the cube
+    // phase active" separately from scroll position keeps this in exact
+    // lockstep with whatever that background is actually doing
+    const cubePhaseActive = window.Papi && window.Papi.getCubeFormT
+      ? window.Papi.getCubeFormT() > 0.03
+      : false;
+
     // the brand mark/docked label only need to flip to dark-on-light
     // while over one of this site's white zones — the hero's own
     // sweeping gold/black field (gold-on-gold was going invisible
-    // there), and now the contrast section, also white. Every other
-    // section has a fixed dark background, where the static gold/
-    // cream colors already read fine on their own.
-    const onHero = window.scrollY < heroHeight;
+    // there) when it's NOT in its own cube-phase black background, and
+    // the contrast section, also white. Every other section (including
+    // the hero during the cube phase) has a dark background, where the
+    // static gold/cream colors already read fine on their own.
+    const onHero = window.scrollY < heroHeight && !cubePhaseActive;
     const onContrast = contrastSectionEl
       ? window.scrollY >= contrastZone.top && window.scrollY < contrastZone.bottom
       : false;
@@ -345,7 +356,13 @@
     // this width) — duck both out of the way for that stretch only,
     // fading back in once the visitor scrolls past the section
     const hideDockForMobileZone = window.innerWidth <= 640 && (onContrast || onShowcase || onLiveDemo);
-    titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileZone);
+    // also hidden for the duration of the hero's own cube phase — the
+    // docked "Built with purpose, not just design" line is the only
+    // thing titleDock ever shows while still inside the hero (the
+    // rotating section word below only ever has a word once scrolled
+    // into one of the LATER sections), and it read as clutter over the
+    // black glowing-cube look
+    titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileZone && !cubePhaseActive);
     if(siteHeader) siteHeader.classList.toggle('is-hidden', hideDockForMobileZone);
 
     // pick whichever section the viewport's centre currently sits in
