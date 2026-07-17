@@ -20,6 +20,7 @@
   const title    = document.getElementById('heroTitle');
   const sub      = document.getElementById('heroSub');
   const cta      = document.getElementById('heroCta');
+  const review   = document.getElementById('heroReview');
   const titleDock= document.getElementById('titleDock');
   const siteHeader = document.getElementById('siteHeader');
   if(!heroCopy || !titleDock) return;
@@ -97,9 +98,32 @@
     }, 650);
   }
 
+  // ---- review badge: fades/rises in last, a beat after the subtitle,
+  // then tracks the same fadeOut as the rest of hero-copy in update()
+  // below once its own entrance is done ----
+  let reviewEntranceDone = false;
+  if(review){
+    review.style.transition = 'none';
+    review.style.opacity = '0';
+    review.style.transform = 'translateY(18px)';
+  }
+  function revealReview(){
+    if(!review) return;
+    requestAnimationFrame(()=>{
+      review.style.transition = 'opacity .6s ease, transform .6s var(--ease-out)';
+      review.style.opacity = '1';
+      review.style.transform = 'translateY(0)';
+    });
+    setTimeout(()=>{
+      reviewEntranceDone = true;
+      review.style.transition = 'opacity .3s ease, border-color .3s var(--ease-out), background .3s var(--ease-out)';
+    }, 650);
+  }
+
   window.Papi = window.Papi || {};
   window.Papi.revealSubtitle = revealSubtitle;
   window.Papi.revealCta = revealCta;
+  window.Papi.revealReview = revealReview;
 
   // magnetic pull — the button leans slightly toward a nearby cursor
   let mouseX = -9999, mouseY = -9999;
@@ -198,6 +222,7 @@
   });
   const contrastZone = sectionWords[0];
   const showcaseZone = sectionWords[1];
+  const liveDemoZone = sectionWords[3];
 
   function update(){
     const dist = viewportH * SCROLL_RANGE_RATIO;
@@ -209,6 +234,7 @@
     if(title) title.style.opacity = String(1 - fadeOut);
     if(cta && ctaEntranceDone) cta.style.opacity = String(1 - fadeOut);
     if(sub && subEntranceDone) sub.style.opacity = String(1 - fadeOut);
+    if(review && reviewEntranceDone) review.style.opacity = String(1 - fadeOut);
 
     heroCopy.style.transform = `translateY(${-fadeOut * 34}px)`;
     heroCopy.style.pointerEvents = fadeOut > 0.6 ? 'none' : 'auto';
@@ -234,12 +260,20 @@
       ? window.scrollY >= showcaseZone.top && window.scrollY < showcaseZone.bottom
       : false;
 
+    // same duck-out-of-the-way treatment for the live-demo section on
+    // narrow screens — its own browser-chrome-style frame already runs
+    // right up against the edges of the viewport there, so the docked
+    // brand mark/word cluster sitting on top of it read as clutter
+    const onLiveDemo = liveDemoZone.el
+      ? window.scrollY >= liveDemoZone.top && window.scrollY < liveDemoZone.bottom
+      : false;
+
     // on narrow screens the whole top-right cluster — brand mark and
     // the tagline/word dock beneath it — sits right on top of the
     // contrast section's own mock nav/CTA (there's no room for both at
     // this width) — duck both out of the way for that stretch only,
     // fading back in once the visitor scrolls past the section
-    const hideDockForMobileZone = window.innerWidth <= 640 && (onContrast || onShowcase);
+    const hideDockForMobileZone = window.innerWidth <= 640 && (onContrast || onShowcase || onLiveDemo);
     titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileZone);
     if(siteHeader) siteHeader.classList.toggle('is-hidden', hideDockForMobileZone);
 

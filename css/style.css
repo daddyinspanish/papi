@@ -532,6 +532,38 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   transition:opacity .3s ease;
 }
 
+/* a real Google-review-style trust badge — G logo, gold stars, rating
+   — styled as an outlined pill/button rather than plain text, echoing
+   the actual Google Business review widget look. Its own entrance
+   (js/title-dock.js's revealReview, staggered in after the subtitle)
+   fades/rises it in, then the same fadeOut this whole hero-copy block
+   already gets tied to scroll (title-dock.js's update()) carries it
+   back out again as the visitor scrolls down toward Contrast. */
+.hero-review{
+  display:inline-flex;
+  align-items:center;
+  gap:.55em;
+  padding:.6em 1.2em;
+  border-radius:999px;
+  border:1.5px solid rgba(23,24,26,.16);
+  background:rgba(255,255,255,.7);
+  font-size:.86rem;
+  color:var(--paper-ink);
+  opacity:0;
+  will-change:opacity, transform;
+  transition:border-color .3s var(--ease-out), background .3s var(--ease-out);
+}
+.hero-review:hover{
+  border-color:rgba(23,24,26,.3);
+  background:#fff;
+}
+.hero-review-stars{
+  color:#f5b400;
+  letter-spacing:.09em;
+  font-size:.78rem;
+}
+.hero-review-text strong{ font-weight:600; }
+
 .cta{
   display:inline-flex;
   align-items:center;

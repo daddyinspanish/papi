@@ -70,6 +70,9 @@
     setTimeout(()=>{
       if(window.Papi && window.Papi.revealSubtitle) window.Papi.revealSubtitle();
     }, 750);
+    setTimeout(()=>{
+      if(window.Papi && window.Papi.revealReview) window.Papi.revealReview();
+    }, 1000);
 
     loader.classList.add('is-done');
     loader.style.transition = 'opacity 1.3s ease';
