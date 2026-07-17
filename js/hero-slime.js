@@ -94,12 +94,12 @@ import * as THREE from './vendor/three.module.min.js';
   const CONFIG = {
     numControlPoints: 8,     // how many metaballs make up the mass — more reads as a bigger, busier organism.
                               // 8 divides evenly into the 4 liquid cubes of the hero choreography below
-    cubeSpacing: 0.145,      // half-distance (in each of x/y) from the cluster's own centre to a cube
-                              // slot — small on purpose, so the 4 cubes sit close together in a tight,
-                              // touching 2x2 cluster near the middle of the hero, not spread across it.
-                              // Tuned up slightly from an initial 0.12, which overlapped the 4 boxes
-                              // enough to fully fuse into one blob rather than 4 distinguishable faces
-                              // with a soft seam between them — verified in sandbox
+    cubeSpacing: 0.24,       // half-distance (in each of x/y) from the cluster's own centre to a cube
+                              // slot — sized so the 4 cubes sit close together near the middle of the
+                              // hero with real, visible gaps between them (matching the reference
+                              // logo), not touching/fused into one blob. Verified in sandbox against
+                              // the worst-case tilt angle (see CUBE_TILT_*_MAX below) analytically —
+                              // adjacent cube centres never come closer than about a 0.12 gap
     // extra points that only ever reveal themselves once the mass has
     // fallen into the Contrast section — see the fragmentation system
     // below (search "fragment") for how these stay invisibly merged
@@ -557,8 +557,8 @@ import * as THREE from './vendor/three.module.min.js';
   // takes a cube slot's flat (offX, offY, z=0) resting offset from the
   // cluster's own centre and tumbles it in genuine 3D — rotated first
   // around the vertical (Y) axis, then around the horizontal (X) axis
-  // (two different axes at different rates, see CUBE_ROTATE_TURNS_*
-  // below, so this reads as a die tumbling rather than a flat in-plane
+  // (two different, bounded angles — see CUBE_TILT_*_MAX below — so
+  // this reads as a die tumbling/wobbling rather than a flat in-plane
   // spin) — then projects the result back to 2D with a perspective
   // divide, so points rotated toward the viewer swing further from
   // centre and read larger, and points rotated away shrink back toward
@@ -861,10 +861,25 @@ import * as THREE from './vendor/three.module.min.js';
                         // is plain free wander again, so the handoff into Contrast's own
                         // fall/fragment sequence has nothing cube-related left to unwind
   };
-  const CUBE_ROTATE_TURNS_Y = 1;    // full turns around the vertical axis over the rotate phase
-  const CUBE_ROTATE_TURNS_X = 0.5;  // turns around the horizontal axis over the same phase — a
-                                      // different rate than the Y axis is what makes this read as a
-                                      // die tumbling in 3D rather than a flat single-axis spin
+  // a full end-to-end 360° spin of a genuinely FLAT 2x2 grid necessarily
+  // swings edge-on at some point along the way (the same reason a flat
+  // sheet of paper turned side-on to you looks like a thin line) — at
+  // that angle the 4 cubes' projected x (or y) spacing shrinks toward
+  // zero and they visually collapse into one mass, exactly the "1
+  // massive cube" look that was asked NOT to happen. Rather than a full
+  // spin, the tilt on each axis is bounded (see CUBE_TILT_*_MAX below)
+  // so it always stops well short of edge-on — a real 3D tumble/wobble
+  // that keeps all 4 cubes visibly separate throughout, not a full
+  // rotisserie turn. Verified analytically (see the sandbox tuning
+  // notes) that the worst-case gap between adjacent cube centres across
+  // this whole tilt range never drops below about 0.12 — comfortably
+  // more than the boxes' own combined half-widths.
+  const CUBE_TILT_Y_MAX = 0.45;      // radians, ~26° — vertical-axis tilt ceiling
+  const CUBE_TILT_X_MAX = 0.32;      // radians, ~18° — horizontal-axis tilt ceiling (kept lower
+                                      // since this axis also cross-feeds into the Y-tilted spacing)
+  const CUBE_ROTATE_CYCLES_Y = 1.25; // how many full sine wobbles across the rotate phase
+  const CUBE_ROTATE_CYCLES_X = 1.75; // a different, non-matching cycle count than Y so the combined
+                                      // motion reads as an irregular tumble rather than a synced rock
   function computeChoreography(heroProgress){
     if(heroProgress <= CUBE_PHASE.wanderEnd){
       return { cubeFormT: 0, angleY: 0, angleX: 0 };
@@ -873,19 +888,21 @@ import * as THREE from './vendor/three.module.min.js';
       return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), angleY: 0, angleX: 0 };
     }
     if(heroProgress <= CUBE_PHASE.rotateEnd){
-      // linear, not eased — a direct 1:1 scroll-to-rotation mapping is
-      // what makes the tumble itself feel precisely scroll-scrubbed
-      // (and cleanly reversible on scroll-up) rather than an animation
-      // merely triggered by scroll
+      // a direct function of scroll position (not time), so this is
+      // precisely scroll-scrubbed and cleanly reversible on scroll-up
       const t = (heroProgress - CUBE_PHASE.formEnd) / (CUBE_PHASE.rotateEnd - CUBE_PHASE.formEnd);
-      return { cubeFormT: 1, angleY: t * Math.PI * 2 * CUBE_ROTATE_TURNS_Y, angleX: t * Math.PI * 2 * CUBE_ROTATE_TURNS_X };
+      return {
+        cubeFormT: 1,
+        angleY: Math.sin(t * Math.PI * 2 * CUBE_ROTATE_CYCLES_Y) * CUBE_TILT_Y_MAX,
+        angleX: Math.sin(t * Math.PI * 2 * CUBE_ROTATE_CYCLES_X) * CUBE_TILT_X_MAX,
+      };
     }
     if(heroProgress <= CUBE_PHASE.disperseEnd){
       const t = smoothstep(CUBE_PHASE.rotateEnd, CUBE_PHASE.disperseEnd, heroProgress);
       return {
         cubeFormT: 1 - t,
-        angleY: Math.PI * 2 * CUBE_ROTATE_TURNS_Y,
-        angleX: Math.PI * 2 * CUBE_ROTATE_TURNS_X,
+        angleY: Math.sin(Math.PI * 2 * CUBE_ROTATE_CYCLES_Y) * CUBE_TILT_Y_MAX,
+        angleX: Math.sin(Math.PI * 2 * CUBE_ROTATE_CYCLES_X) * CUBE_TILT_X_MAX,
       };
     }
     return { cubeFormT: 0, angleY: 0, angleX: 0 };
