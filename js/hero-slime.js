@@ -159,6 +159,18 @@ import * as THREE from './vendor/three.module.min.js';
                               // point — raised from 0.30 so the cursor still reaches the cubes furthest
                               // from wherever it typically rests (the hero copy sits centre-top, so the
                               // bottom two cubes were rarely close enough to feel interactive at all)
+    cubeMouseForceMul: 0.32, // full mouseForce is tuned for the loose free-wander liquid, where a big,
+                              // sustained push just relocates a soft blob — applied at that same strength
+                              // to a LOCKED cube point, a cursor that lingers nearby keeps re-applying
+                              // force every frame the point stays in mouseRadius, and even with
+                              // cubeElasticity/cubeViscosity's stiffer pull-back, that sustained push can
+                              // still drag the point far enough from its slot to stretch a thin liquid
+                              // tendril off the cube's own body — thin enough that the box-mode shading
+                              // (calibrated for a roughly box-shaped silhouette) can't find a sensible
+                              // face/edge on it, rendering as a lump with no glass rim at all. Blended in
+                              // by cubeFormT (full strength off-cube, down to ~32% once fully formed) so
+                              // the cube still visibly reacts to a nearby cursor, just without enough
+                              // range of motion to tear away from its own body.
     mergeDistance: 1.35,     // multiplies surfaceTension for points explicitly flagged as a "linked pair" (see WANDER_LINKS)
     opacity: 0.92,           // overall opacity ceiling — actual per-pixel transparency is driven
                              // by the glass material's own fresnel-based bodyAlpha below, not this alone
@@ -418,10 +430,11 @@ import * as THREE from './vendor/three.module.min.js';
         // simple rounded square while the lit faces underneath visibly
         // turn reads convincingly enough, for a small fraction of the cost.
         float circleDist = length(d) - r;
-        // corner kept close to halfSize (was 0.42, a fairly sharp 31%-
-        // rounded corner) so this reads as a soft, liquid rounded cube —
-        // a bar of soap, not a die with a light chamfer
-        float boxD = boxDist(d, r*1.35*uCubeBoxScale, r*0.60*uCubeBoxScale);
+        // corner pushed further still toward halfSize (0.42, then 0.60,
+        // now 0.80 — a ~59%-rounded corner) so this reads as genuinely
+        // soft, rounded liquid rather than a cube with a heavy chamfer;
+        // still leaves enough flat face to read as a cube, not a sphere
+        float boxD = boxDist(d, r*1.35*uCubeBoxScale, r*0.80*uCubeBoxScale);
         // eased rather than a direct 1:1 mix against uCubeT — the box's
         // corners/silhouette only start actually showing in the very
         // last stretch of the coalesce, once the points have
@@ -889,6 +902,10 @@ import * as THREE from './vendor/three.module.min.js';
         : CONFIG.elasticity + (CONFIG.cubeElasticity - CONFIG.elasticity) * cubeFormT;
       const pointViscosity = p.isFragment ? CONFIG.viscosity
         : CONFIG.viscosity + (CONFIG.cubeViscosity - CONFIG.viscosity) * cubeFormT;
+      // see cubeMouseForceMul in CONFIG — fragments never lock into cube
+      // formation, so they always get the full free-wander strength
+      const pointMouseForceMul = p.isFragment ? 1
+        : 1 + (CONFIG.cubeMouseForceMul - 1) * cubeFormT;
 
       let ax = (targetX - p.x) * pointElasticity;
       let ay = (targetY - p.y) * pointElasticity;
@@ -898,7 +915,7 @@ import * as THREE from './vendor/three.module.min.js';
         const dy = p.y - mouse.y;
         const dist = Math.sqrt(dx*dx + dy*dy) + 0.0001;
         if(dist < CONFIG.mouseRadius){
-          const force = (1 - dist / CONFIG.mouseRadius) * CONFIG.mouseForce;
+          const force = (1 - dist / CONFIG.mouseRadius) * CONFIG.mouseForce * pointMouseForceMul;
           ax += (dx/dist) * force;
           ay += (dy/dist) * force;
         }
