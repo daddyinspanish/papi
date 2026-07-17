@@ -2985,8 +2985,13 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
      embedded site's hero is a full scroll-driven "journey" section
      that needs real height to read as intended rather than looking
      cramped, and clearing its 720px-tall compact-mode breakpoint too
-     avoids it falling back to that shorter, tighter-spaced version */
-  height:clamp(480px, 60vw, 760px);
+     avoids it falling back to that shorter, tighter-spaced version.
+     The 480px floor this used to have was well under that site's own
+     hero content height even in its normal (non-compact) mobile
+     layout, which is what still read as cluttered on an iPhone —
+     raised to 680px so the floor itself clears that same threshold,
+     not just the vw-scaled value at wider widths. */
+  height:clamp(680px, 60vw, 780px);
   background:#fff;
 }
 .live-demo-iframe{
