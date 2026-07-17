@@ -102,6 +102,29 @@ import * as THREE from './vendor/three.module.min.js';
                               // below in place — without that shrink, two invisible near-duplicate
                               // metaballs stacked on every visible cube were quietly inflating each
                               // one's effective radius through the smin fold and closing the gap
+    // the shader's own field() scales every point's X position by the
+    // viewport's aspect ratio (see the comment on that in field()) so a
+    // point at normalized x=0.5 always lands at screen-centre regardless
+    // of aspect — but that same scaling also means a FIXED box size (see
+    // cubeBoxScaleMobile below) reads far larger on a narrow phone
+    // (aspect ~0.46) than on a wide desktop window, since the identical
+    // half-size maps to a much bigger fraction of the (narrower) screen
+    // width — on an unscaled box this was nearly a third of the screen
+    // width per cube, which is what actually made them read as "too
+    // close"/crowded, not the gap between their centres. Kept close to
+    // cubeSpacing itself (rather than widened further) because the real
+    // fix is shrinking the box (below); values picked by simulating
+    // project3D()'s worst-case screen extent across the entire rotate
+    // phase (CUBE_TILT_*_MAX, CUBE_PERSPECTIVE) so cubes never swing
+    // past the viewport edge mid-tumble, not just at rest.
+    cubeSpacingMobile: 0.22,
+    // the cube's own box halfSize is defined directly in that same
+    // aspect-scaled space (see uCubeBoxScale/field() below), so the
+    // identical box size reads proportionally much larger on a narrow
+    // phone — this is the main lever for making mobile cubes read as
+    // distinctly separated rather than nearly touching. Also picked via
+    // the same worst-case-rotation simulation as cubeSpacingMobile above.
+    cubeBoxScaleMobile: 0.5,
     // extra points that only ever reveal themselves once the mass has
     // fallen into the Contrast section — see the fragmentation system
     // below (search "fragment") for how these stay invisibly merged
@@ -163,6 +186,11 @@ import * as THREE from './vendor/three.module.min.js';
   const fragmentCount = isMobile ? Math.max(4, Math.round(CONFIG.numFragmentPoints * 0.7)) : CONFIG.numFragmentPoints;
   const pointCount = primaryCount + fragmentCount;
   const qualityScale = isMobile ? CONFIG.mobileQuality : 1;
+  // see the comments on cubeSpacingMobile/cubeBoxScaleMobile above —
+  // both compensate for the shader's own aspect-scaling reading much
+  // tighter on a narrow phone than on a wide desktop window
+  const cubeSpacingActual = isMobile ? CONFIG.cubeSpacingMobile : CONFIG.cubeSpacing;
+  const cubeBoxScale = isMobile ? CONFIG.cubeBoxScaleMobile : 1.0;
 
   // ===================================================================
   // shaders
@@ -191,6 +219,13 @@ import * as THREE from './vendor/three.module.min.js';
     // unison by this same angle (see rotateYX()/project3D() in JS)
     uniform float uCubeAngleY;
     uniform float uCubeAngleX;
+    // static per-device scale on the cube's own box half-size/corner —
+    // see cubeBoxScaleMobile in JS: the box is defined directly in the
+    // same aspect-scaled space field() already works in, so an
+    // unscaled box reads proportionally larger on a narrow phone than
+    // on a wide desktop window; this corrects for that, set once at
+    // load and never animated
+    uniform float uCubeBoxScale;
     uniform float uSlimeSize;
     uniform float uSurfaceTension;
     // 0 = the normal round liquid metaballs used everywhere else in this
@@ -287,7 +322,7 @@ import * as THREE from './vendor/three.module.min.js';
     // along -Z) first crosses the box's surface, then reading off which
     // axis-aligned slab that crossing landed on, is the correct and
     // stable way to get a real per-face flat normal.
-    bool intersectBoxLocal(vec3 ro, vec3 rd, vec3 b, out vec3 hitNormal){
+    bool intersectBoxLocal(vec3 ro, vec3 rd, vec3 b, out vec3 hitNormal, out float edgeGlow){
       vec3 invRd = 1.0 / rd;
       vec3 t1 = (-b - ro) * invRd;
       vec3 t2 = (b - ro) * invRd;
@@ -302,6 +337,24 @@ import * as THREE from './vendor/three.module.min.js';
       if(d.x >= d.y && d.x >= d.z) hitNormal = vec3(s.x, 0.0, 0.0);
       else if(d.y >= d.z) hitNormal = vec3(0.0, s.y, 0.0);
       else hitNormal = vec3(0.0, 0.0, s.z);
+
+      // how close this exact surface point is to a genuine EDGE where
+      // two faces meet, not just which single face is dominant — the
+      // "runner-up" axis (the second-largest of the three d values)
+      // approaches 0 right at a real crease between faces, the same
+      // way all three approach 0 together at a true corner. This is
+      // what lets a crease get its own liquid/glass highlight as the
+      // cube turns, instead of reading as a flat, dry line between two
+      // differently-lit faces.
+      float mn = min(d.x, min(d.y, d.z));
+      float mx = max(d.x, max(d.y, d.z));
+      float mid = d.x + d.y + d.z - mn - mx;
+      // mid itself never exceeds 0 (mx is always exactly 0, right on the
+      // hit face) — it sits at 0 right at a crease and falls to -b.x deep
+      // in a face's middle, so the "near edge" band is [-edgeWidth, 0],
+      // not [0, edgeWidth]
+      float edgeWidth = b.x * 0.25;
+      edgeGlow = smoothstep(-edgeWidth, 0.0, mid);
       return true;
     }
     // a real (locally-generated, non-repeating) image to refract — a
@@ -365,7 +418,7 @@ import * as THREE from './vendor/three.module.min.js';
         // simple rounded square while the lit faces underneath visibly
         // turn reads convincingly enough, for a small fraction of the cost.
         float circleDist = length(d) - r;
-        float boxD = boxDist(d, r*1.35, r*0.42);
+        float boxD = boxDist(d, r*1.35*uCubeBoxScale, r*0.42*uCubeBoxScale);
         float dist = mix(circleDist, boxD, uCubeT);
         f = smin(f, dist, uSurfaceTension);
       }
@@ -465,6 +518,14 @@ import * as THREE from './vendor/three.module.min.js';
       // diffuse/specular/refraction), which is what sells "distinct 3D
       // faces" without touching the rim at all.
       vec3 shadingNormal = normal;
+      // how strongly this fragment sits on a genuine edge/crease
+      // between two cube faces (0 in the middle of a face, rising to 1
+      // right at a seam) — see intersectBoxLocal's edgeGlow output.
+      // Folded into the same rim/highlight the outer silhouette
+      // already gets (search "rimGlow" below), so every visible seam
+      // reads with the same wet, glassy brightness as the outer edge,
+      // not a flat, dry line between two differently-lit faces.
+      float cubeEdgeGlow = 0.0;
       if(uCubeT > 0.001){
         vec2 nearestD;
         int nearestIdx = findNearestPoint(p, aspect, nearestD);
@@ -475,9 +536,11 @@ import * as THREE from './vendor/three.module.min.js';
         vec3 rayOriginLocal = rotateYXInverse(vec3(nearestD, 2.0), uCubeAngleY, uCubeAngleX);
         vec3 rayDirLocal = rotateYXInverse(vec3(0.0, 0.0, -1.0), uCubeAngleY, uCubeAngleX);
         vec3 hitNormalLocal;
-        if(intersectBoxLocal(rayOriginLocal, rayDirLocal, vec3(nearestR*1.35), hitNormalLocal)){
+        float edgeGlow;
+        if(intersectBoxLocal(rayOriginLocal, rayDirLocal, vec3(nearestR*1.35*uCubeBoxScale), hitNormalLocal, edgeGlow)){
           vec3 faceNormal = rotateYX(hitNormalLocal, uCubeAngleY, uCubeAngleX);
           shadingNormal = normalize(mix(normal, faceNormal, uCubeT * 0.85));
+          cubeEdgeGlow = edgeGlow * uCubeT;
         }
       }
 
@@ -510,6 +573,13 @@ import * as THREE from './vendor/three.module.min.js';
       // exponent alone reads as hard plastic rather than glossy liquid
       float sheen = pow(max(0.0, dot(reflectDir, viewDir)), 12.0);
       float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 3.2);
+      // the same bright, wet-glass rim the outer silhouette gets from
+      // fresnel, extended to every internal seam between cube faces
+      // too (cubeEdgeGlow, computed above) — without this, those
+      // creases only ever showed a flat colour/shading discontinuity
+      // as the cube turned, since fresnel alone only ever lights up
+      // the outermost edge of the merged 2D silhouette
+      float rimGlow = max(fresnel, cubeEdgeGlow);
 
       // bend a view ray through the true sphere surface (Snell's law via
       // GLSL's built-in refract()) and sample the high-contrast
@@ -548,7 +618,7 @@ import * as THREE from './vendor/three.module.min.js';
 
       color += vec3(1.0, 0.98, 0.94) * spec * (1.6 + uHighlightIntensity);
       color += vec3(1.0, 0.95, 0.82) * sheen * 0.22;
-      color = mix(color, vec3(1.0, 0.97, 0.9), fresnel * 0.72);
+      color = mix(color, vec3(1.0, 0.97, 0.9), rimGlow * 0.72);
       // real contrast — a shallow 0.85..1.0 range (the first attempt)
       // reads as flat, soft plastic; glass needs a genuine dark side to
       // read as reflective/refractive rather than uniformly lit paint
@@ -581,7 +651,7 @@ import * as THREE from './vendor/three.module.min.js';
       // way a real glass or water surface brightens and turns opaque-
       // looking right at its own silhouette edge while staying clear
       // through the middle.
-      float bodyAlpha = mix(0.32, 0.95, fresnel);
+      float bodyAlpha = mix(0.32, 0.95, rimGlow);
 
       gl_FragColor = vec4(color, edge*uOpacity*bodyAlpha);
     }
@@ -772,7 +842,7 @@ import * as THREE from './vendor/three.module.min.js';
         // risk of two visible points exactly overlapping, and a uniform
         // spacing keeps the real gap between adjacent cubes predictable
         // rather than varying per point.
-        const slot = project3D(p.cubeSignX*CONFIG.cubeSpacing, p.cubeSignY*CONFIG.cubeSpacing, angleY, angleX);
+        const slot = project3D(p.cubeSignX*cubeSpacingActual, p.cubeSignY*cubeSpacingActual, angleY, angleX);
         targetX = targetX + (slot.x - targetX) * cubeFormT;
         targetY = targetY + (slot.y - targetY) * cubeFormT;
         p.cubeDepth = slot.depth;
@@ -899,6 +969,9 @@ import * as THREE from './vendor/three.module.min.js';
     // unison, rewritten every frame in loop() alongside uCubeT
     uCubeAngleY: { value: 0 },
     uCubeAngleX: { value: 0 },
+    // static per-device box scale (desktop 1.0, mobile cubeBoxScaleMobile)
+    // — see cubeBoxScaleMobile in CONFIG
+    uCubeBoxScale: { value: cubeBoxScale },
     uSlimeSize: { value: CONFIG.slimeSize },
     uSurfaceTension: { value: CONFIG.surfaceTension },
     uCubeT: { value: 0 },
