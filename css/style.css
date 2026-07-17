@@ -570,21 +570,27 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   gap:.7rem;
   padding:.95rem 1.8rem;
   border-radius:999px;
-  border:1px solid rgba(var(--style-contrast),.55);
-  /* backdrop-filter used to sit here — continuously re-composited by
+  border:none;
+  /* solid, bright gold-yellow fill with a subtle top-to-bottom gradient
+     and a soft warm shadow underneath — was a translucent tint
+     (rgba(--accent,.22), no backdrop-filter for the reasons noted
+     below) that read as a fairly "clear"/ghost button; a solid fill
+     with a bit of shadow-driven depth reads as a much more confident,
+     primary call to action instead. backdrop-filter itself still
+     stays out of this — it was continuously re-composited by
      title-dock.js's magnetic-pull loop, which writes a fresh transform
      on this element every frame from the moment the page loads, for as
-     long as the hero is on screen. Combined with backdrop-filter that's
-     a real, sustained cost specifically on iOS WebKit. A slightly
-     stronger flat tint instead, no blur sampling needed. */
-  background:rgba(var(--accent),.22);
+     long as the hero is on screen, and that's a real, sustained cost
+     specifically on iOS WebKit. */
+  background:linear-gradient(180deg, #ffe27a 0%, #ffcc33 55%, #f0b429 100%);
+  box-shadow:0 12px 26px -10px rgba(240,180,41,.6), inset 0 1px 0 rgba(255,255,255,.5);
   font-size:.85rem;
   letter-spacing:.08em;
   text-transform:uppercase;
-  color:rgb(var(--style-contrast));
+  color:#1a1408;
   opacity:0;
   will-change:transform;
-  transition:border-color .8s var(--ease-out), background .8s var(--ease-out), color .8s var(--ease-out), opacity .3s ease;
+  transition:box-shadow .3s var(--ease-out), opacity .3s ease;
 }
 .cta i{
   width:8px; height:8px;
@@ -594,8 +600,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   transition:transform .4s var(--ease-out);
 }
 .cta:hover{
-  background:rgba(var(--accent),.32);
-  border-color:rgba(var(--style-contrast),.9);
+  box-shadow:0 16px 32px -10px rgba(240,180,41,.75), inset 0 1px 0 rgba(255,255,255,.6);
 }
 .cta:hover i{ transform:rotate(-45deg) translate(2px,-2px); }
 

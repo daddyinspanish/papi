@@ -94,7 +94,7 @@
     });
     setTimeout(()=>{
       ctaEntranceDone = true;
-      cta.style.transition = 'border-color .8s var(--ease-out), background .8s var(--ease-out), color .8s var(--ease-out), opacity .3s ease';
+      cta.style.transition = 'box-shadow .3s var(--ease-out), opacity .3s ease';
     }, 650);
   }
 
