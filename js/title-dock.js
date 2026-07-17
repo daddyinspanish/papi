@@ -124,24 +124,28 @@
   // ---- social icon row: fades/rises in right away (it's the topmost
   // element, doesn't need to wait on anything else settling first),
   // then tracks the same fadeOut as the rest of hero-copy in update()
-  // below once its own entrance is done ----
+  // below once its own entrance is done. The liquid-drop pop-in itself
+  // (see .hero-social.is-visible in style.css) lives entirely in CSS,
+  // triggered by the is-visible class added below — it animates each
+  // icon's own svg/::before, never this container's opacity, so it
+  // can't conflict with the fade this function (and later update())
+  // drives here. ----
   let socialEntranceDone = false;
   if(social){
     social.style.transition = 'none';
     social.style.opacity = '0';
-    social.style.transform = 'translateY(-14px)';
   }
   function revealSocial(){
     if(!social) return;
     requestAnimationFrame(()=>{
-      social.style.transition = 'opacity .6s ease, transform .6s var(--ease-out)';
+      social.style.transition = 'opacity .6s ease';
       social.style.opacity = '1';
-      social.style.transform = 'translateY(0)';
+      social.classList.add('is-visible');
     });
     setTimeout(()=>{
       socialEntranceDone = true;
       social.style.transition = 'opacity .3s ease';
-    }, 650);
+    }, 900);
   }
 
   window.Papi = window.Papi || {};
@@ -150,15 +154,30 @@
   window.Papi.revealReview = revealReview;
   window.Papi.revealSocial = revealSocial;
 
-  // magnetic pull — the button leans slightly toward a nearby cursor
+  // magnetic pull — the CTA and each social icon lean slightly toward
+  // a nearby cursor. Generalized into a small per-element state object
+  // (own position/target/lerp) rather than duplicating the same
+  // handful of variables per element, so the CTA and all three icons
+  // can each react independently in the same loop.
   let mouseX = -9999, mouseY = -9999;
-  let ctaX = 0, ctaY = 0, ctaTargetX = 0, ctaTargetY = 0;
-  const MAG_RADIUS = 95;
-
   window.addEventListener('mousemove', (e)=>{
     mouseX = e.clientX;
     mouseY = e.clientY;
   });
+
+  function createMagnet(el, radius, strength, entranceDoneRef){
+    return { el, radius, strength, entranceDoneRef, x:0, y:0, targetX:0, targetY:0 };
+  }
+  const magnets = [];
+  if(cta) magnets.push(createMagnet(cta, 95, 0.32, ()=>ctaEntranceDone));
+  if(social){
+    // smaller radius/higher pull than the CTA — proportionate to how
+    // much smaller these icons are, so the effect still reads at that
+    // scale instead of feeling barely-there
+    Array.from(social.querySelectorAll('.hero-social-link')).forEach(link=>{
+      magnets.push(createMagnet(link, 42, 0.42, ()=>socialEntranceDone));
+    });
+  }
 
   function magnetFrame(){
     // this used to call heroElForMagnet.getBoundingClientRect() every
@@ -170,23 +189,26 @@
     // same answer via plain arithmetic against window.scrollY instead,
     // with no forced layout at all.
     const heroVisible = window.scrollY < heroHeight;
-    if(cta && ctaEntranceDone && heroVisible){
-      const rect = cta.getBoundingClientRect();
-      const cx = rect.left + rect.width/2;
-      const cy = rect.top + rect.height/2;
-      const dx = mouseX - cx, dy = mouseY - cy;
-      const dist = Math.hypot(dx, dy);
-      if(dist < MAG_RADIUS){
-        const pull = 1 - dist / MAG_RADIUS;
-        ctaTargetX = dx * pull * 0.32;
-        ctaTargetY = dy * pull * 0.32;
-      } else {
-        ctaTargetX = 0;
-        ctaTargetY = 0;
-      }
-      ctaX += (ctaTargetX - ctaX) * 0.2;
-      ctaY += (ctaTargetY - ctaY) * 0.2;
-      cta.style.transform = `translate(${ctaX.toFixed(1)}px, ${ctaY.toFixed(1)}px)`;
+    if(heroVisible){
+      magnets.forEach(m=>{
+        if(!m.entranceDoneRef()) return;
+        const rect = m.el.getBoundingClientRect();
+        const cx = rect.left + rect.width/2;
+        const cy = rect.top + rect.height/2;
+        const dx = mouseX - cx, dy = mouseY - cy;
+        const dist = Math.hypot(dx, dy);
+        if(dist < m.radius){
+          const pull = 1 - dist / m.radius;
+          m.targetX = dx * pull * m.strength;
+          m.targetY = dy * pull * m.strength;
+        } else {
+          m.targetX = 0;
+          m.targetY = 0;
+        }
+        m.x += (m.targetX - m.x) * 0.2;
+        m.y += (m.targetY - m.y) * 0.2;
+        m.el.style.transform = `translate(${m.x.toFixed(1)}px, ${m.y.toFixed(1)}px)`;
+      });
     }
     requestAnimationFrame(magnetFrame);
   }

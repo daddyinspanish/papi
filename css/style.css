@@ -393,31 +393,88 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   transition:opacity .3s ease;
 }
 
-/* the row of clickable social icons above the eyebrow — its own
-   simple fade+rise entrance (see js/title-dock.js's revealSocial) and
-   folded into the same scroll-tied fadeOut the rest of hero-copy
-   already gets, so it fades away scrolling down and reappears
-   scrolling back into the hero, same as everything else here */
+/* the row of clickable social icons below the Google review badge —
+   deliberately small and monochrome (currentColor, not the brands' own
+   loud colors) so it reads as a minimal, on-brand detail rather than a
+   row of logos competing with the rest of the hero. Its own container-
+   level fade (see js/title-dock.js's revealSocial) is folded into the
+   same scroll-tied fadeOut the rest of hero-copy already gets, so it
+   fades away scrolling down and reappears scrolling back into the
+   hero — same as everything else here. The one-time liquid-drop
+   entrance (see .hero-social-link svg/::before below) is a separate,
+   purely cosmetic layer on top of that and doesn't touch this opacity
+   at all, so the two never fight each other. */
 .hero-social{
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:.9rem;
-  margin-bottom:1.6rem;
+  gap:1.1rem;
+  margin-top:1.5rem;
   opacity:0;
-  will-change:opacity, transform;
+  will-change:opacity;
 }
 .hero-social-link{
+  position:relative;
   display:flex;
+  align-items:center;
+  justify-content:center;
+  width:26px;
+  height:26px;
+  color:rgba(23,24,26,.42);
   cursor:none;
+  transition:color .3s var(--ease-out);
+  /* the JS magnet effect in title-dock.js writes a translate() here
+     directly every frame while the cursor is nearby — this is the
+     element that actually moves, kept free of any CSS animation of
+     its own so the two never conflict (the liquid entrance below
+     lives on this element's children instead) */
 }
+.hero-social-link:hover{ color:var(--gold-deep); }
 .hero-social-link svg{
-  width:34px;
-  height:34px;
-  border-radius:8px;
-  transition:transform .25s var(--ease-out);
+  position:relative;
+  z-index:1;
+  width:15px;
+  height:15px;
+  opacity:0;
+  transform:scale(0) rotate(-25deg);
 }
-.hero-social-link:hover svg{ transform:scale(1.12); }
+/* the "liquid drop" backdrop — a soft gold bloom that blooms out and
+   dissolves behind each icon right as it lands, echoing the hero's
+   own liquid material rather than a plain fade/rise like the rest of
+   hero-copy uses. Purely decorative and fully transparent again well
+   before the animation ends, so nothing lingers behind the icon at rest. */
+.hero-social-link::before{
+  content:'';
+  position:absolute;
+  inset:-3px;
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(203,168,105,.5), rgba(203,168,105,0) 72%);
+  opacity:0;
+  transform:scale(0);
+}
+.hero-social.is-visible .hero-social-link::before{
+  animation:heroSocialDroplet .85s var(--ease-out) both;
+}
+.hero-social.is-visible .hero-social-link svg{
+  animation:heroSocialIconIn .7s var(--ease-out) both;
+}
+.hero-social.is-visible .hero-social-link:nth-child(1)::before{ animation-delay:0s; }
+.hero-social.is-visible .hero-social-link:nth-child(1) svg{ animation-delay:0s; }
+.hero-social.is-visible .hero-social-link:nth-child(2)::before{ animation-delay:.15s; }
+.hero-social.is-visible .hero-social-link:nth-child(2) svg{ animation-delay:.15s; }
+.hero-social.is-visible .hero-social-link:nth-child(3)::before{ animation-delay:.3s; }
+.hero-social.is-visible .hero-social-link:nth-child(3) svg{ animation-delay:.3s; }
+@keyframes heroSocialDroplet{
+  0%{ transform:scale(0); opacity:0; }
+  40%{ transform:scale(1.5); opacity:1; }
+  100%{ transform:scale(2.3); opacity:0; }
+}
+@keyframes heroSocialIconIn{
+  0%{ transform:scale(0) rotate(-25deg); opacity:0; }
+  55%{ transform:scale(1.3) rotate(6deg); opacity:1; }
+  75%{ transform:scale(.9) rotate(-3deg); opacity:1; }
+  100%{ transform:scale(1) rotate(0deg); opacity:1; }
+}
 .eyebrow .char{
   display:inline-block;
   white-space:pre;

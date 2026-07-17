@@ -64,7 +64,6 @@
     if(window.Papi && window.Papi.revealTitle) window.Papi.revealTitle();
     if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
     if(window.Papi && window.Papi.revealField) window.Papi.revealField();
-    if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
     setTimeout(()=>{
       if(window.Papi && window.Papi.revealCta) window.Papi.revealCta();
     }, 550);
@@ -74,6 +73,9 @@
     setTimeout(()=>{
       if(window.Papi && window.Papi.revealReview) window.Papi.revealReview();
     }, 1000);
+    setTimeout(()=>{
+      if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
+    }, 1250);
 
     loader.classList.add('is-done');
     loader.style.transition = 'opacity 1.3s ease';
