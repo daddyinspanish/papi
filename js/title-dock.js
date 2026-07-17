@@ -19,7 +19,6 @@
   const eyebrow  = document.getElementById('heroEyebrow');
   const title    = document.getElementById('heroTitle');
   const sub      = document.getElementById('heroSub');
-  const cta      = document.getElementById('heroCta');
   const review   = document.getElementById('heroReview');
   const social   = document.getElementById('heroSocial');
   const titleDock= document.getElementById('titleDock');
@@ -78,26 +77,6 @@
     }, 950);
   }
 
-  // ---- cta: fades/rises in shortly after the title, then becomes
-  // magnetically interactive with the cursor ----
-  let ctaEntranceDone = false;
-  if(cta){
-    cta.style.transition = 'none';
-    cta.style.opacity = '0';
-    cta.style.transform = 'translateY(18px)';
-  }
-  function revealCta(){
-    if(!cta) return;
-    requestAnimationFrame(()=>{
-      cta.style.transition = 'opacity .6s ease, transform .6s var(--ease-out)';
-      cta.style.opacity = '1';
-      cta.style.transform = 'translateY(0)';
-    });
-    setTimeout(()=>{
-      ctaEntranceDone = true;
-      cta.style.transition = 'box-shadow .3s var(--ease-out), opacity .3s ease';
-    }, 650);
-  }
 
   // ---- review badge: fades/rises in last, a beat after the subtitle,
   // then tracks the same fadeOut as the rest of hero-copy in update()
@@ -150,7 +129,6 @@
 
   window.Papi = window.Papi || {};
   window.Papi.revealSubtitle = revealSubtitle;
-  window.Papi.revealCta = revealCta;
   window.Papi.revealReview = revealReview;
   window.Papi.revealSocial = revealSocial;
 
@@ -169,11 +147,10 @@
     return { el, radius, strength, entranceDoneRef, x:0, y:0, targetX:0, targetY:0 };
   }
   const magnets = [];
-  if(cta) magnets.push(createMagnet(cta, 95, 0.32, ()=>ctaEntranceDone));
   if(social){
-    // smaller radius/higher pull than the CTA — proportionate to how
-    // much smaller these icons are, so the effect still reads at that
-    // scale instead of feeling barely-there
+    // small radius/higher pull, proportionate to how small these
+    // icons are, so the effect still reads at that scale instead of
+    // feeling barely-there
     Array.from(social.querySelectorAll('.hero-social-link')).forEach(link=>{
       magnets.push(createMagnet(link, 42, 0.42, ()=>socialEntranceDone));
     });
@@ -279,7 +256,6 @@
 
     if(eyebrow) eyebrow.style.opacity = String(1 - fadeOut);
     if(title) title.style.opacity = String(1 - fadeOut);
-    if(cta && ctaEntranceDone) cta.style.opacity = String(1 - fadeOut);
     if(sub && subEntranceDone) sub.style.opacity = String(1 - fadeOut);
     if(review && reviewEntranceDone) review.style.opacity = String(1 - fadeOut);
     if(social && socialEntranceDone) social.style.opacity = String(1 - fadeOut);
@@ -363,14 +339,4 @@
     requestAnimationFrame(()=>{ update(); ticking = false; });
   }, { passive:true });
   update();
-
-  // jumps straight to the trades showcase
-  if(cta){
-    cta.addEventListener('click', (e)=>{
-      const showcase = document.getElementById('showcase');
-      if(!showcase) return;
-      e.preventDefault();
-      showcase.scrollIntoView({ behavior:'smooth' });
-    });
-  }
 })();

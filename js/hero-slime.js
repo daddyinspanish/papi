@@ -39,6 +39,19 @@
    one normal mass by the time the hero is back on screen. See "fragT"
    throughout this file for the details.
 
+   The hero itself is now a tall (400vh), pinned scroll section (see
+   .hero-sticky in style.css) purely to give the mass room to run
+   through its own choreography before any of the above even starts:
+   free wander → the primary points coalesce into 4 liquid cubes →
+   those 4 cubes orbit the centre a full 360°, tracking scroll
+   directly (not on a timer) → they disperse back into the normal
+   free-wandering mass → then the existing fall-into-Contrast sequence
+   picks up right where it always did. Search "heroProgress" and
+   "cubeFormT" for the details — the fragment points need no awareness
+   of any of this at all, since they just keep shadowing wherever their
+   primary partner currently is (unchanged), so they automatically ride
+   along hidden inside whatever shape the primaries take, cubes included.
+
    IMPORTANT, and worth being direct about: this renders through a
    requestAnimationFrame loop, same as every JS-driven animation this
    hero background has gone through before. iOS Safari deliberately
@@ -60,6 +73,11 @@ import * as THREE from './vendor/three.module.min.js';
   const canvas = document.getElementById('heroSlime');
   if(!canvas) return;
   const heroEl = document.getElementById('hero');
+  // #hero is now the tall (400vh) outer scroll container; the canvas
+  // itself needs to live in the pinned inner wrapper so its inset:0
+  // sizing matches the actual one-viewport-tall visible box, not the
+  // whole 400vh outer section
+  const heroStickyEl = heroEl ? heroEl.querySelector('.hero-sticky') : null;
   const contrastSectionEl = document.getElementById('contrastSection');
   const contrastStickyEl = contrastSectionEl ? contrastSectionEl.querySelector('.contrast-sticky') : null;
 
@@ -69,7 +87,13 @@ import * as THREE from './vendor/three.module.min.js';
   // change to retune the feel.
   // ===================================================================
   const CONFIG = {
-    numControlPoints: 7,     // how many metaballs make up the mass — more reads as a bigger, busier organism
+    numControlPoints: 8,     // how many metaballs make up the mass — more reads as a bigger, busier organism.
+                              // 8 divides evenly into the 4 liquid cubes of the hero choreography below
+    cubeSlotRadius: 0.36,    // how far from centre (0.5,0.5) each of the 4 cube slots sits — same
+                              // normalized/aspect-corrected space as WANDER_RANGE below. Tuned up from
+                              // an initial 0.28: at that radius adjacent cubes sat just inside the
+                              // smooth-min blend radius and fused into one continuous cross/pinwheel
+                              // shape rather than reading as 4 distinct cubes — verified in sandbox
     // extra points that only ever reveal themselves once the mass has
     // fallen into the Contrast section — see the fragmentation system
     // below (search "fragment") for how these stay invisibly merged
@@ -145,6 +169,11 @@ import * as THREE from './vendor/three.module.min.js';
     uniform float uPointSize[${pointCount}];
     uniform float uSlimeSize;
     uniform float uSurfaceTension;
+    // 0 = the normal round liquid metaballs used everywhere else in this
+    // file, 1 = each point's contribution instead reads as a soft,
+    // rounded-corner cube — see boxDist() and the JS-side cube
+    // choreography (search "cubeFormT") for how/when this actually rises
+    uniform float uCubeT;
     uniform float uNoiseStrength;
     uniform float uOpacity;
     uniform float uHighlightIntensity;
@@ -183,6 +212,14 @@ import * as THREE from './vendor/three.module.min.js';
     float smin(float a, float b, float k){
       float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
       return mix(b, a, h) - k*h*(1.0-h);
+    }
+    // rounded-box SDF (p relative to the box's own centre) — corner is
+    // how much of halfSize gets rounded off, kept fairly generous below
+    // so this still reads as "liquid that has organised itself into a
+    // cube" rather than a razor-sharp geometric primitive
+    float boxDist(vec2 p, float halfSize, float corner){
+      vec2 d = abs(p) - (halfSize - corner);
+      return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - corner;
     }
     // a real (locally-generated, non-repeating) image to refract — a
     // baked raster texture, not a live formula. A procedural repeating
@@ -227,7 +264,14 @@ import * as THREE from './vendor/three.module.min.js';
           float compress = 1.0 + speed*uCompressAmount;
           d = dir*(along/stretch) + perp*compress;
         }
-        float dist = length(d) - uSlimeSize*uPointSize[i];
+        float r = uSlimeSize*uPointSize[i];
+        // blended rather than switched, so the transition between round
+        // liquid and cube liquid itself looks like a fluid morph (this
+        // runs every frame while uCubeT is mid-transition, not just at
+        // the 0/1 endpoints)
+        float circleDist = length(d) - r;
+        float boxD = boxDist(d, r*1.35, r*0.55);
+        float dist = mix(circleDist, boxD, uCubeT);
         f = smin(f, dist, uSurfaceTension);
       }
       return f;
@@ -403,6 +447,12 @@ import * as THREE from './vendor/three.module.min.js';
     const partner = isFragment ? (i % primaryCount) : -1;
     const startX = isFragment ? points[partner].x : 0.5 + (Math.random()-0.5)*0.3;
     const startY = isFragment ? points[partner].y : 0.5 + (Math.random()-0.5)*0.3;
+    // which of the 4 cube slots this point aims for once the hero's
+    // coalesce phase kicks in (meaningless for fragment points — they
+    // never look at this, they just keep shadowing their primary
+    // partner's position, cube or not) — only primary points needed
+    // any change at all for the cube choreography
+    const cubeIndex = i % 4;
     points.push({
       x: startX,
       y: startY,
@@ -415,6 +465,11 @@ import * as THREE from './vendor/three.module.min.js';
       // unaffected) — what makes the scattered droplets read as varied
       // little pieces instead of identical dots once shrunk
       sizeMul: isFragment ? (0.45 + Math.random()*0.4) : 1.0,
+      cubeBaseAngle: Math.PI/4 + cubeIndex * (Math.PI/2), // 45°/135°/225°/315°, a diagonal 4-slot layout
+      // deterministic per-point spread (not random — stays identical
+      // across reloads) so the 2 primaries sharing a slot (8 points / 4
+      // slots) don't sit exactly on top of one another
+      cubeJitter: (i * 0.6180339887) % 1,
     });
   }
 
@@ -476,7 +531,15 @@ import * as THREE from './vendor/three.module.min.js';
                               // clustered near the centre.
   const WANDER_SPEED = 0.00028; // how fast the noise field driving targets itself evolves
 
-  function stepPoints(dtMs, elapsedMs, fragT){
+  // a point at cubeBaseAngle + spinAngle, radius away from centre — used
+  // both to place the 4 resting cube slots and to spin all 4 together
+  // around the centre as the visitor scrolls through the orbit phase
+  function rotateAroundCenter(baseAngle, radius, spinAngle){
+    const a = baseAngle + spinAngle;
+    return { x: 0.5 + Math.cos(a)*radius, y: 0.5 + Math.sin(a)*radius };
+  }
+
+  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, orbitAngle){
     if(mouse.active && performance.now() - lastMoveTime > MOUSE_IDLE_MS) mouse.active = false;
     const dtScale = dtMs / 16.6667; // normalizes physics to "per ~60fps frame" units, using the capped dt
 
@@ -496,6 +559,18 @@ import * as THREE from './vendor/three.module.min.js';
         const partner = points[p.partner];
         targetX = partner.x + (targetX - partner.x) * fragT;
         targetY = partner.y + (targetY - partner.y) * fragT;
+      } else if(cubeFormT > 0){
+        // primary points blend their free-wander target toward this
+        // point's own resting slot in one of the 4 cubes as cubeFormT
+        // rises — the slot itself spins around the centre by
+        // orbitAngle, so during the orbit phase (cubeFormT pinned at 1)
+        // this is the only thing moving the point at all, giving a
+        // precisely scroll-scrubbed rotation rather than a free wander
+        // that merely happens to sit near a cube shape
+        const radius = CONFIG.cubeSlotRadius + (p.cubeJitter - 0.5) * 0.06;
+        const slot = rotateAroundCenter(p.cubeBaseAngle, radius, orbitAngle);
+        targetX = targetX + (slot.x - targetX) * cubeFormT;
+        targetY = targetY + (slot.y - targetY) * cubeFormT;
       }
 
       let ax = (targetX - p.x) * CONFIG.elasticity;
@@ -602,6 +677,7 @@ import * as THREE from './vendor/three.module.min.js';
     uPointSize: { value: points.map(p => p.sizeMul) },
     uSlimeSize: { value: CONFIG.slimeSize },
     uSurfaceTension: { value: CONFIG.surfaceTension },
+    uCubeT: { value: 0 },
     uNoiseStrength: { value: CONFIG.noiseStrength },
     uOpacity: { value: CONFIG.opacity },
     uHighlightIntensity: { value: CONFIG.highlightIntensity },
@@ -623,6 +699,18 @@ import * as THREE from './vendor/three.module.min.js';
   });
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
   scene.add(quad);
+
+  // how many pixels the hero's own tall (400vh) section can actually be
+  // scrolled through before its sticky inner unpins — cached rather than
+  // measured fresh every animation frame (offsetHeight forces a layout
+  // read), refreshed on load and on the same width-tolerant resize as
+  // everything else in this file
+  let heroScrollableHeight = 1;
+  function measureHeroScrollable(){
+    if(!heroEl) return;
+    const h = heroEl.offsetHeight - window.innerHeight;
+    if(h > 0) heroScrollableHeight = h;
+  }
 
   let W = 1, H = 1;
   function resize(){
@@ -663,7 +751,7 @@ import * as THREE from './vendor/three.module.min.js';
     if(Math.abs(w - lastResizeW) <= 10) return;
     lastResizeW = w;
     clearTimeout(window.__papiSlimeResizeT);
-    window.__papiSlimeResizeT = setTimeout(resize, 150);
+    window.__papiSlimeResizeT = setTimeout(()=>{ resize(); measureHeroScrollable(); }, 150);
   });
 
   let revealed = false;
@@ -707,6 +795,48 @@ import * as THREE from './vendor/three.module.min.js';
     const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
     return t * t * (3 - 2 * t);
   }
+
+  // ===================================================================
+  // hero cube choreography — the tall (400vh) hero exists purely to
+  // give this room to run: free wander → the primary points coalesce
+  // into 4 liquid cubes → those 4 cubes orbit the centre a full 360°,
+  // tracking scroll directly rather than a timer → they disperse back
+  // into the normal free-wandering mass → then the existing
+  // fall-into-Contrast/fragment sequence above picks up right where it
+  // always did. Boundaries are fractions of heroProgress (0 at the very
+  // top of the hero's own scroll range, 1 once fully scrolled through
+  // it — see loop() below).
+  // ===================================================================
+  const CUBE_PHASE = {
+    wanderEnd: 0.12,    // pure free wander, matches the look before this existed
+    formEnd: 0.38,      // coalesce into 4 cubes complete
+    orbitEnd: 0.74,     // 360° orbit complete
+    disperseEnd: 0.92,  // back to free liquid — the remaining stretch up to heroProgress===1
+                        // is plain free wander again, so the handoff into Contrast's own
+                        // fall/fragment sequence has nothing cube-related left to unwind
+  };
+  function computeChoreography(heroProgress){
+    if(heroProgress <= CUBE_PHASE.wanderEnd){
+      return { cubeFormT: 0, orbitAngle: 0 };
+    }
+    if(heroProgress <= CUBE_PHASE.formEnd){
+      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), orbitAngle: 0 };
+    }
+    if(heroProgress <= CUBE_PHASE.orbitEnd){
+      // linear, not eased — a direct 1:1 scroll-to-rotation mapping is
+      // what makes the orbit itself feel precisely scroll-scrubbed
+      // (and cleanly reversible on scroll-up) rather than an animation
+      // merely triggered by scroll
+      const t = (heroProgress - CUBE_PHASE.formEnd) / (CUBE_PHASE.orbitEnd - CUBE_PHASE.formEnd);
+      return { cubeFormT: 1, orbitAngle: t * Math.PI * 2 };
+    }
+    if(heroProgress <= CUBE_PHASE.disperseEnd){
+      const t = smoothstep(CUBE_PHASE.orbitEnd, CUBE_PHASE.disperseEnd, heroProgress);
+      return { cubeFormT: 1 - t, orbitAngle: Math.PI * 2 };
+    }
+    return { cubeFormT: 0, orbitAngle: 0 };
+  }
+
   const FALL_RATIO = 0.7;
   const EXIT_FADE_RATIO = 0.28;
   let zone = 'hero'; // 'hero' | 'contrast' | 'gone'
@@ -725,6 +855,15 @@ import * as THREE from './vendor/three.module.min.js';
 
     const heroRect = heroEl ? heroEl.getBoundingClientRect() : null;
     const inHero = heroRect ? heroRect.bottom > 0 : false;
+
+    // 0 at the very top of the hero's own scroll range, 1 once fully
+    // scrolled through it — reuses heroRect.top (already measured just
+    // above) rather than a second scrollY/offsetTop read: #hero sits at
+    // the very top of the document, so -heroRect.top is exactly how far
+    // scrolled past its own top edge already
+    const heroProgress = (inHero && heroRect) ? Math.max(0, Math.min(1, -heroRect.top / heroScrollableHeight)) : 0;
+    const { cubeFormT, orbitAngle } = computeChoreography(heroProgress);
+    uniforms.uCubeT.value = cubeFormT;
 
     let inContrast = false;
     let exitOpacity = 1;
@@ -758,10 +897,10 @@ import * as THREE from './vendor/three.module.min.js';
       if(nextZone === 'contrast' && contrastStickyEl){
         contrastStickyEl.insertBefore(canvas, contrastStickyEl.firstChild);
         canvas.classList.add('is-roaming');
-      } else if(nextZone === 'hero' && heroEl){
-        heroEl.insertBefore(canvas, heroEl.firstChild);
+      } else if(nextZone === 'hero' && heroStickyEl){
+        heroStickyEl.insertBefore(canvas, heroStickyEl.firstChild);
         canvas.classList.remove('is-roaming');
-        canvas.style.transform = ''; // hero phase needs no JS transform at all — plain inset:0 already matches its normal scrolled-with-the-page position
+        canvas.style.transform = ''; // hero phase needs no JS transform at all — plain inset:0 already matches its normal position within the pinned .hero-sticky wrapper
       }
       // 'gone': leave it parked wherever it last was — paused and
       // faded to nothing, so its parent no longer matters until the
@@ -802,7 +941,7 @@ import * as THREE from './vendor/three.module.min.js';
     uniforms.uSlimeSize.value = CONFIG.slimeSize * (1 - fragT*(1 - CONFIG.fragmentSizeScale));
     uniforms.uSurfaceTension.value = CONFIG.surfaceTension * (1 - fragT*(1 - CONFIG.fragmentTensionScale));
 
-    stepPoints(dt, elapsed, fragT);
+    stepPoints(dt, elapsed, fragT, cubeFormT, orbitAngle);
     renderOnce(elapsed);
 
     rafId = requestAnimationFrame(loop);
@@ -810,11 +949,12 @@ import * as THREE from './vendor/three.module.min.js';
   let elapsedStart = null;
 
   resize();
+  measureHeroScrollable();
 
   if(prefersReducedMotion){
     // a single static frame — settle the points near center once, no
     // ongoing simulation and no render loop at all
-    stepPoints(16.6667, 0, 0);
+    stepPoints(16.6667, 0, 0, 0, 0);
     renderOnce(0);
   } else {
     rafId = requestAnimationFrame(loop);

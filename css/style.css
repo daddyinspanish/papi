@@ -83,7 +83,7 @@ body.no-scroll{ overflow:hidden; }
 a{ color:inherit; text-decoration:none; }
 
 /* custom cursor replaces the system pointer across the whole page */
-body, a, .cta{ cursor:none; }
+body, a{ cursor:none; }
 
 /* ===================================================================
    LOADER — black and gold, on brand: a single stylized "Papi"
@@ -135,77 +135,53 @@ body, a, .cta{ cursor:none; }
 /* ===================================================================
    HERO / CANVAS FIELD
 =================================================================== */
+/* the tall outer section — 400vh of scroll room for js/hero-slime.js's
+   coalesce → orbit → disperse choreography to play out in before
+   handing off into Contrast, same tall-outer-plus-sticky-inner pattern
+   .contrast-section/.contrast-sticky already use below. Stays
+   position:relative (the sticky child needs a normal-flow ancestor,
+   not this element specifically) but no longer clips anything itself
+   — .hero-sticky below takes over that job, sized to just the pinned
+   viewport rather than this whole tall box. */
 #hero{
   position:relative;
-  min-height:100vh;
-  min-height:100svh;
-  /* most robust layer — see the inline script in index.html's <head>
-     that computes --stable-vh */
-  min-height:calc(100 * var(--stable-vh, 1vh));
+  height:400vh;
+  height:400svh;
+  height:calc(400 * var(--stable-vh, 1vh));
   width:100%;
   background:#ffffff;
   visibility:hidden;
   opacity:0;
   transition:opacity 1.6s var(--ease-in-out);
-  overflow:hidden;
 }
 #hero.is-visible{
   visibility:visible;
   opacity:1;
 }
-
-/* ---- pilot: native scroll-driven fade/lift for the hero copy ----
-   title-dock.js drives this same fade/lift by reading window.scrollY
-   in a requestAnimationFrame loop — which works, but iOS Safari (the
-   actual app, not other browsers using the same underlying engine)
-   deliberately pauses JS execution, including rAF callbacks, while a
-   finger is actively dragging the screen, to keep the native scroll
-   itself smooth, then runs everything it deferred in one burst once
-   the gesture settles. On a page with this much scroll-tied JS, that
-   surfaces as the hero visibly freezing mid-scroll and then jumping —
-   confirmed on video, and reproducible only in Safari specifically,
-   not in another iOS browser hitting the same page.
-   This does the same fade/lift as a native, compositor-driven
-   scroll-linked animation instead — not gated behind JS at all, so
-   Safari's JS-during-scroll pause can't touch it. Gated behind
-   @supports so it only applies where the browser actually understands
-   it; everywhere else, title-dock.js's own JS version (unchanged)
-   keeps working exactly as it already does. Scoped to just the
-   clearest win for now (eyebrow/title opacity, the hero-copy lift) —
-   the CTA and subtitle keep their existing JS-driven fade since both
-   also run their own separate entrance-reveal animation that would
-   otherwise race this. */
-@supports (animation-timeline: view()) {
-  #hero{
-    view-timeline-name: --hero-exit;
-    view-timeline-axis: block;
-  }
-  @keyframes heroExitFade{
-    0%, 42%{ opacity:1; }
-    52%{ opacity:.84; }
-    62%{ opacity:.5; }
-    72%{ opacity:.16; }
-    82%, 100%{ opacity:0; }
-  }
-  @keyframes heroExitLift{
-    0%, 42%{ transform:translateY(0); }
-    52%{ transform:translateY(-5px); }
-    62%{ transform:translateY(-17px); }
-    72%{ transform:translateY(-29px); }
-    82%, 100%{ transform:translateY(-34px); }
-  }
-  #heroEyebrow, #heroTitle{
-    animation: heroExitFade linear both;
-    animation-timeline: --hero-exit;
-    animation-range: exit 0% exit 100%;
-  }
-  #heroCopy{
-    animation: heroExitLift linear both;
-    animation-timeline: --hero-exit;
-    animation-range: exit 0% exit 100%;
-  }
-
+.hero-sticky{
+  position:sticky;
+  top:0;
+  height:100vh;
+  height:100svh;
+  height:calc(100 * var(--stable-vh, 1vh));
+  overflow:hidden;
 }
+
+/* a previous "pilot" here used a native view-timeline (animation-range:
+   exit 0%..100%) to fade/lift the hero copy as a Safari-JS-pause-proof
+   duplicate of title-dock.js's own JS-driven fade. That range is
+   defined by #hero's own exit-from-viewport phase, which for a normal
+   one-viewport-tall #hero happened to line up with the same short
+   distance title-dock.js paces its fade against — but now that #hero
+   is a 400vh pinned section, its "exit" phase doesn't begin until the
+   very end of that whole 400vh scroll, nowhere near where the copy is
+   actually meant to fade (early, within about one viewport, so the
+   rest of the tall scroll is the liquid choreography's alone). Rather
+   than retune an experimental, Safari-only optimization I have no way
+   to verify on real iOS Safari, it's removed here — title-dock.js's
+   always-on JS version (already correctly paced to a fixed one-
+   viewport distance, unchanged) is the sole mechanism again.
+*/
 
 /* container for the WebGL gold slime — js/hero-slime.js renders into
    the <canvas> inside it. See that file's header for how the
@@ -646,46 +622,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   font-size:.78rem;
 }
 .hero-review-text strong{ font-weight:600; }
-
-.cta{
-  display:inline-flex;
-  align-items:center;
-  gap:.7rem;
-  padding:.95rem 1.8rem;
-  border-radius:999px;
-  border:none;
-  /* solid, bright gold-yellow fill with a subtle top-to-bottom gradient
-     and a soft warm shadow underneath — was a translucent tint
-     (rgba(--accent,.22), no backdrop-filter for the reasons noted
-     below) that read as a fairly "clear"/ghost button; a solid fill
-     with a bit of shadow-driven depth reads as a much more confident,
-     primary call to action instead. backdrop-filter itself still
-     stays out of this — it was continuously re-composited by
-     title-dock.js's magnetic-pull loop, which writes a fresh transform
-     on this element every frame from the moment the page loads, for as
-     long as the hero is on screen, and that's a real, sustained cost
-     specifically on iOS WebKit. */
-  background:linear-gradient(180deg, #ffe27a 0%, #ffcc33 55%, #f0b429 100%);
-  box-shadow:0 12px 26px -10px rgba(240,180,41,.6), inset 0 1px 0 rgba(255,255,255,.5);
-  font-size:.85rem;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  color:#1a1408;
-  opacity:0;
-  will-change:transform;
-  transition:box-shadow .3s var(--ease-out), opacity .3s ease;
-}
-.cta i{
-  width:8px; height:8px;
-  border-right:1.5px solid currentColor;
-  border-bottom:1.5px solid currentColor;
-  transform:rotate(-45deg);
-  transition:transform .4s var(--ease-out);
-}
-.cta:hover{
-  box-shadow:0 16px 32px -10px rgba(240,180,41,.75), inset 0 1px 0 rgba(255,255,255,.6);
-}
-.cta:hover i{ transform:rotate(-45deg) translate(2px,-2px); }
 
 /* ===================================================================
    CONTRAST — the same fake business ("Anderson Plumbing") built two
@@ -1989,7 +1925,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 
 @media (hover:none), (pointer:coarse){
   .custom-cursor{ display:none; }
-  body, a, .cta{ cursor:auto; }
+  body, a{ cursor:auto; }
 }
 
 /* ===================================================================

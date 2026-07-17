@@ -65,17 +65,14 @@
     if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
     if(window.Papi && window.Papi.revealField) window.Papi.revealField();
     setTimeout(()=>{
-      if(window.Papi && window.Papi.revealCta) window.Papi.revealCta();
+      if(window.Papi && window.Papi.revealSubtitle) window.Papi.revealSubtitle();
     }, 550);
     setTimeout(()=>{
-      if(window.Papi && window.Papi.revealSubtitle) window.Papi.revealSubtitle();
-    }, 750);
-    setTimeout(()=>{
       if(window.Papi && window.Papi.revealReview) window.Papi.revealReview();
-    }, 1000);
+    }, 800);
     setTimeout(()=>{
       if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
-    }, 1250);
+    }, 1050);
 
     loader.classList.add('is-done');
     loader.style.transition = 'opacity 1.3s ease';

@@ -94,8 +94,13 @@ window.scrollTo(0, 0);
   <div class="title-dock-word" id="sectionDock">Craft</div>
 </div>
 
-<!-- ============ HERO ============ -->
+<!-- ============ HERO — a tall (400vh) pinned section, same
+     tall-outer-plus-sticky-inner pattern as Contrast/Showcase below,
+     so js/hero-slime.js has real scroll room to run the liquid mass
+     through its coalesce → orbit → disperse choreography before
+     handing off into Contrast's own fall/fragment sequence ============ -->
 <main id="hero" aria-hidden="true">
+<div class="hero-sticky">
 
   <canvas id="heroSlime" aria-hidden="true"></canvas>
 
@@ -106,10 +111,6 @@ window.scrollTo(0, 0);
         <h1 class="hero-title" id="heroTitle">
           Built with <em>purpose</em><br> not just design
         </h1>
-        <a href="#showcase" class="cta" id="heroCta">
-          <span>Choose Your Industry</span>
-          <i></i>
-        </a>
       </div>
       <p class="hero-sub" id="heroSub">Designed to build <span class="sub-word" id="heroSubWord"></span></p>
       <div class="hero-review" id="heroReview">
@@ -145,6 +146,7 @@ window.scrollTo(0, 0);
     </div>
   </section>
 
+</div>
 </main>
 
 <!-- ============ CONTRAST — the same fake business shown as two
