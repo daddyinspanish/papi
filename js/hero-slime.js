@@ -120,17 +120,22 @@ import * as THREE from './vendor/three.module.min.js';
     viscosity: 0.88,         // resistance to *changing* velocity — higher = heavier, slower to redirect
     damping: 0.94,           // raw velocity decay every frame — higher = keeps drifting longer before settling
     elasticity: 0.18,        // how strongly a point accelerates toward its current wander target
-    cubeElasticity: 0.55,    // a much snappier elasticity used only once a point is locked into cube
-                              // formation (blended in by cubeFormT) — the soft, laggy free-wander
-                              // physics above is exactly what let a point overshoot and briefly touch
-                              // its neighbour while chasing the cube cluster's own moving (tumbling)
-                              // target; a tighter elasticity keeps it locked precisely to that target
-    cubeViscosity: 0.55,     // matching drop in viscosity for the same reason — less "heavy drift",
-                              // faster to actually redirect toward the tumbling target
+    cubeElasticity: 0.30,    // a snappier elasticity used only once a point is locked into cube
+                              // formation (blended in by cubeFormT), so it tracks the cluster's own
+                              // moving (tumbling) target instead of lagging behind it — no longer
+                              // relied on to *prevent* cubes touching (that's now handled structurally,
+                              // see isCubeExtra/cubeSpacing), so this is a much gentler nudge than
+                              // before (was 0.55) — enough to stay locked without reading stiff/dead
+    cubeViscosity: 0.72,     // matching, gentler drop in viscosity for the same reason (was 0.55) —
+                              // still a bit livelier than the free-wander default, but keeps real
+                              // liquid weight instead of feeling snapped-into-place
     surfaceTension: 0.10,    // smooth-min blend radius between points — higher = merges/rounds off more readily
     noiseStrength: 0.16,     // how much procedural noise deforms the surface and shading
-    mouseForce: 0.22,        // strength of the cursor push/pull
-    mouseRadius: 0.30,       // how close the cursor needs to be (aspect-corrected 0..1 space) to affect a point
+    mouseForce: 0.26,        // strength of the cursor push/pull
+    mouseRadius: 0.38,       // how close the cursor needs to be (aspect-corrected 0..1 space) to affect a
+                              // point — raised from 0.30 so the cursor still reaches the cubes furthest
+                              // from wherever it typically rests (the hero copy sits centre-top, so the
+                              // bottom two cubes were rarely close enough to feel interactive at all)
     mergeDistance: 1.35,     // multiplies surfaceTension for points explicitly flagged as a "linked pair" (see WANDER_LINKS)
     opacity: 0.92,           // overall opacity ceiling — actual per-pixel transparency is driven
                              // by the glass material's own fresnel-based bodyAlpha below, not this alone
@@ -182,6 +187,11 @@ import * as THREE from './vendor/three.module.min.js';
     // the scattered droplets in Contrast read as varied little pieces
     // rather than identical dots
     uniform float uPointSize[${pointCount}];
+    // each point's own 3D spin (independent of the shared cluster
+    // tumble) — see rotateYX()/sdRoundBox3D() below and the JS-side
+    // CUBE_OWN_SPIN_RATE_* for why every cube rotates at its own rate
+    uniform float uPointAngleY[${pointCount}];
+    uniform float uPointAngleX[${pointCount}];
     uniform float uSlimeSize;
     uniform float uSurfaceTension;
     // 0 = the normal round liquid metaballs used everywhere else in this
@@ -236,6 +246,66 @@ import * as THREE from './vendor/three.module.min.js';
       vec2 d = abs(p) - (halfSize - corner);
       return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - corner;
     }
+    // the true 3D version — evaluated at a single z=0 depth slice (no
+    // raymarch loop needed): an SDF is valid at any 3D point, so asking
+    // "how far is (fragX, fragY, 0) from this rotated box's surface"
+    // already gives the box's real silhouette at this orientation —
+    // different faces piercing the z=0 plane at different angles as it
+    // spins, exactly like a real die's outline changes shape as it
+    // tumbles, not just a flat square whose centre happens to move.
+    float sdRoundBox3D(vec3 p, vec3 b, float r){
+      vec3 q = abs(p) - b + r;
+      return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
+    }
+    // forward rotation: Y-axis first, then X-axis — the same convention
+    // project3D() uses in JS for the shared cluster tumble, so a cube's
+    // own spin and the cluster's orbit compose consistently
+    vec3 rotateYX(vec3 p, float angleY, float angleX){
+      float cy = cos(angleY), sy = sin(angleY);
+      vec3 p1 = vec3(p.x*cy + p.z*sy, p.y, -p.x*sy + p.z*cy);
+      float cx = cos(angleX), sx = sin(angleX);
+      return vec3(p1.x, p1.y*cx - p1.z*sx, p1.y*sx + p1.z*cx);
+    }
+    // the inverse (a rotation's inverse is its transpose) — brings a
+    // view-space query point back into the cube's own unrotated local
+    // frame, which is what the box SDF above needs to be evaluated in
+    vec3 rotateYXInverse(vec3 p, float angleY, float angleX){
+      float cx = cos(-angleX), sx = sin(-angleX);
+      vec3 p1 = vec3(p.x, p.y*cx - p.z*sx, p.y*sx + p.z*cx);
+      float cy = cos(-angleY), sy = sin(-angleY);
+      return vec3(p1.x*cy + p1.z*sy, p1.y, -p1.x*sy + p1.z*cy);
+    }
+    // proper analytic ray-box intersection (the "slab method"), in the
+    // box's own local frame — this is what actually finds which face is
+    // facing the camera. Merely sampling the SDF at a single fixed depth
+    // (the box's own z=0 mid-plane, which is what the silhouette test
+    // above uses, correctly, for a plain inside/outside distance) is
+    // NOT the same as knowing which face a camera ray would hit: the
+    // z=0 mid-plane cuts straight through the box's *interior*, not its
+    // visible surface, so picking "whichever axis is least-negative
+    // there" is unstable near the centre and doesn't track rotation at
+    // all — exactly why an unrotated cube was showing a false pinwheel
+    // of fake facets. Solving for where the actual camera ray (travelling
+    // along -Z) first crosses the box's surface, then reading off which
+    // axis-aligned slab that crossing landed on, is the correct and
+    // stable way to get a real per-face flat normal.
+    bool intersectBoxLocal(vec3 ro, vec3 rd, vec3 b, out vec3 hitNormal){
+      vec3 invRd = 1.0 / rd;
+      vec3 t1 = (-b - ro) * invRd;
+      vec3 t2 = (b - ro) * invRd;
+      vec3 tMin = min(t1, t2);
+      vec3 tMax = max(t1, t2);
+      float tNear = max(max(tMin.x, tMin.y), tMin.z);
+      float tFar = min(min(tMax.x, tMax.y), tMax.z);
+      if(tNear > tFar || tFar < 0.0) return false;
+      vec3 hitPoint = ro + rd*tNear;
+      vec3 d = abs(hitPoint) - b;
+      vec3 s = sign(hitPoint);
+      if(d.x >= d.y && d.x >= d.z) hitNormal = vec3(s.x, 0.0, 0.0);
+      else if(d.y >= d.z) hitNormal = vec3(0.0, s.y, 0.0);
+      else hitNormal = vec3(0.0, 0.0, s.z);
+      return true;
+    }
     // a real (locally-generated, non-repeating) image to refract — a
     // baked raster texture, not a live formula. A procedural repeating
     // pattern (sin() bands, the first attempt at this) reads as a
@@ -285,11 +355,34 @@ import * as THREE from './vendor/three.module.min.js';
         // runs every frame while uCubeT is mid-transition, not just at
         // the 0/1 endpoints)
         float circleDist = length(d) - r;
-        float boxD = boxDist(d, r*1.35, r*0.4);
+        vec3 local3D = rotateYXInverse(vec3(d, 0.0), uPointAngleY[i], uPointAngleX[i]);
+        float boxD = sdRoundBox3D(local3D, vec3(r*1.35), r*0.42);
         float dist = mix(circleDist, boxD, uCubeT);
         f = smin(f, dist, uSurfaceTension);
       }
       return f;
+    }
+
+    // which single point actually dominates the merged field at this
+    // fragment — used only to pick whose rotation/face-normal to shade
+    // with in cube mode. A simple per-point circle-distance proxy
+    // (cheaper than re-deriving an index out of the smin fold above) is
+    // close enough: by the time cubes are separated (real gaps, not
+    // touching) the nearest point by this measure is always the same
+    // one that dominates the real merged surface there anyway.
+    int findNearestPoint(vec2 p, float aspect, out vec2 outD){
+      float best = 1.0e5;
+      int bestIdx = 0;
+      vec2 bestD = vec2(0.0);
+      for(int i=0;i<${pointCount};i++){
+        vec4 pt = uPoints[i];
+        vec2 ptPos = vec2(pt.x*aspect, pt.y);
+        vec2 dd = p - ptPos;
+        float dist = length(dd) - uSlimeSize*uPointSize[i];
+        if(dist < best){ best = dist; bestIdx = i; bestD = dd; }
+      }
+      outD = bestD;
+      return bestIdx;
     }
 
     void main(){
@@ -338,6 +431,33 @@ import * as THREE from './vendor/three.module.min.js';
       float domeHoriz = pow(clamp(1.0 - pathT, 0.0, 1.0), mix(1.0, 3.2, uCubeT));
       float domeVert = sqrt(max(0.0, 1.0 - domeHoriz*domeHoriz));
       vec3 normal = normalize(vec3(-gDir*domeHoriz, domeVert + 0.02));
+
+      // in cube mode, blend toward a genuinely faceted 3D normal from
+      // whichever single point actually dominates this fragment — flat
+      // per face with a hard crease at the true edge is what makes a
+      // rotated box read as 6 real faces (a visible edge/outline as it
+      // turns) rather than one smoothly curving liquid surface that
+      // merely changes size. Found via a real ray-box intersection (see
+      // intersectBoxLocal above), not just sampling the SDF at a fixed
+      // depth — different faces genuinely rotate into and out of view
+      // as uPointAngleY/X change.
+      if(uCubeT > 0.001){
+        vec2 nearestD;
+        int nearestIdx = findNearestPoint(p, aspect, nearestD);
+        float nearestR = uSlimeSize * uPointSize[nearestIdx];
+        float nAngleY = uPointAngleY[nearestIdx];
+        float nAngleX = uPointAngleX[nearestIdx];
+        // camera ray toward this fragment, travelling along -Z, rotated
+        // into the box's own local frame (rotating a direction vector
+        // uses the same transform as a position, just with no translation)
+        vec3 rayOriginLocal = rotateYXInverse(vec3(nearestD, 2.0), nAngleY, nAngleX);
+        vec3 rayDirLocal = rotateYXInverse(vec3(0.0, 0.0, -1.0), nAngleY, nAngleX);
+        vec3 hitNormalLocal;
+        if(intersectBoxLocal(rayOriginLocal, rayDirLocal, vec3(nearestR*1.35), hitNormalLocal)){
+          vec3 faceNormal = rotateYX(hitNormalLocal, nAngleY, nAngleX);
+          normal = normalize(mix(normal, faceNormal, uCubeT));
+        }
+      }
 
       // fine liquid-surface grain — much lighter than before. At 1.4
       // this noise perturbation dominated wherever the base normal's
@@ -406,7 +526,7 @@ import * as THREE from './vendor/three.module.min.js';
 
       color += vec3(1.0, 0.98, 0.94) * spec * (1.6 + uHighlightIntensity);
       color += vec3(1.0, 0.95, 0.82) * sheen * 0.22;
-      color = mix(color, vec3(1.0, 0.97, 0.9), fresnel * 0.6);
+      color = mix(color, vec3(1.0, 0.97, 0.9), fresnel * 0.72);
       // real contrast — a shallow 0.85..1.0 range (the first attempt)
       // reads as flat, soft plastic; glass needs a genuine dark side to
       // read as reflective/refractive rather than uniformly lit paint
@@ -417,32 +537,29 @@ import * as THREE from './vendor/three.module.min.js';
       // together they left a slightly pink/neutral cast, so simply
       // boosting saturation amplified *that* cast into peach/salmon
       // rather than gold. Remapping onto a fixed gold ramp keyed by
-      // luminance guarantees the hue itself is always gold, rather
-      // than just amplifying whatever hue happened to survive the
-      // steps above; 35% of the original shading detail is kept
-      // through so specular/fresnel/refraction dimension still shows
+      // luminance guarantees the hue itself is always a little gold,
+      // rather than just amplifying whatever hue happened to survive
+      // the steps above — but blended in lightly now (was 0.88, an
+      // almost-total override that made this read as opaque liquid
+      // metal rather than tinted glass/water; most of the actual lit/
+      // refracted detail underneath is what gives glass and water their
+      // clarity, so keeping far more of it through is what makes this
+      // read as see-through material with a gold tint, not solid gold)
       float lum = dot(color, vec3(0.299, 0.587, 0.114));
-      // pushed further from pale/creamy toward vivid, saturated gold —
-      // more separation between R/G and B at both ends of the ramp
-      // pushed further: a bright end that's still fairly pale (as
-      // before) reads as cream/yellow rather than gold once blended —
-      // more separation between R and G/B gives an unambiguously
-      // saturated gold instead
       vec3 goldRef = mix(vec3(0.45, 0.26, 0.05), vec3(1.0, 0.68, 0.18), lum);
-      color = mix(color, goldRef, 0.88);
+      color = mix(color, goldRef, 0.56);
 
       // real page content (the hero title/subtitle/CTA) sits behind
       // this canvas — alpha blending toward a white page dilutes even a
       // fully-saturated colour toward pale at low alpha, no matter how
-      // rich the computed colour itself is (confirmed by direct
-      // comparison: the pre-alpha colour alone renders as vivid
-      // saturated gold; the composited result only looked pale because
-      // of this dilution, not a colour bug). Transparency and colour
-      // vividness genuinely trade off against each other over a white
-      // backdrop — 0.36 keeps meaningfully more see-through than the
-      // original opaque version while reading as clearly gold rather
-      // than washed out
-      float bodyAlpha = mix(0.36, 0.97, fresnel);
+      // rich the computed colour itself is. Lowered further (was
+      // 0.36..0.97) so the body itself reads as genuinely see-through
+      // water/glass rather than a translucent solid — the fresnel edge
+      // still climbs to nearly opaque at a grazing angle, exactly the
+      // way a real glass or water surface brightens and turns opaque-
+      // looking right at its own silhouette edge while staying clear
+      // through the middle.
+      float bodyAlpha = mix(0.32, 0.95, fresnel);
 
       gl_FragColor = vec4(color, edge*uOpacity*bodyAlpha);
     }
@@ -503,12 +620,19 @@ import * as THREE from './vendor/three.module.min.js';
       // quietly closing the real gap between adjacent cubes. See the
       // matching shrink in renderOnce().
       isCubeExtra: !isFragment && i >= 4,
+      cubeIndex,
       cubeSignX,
       cubeSignY,
       // last-computed depth (see project3D) while tumbling — read back
       // in renderOnce() for the per-point size-by-depth cue; harmless/
       // unused whenever cubeFormT is 0
       cubeDepth: 0,
+      // this cube's own independent spin (see CUBE_OWN_SPIN_RATE_* and
+      // stepPoints below) — separate from the shared cluster tumble
+      // (angleY/angleX), so every cube visibly rotates at its own rate
+      // rather than 4 copies moving in lockstep
+      ownAngleY: 0,
+      ownAngleX: 0,
     });
   }
 
@@ -577,6 +701,14 @@ import * as THREE from './vendor/three.module.min.js';
   // (see the depth-based uPointSize update in renderOnce())
   const CUBE_DEPTH_SIZE = 1.0;
 
+  // each of the 4 cubes spins on its own axis at its own distinct rate
+  // (see spinT in computeChoreography and stepPoints below) — indexed
+  // by cubeIndex (0-3, the same 2x2-grid slot assignment used for the
+  // cluster layout). Deliberately non-matching numbers so the 4 cubes
+  // visibly rotate independently rather than in lockstep.
+  const CUBE_OWN_SPIN_RATE_Y = [1.0, 0.7, 1.3, 0.85];
+  const CUBE_OWN_SPIN_RATE_X = [0.55, 1.15, 0.75, 1.35];
+
   // takes a cube slot's flat (offX, offY, z=0) resting offset from the
   // cluster's own centre and tumbles it in genuine 3D — rotated first
   // around the vertical (Y) axis, then around the horizontal (X) axis
@@ -599,7 +731,7 @@ import * as THREE from './vendor/three.module.min.js';
     return { x: 0.5 + x1*persp, y: 0.5 + y1*persp, depth: z2 };
   }
 
-  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, angleY, angleX){
+  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, angleY, angleX, spinT){
     if(mouse.active && performance.now() - lastMoveTime > MOUSE_IDLE_MS) mouse.active = false;
     const dtScale = dtMs / 16.6667; // normalizes physics to "per ~60fps frame" units, using the capped dt
 
@@ -637,6 +769,15 @@ import * as THREE from './vendor/three.module.min.js';
         targetX = targetX + (slot.x - targetX) * cubeFormT;
         targetY = targetY + (slot.y - targetY) * cubeFormT;
         p.cubeDepth = slot.depth;
+
+        // this cube's own independent spin — a full, continuous
+        // rotation (not bounded like the cluster tilt above, since one
+        // cube spinning in place has nothing to collide with) at this
+        // cube's own distinct rate, so it visibly turns and shows its
+        // other faces rather than just changing size/position with the
+        // cluster
+        p.ownAngleY = spinT * Math.PI * 2 * CUBE_OWN_SPIN_RATE_Y[p.cubeIndex];
+        p.ownAngleX = spinT * Math.PI * 2 * CUBE_OWN_SPIN_RATE_X[p.cubeIndex];
       }
 
       // the free-wander elasticity/viscosity (soft, heavy, deliberately
@@ -756,6 +897,10 @@ import * as THREE from './vendor/three.module.min.js';
     // every frame in renderOnce() for primaries currently tumbling as
     // part of the cube cluster (see CUBE_DEPTH_SIZE), same as uPoints
     uPointSize: { value: points.map(p => p.sizeMul) },
+    // each cube's own independent 3D spin — 0 for fragments/wander,
+    // rewritten every frame in renderOnce() while cubeFormT>0
+    uPointAngleY: { value: new Array(pointCount).fill(0) },
+    uPointAngleX: { value: new Array(pointCount).fill(0) },
     uSlimeSize: { value: CONFIG.slimeSize },
     uSurfaceTension: { value: CONFIG.surfaceTension },
     uCubeT: { value: 0 },
@@ -871,6 +1016,8 @@ import * as THREE from './vendor/three.module.min.js';
         sizeMul = p.sizeMul * (1 + p.cubeDepth * CUBE_DEPTH_SIZE * cubeFormT);
       }
       uniforms.uPointSize.value[i] = sizeMul;
+      uniforms.uPointAngleY.value[i] = (p.isFragment || p.isCubeExtra) ? 0 : p.ownAngleY;
+      uniforms.uPointAngleX.value[i] = (p.isFragment || p.isCubeExtra) ? 0 : p.ownAngleX;
     }
     renderer.render(scene, camera);
   }
@@ -942,12 +1089,21 @@ import * as THREE from './vendor/three.module.min.js';
   const CUBE_ROTATE_CYCLES_Y = 1.25; // how many full sine wobbles across the rotate phase
   const CUBE_ROTATE_CYCLES_X = 1.75; // a different, non-matching cycle count than Y so the combined
                                       // motion reads as an irregular tumble rather than a synced rock
+  // spinT (0→1 across the rotate phase, held at 1 through disperse) —
+  // drives each cube's *own* independent spin (see CUBE_OWN_SPIN_RATE_*
+  // and stepPoints below), separate from the cluster-level angleY/angleX
+  // tilt above. Unlike the cluster tilt, an individual cube spinning in
+  // place never risks colliding with a neighbour (nothing else moves
+  // relative to it), so this isn't bounded the same way — it's a full,
+  // continuous rotation, which is what actually reveals a cube's top/
+  // side faces as it turns rather than just changing its silhouette's
+  // perspective size.
   function computeChoreography(heroProgress){
     if(heroProgress <= CUBE_PHASE.wanderEnd){
-      return { cubeFormT: 0, angleY: 0, angleX: 0 };
+      return { cubeFormT: 0, angleY: 0, angleX: 0, spinT: 0 };
     }
     if(heroProgress <= CUBE_PHASE.formEnd){
-      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), angleY: 0, angleX: 0 };
+      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), angleY: 0, angleX: 0, spinT: 0 };
     }
     if(heroProgress <= CUBE_PHASE.rotateEnd){
       // a direct function of scroll position (not time), so this is
@@ -957,6 +1113,7 @@ import * as THREE from './vendor/three.module.min.js';
         cubeFormT: 1,
         angleY: Math.sin(t * Math.PI * 2 * CUBE_ROTATE_CYCLES_Y) * CUBE_TILT_Y_MAX,
         angleX: Math.sin(t * Math.PI * 2 * CUBE_ROTATE_CYCLES_X) * CUBE_TILT_X_MAX,
+        spinT: t,
       };
     }
     if(heroProgress <= CUBE_PHASE.disperseEnd){
@@ -965,9 +1122,10 @@ import * as THREE from './vendor/three.module.min.js';
         cubeFormT: 1 - t,
         angleY: Math.sin(Math.PI * 2 * CUBE_ROTATE_CYCLES_Y) * CUBE_TILT_Y_MAX,
         angleX: Math.sin(Math.PI * 2 * CUBE_ROTATE_CYCLES_X) * CUBE_TILT_X_MAX,
+        spinT: 1,
       };
     }
-    return { cubeFormT: 0, angleY: 0, angleX: 0 };
+    return { cubeFormT: 0, angleY: 0, angleX: 0, spinT: 0 };
   }
 
   const FALL_RATIO = 0.7;
@@ -995,7 +1153,7 @@ import * as THREE from './vendor/three.module.min.js';
     // the very top of the document, so -heroRect.top is exactly how far
     // scrolled past its own top edge already
     const heroProgress = (inHero && heroRect) ? Math.max(0, Math.min(1, -heroRect.top / heroScrollableHeight)) : 0;
-    const { cubeFormT, angleY, angleX } = computeChoreography(heroProgress);
+    const { cubeFormT, angleY, angleX, spinT } = computeChoreography(heroProgress);
     uniforms.uCubeT.value = cubeFormT;
 
     let inContrast = false;
@@ -1074,7 +1232,7 @@ import * as THREE from './vendor/three.module.min.js';
     uniforms.uSlimeSize.value = CONFIG.slimeSize * (1 - fragT*(1 - CONFIG.fragmentSizeScale));
     uniforms.uSurfaceTension.value = CONFIG.surfaceTension * (1 - fragT*(1 - CONFIG.fragmentTensionScale));
 
-    stepPoints(dt, elapsed, fragT, cubeFormT, angleY, angleX);
+    stepPoints(dt, elapsed, fragT, cubeFormT, angleY, angleX, spinT);
     renderOnce(elapsed, cubeFormT);
 
     rafId = requestAnimationFrame(loop);
@@ -1087,7 +1245,7 @@ import * as THREE from './vendor/three.module.min.js';
   if(prefersReducedMotion){
     // a single static frame — settle the points near center once, no
     // ongoing simulation and no render loop at all
-    stepPoints(16.6667, 0, 0, 0, 0, 0);
+    stepPoints(16.6667, 0, 0, 0, 0, 0, 0);
     renderOnce(0, 0);
   } else {
     rafId = requestAnimationFrame(loop);
