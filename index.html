@@ -23,6 +23,16 @@ window.scrollTo(0, 0);
 // guard every other script on this page already uses, for the same
 // "don't react to a toolbar collapsing" reason) sidesteps the whole
 // problem regardless of which CSS units the browser understands.
+//
+// The width check itself uses a >10px tolerance rather than exact
+// inequality — Instagram's in-app browser is built on WKWebView, which
+// has its own separately-documented bug (WebKit #170595) where
+// innerWidth/innerHeight can report slightly-off values right as a
+// resize fires, even when nothing about the actual width changed. An
+// exact-equality check could occasionally still treat one of its
+// chrome-toggle resizes as a "real" width change and recompute right
+// when it shouldn't — a real width change (device rotation, a desktop
+// window drag) moves this by far more than a few stray pixels.
 (function(){
   function setStableVh(){
     document.documentElement.style.setProperty('--stable-vh', (window.innerHeight * 0.01) + 'px');
@@ -31,9 +41,16 @@ window.scrollTo(0, 0);
   var lastW = window.innerWidth;
   window.addEventListener('resize', function(){
     var w = window.innerWidth;
-    if(w === lastW) return;
+    if(Math.abs(w - lastW) <= 10) return;
     lastW = w;
     setStableVh();
+  });
+  // belt-and-suspenders for mobile rotation specifically: a short delay
+  // lets the new bounds actually settle first, since the same WKWebView
+  // bug can report stale dimensions in the instant orientationchange
+  // itself fires.
+  window.addEventListener('orientationchange', function(){
+    setTimeout(function(){ lastW = window.innerWidth; setStableVh(); }, 200);
   });
 })();
 </script>

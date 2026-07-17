@@ -68,7 +68,8 @@
   let lastResizeWFaq = window.innerWidth;
   window.addEventListener('resize', ()=>{
     const w = window.innerWidth;
-    if(w === lastResizeWFaq) return;
+    // >10px tolerance — see the --stable-vh comment in index.html's <head>
+    if(Math.abs(w - lastResizeWFaq) <= 10) return;
     lastResizeWFaq = w;
     items.forEach(item=>{
       if(!item.classList.contains('is-open')) return;

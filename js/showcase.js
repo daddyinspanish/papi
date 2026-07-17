@@ -634,7 +634,8 @@
   let lastResizeWShowcase = window.innerWidth;
   window.addEventListener('resize', ()=>{
     const w = window.innerWidth;
-    if(w === lastResizeWShowcase) return;
+    // >10px tolerance — see the --stable-vh comment in index.html's <head>
+    if(Math.abs(w - lastResizeWShowcase) <= 10) return;
     lastResizeWShowcase = w;
     measureStep();
     requestUpdate();

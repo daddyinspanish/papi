@@ -385,7 +385,8 @@
   let lastResizeWTitle = window.innerWidth;
   window.addEventListener('resize', ()=>{
     const w = window.innerWidth;
-    if(w === lastResizeWTitle) return;
+    // >10px tolerance — see the --stable-vh comment in index.html's <head>
+    if(Math.abs(w - lastResizeWTitle) <= 10) return;
     lastResizeWTitle = w;
     clearTimeout(window.__papiTitleResizeT);
     window.__papiTitleResizeT = setTimeout(()=>{

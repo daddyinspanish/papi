@@ -174,7 +174,8 @@
   let lastResizeW = window.innerWidth;
   window.addEventListener('resize', ()=>{
     const w = window.innerWidth;
-    if(w === lastResizeW) return;
+    // >10px tolerance — see the --stable-vh comment in index.html's <head>
+    if(Math.abs(w - lastResizeW) <= 10) return;
     lastResizeW = w;
     requestUpdate();
   });

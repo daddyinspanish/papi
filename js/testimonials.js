@@ -205,7 +205,8 @@
   let lastResizeWTestimonials = window.innerWidth;
   window.addEventListener('resize', ()=>{
     const w = window.innerWidth;
-    if(w === lastResizeWTestimonials) return;
+    // >10px tolerance — see the --stable-vh comment in index.html's <head>
+    if(Math.abs(w - lastResizeWTestimonials) <= 10) return;
     lastResizeWTestimonials = w;
     requestUpdate();
     updateEntrance();

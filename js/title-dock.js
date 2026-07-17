@@ -39,7 +39,9 @@
   let lastResizeW = window.innerWidth;
   window.addEventListener('resize', ()=>{
     const w = window.innerWidth;
-    if(w === lastResizeW) return; // ignore height-only changes (mobile toolbar show/hide)
+    // >10px tolerance, not exact equality — see the --stable-vh
+    // comment in index.html's <head>
+    if(Math.abs(w - lastResizeW) <= 10) return;
     lastResizeW = w;
     clearTimeout(window.__papiDockResizeT);
     window.__papiDockResizeT = setTimeout(measureViewport, 150);
@@ -188,7 +190,8 @@
   let lastResizeWZones = window.innerWidth;
   window.addEventListener('resize', ()=>{
     const w = window.innerWidth;
-    if(w === lastResizeWZones) return;
+    // >10px tolerance — see the --stable-vh comment in index.html's <head>
+    if(Math.abs(w - lastResizeWZones) <= 10) return;
     lastResizeWZones = w;
     clearTimeout(window.__papiDockZonesResizeT);
     window.__papiDockZonesResizeT = setTimeout(measureZones, 150);

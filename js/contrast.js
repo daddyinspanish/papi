@@ -166,7 +166,11 @@
   let lastResizeW = window.innerWidth;
   window.addEventListener('resize', ()=>{
     const w = window.innerWidth;
-    if(w === lastResizeW) return;
+    // >10px tolerance, not exact equality — WKWebView (what Instagram's
+    // in-app browser is built on) can report slightly-off innerWidth
+    // right as a resize fires even when nothing really changed (see
+    // the --stable-vh comment in index.html's <head> for the full story)
+    if(Math.abs(w - lastResizeW) <= 10) return;
     lastResizeW = w;
     clearTimeout(window.__papiContrastResizeT);
     window.__papiContrastResizeT = setTimeout(measure, 150);
