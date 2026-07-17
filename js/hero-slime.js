@@ -26,6 +26,19 @@
    principle traditional animation uses for anything heavy and fluid,
    here computed directly rather than being a separate keyframed effect.
 
+   Beyond the primary points that make up the mass in the hero, there
+   are extra "fragment" points that stay invisibly hidden inside that
+   same mass (each shadowing one primary point's position) for as long
+   as the visitor is still in the hero. As the mass falls into the
+   Contrast section below, those fragment points peel away toward
+   their own independent wander targets while the whole mass shrinks —
+   together that reads as the single blob breaking apart into many
+   small, varied-size droplets scattering around the section, rather
+   than one smaller blob. Scrolling back up runs the same, fully
+   reversible scroll-position math backwards, re-merging them into the
+   one normal mass by the time the hero is back on screen. See "fragT"
+   throughout this file for the details.
+
    IMPORTANT, and worth being direct about: this renders through a
    requestAnimationFrame loop, same as every JS-driven animation this
    hero background has gone through before. iOS Safari deliberately
@@ -57,6 +70,19 @@ import * as THREE from './vendor/three.module.min.js';
   // ===================================================================
   const CONFIG = {
     numControlPoints: 7,     // how many metaballs make up the mass — more reads as a bigger, busier organism
+    // extra points that only ever reveal themselves once the mass has
+    // fallen into the Contrast section — see the fragmentation system
+    // below (search "fragment") for how these stay invisibly merged
+    // into the primary mass the rest of the time
+    numFragmentPoints: 8,
+    fragmentSizeScale: 0.4,     // how much smaller every point gets once fully fragmented (fragT===1)
+    fragmentTensionScale: 0.4,  // matching shrink for the smooth-min blend radius, so the merge/split
+                                // threshold scales down with the new smaller size instead of staying
+                                // oversized relative to it (which would just look like one smaller blob
+                                // instead of many separate little ones)
+    fragmentSpeedBoost: 1.3,   // fragment points drift a bit livelier than the calmer primary mass once
+                                // scattered — the point of this whole effect is to read as more eye-
+                                // catching once it lands in Contrast, not just structurally different
     slimeSize: 0.105,        // base radius of each control point, in aspect-corrected 0..1 space
     movementSpeed: 0.24,     // how quickly points travel toward their (slowly wandering) targets
     viscosity: 0.88,         // resistance to *changing* velocity — higher = heavier, slower to redirect
@@ -89,7 +115,9 @@ import * as THREE from './vendor/three.module.min.js';
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isMobile = window.innerWidth < CONFIG.mobileWidth;
-  const pointCount = isMobile ? Math.max(4, Math.round(CONFIG.numControlPoints * 0.7)) : CONFIG.numControlPoints;
+  const primaryCount = isMobile ? Math.max(4, Math.round(CONFIG.numControlPoints * 0.7)) : CONFIG.numControlPoints;
+  const fragmentCount = isMobile ? Math.max(4, Math.round(CONFIG.numFragmentPoints * 0.7)) : CONFIG.numFragmentPoints;
+  const pointCount = primaryCount + fragmentCount;
   const qualityScale = isMobile ? CONFIG.mobileQuality : 1;
 
   // ===================================================================
@@ -109,6 +137,12 @@ import * as THREE from './vendor/three.module.min.js';
     uniform vec2 uResolution;
     uniform float uTime;
     uniform vec4 uPoints[${pointCount}]; // xy = position (0..1), zw = velocity
+    // per-point size multiplier — 1.0 for the primary points that make
+    // up the mass in the hero; the extra "fragment" points (see the JS
+    // fragmentation system) carry their own randomized multiplier so
+    // the scattered droplets in Contrast read as varied little pieces
+    // rather than identical dots
+    uniform float uPointSize[${pointCount}];
     uniform float uSlimeSize;
     uniform float uSurfaceTension;
     uniform float uNoiseStrength;
@@ -193,7 +227,7 @@ import * as THREE from './vendor/three.module.min.js';
           float compress = 1.0 + speed*uCompressAmount;
           d = dir*(along/stretch) + perp*compress;
         }
-        float dist = length(d) - uSlimeSize;
+        float dist = length(d) - uSlimeSize*uPointSize[i];
         f = smin(f, dist, uSurfaceTension);
       }
       return f;
@@ -351,15 +385,36 @@ import * as THREE from './vendor/three.module.min.js';
   // ===================================================================
   // per-point noise offsets — large, decorrelated seeds so no two
   // points ever sample the same phase of the wander noise, which is
-  // what keeps the whole mass from ever looking like it's repeating
+  // what keeps the whole mass from ever looking like it's repeating.
+  //
+  // indices >= primaryCount are "fragment" points: each is assigned a
+  // primary point to shadow (see stepPoints below) — while fragT is 0
+  // (hero zone) it sits exactly on that partner's position, at full
+  // size, contributing nothing visually distinct from the merged mass
+  // it's hiding inside of. As fragT rises toward 1 (falling into
+  // Contrast), its target blends away from the partner and toward its
+  // own independent wander target instead, and the global size/tension
+  // shrink (see loop()) lets it actually separate out and read as its
+  // own small droplet rather than staying glued to the partner by a
+  // now-oversized blend radius.
   const points = [];
   for(let i=0;i<pointCount;i++){
+    const isFragment = i >= primaryCount;
+    const partner = isFragment ? (i % primaryCount) : -1;
+    const startX = isFragment ? points[partner].x : 0.5 + (Math.random()-0.5)*0.3;
+    const startY = isFragment ? points[partner].y : 0.5 + (Math.random()-0.5)*0.3;
     points.push({
-      x: 0.5 + (Math.random()-0.5)*0.3,
-      y: 0.5 + (Math.random()-0.5)*0.3,
+      x: startX,
+      y: startY,
       vx: 0, vy: 0,
       seedX: Math.random()*1000,
       seedY: Math.random()*1000,
+      isFragment,
+      partner,
+      // fixed per-point size variety for fragments (1.0 for primaries,
+      // unaffected) — what makes the scattered droplets read as varied
+      // little pieces instead of identical dots once shrunk
+      sizeMul: isFragment ? (0.45 + Math.random()*0.4) : 1.0,
     });
   }
 
@@ -421,7 +476,7 @@ import * as THREE from './vendor/three.module.min.js';
                               // clustered near the centre.
   const WANDER_SPEED = 0.00028; // how fast the noise field driving targets itself evolves
 
-  function stepPoints(dtMs, elapsedMs){
+  function stepPoints(dtMs, elapsedMs, fragT){
     if(mouse.active && performance.now() - lastMoveTime > MOUSE_IDLE_MS) mouse.active = false;
     const dtScale = dtMs / 16.6667; // normalizes physics to "per ~60fps frame" units, using the capped dt
 
@@ -429,8 +484,19 @@ import * as THREE from './vendor/three.module.min.js';
       const p = points[i];
       const nx = noise2(p.seedX + elapsedMs*WANDER_SPEED, 0) * 2 - 1;
       const ny = noise2(p.seedY + elapsedMs*WANDER_SPEED, 100) * 2 - 1;
-      const targetX = 0.5 + nx*WANDER_RANGE;
-      const targetY = 0.5 + ny*WANDER_RANGE;
+      let targetX = 0.5 + nx*WANDER_RANGE;
+      let targetY = 0.5 + ny*WANDER_RANGE;
+
+      // fragment points blend away from shadowing their partner and
+      // toward this own independent target as fragT rises — at fragT=0
+      // this collapses to exactly the partner's current position (no
+      // separate target of its own), at fragT=1 it's identical to a
+      // normal primary point's own wander
+      if(p.isFragment){
+        const partner = points[p.partner];
+        targetX = partner.x + (targetX - partner.x) * fragT;
+        targetY = partner.y + (targetY - partner.y) * fragT;
+      }
 
       let ax = (targetX - p.x) * CONFIG.elasticity;
       let ay = (targetY - p.y) * CONFIG.elasticity;
@@ -454,8 +520,12 @@ import * as THREE from './vendor/three.module.min.js';
       p.vx *= CONFIG.damping;
       p.vy *= CONFIG.damping;
 
-      p.x += p.vx * CONFIG.movementSpeed * dtScale;
-      p.y += p.vy * CONFIG.movementSpeed * dtScale;
+      // fragments move a bit livelier than the calm primary mass once
+      // actually scattered (fragT>0) — ramped by fragT itself so they
+      // ease into that energy rather than snapping to it
+      const speedMul = p.isFragment ? (1 + fragT*(CONFIG.fragmentSpeedBoost-1)) : 1;
+      p.x += p.vx * CONFIG.movementSpeed * speedMul * dtScale;
+      p.y += p.vy * CONFIG.movementSpeed * speedMul * dtScale;
     }
   }
 
@@ -526,6 +596,10 @@ import * as THREE from './vendor/three.module.min.js';
     uResolution: { value: new THREE.Vector2(1,1) },
     uTime: { value: 0 },
     uPoints: { value: new Array(pointCount).fill(0).map(()=> new THREE.Vector4(0,0,0,0)) },
+    // static per-point size multipliers — set once from each point's
+    // own sizeMul (1.0 for primaries, randomized for fragments) and
+    // never rewritten per frame, unlike uSlimeSize below
+    uPointSize: { value: points.map(p => p.sizeMul) },
     uSlimeSize: { value: CONFIG.slimeSize },
     uSurfaceTension: { value: CONFIG.surfaceTension },
     uNoiseStrength: { value: CONFIG.noiseStrength },
@@ -655,6 +729,13 @@ import * as THREE from './vendor/three.module.min.js';
     let inContrast = false;
     let exitOpacity = 1;
     let fallOffset = 0;
+    // 0 = merged into the one normal-size mass (hero), 1 = fully
+    // fragmented into many small independent droplets (fully fallen
+    // into Contrast) — reuses the same fall-in progress as fallOffset
+    // above so the mass fragments *as* it falls, not on a separate
+    // timeline, and re-merges on the way back up through the same
+    // reversible scroll-position math
+    let fragT = 0;
     if(!inHero && contrastStickyEl){
       const cRect = contrastSectionEl.getBoundingClientRect();
       if(cRect.bottom > 0){
@@ -665,6 +746,7 @@ import * as THREE from './vendor/three.module.min.js';
         const fallT = smoothstep(0, fallDist, pastPx);
         const canvasH = canvas.clientHeight || window.innerHeight;
         fallOffset = -canvasH * (1 - fallT);
+        fragT = fallT;
 
         const exitPx = window.innerHeight * EXIT_FADE_RATIO;
         if(cRect.bottom < exitPx) exitOpacity = Math.max(0, cRect.bottom / exitPx);
@@ -712,7 +794,15 @@ import * as THREE from './vendor/three.module.min.js';
     if(elapsedStart === null) elapsedStart = ts;
     const elapsed = ts - elapsedStart;
 
-    stepPoints(dt, elapsed);
+    // global shrink toward the fragmented scale as fragT rises — applies
+    // to every point (primaries included, each still scaled by its own
+    // uPointSize on top of this), which is what actually lets the mass
+    // separate into visibly distinct small droplets rather than just
+    // becoming one smaller blob
+    uniforms.uSlimeSize.value = CONFIG.slimeSize * (1 - fragT*(1 - CONFIG.fragmentSizeScale));
+    uniforms.uSurfaceTension.value = CONFIG.surfaceTension * (1 - fragT*(1 - CONFIG.fragmentTensionScale));
+
+    stepPoints(dt, elapsed, fragT);
     renderOnce(elapsed);
 
     rafId = requestAnimationFrame(loop);
@@ -724,7 +814,7 @@ import * as THREE from './vendor/three.module.min.js';
   if(prefersReducedMotion){
     // a single static frame — settle the points near center once, no
     // ongoing simulation and no render loop at all
-    stepPoints(16.6667, 0);
+    stepPoints(16.6667, 0, 0);
     renderOnce(0);
   } else {
     rafId = requestAnimationFrame(loop);
