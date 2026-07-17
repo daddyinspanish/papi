@@ -42,15 +42,20 @@
    The hero itself is now a tall (400vh), pinned scroll section (see
    .hero-sticky in style.css) purely to give the mass room to run
    through its own choreography before any of the above even starts:
-   free wander → the primary points coalesce into 4 liquid cubes →
-   those 4 cubes orbit the centre a full 360°, tracking scroll
-   directly (not on a timer) → they disperse back into the normal
-   free-wandering mass → then the existing fall-into-Contrast sequence
-   picks up right where it always did. Search "heroProgress" and
-   "cubeFormT" for the details — the fragment points need no awareness
-   of any of this at all, since they just keep shadowing wherever their
-   primary partner currently is (unchanged), so they automatically ride
-   along hidden inside whatever shape the primaries take, cubes included.
+   free wander → the primary points coalesce into 4 small liquid cubes,
+   clustered tight together at the centre (still nudge-able by the
+   cursor, springing back once it moves away — the same mouse-force
+   physics every point already has) → once fully formed, that tight
+   cluster tumbles in true 3D (rotated around two different axes at
+   once via project3D(), with a perspective divide and a matching
+   per-point size cue, not just a flat in-plane spin) as the visitor
+   keeps scrolling → they disperse back into the normal free-wandering
+   mass → then the existing fall-into-Contrast sequence picks up right
+   where it always did. Search "heroProgress" and "cubeFormT" for the
+   details — the fragment points need no awareness of any of this at
+   all, since they just keep shadowing wherever their primary partner
+   currently is (unchanged), so they automatically ride along hidden
+   inside whatever shape the primaries take, cubes included.
 
    IMPORTANT, and worth being direct about: this renders through a
    requestAnimationFrame loop, same as every JS-driven animation this
@@ -89,11 +94,12 @@ import * as THREE from './vendor/three.module.min.js';
   const CONFIG = {
     numControlPoints: 8,     // how many metaballs make up the mass — more reads as a bigger, busier organism.
                               // 8 divides evenly into the 4 liquid cubes of the hero choreography below
-    cubeSlotRadius: 0.36,    // how far from centre (0.5,0.5) each of the 4 cube slots sits — same
-                              // normalized/aspect-corrected space as WANDER_RANGE below. Tuned up from
-                              // an initial 0.28: at that radius adjacent cubes sat just inside the
-                              // smooth-min blend radius and fused into one continuous cross/pinwheel
-                              // shape rather than reading as 4 distinct cubes — verified in sandbox
+    cubeSpacing: 0.145,      // half-distance (in each of x/y) from the cluster's own centre to a cube
+                              // slot — small on purpose, so the 4 cubes sit close together in a tight,
+                              // touching 2x2 cluster near the middle of the hero, not spread across it.
+                              // Tuned up slightly from an initial 0.12, which overlapped the 4 boxes
+                              // enough to fully fuse into one blob rather than 4 distinguishable faces
+                              // with a soft seam between them — verified in sandbox
     // extra points that only ever reveal themselves once the mass has
     // fallen into the Contrast section — see the fragmentation system
     // below (search "fragment") for how these stay invisibly merged
@@ -451,8 +457,13 @@ import * as THREE from './vendor/three.module.min.js';
     // coalesce phase kicks in (meaningless for fragment points — they
     // never look at this, they just keep shadowing their primary
     // partner's position, cube or not) — only primary points needed
-    // any change at all for the cube choreography
+    // any change at all for the cube choreography. A plain 2x2 grid of
+    // signs (-1/-1, 1/-1, -1/1, 1/1) rather than a diagonal layout, so
+    // the cluster reads as a flat 2x2 block face-on before any rotation
+    // starts, matching the reference look this was asked to match.
     const cubeIndex = i % 4;
+    const cubeSignX = (cubeIndex & 1) ? 1 : -1;
+    const cubeSignY = (cubeIndex & 2) ? 1 : -1;
     points.push({
       x: startX,
       y: startY,
@@ -465,11 +476,16 @@ import * as THREE from './vendor/three.module.min.js';
       // unaffected) — what makes the scattered droplets read as varied
       // little pieces instead of identical dots once shrunk
       sizeMul: isFragment ? (0.45 + Math.random()*0.4) : 1.0,
-      cubeBaseAngle: Math.PI/4 + cubeIndex * (Math.PI/2), // 45°/135°/225°/315°, a diagonal 4-slot layout
+      cubeSignX,
+      cubeSignY,
       // deterministic per-point spread (not random — stays identical
       // across reloads) so the 2 primaries sharing a slot (8 points / 4
       // slots) don't sit exactly on top of one another
       cubeJitter: (i * 0.6180339887) % 1,
+      // last-computed depth (see project3D) while tumbling — read back
+      // in renderOnce() for the per-point size-by-depth cue; harmless/
+      // unused whenever cubeFormT is 0
+      cubeDepth: 0,
     });
   }
 
@@ -531,15 +547,36 @@ import * as THREE from './vendor/three.module.min.js';
                               // clustered near the centre.
   const WANDER_SPEED = 0.00028; // how fast the noise field driving targets itself evolves
 
-  // a point at cubeBaseAngle + spinAngle, radius away from centre — used
-  // both to place the 4 resting cube slots and to spin all 4 together
-  // around the centre as the visitor scrolls through the orbit phase
-  function rotateAroundCenter(baseAngle, radius, spinAngle){
-    const a = baseAngle + spinAngle;
-    return { x: 0.5 + Math.cos(a)*radius, y: 0.5 + Math.sin(a)*radius };
+  // how strongly a rotated-away point shrinks/shifts vs a rotated-toward
+  // point grows/shifts — see project3D() below
+  const CUBE_PERSPECTIVE = 1.6;
+  // matching size pop for a point currently rotated toward the viewer
+  // (see the depth-based uPointSize update in renderOnce())
+  const CUBE_DEPTH_SIZE = 1.0;
+
+  // takes a cube slot's flat (offX, offY, z=0) resting offset from the
+  // cluster's own centre and tumbles it in genuine 3D — rotated first
+  // around the vertical (Y) axis, then around the horizontal (X) axis
+  // (two different axes at different rates, see CUBE_ROTATE_TURNS_*
+  // below, so this reads as a die tumbling rather than a flat in-plane
+  // spin) — then projects the result back to 2D with a perspective
+  // divide, so points rotated toward the viewer swing further from
+  // centre and read larger, and points rotated away shrink back toward
+  // centre and read smaller. "depth" is handed back so the caller can
+  // apply that same size cue to the point's own metaball radius.
+  function project3D(offX, offY, angleY, angleX){
+    const x = offX, y = offY, z = 0; // starts perfectly flat, face-on
+    const cy = Math.cos(angleY), sy = Math.sin(angleY);
+    const x1 = x*cy + z*sy;
+    const z1 = -x*sy + z*cy;
+    const cx = Math.cos(angleX), sx = Math.sin(angleX);
+    const y1 = y*cx - z1*sx;
+    const z2 = y*sx + z1*cx;
+    const persp = 1 / (1 - z2*CUBE_PERSPECTIVE);
+    return { x: 0.5 + x1*persp, y: 0.5 + y1*persp, depth: z2 };
   }
 
-  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, orbitAngle){
+  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, angleY, angleX){
     if(mouse.active && performance.now() - lastMoveTime > MOUSE_IDLE_MS) mouse.active = false;
     const dtScale = dtMs / 16.6667; // normalizes physics to "per ~60fps frame" units, using the capped dt
 
@@ -561,16 +598,17 @@ import * as THREE from './vendor/three.module.min.js';
         targetY = partner.y + (targetY - partner.y) * fragT;
       } else if(cubeFormT > 0){
         // primary points blend their free-wander target toward this
-        // point's own resting slot in one of the 4 cubes as cubeFormT
-        // rises — the slot itself spins around the centre by
-        // orbitAngle, so during the orbit phase (cubeFormT pinned at 1)
-        // this is the only thing moving the point at all, giving a
-        // precisely scroll-scrubbed rotation rather than a free wander
-        // that merely happens to sit near a cube shape
-        const radius = CONFIG.cubeSlotRadius + (p.cubeJitter - 0.5) * 0.06;
-        const slot = rotateAroundCenter(p.cubeBaseAngle, radius, orbitAngle);
+        // point's own resting slot in the 4-cube cluster as cubeFormT
+        // rises — that slot itself tumbles in 3D by (angleY, angleX),
+        // so once fully formed (cubeFormT pinned at 1) this is the only
+        // thing moving the point at all, giving a precisely
+        // scroll-scrubbed rotation rather than a free wander that
+        // merely happens to sit near a cube shape
+        const spacing = CONFIG.cubeSpacing * (1 + (p.cubeJitter - 0.5) * 0.3);
+        const slot = project3D(p.cubeSignX*spacing, p.cubeSignY*spacing, angleY, angleX);
         targetX = targetX + (slot.x - targetX) * cubeFormT;
         targetY = targetY + (slot.y - targetY) * cubeFormT;
+        p.cubeDepth = slot.depth;
       }
 
       let ax = (targetX - p.x) * CONFIG.elasticity;
@@ -671,9 +709,10 @@ import * as THREE from './vendor/three.module.min.js';
     uResolution: { value: new THREE.Vector2(1,1) },
     uTime: { value: 0 },
     uPoints: { value: new Array(pointCount).fill(0).map(()=> new THREE.Vector4(0,0,0,0)) },
-    // static per-point size multipliers — set once from each point's
-    // own sizeMul (1.0 for primaries, randomized for fragments) and
-    // never rewritten per frame, unlike uSlimeSize below
+    // per-point size multiplier — starts as each point's own sizeMul
+    // (1.0 for primaries, randomized for fragments) and is rewritten
+    // every frame in renderOnce() for primaries currently tumbling as
+    // part of the cube cluster (see CUBE_DEPTH_SIZE), same as uPoints
     uPointSize: { value: points.map(p => p.sizeMul) },
     uSlimeSize: { value: CONFIG.slimeSize },
     uSurfaceTension: { value: CONFIG.surfaceTension },
@@ -758,12 +797,18 @@ import * as THREE from './vendor/three.module.min.js';
   let lastTs = null;
   let rafId = null;
 
-  function renderOnce(elapsedMs){
+  function renderOnce(elapsedMs, cubeFormT){
     uniforms.uTime.value = elapsedMs / 1000;
     for(let i=0;i<points.length;i++){
       const p = points[i];
       const v = uniforms.uPoints.value[i];
       v.set(p.x, p.y, p.vx * CONFIG.movementSpeed, p.vy * CONFIG.movementSpeed);
+      // a point currently tumbled toward the viewer reads slightly
+      // larger, one tumbled away slightly smaller — the same "closer
+      // looks bigger" cue real 3D rotation has, faded in/out by
+      // cubeFormT itself so it never pops in ahead of the cube shape
+      const depthScale = (!p.isFragment && cubeFormT > 0) ? (1 + p.cubeDepth * CUBE_DEPTH_SIZE * cubeFormT) : 1;
+      uniforms.uPointSize.value[i] = p.sizeMul * depthScale;
     }
     renderer.render(scene, camera);
   }
@@ -799,42 +844,51 @@ import * as THREE from './vendor/three.module.min.js';
   // ===================================================================
   // hero cube choreography — the tall (400vh) hero exists purely to
   // give this room to run: free wander → the primary points coalesce
-  // into 4 liquid cubes → those 4 cubes orbit the centre a full 360°,
-  // tracking scroll directly rather than a timer → they disperse back
-  // into the normal free-wandering mass → then the existing
-  // fall-into-Contrast/fragment sequence above picks up right where it
-  // always did. Boundaries are fractions of heroProgress (0 at the very
-  // top of the hero's own scroll range, 1 once fully scrolled through
-  // it — see loop() below).
+  // into a tight, centred 2x2 cluster of 4 liquid cubes → once formed,
+  // that cluster tumbles in true 3D (see project3D above) as the
+  // visitor keeps scrolling, tracking scroll directly rather than a
+  // timer → they disperse back into the normal free-wandering mass →
+  // then the existing fall-into-Contrast/fragment sequence above picks
+  // up right where it always did. Boundaries are fractions of
+  // heroProgress (0 at the very top of the hero's own scroll range, 1
+  // once fully scrolled through it — see loop() below).
   // ===================================================================
   const CUBE_PHASE = {
     wanderEnd: 0.12,    // pure free wander, matches the look before this existed
-    formEnd: 0.38,      // coalesce into 4 cubes complete
-    orbitEnd: 0.74,     // 360° orbit complete
+    formEnd: 0.38,      // coalesce into the tight 4-cube cluster complete
+    rotateEnd: 0.74,    // 3D tumble complete
     disperseEnd: 0.92,  // back to free liquid — the remaining stretch up to heroProgress===1
                         // is plain free wander again, so the handoff into Contrast's own
                         // fall/fragment sequence has nothing cube-related left to unwind
   };
+  const CUBE_ROTATE_TURNS_Y = 1;    // full turns around the vertical axis over the rotate phase
+  const CUBE_ROTATE_TURNS_X = 0.5;  // turns around the horizontal axis over the same phase — a
+                                      // different rate than the Y axis is what makes this read as a
+                                      // die tumbling in 3D rather than a flat single-axis spin
   function computeChoreography(heroProgress){
     if(heroProgress <= CUBE_PHASE.wanderEnd){
-      return { cubeFormT: 0, orbitAngle: 0 };
+      return { cubeFormT: 0, angleY: 0, angleX: 0 };
     }
     if(heroProgress <= CUBE_PHASE.formEnd){
-      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), orbitAngle: 0 };
+      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), angleY: 0, angleX: 0 };
     }
-    if(heroProgress <= CUBE_PHASE.orbitEnd){
+    if(heroProgress <= CUBE_PHASE.rotateEnd){
       // linear, not eased — a direct 1:1 scroll-to-rotation mapping is
-      // what makes the orbit itself feel precisely scroll-scrubbed
+      // what makes the tumble itself feel precisely scroll-scrubbed
       // (and cleanly reversible on scroll-up) rather than an animation
       // merely triggered by scroll
-      const t = (heroProgress - CUBE_PHASE.formEnd) / (CUBE_PHASE.orbitEnd - CUBE_PHASE.formEnd);
-      return { cubeFormT: 1, orbitAngle: t * Math.PI * 2 };
+      const t = (heroProgress - CUBE_PHASE.formEnd) / (CUBE_PHASE.rotateEnd - CUBE_PHASE.formEnd);
+      return { cubeFormT: 1, angleY: t * Math.PI * 2 * CUBE_ROTATE_TURNS_Y, angleX: t * Math.PI * 2 * CUBE_ROTATE_TURNS_X };
     }
     if(heroProgress <= CUBE_PHASE.disperseEnd){
-      const t = smoothstep(CUBE_PHASE.orbitEnd, CUBE_PHASE.disperseEnd, heroProgress);
-      return { cubeFormT: 1 - t, orbitAngle: Math.PI * 2 };
+      const t = smoothstep(CUBE_PHASE.rotateEnd, CUBE_PHASE.disperseEnd, heroProgress);
+      return {
+        cubeFormT: 1 - t,
+        angleY: Math.PI * 2 * CUBE_ROTATE_TURNS_Y,
+        angleX: Math.PI * 2 * CUBE_ROTATE_TURNS_X,
+      };
     }
-    return { cubeFormT: 0, orbitAngle: 0 };
+    return { cubeFormT: 0, angleY: 0, angleX: 0 };
   }
 
   const FALL_RATIO = 0.7;
@@ -862,7 +916,7 @@ import * as THREE from './vendor/three.module.min.js';
     // the very top of the document, so -heroRect.top is exactly how far
     // scrolled past its own top edge already
     const heroProgress = (inHero && heroRect) ? Math.max(0, Math.min(1, -heroRect.top / heroScrollableHeight)) : 0;
-    const { cubeFormT, orbitAngle } = computeChoreography(heroProgress);
+    const { cubeFormT, angleY, angleX } = computeChoreography(heroProgress);
     uniforms.uCubeT.value = cubeFormT;
 
     let inContrast = false;
@@ -941,8 +995,8 @@ import * as THREE from './vendor/three.module.min.js';
     uniforms.uSlimeSize.value = CONFIG.slimeSize * (1 - fragT*(1 - CONFIG.fragmentSizeScale));
     uniforms.uSurfaceTension.value = CONFIG.surfaceTension * (1 - fragT*(1 - CONFIG.fragmentTensionScale));
 
-    stepPoints(dt, elapsed, fragT, cubeFormT, orbitAngle);
-    renderOnce(elapsed);
+    stepPoints(dt, elapsed, fragT, cubeFormT, angleY, angleX);
+    renderOnce(elapsed, cubeFormT);
 
     rafId = requestAnimationFrame(loop);
   }
@@ -954,8 +1008,8 @@ import * as THREE from './vendor/three.module.min.js';
   if(prefersReducedMotion){
     // a single static frame — settle the points near center once, no
     // ongoing simulation and no render loop at all
-    stepPoints(16.6667, 0, 0, 0, 0);
-    renderOnce(0);
+    stepPoints(16.6667, 0, 0, 0, 0, 0);
+    renderOnce(0, 0);
   } else {
     rafId = requestAnimationFrame(loop);
   }
