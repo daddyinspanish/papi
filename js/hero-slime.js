@@ -418,8 +418,30 @@ import * as THREE from './vendor/three.module.min.js';
         // simple rounded square while the lit faces underneath visibly
         // turn reads convincingly enough, for a small fraction of the cost.
         float circleDist = length(d) - r;
-        float boxD = boxDist(d, r*1.35*uCubeBoxScale, r*0.42*uCubeBoxScale);
-        float dist = mix(circleDist, boxD, uCubeT);
+        // corner kept close to halfSize (was 0.42, a fairly sharp 31%-
+        // rounded corner) so this reads as a soft, liquid rounded cube —
+        // a bar of soap, not a die with a light chamfer
+        float boxD = boxDist(d, r*1.35*uCubeBoxScale, r*0.60*uCubeBoxScale);
+        // eased rather than a direct 1:1 mix against uCubeT — the box's
+        // corners/silhouette only start actually showing in the very
+        // last stretch of the coalesce, once the points have
+        // essentially arrived at their slot and stopped visibly moving.
+        // Blending the box shape in from uCubeT=0 (the old behaviour)
+        // meant a faint box outline — and the flat-face shading blend
+        // below, which reuses this same easing — was already visible
+        // while the primaries were still obviously travelling into
+        // place, which read as boxy edges bleeding through liquid
+        // that's still in motion rather than a clean liquid-to-cube
+        // morph. 0.85 (not just "late", e.g. 0.55) specifically because
+        // the invisible "extra"/fragment duplicate sharing this same
+        // slot (see isCubeExtra/sizeMul*(1-cubeFormT) in stepPoints)
+        // only shrinks down to a small sliver by then — any earlier and
+        // its own still-sizeable box corner smin's against the real
+        // point's box at a different scale, which reads as a small
+        // hard-edged notch/tab cut into the blob rather than a clean
+        // shape. See the matching boxBlend in main() below.
+        float boxBlend = smoothstep(0.85, 1.0, uCubeT);
+        float dist = mix(circleDist, boxD, boxBlend);
         f = smin(f, dist, uSurfaceTension);
       }
       return f;
@@ -539,8 +561,14 @@ import * as THREE from './vendor/three.module.min.js';
         float edgeGlow;
         if(intersectBoxLocal(rayOriginLocal, rayDirLocal, vec3(nearestR*1.35*uCubeBoxScale), hitNormalLocal, edgeGlow)){
           vec3 faceNormal = rotateYX(hitNormalLocal, uCubeAngleY, uCubeAngleX);
-          shadingNormal = normalize(mix(normal, faceNormal, uCubeT * 0.85));
-          cubeEdgeGlow = edgeGlow * uCubeT;
+          // same easing as boxBlend in field() above — the flat-face
+          // shading (and its edge glow) only phases in once the
+          // silhouette itself has actually started resolving into a
+          // box, so a still-travelling/wandering point never shows a
+          // faceted look while it plainly reads as a round liquid blob
+          float boxBlend = smoothstep(0.85, 1.0, uCubeT);
+          shadingNormal = normalize(mix(normal, faceNormal, boxBlend * 0.85));
+          cubeEdgeGlow = edgeGlow * boxBlend;
         }
       }
 

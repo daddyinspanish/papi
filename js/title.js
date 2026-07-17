@@ -420,12 +420,25 @@
   // ramping to 1 over the same stretch title-dock.js fades the hero
   // out over. Computed fresh from the current scroll position every
   // frame (not accumulated), so it just tracks backward on its own if
-  // the visitor scrolls back up — no separate reverse logic needed. ----
+  // the visitor scrolls back up — no separate reverse logic needed.
+  //
+  // the smoothstep bounds below used to be (0.15, 0.9) — a wider,
+  // earlier-starting window than title-dock.js's own opacity fade
+  // (FADE_START/FADE_END, 0.42/0.82 of this same "raw" progress). That
+  // mismatch meant letters were already visibly drifting apart and
+  // growing well before the title had started fading out at all, so
+  // for a real stretch of scroll (raw 0.15..0.42) the title sat there
+  // fully opaque but scattered into a loose, half-legible jumble
+  // overlapping the forming cube cluster underneath — easy to read as
+  // the page freezing on a broken frame. Matching these bounds to
+  // title-dock's exactly keeps the two in lockstep, so the letters are
+  // already substantially faded by the time they've drifted any
+  // noticeable distance. ----
   const EXPLODE_RANGE_RATIO = 0.95; // matches title-dock.js's own SCROLL_RANGE_RATIO
   function getExplodeProgress(){
     const dist = window.innerHeight * EXPLODE_RANGE_RATIO;
     const raw = Math.max(0, Math.min(1, window.scrollY / dist));
-    return smoothstep(0.15, 0.9, raw);
+    return smoothstep(0.42, 0.82, raw); // matches title-dock.js's FADE_START/FADE_END
   }
   // eased toward the raw scroll-based target rather than applied
   // directly — reading it straight off scroll position meant that if
