@@ -1221,17 +1221,39 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
    of the same pill list back to back, translated by exactly -50%,
    is what makes the loop seamless rather than visibly snapping. */
 .mock-services-marquee{
+  position:relative;
   overflow:hidden;
   padding:1.1rem 0;
   background:#04070d;
-  -webkit-mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
-  mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
 }
+/* -webkit-mask-image/mask-image used to fade the edges here, but that
+   combined with the track's own infinite transform animation below hits
+   a real WebKit bug: the browser periodically re-evaluates and repaints
+   a masked layer that's continuously being transformed, which shows up
+   as the whole track intermittently blanking out and reappearing — not
+   on any fixed timer, since it's driven by WebKit's own internal layer
+   management rather than anything in this page. Two solid-color gradient
+   overlays fake the same edge fade without masking at all, sidestepping
+   the bug entirely (this is the same fix already applied to the
+   Velocity Tire Co. site's own marquee after hitting the identical issue). */
+.mock-services-marquee::before,
+.mock-services-marquee::after{
+  content:'';
+  position:absolute;
+  top:0; bottom:0;
+  width:8%;
+  z-index:2;
+  pointer-events:none;
+}
+.mock-services-marquee::before{ left:0; background:linear-gradient(90deg, #04070d, rgba(4,7,13,0)); }
+.mock-services-marquee::after{ right:0; background:linear-gradient(270deg, #04070d, rgba(4,7,13,0)); }
 .mock-services-track{
   display:flex;
   gap:.7rem;
   width:max-content;
   animation:mockMarquee 16s linear infinite;
+  transform:translateZ(0);
+  will-change:transform;
 }
 .mock-service-pill{
   flex:none;
@@ -1678,6 +1700,16 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   height:100%;
   object-fit:cover;
   object-position:top center;
+  /* the expand-only pan below animates object-position, which forces a
+     repaint rather than a cheap GPU composite (unlike transform/opacity).
+     Isolating this image onto its own compositing layer up front keeps
+     that repaint contained to just this element instead of it cascading
+     into whatever layer it would otherwise be sharing with -- on a
+     weaker/smaller-screen phone, a shared-layer repaint here was what
+     showed up as unrelated nearby content (or the photo itself)
+     intermittently blanking for a frame while a card was expanded. */
+  transform:translateZ(0);
+  backface-visibility:hidden;
 }
 /* while expanded, a slow gentle pan reveals more of the page below the
    hero crop these otherwise sit on — full-page screenshots have a lot
