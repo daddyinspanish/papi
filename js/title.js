@@ -1,22 +1,25 @@
 /* ===================================================================
    Papi — title interaction
-   - Entrance (window.Papi.revealTitle, called from loader.js), a
-     choreographed sequence rather than a uniform per-letter stagger:
-     "Built with " flies in from the left, "purpose" flies in from the
-     right, then "not", "just", "design" each bounce into place one
-     after another.
+   - No fly-in entrance anymore: "Flow" (heroFlowWord, in title-dock.js)
+     shows right after the loader instead, and the real title crossfades
+     in against it once hero-slime.js's liquid cubes have drawn close
+     together and are holding that formation (closeT reaching 1 — see
+     getExplodeProgress below). window.Papi.revealTitle, still called
+     from title-dock.js at that same moment, now only plays the
+     eyebrow's own per-letter gold shine flourish.
    - Slow, smooth gyro tilt toward the cursor, strongest near the title.
-   - As the visitor scrolls the hero away, each of the title's letters
-     drifts outward from the title's own centre and grows slightly
-     while fading — like the words are expanding out into the field's
-     orbiting cluster — rather than the wave-like ripple this used to
-     do. The subtitle instead sinks straight down as one line and
-     fades, rather than repeating the title's own explode. Both are
-     purely a function of the current scroll position (not an
-     accumulated value), so they reverse cleanly back to normal on
-     their own if the visitor scrolls back up. The same per-letter
-     push/ripple physics runs on both, once each one's own entrance
-     (owned by title-dock.js for the subtitle) has settled.
+   - Each of the title's letters drifts outward from the title's own
+     centre and grows slightly while fading out — like the words are
+     expanding out into the field's orbiting cluster — as closeT falls
+     back toward 0 (scrolling away from the held cube formation, in
+     either direction: back up toward "Flow", or on through disperse
+     before Contrast). The subtitle instead sinks straight down as one
+     line and fades, rather than repeating the title's own explode.
+     Both are purely a function of the current closeT (not an
+     accumulated value), so they reverse cleanly on their own if the
+     visitor scrolls back up. The same per-letter push/ripple physics
+     runs on both, once each one's own setup (owned by title-dock.js for
+     the subtitle) has run.
    - Moving the cursor near the title (or subtitle) pushes the nearby
      letters apart, like they're being parted, then they spring back.
 =================================================================== */
@@ -160,62 +163,49 @@
   });
   const titleGroup = createCharGroup(chars);
 
-  // ---- title entrance: fly-left / fly-right / sequential bounce ----
-  chars.forEach((el, i)=>{
-    const g = groupOfIndex[i];
+  // ---- no more fly-in/bounce entrance: the title's own visibility is
+  // now a continuous crossfade against "Flow" (see getExplodeProgress
+  // below, and heroFlowWord in title-dock.js), driven by hero-slime.js's
+  // closeT rather than a one-off animation played once right after the
+  // loader. Chars sit at their normal opacity/position from the start —
+  // #heroTitle's own opacity (title-dock.js's fadeFrame) is what
+  // actually gates visibility; per-char transform below only ever
+  // handles the scatter/converge motion and the cursor-parting effect,
+  // never opacity. ----
+  chars.forEach(el=>{
     el.style.transition = 'none';
-    el.style.opacity = '0';
-    if(g.type === 'fly-left') el.style.transform = 'translateX(-60vw)';
-    else if(g.type === 'fly-right') el.style.transform = 'translateX(60vw)';
-    else el.style.transform = 'translateY(-22px) scale(.6)';
+    el.style.opacity = '1';
   });
 
   let effectsLive = false;
 
   function computeHomes(){ titleGroup.computeHomes(); }
 
+  // the per-letter gold shine flourish only — see the scroll-triggered
+  // call site in title-dock.js (search "revealTitle") for why this is
+  // deferred until the title is actually about to become visible rather
+  // than fired at page load, when it'd play out unseen behind a still-
+  // fully-hidden (opacity 0) title
   function revealTitle(){
     revealEyebrow();
-    const FLY_DURATION = 800;
-    const FLY_EASE = 'cubic-bezier(.16,1,.3,1)';
-    const BOUNCE_DURATION = 560;
-    const BOUNCE_EASE = 'cubic-bezier(.34,1.56,.64,1)';
-    const FLY_LEFT_START = 0;
-    const FLY_RIGHT_START = 320;
-    const BOUNCE_START_BASE = 980;
-    const BOUNCE_STAGGER = 230;
-
-    let maxEnd = 0;
-    groups.forEach(g=>{
-      const isBounce = g.type === 'bounce';
-      const startDelay = g.type === 'fly-left' ? FLY_LEFT_START
-        : g.type === 'fly-right' ? FLY_RIGHT_START
-        : BOUNCE_START_BASE + (g.order - 2) * BOUNCE_STAGGER;
-      const duration = isBounce ? BOUNCE_DURATION : FLY_DURATION;
-      const ease = isBounce ? BOUNCE_EASE : FLY_EASE;
-
-      setTimeout(()=>{
-        for(let i=g.startIdx;i<=g.endIdx;i++){
-          const el = chars[i];
-          el.style.transition = `opacity .5s ease, transform ${duration}ms ${ease}`;
-          el.style.opacity = '1';
-          el.style.transform = 'translateY(0) translateX(0) scale(1)';
-        }
-      }, startDelay);
-
-      const end = startDelay + duration;
-      if(end > maxEnd) maxEnd = end;
-    });
-
-    setTimeout(()=>{
-      chars.forEach(el => { el.style.transition = 'none'; });
-      computeHomes();
-      effectsLive = true;
-    }, maxEnd + 80);
   }
-
   window.Papi = window.Papi || {};
   window.Papi.revealTitle = revealTitle;
+
+  // the scatter/converge motion (titleGroup.update() below, driven by
+  // curExplodeProgress) needs to be running from early on — well before
+  // the title is actually visible — so that letters are already
+  // visibly converging together as the cubes draw close, not just
+  // popping into their final position the instant they become visible.
+  // Unlike revealTitle()'s shine flourish above, there's no reason to
+  // defer this: it's invisible motion (opacity is still 0, driven by
+  // title-dock.js) until the moment it needs to already be mid-motion.
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(()=>{ computeHomes(); effectsLive = true; });
+  } else {
+    computeHomes();
+    effectsLive = true;
+  }
   // title-dock.js drives the title/eyebrow/subtitle/etc.'s own opacity
   // fade from a fresh, un-eased read of scrollY on every scroll event —
   // while curExplodeProgress below (declared further down, but this
@@ -436,29 +426,19 @@
   const MAX_TILT = 9;
   const PROXIMITY_RANGE = 620;
 
-  // ---- scroll-driven explode progress — 0 at the top of the hero,
-  // ramping to 1 over the same stretch title-dock.js fades the hero
-  // out over. Computed fresh from the current scroll position every
-  // frame (not accumulated), so it just tracks backward on its own if
-  // the visitor scrolls back up — no separate reverse logic needed.
-  //
-  // the smoothstep bounds below used to be (0.15, 0.9) — a wider,
-  // earlier-starting window than title-dock.js's own opacity fade
-  // (FADE_START/FADE_END, 0.42/0.82 of this same "raw" progress). That
-  // mismatch meant letters were already visibly drifting apart and
-  // growing well before the title had started fading out at all, so
-  // for a real stretch of scroll (raw 0.15..0.42) the title sat there
-  // fully opaque but scattered into a loose, half-legible jumble
-  // overlapping the forming cube cluster underneath — easy to read as
-  // the page freezing on a broken frame. Matching these bounds to
-  // title-dock's exactly keeps the two in lockstep, so the letters are
-  // already substantially faded by the time they've drifted any
-  // noticeable distance. ----
-  const EXPLODE_RANGE_RATIO = 0.95; // matches title-dock.js's own SCROLL_RANGE_RATIO
+  // ---- explode progress now tracks hero-slime.js's own closeT instead
+  // of a short, fixed scroll distance near the top of the hero: 0 (fully
+  // together/visible) once the liquid cubes have drawn close together
+  // and are holding that formation, 1 (fully scattered — and, via
+  // title-dock.js's fadeFrame reading this exact same eased value,
+  // fully transparent) the entire time before that, while "Flow" is
+  // showing instead. Computed fresh every frame (not accumulated), so
+  // it reverses cleanly on its own if the visitor scrolls back up —
+  // exactly the same reasoning the old scroll-distance version used,
+  // just against a different (and much better-synced) source signal. ----
   function getExplodeProgress(){
-    const dist = window.innerHeight * EXPLODE_RANGE_RATIO;
-    const raw = Math.max(0, Math.min(1, window.scrollY / dist));
-    return smoothstep(0.42, 0.82, raw); // matches title-dock.js's FADE_START/FADE_END
+    const closeT = (window.Papi && window.Papi.getCloseT) ? window.Papi.getCloseT() : 0;
+    return 1 - closeT;
   }
   // eased toward the raw scroll-based target rather than applied
   // directly — reading it straight off scroll position meant that if
@@ -480,7 +460,12 @@
   // actual elapsed time and raises the base rate, so it converges in a
   // handful of frames regardless of frame timing, capped so it still
   // glides rather than teleporting after a real pause.
-  let curExplodeProgress = 0;
+  // starts at 1 (fully "exploded"/hidden), matching getExplodeProgress's
+  // own target at closeT===0 — the title is meant to be fully hidden
+  // behind "Flow" from the very first frame, not easing in from a
+  // wrongly-assumed-visible starting point the way scrollY===0 used to
+  // correctly mean "fully visible" in the old scroll-distance version
+  let curExplodeProgress = 1;
   const heroElForTilt = document.getElementById('hero');
   let lastFrameTs = null;
 

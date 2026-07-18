@@ -105,6 +105,11 @@ window.scrollTo(0, 0);
   <canvas id="heroSlime" aria-hidden="true"></canvas>
 
   <section class="hero-content">
+    <!-- shown right after the loader, in place of the real hero copy —
+         crossfades out once the liquid cubes draw close together and
+         hold (js/title.js reads window.Papi.getCloseT() for the cue),
+         at which point heroCopy below crossfades in over the same spot -->
+    <div class="hero-flow-word" id="heroFlowWord" aria-hidden="true">Flow</div>
     <div class="hero-copy" id="heroCopy">
       <p class="eyebrow" id="heroEyebrow">Est. Business-Ready Websites</p>
       <div class="hero-title-row">

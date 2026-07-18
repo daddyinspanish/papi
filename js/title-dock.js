@@ -16,6 +16,7 @@
 =================================================================== */
 (function(){
   const heroCopy = document.getElementById('heroCopy');
+  const heroFlowWord = document.getElementById('heroFlowWord');
   const eyebrow  = document.getElementById('heroEyebrow');
   const title    = document.getElementById('heroTitle');
   const sub      = document.getElementById('heroSub');
@@ -152,10 +153,55 @@
     }, 900);
   }
 
+  // ---- "Flow" — shown right after the loader in place of the real
+  // hero copy (see index.html's note on the markup). Its own one-off
+  // fade+rise entrance, same pattern as revealSubtitle/revealReview
+  // above; ongoing opacity (the crossfade against the real title as the
+  // liquid cubes draw close) is driven continuously in fadeFrame()
+  // below, off the exact same eased signal title.js already exposes ----
+  let flowEntranceDone = false;
+  if(heroFlowWord){
+    heroFlowWord.style.transition = 'none';
+    heroFlowWord.style.opacity = '0';
+    heroFlowWord.style.transform = 'translateY(14px)';
+  }
+  function revealFlow(){
+    if(!heroFlowWord) return;
+    requestAnimationFrame(()=>{
+      heroFlowWord.style.transition = 'opacity 1s ease, transform 1.1s cubic-bezier(.16,1,.3,1)';
+      heroFlowWord.style.opacity = '1';
+      heroFlowWord.style.transform = 'translateY(0)';
+    });
+    setTimeout(()=>{
+      flowEntranceDone = true;
+      heroFlowWord.style.transition = 'none';
+    }, 1150);
+  }
+
   window.Papi = window.Papi || {};
+  window.Papi.revealFlow = revealFlow;
   window.Papi.revealSubtitle = revealSubtitle;
   window.Papi.revealReview = revealReview;
   window.Papi.revealSocial = revealSocial;
+
+  // ---- the real hero copy's entrance (eyebrow shine, subtitle roll-in,
+  // review/social rise-in) used to all fire right after the loader —
+  // now deferred to the moment the liquid cubes actually finish drawing
+  // close together and hold (closeT reaching 1), watched continuously
+  // in fadeFrame() below rather than off a fixed timer, so it fires at
+  // the right moment regardless of how fast or slow the visitor
+  // scrolls to get there. Fires once, ever — scrolling back up and
+  // down again just crossfades the already-revealed copy back in via
+  // fadeOut below, it doesn't replay these entrance transforms. ----
+  let heroCopyRevealTriggered = false;
+  function triggerHeroCopyReveal(){
+    if(heroCopyRevealTriggered) return;
+    heroCopyRevealTriggered = true;
+    if(window.Papi.revealTitle) window.Papi.revealTitle();
+    revealSubtitle();
+    setTimeout(revealReview, 200);
+    setTimeout(revealSocial, 350);
+  }
 
   // magnetic pull — the CTA and each social icon lean slightly toward
   // a nearby cursor. Generalized into a small per-element state object
@@ -289,6 +335,10 @@
   // events, keeps opacity and letter position in exact lockstep
   // regardless of whether the visitor is actively scrolling right now.
   function fadeFrame(){
+    // fadeOut here is 1 while "Flow" is showing (title.js's closeT===0),
+    // easing down to 0 once the liquid cubes have drawn close together
+    // and are holding — see getExplodeProgress in title.js for the
+    // actual source signal this now tracks
     const fadeOut = (window.Papi && window.Papi.getHeroFadeProgress)
       ? window.Papi.getHeroFadeProgress()
       : smoothstep(FADE_START, FADE_END, Math.max(0, Math.min(1, window.scrollY / (viewportH * SCROLL_RANGE_RATIO))));
@@ -298,9 +348,21 @@
     if(sub && subEntranceDone) sub.style.opacity = String(1 - fadeOut);
     if(review && reviewEntranceDone) review.style.opacity = String(1 - fadeOut);
     if(social && socialEntranceDone) social.style.opacity = String(1 - fadeOut);
+    // the exact inverse crossfade — full opacity while the real title
+    // is hidden, fading out in lockstep as it fades in, off the same
+    // single eased value (never two independently-computed numbers
+    // fighting each other, the exact bug already found and fixed once
+    // this same way for the eyebrow/title/etc. themselves above)
+    if(heroFlowWord && flowEntranceDone) heroFlowWord.style.opacity = String(fadeOut);
 
     heroCopy.style.transform = `translateY(${-fadeOut * 34}px)`;
     heroCopy.style.pointerEvents = fadeOut > 0.6 ? 'none' : 'auto';
+
+    // the real hero copy's own entrance (eyebrow shine, subtitle/review/
+    // social rise-in) fires once, the first moment the crossfade is
+    // essentially complete — see triggerHeroCopyReveal above for why
+    // this replaced firing all of these directly from loader.js
+    if(fadeOut <= 0.02) triggerHeroCopyReveal();
 
     requestAnimationFrame(fadeFrame);
   }

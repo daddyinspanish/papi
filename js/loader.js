@@ -61,18 +61,14 @@
     hero.classList.add('is-visible');
     hero.removeAttribute('aria-hidden');
     brandMark.querySelectorAll('span').forEach(s => s.style.opacity = '1');
-    if(window.Papi && window.Papi.revealTitle) window.Papi.revealTitle();
+    // "Flow" shows first, in place of the real hero copy — the title/
+    // eyebrow/subtitle/review/social reveal is now deferred until the
+    // liquid cubes draw close together and hold, watched continuously
+    // in title-dock.js (search "triggerHeroCopyReveal") rather than
+    // fired here on a fixed timer
+    if(window.Papi && window.Papi.revealFlow) window.Papi.revealFlow();
     if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
     if(window.Papi && window.Papi.revealField) window.Papi.revealField();
-    setTimeout(()=>{
-      if(window.Papi && window.Papi.revealSubtitle) window.Papi.revealSubtitle();
-    }, 550);
-    setTimeout(()=>{
-      if(window.Papi && window.Papi.revealReview) window.Papi.revealReview();
-    }, 800);
-    setTimeout(()=>{
-      if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
-    }, 1050);
 
     loader.classList.add('is-done');
     loader.style.transition = 'opacity 1.3s ease';

@@ -349,6 +349,36 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   text-align:center;
 }
 
+/* shown in place of .hero-copy right after the loader — see the note
+   on the markup itself (index.html) for the reveal/crossfade sequence.
+   Absolutely positioned over the same area rather than sharing normal
+   flow with .hero-copy so it never affects that block's own layout,
+   before or during the crossfade. */
+.hero-flow-word{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Fraunces', serif;
+  font-style:italic;
+  font-weight:500;
+  font-size:clamp(4.5rem, 17vw, 12.5rem);
+  line-height:1;
+  letter-spacing:-0.02em;
+  /* a richer, higher-contrast sweep than the title's own "purpose" gold
+     (which stays inside a narrow gold range) — this is the one thing on
+     screen at this point, so it can afford to run from near-black
+     through the brand gold up to a pale cream highlight */
+  background:linear-gradient(135deg, #241706 0%, var(--gold-deep) 32%, var(--gold) 58%, #ffd23f 80%, #fff6d8 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  text-shadow:0 0 46px rgba(203,168,105,.4), 0 0 90px rgba(203,168,105,.2);
+  opacity:0;
+  pointer-events:none;
+}
+
 .hero-title-row{
   display:flex;
   align-items:center;
@@ -589,6 +619,20 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   font-weight:300;
   opacity:0;
   transition:opacity .3s ease;
+}
+
+/* on a narrow phone, the hero copy now crossfades in over the tight
+   4-cube cluster (see hero-slime.js's desiredCloseBoxScale) rather than
+   a mostly-empty background — that cluster leaves much less vertical
+   room than it does on desktop/tablet even after being tapered down
+   there, so the copy block itself needs to run shorter too. Tightening
+   the eyebrow/title/subtitle's own spacing (not their font sizes, which
+   stay legible) is enough to keep the block clear of the cube edges
+   without changing how any of this reads on a wider screen. */
+@media (max-width:480px){
+  .eyebrow{ margin-bottom:.85rem; }
+  .hero-title{ font-size:clamp(2rem, 7.4vw, 5rem); line-height:1.02; }
+  .hero-sub{ margin:1.1rem auto 1.5rem; }
 }
 
 /* a real Google-review-style trust badge — G logo, gold stars, rating
