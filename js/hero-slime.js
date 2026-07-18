@@ -27,23 +27,16 @@
    here computed directly rather than being a separate keyframed effect.
 
    This is deliberately just the free-wander liquid, forever — no
-   scroll-driven choreography, no cube formation, no corner dock. That
-   whole system (a tall 400vh pinned hero, a wander→coalesce→close→
-   hold→dock state machine, a canvas that reparented itself onto
-   <body> to escape into a corner logo) existed in an earlier version
-   of this file and has been removed wholesale on request, along with
-   the hero copy it used to reveal — the hero is now just this liquid
-   mass on a plain white background, with "Papi" living inside it: the
-   mass starts as one big bubble fully covering the word (see
-   CONFIG.introDurationMs/introSizeBoost, and introT in loop() below),
-   easing open into the normal free-wandering liquid as "Papi" fades
-   in and its own letters start independently riding whichever real
-   control point actually covers each of them (see getPoints/
-   requestPointSizes below, read/driven by js/title-dock.js's
-   flowLetterFrame) — including splitting apart across separate points
-   if the mass itself splits, since a single shared position has no
-   guarantee of ever being covered once the points aren't all mutually
-   touching.
+   scroll-driven choreography, no cube formation, no corner dock, and
+   (as of the latest revision) no word riding inside it either — the
+   hero is now just this liquid mass on a plain white background,
+   opening from one big bubble at the centre of the hero (see
+   CONFIG.introDurationMs/introSizeBoost, and introT in loop() below)
+   into the normal free-wandering liquid. getPoints/requestPointSizes/
+   getInwardPush below are left in place as general-purpose field-
+   sampling primitives (nothing currently calls them, now that the
+   per-letter tracking that used to live in js/title-dock.js is gone)
+   rather than something anything else in this file depends on.
 
    IMPORTANT, and worth being direct about: this renders through a
    requestAnimationFrame loop, same as every JS-driven animation this
@@ -145,28 +138,13 @@ import * as THREE from './vendor/three.module.min.js';
   const pointCount = primaryCount;
   const qualityScale = isMobile ? CONFIG.mobileQuality : 1;
 
-  // ---- wander centre — now that this canvas spans the WHOLE hero (both
-  // the copy column and the visual column, not just the latter — see the
-  // #heroSlime CSS comment in style.css), the mass's own "home" position
-  // can no longer just be a hardcoded (0.5, 0.5): that's the middle of
-  // the entire two-column row, nowhere near where "Papi" actually sits.
-  // Reading #heroFlowWord's own real position (in the SAME canvas-local
-  // normalized space everything else in this file already uses) means
-  // the intro bubble still opens exactly over the word, and the free
-  // wander afterward is still centred on it, regardless of how the
-  // two-column layout happens to be sized/stacked at any given viewport
-  // width — no hardcoded fraction to keep in sync with the CSS grid. ----
-  let centerX = 0.72, centerY = 0.5; // sane fallback if the word isn't found yet
-  const flowWordEl = document.getElementById('heroFlowWord');
-  function computeHomeCenter(){
-    if(!flowWordEl) return;
-    const cr = canvas.getBoundingClientRect();
-    const wr = flowWordEl.getBoundingClientRect();
-    if(!cr.width || !cr.height || !wr.width) return;
-    centerX = (wr.left + wr.width/2 - cr.left) / cr.width;
-    centerY = (wr.top + wr.height/2 - cr.top) / cr.height;
-  }
-  computeHomeCenter();
+  // ---- wander centre — this canvas spans the WHOLE hero (both the copy
+  // column and the visual column, not just the latter — see the
+  // #heroSlime CSS comment in style.css), so the mass's own "home"
+  // position is just the centre of that whole row; nothing needs to be
+  // biased toward one particular spot anymore now that there's no word
+  // to open the intro bubble around. ----
+  const centerX = 0.5, centerY = 0.5;
 
   // ===================================================================
   // shaders
@@ -706,15 +684,8 @@ import * as THREE from './vendor/three.module.min.js';
     if(Math.abs(w - lastResizeW) <= 10) return;
     lastResizeW = w;
     clearTimeout(window.__papiSlimeResizeT);
-    window.__papiSlimeResizeT = setTimeout(()=>{ resize(); computeHomeCenter(); }, 150);
+    window.__papiSlimeResizeT = setTimeout(resize, 150);
   });
-  // same late-reflow safety net as computeFlowHomes in title-dock.js —
-  // a web font swap or an image loading further down the hero can nudge
-  // "Papi"'s own real position without ever firing 'resize'.
-  if(document.fonts && document.fonts.ready){
-    document.fonts.ready.then(computeHomeCenter);
-  }
-  window.addEventListener('load', computeHomeCenter);
 
   let revealed = false;
   let lastTs = null;
@@ -761,16 +732,16 @@ import * as THREE from './vendor/three.module.min.js';
   // matter what stalls happen around it — a stall just makes it take
   // longer in wall-clock terms, never skips it.
   let elapsedAccum = 0;
-  // 0 the moment the mass is first revealed (one bubble, covering
-  // "Papi"), easing to 1 once it's fully open into the normal free-
-  // wander liquid — see CONFIG.introDurationMs, the wanderRangeNow
+  // 0 the moment the mass is first revealed (one bubble at the centre
+  // of the hero), easing to 1 once it's fully open into the normal
+  // free-wander liquid — see CONFIG.introDurationMs, the wanderRangeNow
   // scaling in stepPoints(), and the uSlimeSize scaling just below.
-  // Exposed via getIntroT so title-dock.js can hand off from "still
-  // covered by the bubble" to "actively tracking/following the now-
-  // open liquid" at the true moment that finishes, rather than a
-  // guessed fixed timer (which is what used to read as a visible jump
-  // on slower devices that hadn't actually caught up to that guess yet).
   let latestIntroT = 0;
+  // the point's own NATURAL radius this frame — CONFIG.slimeSize once
+  // introT reaches 1, never inflated by any requestPointSizes boost.
+  // Exposed via getBaseSlimeSize as a general-purpose primitive
+  // (nothing currently reads it — see the file header).
+  let latestBaseSlimeSize = CONFIG.slimeSize;
   function smoothstep01(t){
     const c = Math.max(0, Math.min(1, t));
     return c*c*(3-2*c);
@@ -802,6 +773,7 @@ import * as THREE from './vendor/three.module.min.js';
     // independently of the others
     const slimeSizeNow = CONFIG.slimeSize * (CONFIG.introSizeBoost - (CONFIG.introSizeBoost - 1) * introT);
     uniforms.uSlimeSize.value = slimeSizeNow;
+    latestBaseSlimeSize = slimeSizeNow;
 
     stepPoints(dt, elapsed, introT);
     renderOnce(elapsed, slimeSizeNow);
@@ -924,6 +896,19 @@ import * as THREE from './vendor/three.module.min.js';
   // 0 through the opening intro bubble, 1 once fully settled into the
   // normal free-wander liquid — see the comment on latestIntroT above
   window.Papi.getIntroT = () => latestIntroT;
+  // every point's current NATURAL radius (normalized, same units as
+  // getPoints()' own radius) — see the comment on latestBaseSlimeSize
+  // above for why title-dock.js needs this un-boosted number rather than
+  // getPoints()' own (possibly self-inflated) radius.
+  window.Papi.getBaseSlimeSize = () => latestBaseSlimeSize;
+  // the same smooth-min blend constant field() itself uses (normalized,
+  // same units as getBaseSlimeSize) — exposed so title-dock.js can fold
+  // multiple points together with the SAME blending the shader actually
+  // renders with, rather than reasoning about a single "nearest" point
+  // in isolation (see the comment on HOME_CAPTURE_RANGE in
+  // title-dock.js for why a single-nearest-point comparison isn't
+  // enough on its own).
+  window.Papi.getSurfaceTension = () => CONFIG.surfaceTension;
   // given a page pixel position and how far inside the liquid it needs
   // to stay (marginPx — typically a letter's own half-extent, so its
   // whole bounding circle stays covered, not just its centre point),

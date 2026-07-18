@@ -14,9 +14,7 @@
     hero.classList.add('is-visible');
     hero.removeAttribute('aria-hidden');
 
-    // the "PAPI" brand mark (top-right) and the big centre "Papi" word
-    // are both on screen at once, permanently, now that the hero no
-    // longer fades one out in favor of the other — nothing to defer.
+    // the "PAPI" brand mark (top-left) is revealed immediately.
     const brandMark = document.getElementById('brandMark');
     if(brandMark) brandMark.querySelectorAll('span').forEach(s => s.style.opacity = '1');
 

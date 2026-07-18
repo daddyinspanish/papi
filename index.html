@@ -93,14 +93,11 @@ window.scrollTo(0, 0);
 </header>
 
 <!-- ============ HERO — a two-column intro (copy + CTA + trusted-by on
-     the left, the liquid glass mass with "Papi" inside it on the
-     right) followed by a 4-step process row. The liquid mass starts as
-     one bubble fully covering "Papi", eases open as "Papi" fades in
-     and starts tracking the mass's own control points, then wanders
-     freely forever. See js/hero-slime.js's own header for the
-     material/physics/intro, and js/title-dock.js's flowLetterFrame for
-     "Papi"'s own continuous idle ripple + cursor-push + liquid-follow
-     motion (it never fades out once revealed). ============ -->
+     the left, the liquid glass mass on the right) followed by a 4-step
+     process row. The liquid mass starts as one bubble at the centre of
+     the hero, eases open, then wanders freely forever — see
+     js/hero-slime.js's own header for the material/physics/intro.
+     ============ -->
 <main id="hero" aria-hidden="true">
 
   <div class="hero-top">
@@ -108,7 +105,7 @@ window.scrollTo(0, 0);
     <div class="hero-inner">
 
       <div class="hero-copy-col">
-        <h1 class="hero-headline"><span class="hero-headline-word">Business-ready</span> <span class="hero-headline-word">websites,</span> <span class="hero-headline-word">built</span> <span class="hero-headline-word">with</span> <span class="hero-headline-word"><em>purpose</em>.</span></h1>
+        <h1 class="hero-headline" id="heroHeadline">Customer Focused Websites, Built with <em>Purpose</em></h1>
         <p class="hero-sub">We design and build conversion-focused websites that build trust, communicate clearly, and guide visitors to their next step.</p>
         <a href="#quoteSection" class="hero-cta">Start a Project<span class="hero-cta-plus">+</span></a>
 
@@ -158,17 +155,6 @@ window.scrollTo(0, 0);
       </div>
 
       <div class="hero-visual-col">
-        <div class="hero-flow-word" id="heroFlowWord" aria-hidden="true">Papi</div>
-
-        <div class="hero-droplets" aria-hidden="true">
-          <span class="hero-droplet hero-droplet--1"></span>
-          <span class="hero-droplet hero-droplet--2"></span>
-          <span class="hero-droplet hero-droplet--3"></span>
-          <span class="hero-droplet hero-droplet--4"></span>
-        </div>
-
-        <p class="hero-visual-caption" aria-hidden="true">Designed with purpose. Built to perform.</p>
-
         <div class="hero-social" id="heroSocial">
           <a href="https://www.instagram.com/designedbypapi/" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on Instagram">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -195,41 +181,47 @@ window.scrollTo(0, 0);
   </div>
 
   <!-- "Process" nav link's actual scroll target — anchoring to #hero
-       itself would only scroll to the top of the two-column area. -->
-  <div class="hero-process" id="heroProcess">
-    <div class="hero-process-step">
-      <span class="hero-process-num">01</span>
-      <div class="hero-process-bubble">
-        <canvas class="hero-process-liquid" aria-hidden="true"></canvas>
-        <h3>Discover</h3>
+       itself would only scroll to the top of the two-column area.
+       Tall outer section + sticky inner viewport (same pattern as
+       .contrast-section/.contrast-sticky below) — scrolling through
+       400vh worth of distance pins the stage in place while
+       js/process-flow.js crossfades one step's copy into the next,
+       one quarter of that range each, with a continuous liquid stream
+       (same metaball technique as the rest of this page's glass)
+       flowing down through the centre the whole time. -->
+  <section class="process-section" id="heroProcess">
+    <div class="process-sticky">
+      <canvas id="processFlow" class="process-flow-canvas" aria-hidden="true"></canvas>
+      <div class="process-stage">
+        <div class="process-step-content" data-step="0">
+          <span class="hero-process-num">1</span>
+          <h3>Discover</h3>
+          <p>We learn about your brand, goals, and audience.</p>
+        </div>
+        <div class="process-step-content" data-step="1">
+          <span class="hero-process-num">2</span>
+          <h3>Design</h3>
+          <p>Strategic, modern designs that make an impact.</p>
+        </div>
+        <div class="process-step-content" data-step="2">
+          <span class="hero-process-num">3</span>
+          <h3>Develop</h3>
+          <p>Fast, responsive, and built with clean code.</p>
+        </div>
+        <div class="process-step-content" data-step="3">
+          <span class="hero-process-num">4</span>
+          <h3>Launch</h3>
+          <p>Tested, refined, and ready to perform from day one.</p>
+        </div>
       </div>
-      <p>We learn about your brand, goals, and audience.</p>
-    </div>
-    <div class="hero-process-step">
-      <span class="hero-process-num">02</span>
-      <div class="hero-process-bubble">
-        <canvas class="hero-process-liquid" aria-hidden="true"></canvas>
-        <h3>Design</h3>
+      <div class="process-progress" aria-hidden="true">
+        <span class="process-progress-dot" data-step="0"></span>
+        <span class="process-progress-dot" data-step="1"></span>
+        <span class="process-progress-dot" data-step="2"></span>
+        <span class="process-progress-dot" data-step="3"></span>
       </div>
-      <p>Strategic, modern designs that make an impact.</p>
     </div>
-    <div class="hero-process-step">
-      <span class="hero-process-num">03</span>
-      <div class="hero-process-bubble">
-        <canvas class="hero-process-liquid" aria-hidden="true"></canvas>
-        <h3>Develop</h3>
-      </div>
-      <p>Fast, responsive, and built with clean code.</p>
-    </div>
-    <div class="hero-process-step">
-      <span class="hero-process-num">04</span>
-      <div class="hero-process-bubble">
-        <canvas class="hero-process-liquid" aria-hidden="true"></canvas>
-        <h3>Launch</h3>
-      </div>
-      <p>Tested, refined, and ready to perform from day one.</p>
-    </div>
-  </div>
+  </section>
 
 </main>
 
@@ -727,7 +719,9 @@ window.scrollTo(0, 0);
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
 <script type="module" src="js/hero-slime.js"></script>
-<script type="module" src="js/process-liquid.js"></script>
+<script type="module" src="js/process-flow.js"></script>
+<script src="js/process-fog.js"></script>
+<script src="js/headline-cursor.js"></script>
 <script src="js/title-dock.js"></script>
 <script src="js/contrast.js"></script>
 <script src="js/showcase.js"></script>

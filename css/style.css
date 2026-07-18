@@ -177,9 +177,15 @@ body, a{ cursor:none; }
 /* each word rises/fades in on its own staggered beat rather than the
    whole headline appearing in one flat block — gated by #hero.is-visible
    (see js/init.js's start()) so it plays once, right as the hero itself
-   fades in, instead of on a separate independently-guessed timer. Plain
-   opacity+transform (no backdrop-filter, no JS-driven per-frame work) —
-   compositor-only. */
+   fades in, instead of on a separate independently-guessed timer. The
+   actual per-word delay is set inline by js/headline-cursor.js (which
+   also splits the headline into these spans in the first place), not
+   nth-child here, so it never needs to be kept in sync with however
+   many words the headline copy happens to contain. Plain opacity+
+   transform for the entrance (no backdrop-filter) — the per-character
+   cursor-push transform (see .hero-headline-char below) lives on a
+   nested element, so the two transforms compose instead of fighting
+   over the same property. */
 .hero-headline-word{
   display:inline-block;
   opacity:0;
@@ -188,11 +194,6 @@ body, a{ cursor:none; }
 #hero.is-visible .hero-headline-word{
   animation:heroWordRise .85s var(--ease-out) forwards;
 }
-#hero.is-visible .hero-headline-word:nth-child(1){ animation-delay:.05s; }
-#hero.is-visible .hero-headline-word:nth-child(2){ animation-delay:.15s; }
-#hero.is-visible .hero-headline-word:nth-child(3){ animation-delay:.24s; }
-#hero.is-visible .hero-headline-word:nth-child(4){ animation-delay:.32s; }
-#hero.is-visible .hero-headline-word:nth-child(5){ animation-delay:.42s; }
 @keyframes heroWordRise{
   from{ opacity:0; transform:translateY(28px); }
   to{ opacity:1; transform:translateY(0); }
@@ -200,12 +201,27 @@ body, a{ cursor:none; }
 @media (prefers-reduced-motion:reduce){
   .hero-headline-word{ opacity:1; transform:none; animation:none; }
 }
-.hero-headline em{
+/* each character is its own inline-block so js/headline-cursor.js's
+   per-frame push-away-from-cursor transform can move it independently
+   of its neighbours — a plain CSS animation on the parent couldn't
+   coexist with this per-character JS transform (an animation targeting
+   the same property always wins over an inline style), which is why
+   this needs its own element rather than living on .hero-headline-word. */
+.hero-headline-char{
+  display:inline-block;
+  will-change:transform;
+}
+.hero-headline-char.is-em{
   font-style:italic;
   /* same metallic shine-sweep technique as .quote-form-title — a
      continuous, subtle gold sweep rather than a flat static tint, since
-     this is the one emphasized word in the headline */
-  background:linear-gradient(100deg, #8a6a1f 0%, #d4af37 25%, #fff6d8 50%, #d4af37 75%, #8a6a1f 100%);
+     this is the one emphasized word in the headline. background-size/
+     -position are set per-character, inline, by headline-cursor.js —
+     sized to the emphasized word's full length and offset by each
+     character's own position in it, so splitting into per-character
+     spans still reads as one continuous sweep rather than separate
+     mini-gradients repeating on each letter. */
+  background-image:linear-gradient(100deg, #8a6a1f 0%, #d4af37 25%, #fff6d8 50%, #d4af37 75%, #8a6a1f 100%);
   background-size:250% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -213,7 +229,7 @@ body, a{ cursor:none; }
   animation:quoteFormTitleShine 6s ease-in-out infinite;
 }
 @media (prefers-reduced-motion:reduce){
-  .hero-headline em{ animation:none; background-position:50% 50%; }
+  .hero-headline-char.is-em{ animation:none; background-position:50% 50%; }
 }
 .hero-sub{
   margin-top:1.3rem;
@@ -329,50 +345,15 @@ body, a{ cursor:none; }
   opacity:1;
 }
 
-/* ---- right column: the liquid mass + "Papi" + decorative droplets ---- */
+/* ---- right column: the liquid mass ---- */
 .hero-visual-col{
   position:relative;
   height:clamp(360px, 42vw, 560px);
 }
 
-/* small floating glass "droplets" scattered around the main mass —
-   purely decorative, plain CSS (radial-gradient fill + box-shadow for
-   the glassy highlight/rim), deliberately NOT backdrop-filter (see the
-   .site-header comment above for why that's avoided sitewide) — a slow
-   CSS keyframe float is compositor-only and costs nothing extra. */
-.hero-droplet{
-  position:absolute;
-  border-radius:50%;
-  background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.95), rgba(255,255,255,.4) 38%, rgba(203,168,105,.16) 72%, rgba(203,168,105,.04) 100%);
-  box-shadow:0 10px 22px -10px rgba(120,90,40,.35), inset 0 0 0 1px rgba(255,255,255,.5);
-  animation:heroDropletFloat 7s ease-in-out infinite;
-}
-.hero-droplet--1{ width:36px; height:36px; top:6%; right:8%; animation-delay:0s; }
-.hero-droplet--2{ width:20px; height:20px; top:20%; right:24%; animation-delay:1.3s; }
-.hero-droplet--3{ width:50px; height:50px; bottom:12%; left:2%; animation-delay:.6s; }
-.hero-droplet--4{ width:16px; height:16px; bottom:28%; left:15%; animation-delay:2.1s; }
-@keyframes heroDropletFloat{
-  0%, 100%{ transform:translateY(0); }
-  50%{ transform:translateY(-10px); }
-}
-
-.hero-visual-caption{
-  position:absolute;
-  right:-.5rem;
-  bottom:8%;
-  writing-mode:vertical-rl;
-  font-size:.68rem;
-  letter-spacing:.24em;
-  text-transform:uppercase;
-  color:rgba(23,24,26,.38);
-  line-height:1.7;
-  pointer-events:none;
-}
-
 @media (max-width:860px){
   .hero-inner{ grid-template-columns:1fr; }
   .hero-visual-col{ height:min(88vw, 420px); margin-top:1rem; }
-  .hero-visual-caption{ display:none; }
 }
 
 /* ---- header / persistent nav — fixed, full-width, always visible
@@ -483,55 +464,6 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
   color:#ffdd7a;
 }
 
-/* the floating "Papi" word — absolutely positioned over the whole
-   .hero-visual-col (same box the liquid canvas fills, and deliberately
-   its immediate sibling rather than nested any deeper — js/title-
-   dock.js's per-letter liquid-follow tracking assumes both share that
-   exact coordinate space) so it sits centred regardless of where
-   .hero-social ends up, never affecting that row's own layout. */
-.hero-flow-word{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-family:'Fraunces', serif;
-  font-style:italic;
-  font-weight:500;
-  font-size:clamp(4.5rem, 17vw, 12.5rem);
-  line-height:1;
-  letter-spacing:-0.02em;
-  opacity:0;
-  pointer-events:none;
-}
-
-/* each letter's ripple + cursor-push transform is computed and written
-   entirely in JS (see flowLetterFrame in title-dock.js), not a CSS
-   animation — a CSS animation targeting transform always overrides an
-   inline style on that same property, which would have silently
-   discarded whatever the cursor-push physics wrote here every frame.
-   A perpetual idle loop — once revealed, "Papi" just keeps rippling
-   and reacting to the cursor forever, with no fade-out. The gradient
-   text-fill lives here rather than on the parent — once
-   "Flow" is split into per-letter spans (needed for the ripple/push),
-   only the element that actually owns the glyphs can clip a background
-   to their shape; a background-clip:text set on the (now textless)
-   parent has nothing to clip to and renders invisible. background-size/
-   -position are set per-letter, inline, by title-dock.js — sized to the
-   word's full length and offset by each letter's own position in it, so
-   the whole word still reads as one continuous gradient sweep (near-
-   black through the brand gold to a pale cream highlight) rather than
-   four separate mini-gradients repeating on each letter. */
-.flow-letter{
-  display:inline-block;
-  will-change:transform;
-  background-image:linear-gradient(135deg, #241706 0%, var(--gold-deep) 32%, var(--gold) 58%, #ffd23f 80%, #fff6d8 100%);
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
-  text-shadow:0 0 46px rgba(203,168,105,.4), 0 0 90px rgba(203,168,105,.2);
-}
-
 /* the row of clickable social icons, tucked at the bottom of
    .hero-visual-col — deliberately small and monochrome (currentColor,
    not the brands' own loud colors) so it reads as a minimal, on-brand
@@ -609,89 +541,130 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
   100%{ transform:scale(1) rotate(0deg); opacity:1; }
 }
 
-/* ---- process steps — a plain 4-column row beneath the two-column
-   intro, still inside <main id="hero"> (matching this page's existing
-   convention of not needing a dedicated <section> per "chapter" of
-   the hero — see the contrast/showcase sections for the more usual
-   pattern). #heroProcess is the "Process" nav link's actual scroll
-   target — anchoring to #hero itself would only scroll to the very
-   top of the two-column area. ---- */
-.hero-process{
+/* ---- process steps — one step at a time, centred, revealed as the
+   visitor scrolls — same tall-outer-section + sticky-inner-viewport
+   pattern as .contrast-section/.contrast-sticky below: scrolling
+   through 400vh worth of distance pins .process-sticky in place while
+   js/process-flow.js crossfades one step's copy into the next (a
+   quarter of that range each) and drives a continuous liquid stream
+   through the centre the whole time. #heroProcess is still the
+   "Process" nav link's own scroll target. ---- */
+.process-section{
   position:relative;
-  z-index:15;
-  max-width:1320px;
-  margin:0 auto;
-  padding:clamp(1rem, 3vw, 2rem) clamp(1.5rem, 4vw, 3rem) clamp(4rem, 8vw, 6rem);
-  display:grid;
-  grid-template-columns:repeat(4, 1fr);
-  gap:clamp(1.25rem, 3vw, 2rem);
+  height:400vh;
+  /* svh + --stable-vh — see the long comment on .contrast-section
+     below for why plain vh alone isn't enough on several in-app
+     browsers */
+  height:400svh;
+  height:calc(400 * var(--stable-vh, 1vh));
 }
-/* no card/border/background of its own anymore — each step is just a
-   plain column (number, the liquid bubble holding the title, then the
-   description), all sitting directly on the hero's own white
-   background rather than inside a bordered box. */
-.hero-process-step{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  text-align:center;
-  padding:0 .5rem;
-}
-.hero-process-num{
-  display:block;
-  font-size:.72rem;
-  letter-spacing:.28em;
-  font-weight:600;
-  color:rgba(23,24,26,.4);
-  margin-bottom:.6rem;
-}
-/* the primary visual now — a bigger, roomier metaball glass mass (see
-   js/process-liquid.js) with the step's own title sitting inside it,
-   the same "word floating inside the liquid" idea as the hero's own
-   Papi, just static (no per-letter physics) since these are short,
-   fixed titles rather than a word that needs to survive the mass
-   splitting apart. Sized generously wider than any of the four titles
-   so the glass reads as comfortably containing the word, not just
-   fitting it. */
-.hero-process-bubble{
-  position:relative;
+.process-sticky{
+  position:sticky;
+  top:0;
+  height:100vh;
+  height:100svh;
+  height:calc(100 * var(--stable-vh, 1vh));
   overflow:hidden;
-  width:100%;
-  max-width:230px;
-  height:104px;
-  margin-bottom:1.1rem;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
 }
-.hero-process-liquid{
+/* js/process-flow.js renders a continuous WebGL metaball stream into
+   this — small "droplets" fall from the top, merging into (and back
+   out of) a bigger stationary mass sitting right behind the centred
+   text as they pass through it, the same smin-blend glass technique
+   as the rest of this page's liquid rather than a flat effect layered
+   on top of the copy. */
+.process-flow-canvas{
   position:absolute;
   inset:0;
   width:100%;
   height:100%;
-  display:block;
+  z-index:1;
   pointer-events:none;
 }
-.hero-process-bubble h3{
-  position:relative;
-  z-index:1;
+/* js/process-fog.js's own soft ambient vapor layer, sitting further
+   back than the flow canvas above — ambient depth behind the main
+   liquid stream rather than another focal effect of its own. */
+.hero-process-fog{
+  position:absolute;
+  inset:0;
+  width:100%;
   height:100%;
+  z-index:0;
+  pointer-events:none;
+  opacity:0;
+}
+.process-stage{
+  position:relative;
+  z-index:2;
+  width:100%;
+  max-width:34rem;
+  height:clamp(14rem, 32vw, 18rem);
+  padding:0 1.5rem;
+}
+/* all four stacked exactly on top of each other (inset:0 within the
+   stage above) — js/process-flow.js crossfades opacity/transform
+   between them as scroll progress crosses each step's own quarter of
+   the section's range, never more than one fully visible at a time. */
+.process-step-content{
+  position:absolute;
+  inset:0;
   display:flex;
+  flex-direction:column;
   align-items:center;
   justify-content:center;
+  text-align:center;
+  opacity:0;
+  will-change:opacity, transform;
+}
+.process-step-content .hero-process-num{
+  display:block;
+  font-size:.78rem;
+  letter-spacing:.32em;
+  font-weight:600;
+  color:rgba(23,24,26,.4);
+  margin-bottom:.8rem;
+}
+.process-step-content h3{
   font-family:'Fraunces', serif;
   font-weight:500;
-  font-size:1.3rem;
+  font-size:clamp(1.8rem, 4vw, 2.6rem);
   color:rgb(var(--style-contrast));
+  margin-bottom:.85rem;
 }
-.hero-process-step p{
-  font-size:.92rem;
-  line-height:1.55;
+.process-step-content p{
+  font-size:1.05rem;
+  line-height:1.6;
   color:var(--paper-dim);
-  max-width:26ch;
+  max-width:32ch;
 }
-@media (max-width:860px){
-  .hero-process{ grid-template-columns:repeat(2, 1fr); }
+/* small fixed dots along the bottom marking which of the 4 steps is
+   currently active — a quiet progress affordance for a section that
+   otherwise gives no other visual cue how far through it you are. */
+.process-progress{
+  position:absolute;
+  z-index:2;
+  bottom:clamp(2rem, 6vw, 3.5rem);
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:.6rem;
+}
+.process-progress-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:rgba(23,24,26,.18);
+  transition:background .4s var(--ease-out), transform .4s var(--ease-out);
+}
+.process-progress-dot.is-active{
+  background:var(--gold-deep);
+  transform:scale(1.5);
 }
 @media (max-width:560px){
-  .hero-process{ grid-template-columns:1fr; gap:1.25rem; }
+  .process-stage{ height:clamp(17rem, 68vw, 21rem); }
 }
 
 /* nav anchor targets — enough top clearance that the fixed header
