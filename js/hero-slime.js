@@ -91,7 +91,11 @@ import * as THREE from './vendor/three.module.min.js';
     elasticity: 0.11,
     surfaceTension: 0.10,    // smooth-min blend radius between points — higher = merges/rounds off more readily
     noiseStrength: 0.16,     // how much procedural noise deforms the surface and shading
-    mouseForce: 0.26,        // strength of the cursor push/pull
+    // lowered (was 0.26) — a lighter cursor touch on the liquid itself,
+    // so the mass reacts as a gentle nudge rather than a strong shove
+    // that could fling a point (and whatever letters are riding it)
+    // around hard enough to stress the containment margin
+    mouseForce: 0.12,
     mouseRadius: 0.38,       // how close the cursor needs to be (aspect-corrected 0..1 space) to affect a point
     opacity: 0.92,           // overall opacity ceiling — actual per-pixel transparency is driven
                              // by the glass material's own fresnel-based bodyAlpha below, not this alone
@@ -789,6 +793,58 @@ import * as THREE from './vendor/three.module.min.js';
     rafId = requestAnimationFrame(loop);
   }
 
+  // ===================================================================
+  // real-time edge repulsion — a JS-side re-implementation of the
+  // shader's own field()/smin() (see the FRAGMENT source above), used
+  // to answer "how far is this exact screen point from the liquid's
+  // TRUE current edge, and which way is inward?" for any letter's
+  // actual final rendered position, not just its tracked target.
+  //
+  // The per-letter tracking in title-dock.js (nearest-point targeting,
+  // per-point size requests) keeps each letter's TARGET safely inside —
+  // but the letters also get pushed around afterward by the cursor
+  // (see FLOW_PUSH in title-dock.js), an offset that was never checked
+  // against the liquid's real shape at all. This is what actually
+  // guarantees containment regardless of that or any other source of
+  // displacement: sample the real field at wherever a letter actually
+  // ends up, and if that's too close to (or past) the true edge, hand
+  // back a correction vector pushing it back in — the liquid's own
+  // outline physically repelling the letter, exactly as asked for.
+  // ===================================================================
+  function sminJS(a, b, k){
+    const h = Math.max(0, Math.min(1, 0.5 + 0.5*(b-a)/k));
+    return b*(1-h) + a*h - k*h*(1-h);
+  }
+  // takes already aspect-corrected "p-space" coordinates (see the
+  // shader's own field(p, aspect) and its surrounding comment) — 1 unit
+  // in this space is exactly H real screen pixels, isotropically in
+  // both axes, which is what makes a gradient computed here point the
+  // same real-world direction as in plain screen pixels (see
+  // getInwardPushPx below).
+  function sampleFieldRaw(px, py){
+    const aspect = W / H;
+    let f = 1e5;
+    for(let i=0;i<points.length;i++){
+      const p = points[i];
+      const ptx = p.x*aspect, pty = p.y;
+      let dx = px-ptx, dy = py-pty;
+      const vx = p.vx*CONFIG.movementSpeed, vy = p.vy*CONFIG.movementSpeed;
+      const speed = Math.sqrt(vx*vx + vy*vy);
+      if(speed > 0.0005){
+        const dirx = vx/speed, diry = vy/speed;
+        const along = dx*dirx + dy*diry;
+        const perpx = dx - dirx*along, perpy = dy - diry*along;
+        const stretch = 1 + speed*CONFIG.stretchAmount;
+        const compress = 1 + speed*CONFIG.compressAmount;
+        dx = dirx*(along/stretch) + perpx*compress;
+        dy = diry*(along/stretch) + perpy*compress;
+      }
+      const dist = Math.sqrt(dx*dx + dy*dy) - currentSizes[i];
+      f = sminJS(f, dist, CONFIG.surfaceTension);
+    }
+    return f; // negative = inside, 0 = right at the edge, positive = outside; magnitude in p-space units (1 unit = H px)
+  }
+
   window.Papi = window.Papi || {};
   window.Papi.resizeField = resize;
   // every control point's own current position (normalized 0..1, same
@@ -838,6 +894,38 @@ import * as THREE from './vendor/three.module.min.js';
   // 0 through the opening intro bubble, 1 once fully settled into the
   // normal free-wander liquid — see the comment on latestIntroT above
   window.Papi.getIntroT = () => latestIntroT;
+  // given a page pixel position and how far inside the liquid it needs
+  // to stay (marginPx — typically a letter's own half-extent, so its
+  // whole bounding circle stays covered, not just its centre point),
+  // returns {dx, dy}: exactly the correction needed to bring that point
+  // back to at least marginPx inside the liquid's TRUE current edge —
+  // {0, 0} if it's already safely inside. This is the actual "let the
+  // outline repel the letters" mechanism: title-dock.js calls this on
+  // every letter's real final position (after its own tracking AND
+  // cursor-push physics have both already been applied) and adds the
+  // result directly to that letter's transform, so the liquid's real
+  // current shape is the last word on where a letter can ever end up,
+  // regardless of what pushed it there.
+  window.Papi.getInwardPush = function(pageX, pageY, marginPx){
+    if(!W || !H) return { dx: 0, dy: 0 };
+    const aspect = W / H;
+    const px = (pageX / W) * aspect, py = pageY / H;
+    const marginNorm = marginPx / H;
+    const eps = 0.004;
+    const f0 = sampleFieldRaw(px, py);
+    const overshoot = f0 + marginNorm; // > 0 means we're closer to (or past) the edge than the requested margin allows
+    if(overshoot <= 0) return { dx: 0, dy: 0 };
+    const fx = sampleFieldRaw(px+eps, py) - sampleFieldRaw(px-eps, py);
+    const fy = sampleFieldRaw(px, py+eps) - sampleFieldRaw(px, py-eps);
+    const gLen = Math.sqrt(fx*fx + fy*fy) || 1;
+    // unit outward normal — direction is identical in p-space and real
+    // screen pixels (p-space is real pixels uniformly scaled by 1/H, an
+    // isotropic scale that preserves every angle), so this can be
+    // applied directly to page-pixel coordinates with no reprojection
+    const gxN = fx/gLen, gyN = fy/gLen;
+    const pushPx = overshoot * H;
+    return { dx: -gxN*pushPx, dy: -gyN*pushPx };
+  };
   window.Papi.revealField = function(){
     if(revealed) return;
     revealed = true;

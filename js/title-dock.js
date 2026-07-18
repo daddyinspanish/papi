@@ -176,6 +176,9 @@
   const LETTER_FIT_SAFETY = 1.2;  // margin over each letter's own exact half-extent — the shader's
                                    // edge falloff means the literal boundary isn't fully opaque, and
                                    // this keeps a letter reading as clearly inside, not brushing the rim
+  const EDGE_PUSH_BUFFER = 6;     // extra px beyond a letter's own half-extent for the real-time inward-push
+                                   // check below (getInwardPush) — a little slack so the correction kicks in
+                                   // just before a letter would actually reach the true edge, not right at it
   // recomputes every letter's field-follow target this frame and sends
   // updated size requests to hero-slime.js — see the file-level comment
   // above for the overall approach. `snap`, true only on the very first
@@ -310,7 +313,13 @@
   // combined into one transform per letter per frame — see the note
   // above on why this replaced a plain CSS animation.
   const FLOW_PUSH_RADIUS = 85;
-  const FLOW_PUSH = 0.34;
+  // lowered (was 0.34) — a lighter cursor touch on the letters
+  // themselves, so a passing cursor reads as a gentle ripple rather
+  // than a shove strong enough to push a letter toward the liquid's
+  // real edge (see EDGE_PUSH_MARGIN/getInwardPush further down, which
+  // now catches this offset too, but a smaller push to begin with
+  // means that correction rarely has to do much work)
+  const FLOW_PUSH = 0.15;
   const FLOW_SPRING = 0.05;
   const FLOW_DAMPING = 0.82;
   const FLOW_RIPPLE_SPEED = (2 * Math.PI) / 2.6; // matches the old CSS keyframe's 2.6s period
@@ -373,8 +382,24 @@
         const ripplePhase = t * FLOW_RIPPLE_SPEED + i * FLOW_RIPPLE_PHASE;
         const rippleY = Math.sin(ripplePhase) * FLOW_RIPPLE_AMP;
         const skew = Math.sin(ripplePhase) * -2;
-        const totalX = st.offX + st.x;
-        const totalY = st.offY + st.y + rippleY;
+        let totalX = st.offX + st.x;
+        let totalY = st.offY + st.y + rippleY;
+        // the liquid's own outline physically repelling the letter —
+        // applied last, directly to the FINAL position (after tracking,
+        // ripple, and cursor-push have all already been added), so it
+        // catches every source of displacement rather than just the
+        // field-follow target. window.Papi.getInwardPush samples the
+        // real, current liquid shape (hero-slime.js's own field(), not
+        // an estimate) at exactly this screen position and returns
+        // however much correction is needed to stay at least
+        // marginPx inside — {0,0} if already safely inside — so this
+        // is a hard floor, not a spring: whatever the letter's own
+        // physics computed, it can never actually end up outside.
+        if(window.Papi && window.Papi.getInwardPush){
+          const marginPx = st.halfExtent + EDGE_PUSH_BUFFER;
+          const push = window.Papi.getInwardPush(st.homeX+totalX, st.homeY+totalY, marginPx);
+          totalX += push.dx; totalY += push.dy;
+        }
         st.el.style.transform = `translate(${totalX.toFixed(2)}px, ${totalY.toFixed(2)}px) skewX(${skew.toFixed(2)}deg)`;
       });
     }
