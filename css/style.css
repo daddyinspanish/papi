@@ -138,6 +138,16 @@ body, a{ cursor:none; }
   pointer-events:none;
   opacity:0;
   transition:opacity 1.4s ease;
+  /* the metaball mass is a normal opaque WebGL render, so without this
+     it gets flatly sliced by the canvas's own rectangular bottom edge
+     whenever it wanders down that far — a hard, very visible straight
+     line right above the process-steps row underneath, which read as
+     "a divider" (and made the process section's own falling droplets
+     look like they were spawning from that line rather than from the
+     liquid mass above). Fading the last quarter of the canvas to
+     transparent lets the mass dissolve away naturally instead. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 74%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 74%, transparent 100%);
 }
 #heroSlime.is-visible{ opacity:1; }
 
@@ -631,7 +641,7 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
   font-family:'Fraunces', serif;
   font-weight:500;
   font-size:clamp(1.8rem, 4vw, 2.6rem);
-  color:rgb(var(--style-contrast));
+  color:var(--gold-deep);
   margin-bottom:.85rem;
 }
 .process-step-content p{

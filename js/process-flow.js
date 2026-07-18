@@ -316,9 +316,13 @@ import * as THREE from './vendor/three.module.min.js';
       float absorb = pow(pathT, 0.7);
       vec3 tint = mix(vec3(1.0), mix(uColorMid, uColorBright, 0.4), absorb);
       vec3 color = envColor * tint;
-      color += vec3(1.0, 0.98, 0.94) * spec * 1.7;
+      // same cool-blue sparkle/rim treatment as js/hero-slime.js's own
+      // material — see its comment on this exact spot for why (a
+      // warm-only highlight on a warm body reads as plastic; a cool
+      // glint against it is the actual glass/liquid cue).
+      color += vec3(0.82, 0.93, 1.0) * spec * 1.7;
       color += vec3(1.0, 0.95, 0.85) * sheen * 0.2;
-      color = mix(color, vec3(1.0, 0.97, 0.9), fresnel*0.7);
+      color = mix(color, vec3(0.8, 0.91, 1.0), fresnel*0.62);
       color *= (0.58 + 0.42*diff);
 
       float bodyAlphaFloor = 0.12;

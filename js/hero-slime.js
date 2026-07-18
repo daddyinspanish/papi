@@ -371,9 +371,16 @@ import * as THREE from './vendor/three.module.min.js';
       vec3 tint = mix(vec3(1.0), mix(uColorMid, uColorBright, 0.4), absorb);
       vec3 color = envColor * tint;
 
-      color += vec3(1.0, 0.98, 0.94) * spec * (1.6 + uHighlightIntensity);
+      // the tight sparkle and the fresnel rim are cooled toward pale
+      // ice-blue rather than cream/white — a warm-only highlight on a
+      // warm body reads as tinted plastic; a cool glint against the
+      // warm champagne body is the actual "glass/liquid" cue (real
+      // water and glass highlights skew cool even under warm ambient
+      // light). The broad sheen stays warm so the two highlights still
+      // read as distinct layers rather than a single flat colour.
+      color += vec3(0.82, 0.93, 1.0) * spec * (1.6 + uHighlightIntensity);
       color += vec3(1.0, 0.95, 0.82) * sheen * 0.22;
-      color = mix(color, vec3(1.0, 0.97, 0.9), rimGlow * 0.72);
+      color = mix(color, vec3(0.8, 0.91, 1.0), rimGlow * 0.62);
       // real contrast — a shallow, uniformly-bright range reads as flat,
       // soft plastic; glass needs a genuine dark side to read as
       // reflective/refractive rather than uniformly lit paint. Floor
