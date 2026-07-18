@@ -151,8 +151,41 @@
     mouseX = e.clientX;
     mouseY = e.clientY;
   });
+
+  // "Papi" doesn't just sit centred over the liquid — it's meant to
+  // read as actually being carried by it. window.Papi.getFieldCenter()
+  // (hero-slime.js) is the liquid mass's own centre of gravity,
+  // already averaged across every point so it drifts as one slow,
+  // smooth signal rather than any single point's own noisier wander.
+  // Applied as a translate on the PARENT heroFlowWord element — a
+  // separate layer of motion from each letter's own ripple/cursor-push
+  // transform above, which stays exactly as-is on the child spans, so
+  // the two compose rather than fight (coarse "carried by the mass"
+  // drift underneath, fine per-letter liquid detail on top).
+  // GAIN amplifies the raw centre-of-gravity signal (which, averaged
+  // across several independently-wandering points, is naturally quite
+  // damped/subtle) back up to something visibly "Papi is moving with
+  // the liquid" rather than nearly imperceptible; MAX_FRAC clamps it
+  // to a fraction of the smaller viewport dimension so it can never
+  // drift the word uncomfortably far off-centre regardless of gain;
+  // LERP eases toward that target slowly, matching the liquid's own
+  // heavy, viscous character rather than tracking it instantly.
+  const FIELD_FOLLOW_GAIN = 1.4;
+  const FIELD_FOLLOW_MAX_FRAC = 0.22;
+  const FIELD_FOLLOW_LERP = 0.05;
+  let flowOffsetX = 0, flowOffsetY = 0;
+
   function flowLetterFrame(){
     if(flowEffectsLive){
+      if(heroFlowWord && window.Papi && window.Papi.getFieldCenter){
+        const center = window.Papi.getFieldCenter();
+        const maxPx = Math.min(window.innerWidth, window.innerHeight) * FIELD_FOLLOW_MAX_FRAC;
+        const targetX = Math.max(-maxPx, Math.min(maxPx, (center.x - 0.5) * window.innerWidth * FIELD_FOLLOW_GAIN));
+        const targetY = Math.max(-maxPx, Math.min(maxPx, (center.y - 0.5) * window.innerHeight * FIELD_FOLLOW_GAIN));
+        flowOffsetX += (targetX - flowOffsetX) * FIELD_FOLLOW_LERP;
+        flowOffsetY += (targetY - flowOffsetY) * FIELD_FOLLOW_LERP;
+        heroFlowWord.style.transform = `translate(${flowOffsetX.toFixed(1)}px, ${flowOffsetY.toFixed(1)}px)`;
+      }
       const t = performance.now() / 1000;
       flowLetterState.forEach((st, i)=>{
         const dx = (st.homeX + st.x) - mouseX;
@@ -221,6 +254,16 @@
       s.top = s.el.offsetTop;
       s.bottom = s.top + s.el.offsetHeight;
     });
+    // update()'s own very first call (bottom of this file) runs
+    // synchronously, before this rAF-deferred first measurement has
+    // ever landed — heroHeight is still its initial 0 then, which
+    // silently made onHero (scrollY < heroHeight) false at the very
+    // top of the page until the visitor's first scroll happened to
+    // trigger a fresh, correctly-measured update() call. Re-running
+    // update() every time zones are (re)measured — including this
+    // very first time — closes that gap instead of relying on a
+    // scroll event to ever paper over it.
+    update();
   }
   requestAnimationFrame(measureZones);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(measureZones);
@@ -277,7 +320,14 @@
     // fading back in once the visitor scrolls past the section
     const hideDockForMobileZone = window.innerWidth <= 640 && (onContrast || onShowcase || onLiveDemo);
     titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileZone);
-    if(siteHeader) siteHeader.classList.toggle('is-hidden', hideDockForMobileZone);
+    // the corner "PAPI" brand mark stays hidden for the whole hero
+    // section, on every viewport — the big centre "Papi" word (now
+    // floating inside the liquid permanently, see flowLetterFrame
+    // below) is meant to be the only "Papi" on screen there. Reuses
+    // .site-header's existing is-hidden mechanism/transition (already
+    // used for the mobile-only showcase/contrast/live-demo duck-out-
+    // of-the-way case above) rather than adding a second one.
+    if(siteHeader) siteHeader.classList.toggle('is-hidden', hideDockForMobileZone || onHero);
 
     // pick whichever section the viewport's centre currently sits in
     if(sectionDock){

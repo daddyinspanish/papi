@@ -390,6 +390,10 @@ import * as THREE from './vendor/three.module.min.js';
   // points ever sample the same phase of the wander noise, which is
   // what keeps the whole mass from ever looking like it's repeating.
   const points = [];
+  // the mass's own centre of gravity, in the same normalized 0..1
+  // space as each point's x/y — recomputed every step in stepPoints()
+  // below, exposed via window.Papi.getFieldCenter() further down
+  let latestFieldCenterX = 0.5, latestFieldCenterY = 0.5;
   for(let i=0;i<pointCount;i++){
     points.push({
       x: 0.5 + (Math.random()-0.5)*0.3,
@@ -490,6 +494,19 @@ import * as THREE from './vendor/three.module.min.js';
       p.x += p.vx * CONFIG.movementSpeed * dtScale;
       p.y += p.vy * CONFIG.movementSpeed * dtScale;
     }
+
+    // the mass's own centre of gravity — every point wanders
+    // independently (that's the whole point, see the file header), but
+    // averaging all of them washes out each individual point's own
+    // noise and leaves a much slower, smoother drift, which is exactly
+    // what "Papi" rides on top of (see getFieldCenter below, read by
+    // title-dock.js's flowLetterFrame) to look like it's actually
+    // being carried by the liquid rather than sitting on top of it
+    // independently.
+    let sumX = 0, sumY = 0;
+    for(let i=0;i<points.length;i++){ sumX += points[i].x; sumY += points[i].y; }
+    latestFieldCenterX = sumX / points.length;
+    latestFieldCenterY = sumY / points.length;
   }
 
   // ===================================================================
@@ -673,6 +690,12 @@ import * as THREE from './vendor/three.module.min.js';
 
   window.Papi = window.Papi || {};
   window.Papi.resizeField = resize;
+  // the liquid mass's own slow centre-of-gravity drift (normalized
+  // 0..1, same space as each point's x/y) — read every frame by
+  // title-dock.js's flowLetterFrame to carry "Papi" along with the
+  // liquid itself, on top of that word's own separate per-letter
+  // ripple/cursor-push physics
+  window.Papi.getFieldCenter = () => ({ x: latestFieldCenterX, y: latestFieldCenterY });
   window.Papi.revealField = function(){
     if(revealed) return;
     revealed = true;
