@@ -145,6 +145,29 @@ import * as THREE from './vendor/three.module.min.js';
   const pointCount = primaryCount;
   const qualityScale = isMobile ? CONFIG.mobileQuality : 1;
 
+  // ---- wander centre — now that this canvas spans the WHOLE hero (both
+  // the copy column and the visual column, not just the latter — see the
+  // #heroSlime CSS comment in style.css), the mass's own "home" position
+  // can no longer just be a hardcoded (0.5, 0.5): that's the middle of
+  // the entire two-column row, nowhere near where "Papi" actually sits.
+  // Reading #heroFlowWord's own real position (in the SAME canvas-local
+  // normalized space everything else in this file already uses) means
+  // the intro bubble still opens exactly over the word, and the free
+  // wander afterward is still centred on it, regardless of how the
+  // two-column layout happens to be sized/stacked at any given viewport
+  // width — no hardcoded fraction to keep in sync with the CSS grid. ----
+  let centerX = 0.72, centerY = 0.5; // sane fallback if the word isn't found yet
+  const flowWordEl = document.getElementById('heroFlowWord');
+  function computeHomeCenter(){
+    if(!flowWordEl) return;
+    const cr = canvas.getBoundingClientRect();
+    const wr = flowWordEl.getBoundingClientRect();
+    if(!cr.width || !cr.height || !wr.width) return;
+    centerX = (wr.left + wr.width/2 - cr.left) / cr.width;
+    centerY = (wr.top + wr.height/2 - cr.top) / cr.height;
+  }
+  computeHomeCenter();
+
   // ===================================================================
   // shaders
   // ===================================================================
@@ -456,8 +479,8 @@ import * as THREE from './vendor/three.module.min.js';
   // bubble here."
   for(let i=0;i<pointCount;i++){
     points.push({
-      x: 0.5 + (Math.random()-0.5)*0.05,
-      y: 0.5 + (Math.random()-0.5)*0.05,
+      x: centerX + (Math.random()-0.5)*0.05,
+      y: centerY + (Math.random()-0.5)*0.05,
       vx: 0, vy: 0,
       seedX: Math.random()*1000,
       seedY: Math.random()*1000,
@@ -534,8 +557,8 @@ import * as THREE from './vendor/three.module.min.js';
       const p = points[i];
       const nx = noise2(p.seedX + elapsedMs*WANDER_SPEED, 0) * 2 - 1;
       const ny = noise2(p.seedY + elapsedMs*WANDER_SPEED, 100) * 2 - 1;
-      const targetX = 0.5 + nx*wanderRangeNow;
-      const targetY = 0.5 + ny*wanderRangeNow;
+      const targetX = centerX + nx*wanderRangeNow;
+      const targetY = centerY + ny*wanderRangeNow;
 
       let ax = (targetX - p.x) * CONFIG.elasticity;
       let ay = (targetY - p.y) * CONFIG.elasticity;
@@ -683,8 +706,15 @@ import * as THREE from './vendor/three.module.min.js';
     if(Math.abs(w - lastResizeW) <= 10) return;
     lastResizeW = w;
     clearTimeout(window.__papiSlimeResizeT);
-    window.__papiSlimeResizeT = setTimeout(resize, 150);
+    window.__papiSlimeResizeT = setTimeout(()=>{ resize(); computeHomeCenter(); }, 150);
   });
+  // same late-reflow safety net as computeFlowHomes in title-dock.js —
+  // a web font swap or an image loading further down the hero can nudge
+  // "Papi"'s own real position without ever firing 'resize'.
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(computeHomeCenter);
+  }
+  window.addEventListener('load', computeHomeCenter);
 
   let revealed = false;
   let lastTs = null;

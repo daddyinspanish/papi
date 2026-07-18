@@ -71,7 +71,7 @@ body{ overflow-x:hidden; }
    fixes that by intercepting the touchmove/wheel input itself — NOT
    via position:fixed on body, which would hijack the containing block
    of every OTHER position:fixed element on the page (.site-header,
-   .title-dock, an expanded fan card...) for the duration of the lock.
+   an expanded fan card...) for the duration of the lock.
    This class just hides the root's own scrollbar/rubber-band to match. */
 html.scroll-lock{ overflow:hidden; }
 
@@ -85,17 +85,16 @@ body, a{ cursor:none; }
 /* ===================================================================
    HERO / CANVAS FIELD
 =================================================================== */
-/* a normal, single-viewport section — no scroll-driven choreography
-   lives here anymore (an earlier version pinned this as a tall 400vh
-   section to give a cube-formation/corner-dock sequence room to play
-   out; that whole system, and the hero copy it used to reveal, has
-   been removed — see js/hero-slime.js's own header). The liquid mass
-   just wanders freely, forever, with "Papi" floating inside it. */
+/* a natural-height section — content-sized rather than pinned to one
+   viewport, since this now holds a full two-column intro (nav
+   clearance + headline/CTA/trusted-by on one side, the liquid on the
+   other) plus a process-steps row beneath it, not just the liquid mass
+   on its own. The liquid mass itself still just wanders freely,
+   forever, with "Papi" floating inside it — see js/hero-slime.js's own
+   header — now confined to .hero-visual-col instead of the whole
+   section (see below). */
 #hero{
   position:relative;
-  height:100vh;
-  height:100svh;
-  height:calc(100 * var(--stable-vh, 1vh));
   width:100%;
   background:#ffffff;
   visibility:hidden;
@@ -106,45 +105,307 @@ body, a{ cursor:none; }
   visibility:visible;
   opacity:1;
 }
-.hero-sticky{
-  height:100%;
+/* wraps just the two-column intro area (not the process-steps row
+   below it) — overflow:hidden here, scoped to this wrapper rather than
+   the whole (now taller) #hero, keeps the liquid canvas from ever
+   spilling past its own box without also clipping the process row
+   underneath it. Deliberately NOT min-height:100svh + a centering
+   flexbox — that forced the two-column content to sit vertically
+   centred inside a full-viewport-tall box regardless of how much
+   shorter the actual content was, which is exactly what read as a lot
+   of empty space above the headline (and, symmetrically, below the
+   trusted-by row) on typical desktop viewports. Padding alone — enough
+   at the top to clear the fixed nav, a smaller amount at the bottom —
+   sizes this to its own content instead. */
+.hero-top{
+  position:relative;
   overflow:hidden;
+  padding:clamp(6rem, 11vw, 7.5rem) 0 clamp(2rem, 4vw, 2.75rem);
 }
-
-/* container for the WebGL glass slime — js/hero-slime.js renders into
-   the <canvas> inside it. See that file's header for how the
-   simulation and shader work. position:absolute rather than fixed —
-   an earlier version needed fixed positioning so the canvas could
-   escape into a permanent corner-docked logo once scrolled past; with
-   that system removed, the canvas only ever needs to fill its own
-   #hero section. */
+/* the liquid canvas itself now lives directly here (see index.html),
+   sized to this ENTIRE two-column row rather than just the right-hand
+   visual column — the mass is free to roam the whole hero width, not
+   just its own corner of it. Sits behind .hero-inner's own content
+   (that's z-index:15) so headline/nav-clearance text always reads
+   cleanly over it regardless of where the liquid currently is. */
 #heroSlime{
   position:absolute;
   inset:0;
   width:100%;
   height:100%;
   display:block;
+  z-index:1;
   pointer-events:none;
   opacity:0;
   transition:opacity 1.4s ease;
 }
 #heroSlime.is-visible{ opacity:1; }
 
-/* ---- header / brand mark — fixed, always top right ---- */
+.hero-inner{
+  position:relative;
+  z-index:15;
+  width:100%;
+  max-width:1320px;
+  margin:0 auto;
+  padding:0 clamp(1.5rem, 4vw, 3rem);
+  display:grid;
+  grid-template-columns:1.05fr .95fr;
+  gap:clamp(2rem, 5vw, 4rem);
+  align-items:center;
+}
+
+/* ---- left column: headline, subtext, CTA, trusted-by ---- */
+/* min-width:0 overrides the grid item's default min-width:auto — the
+   looping logo marquee inside this column (.hero-trusted-track) is
+   deliberately much wider than its own visible box (width:max-content,
+   holding two back-to-back copies of the logo set — see the marquee
+   comment further down), and .hero-trusted-marquee's overflow:hidden
+   only clips the PAINT, not the grid's own sizing math: without this,
+   the grid track sizing still measured that oversized intrinsic
+   content width, expanded this column to fit it, and left the .95fr
+   visual column (and the whole liquid mass/"Papi" inside it) squeezed
+   down to zero width. */
+.hero-copy-col{ min-width:0; }
+.hero-headline{
+  font-family:'Fraunces', serif;
+  font-weight:500;
+  font-size:clamp(2.4rem, 5vw, 3.6rem);
+  line-height:1.08;
+  color:rgb(var(--style-contrast));
+  max-width:15ch;
+}
+/* each word rises/fades in on its own staggered beat rather than the
+   whole headline appearing in one flat block — gated by #hero.is-visible
+   (see js/init.js's start()) so it plays once, right as the hero itself
+   fades in, instead of on a separate independently-guessed timer. Plain
+   opacity+transform (no backdrop-filter, no JS-driven per-frame work) —
+   compositor-only. */
+.hero-headline-word{
+  display:inline-block;
+  opacity:0;
+  transform:translateY(28px);
+}
+#hero.is-visible .hero-headline-word{
+  animation:heroWordRise .85s var(--ease-out) forwards;
+}
+#hero.is-visible .hero-headline-word:nth-child(1){ animation-delay:.05s; }
+#hero.is-visible .hero-headline-word:nth-child(2){ animation-delay:.15s; }
+#hero.is-visible .hero-headline-word:nth-child(3){ animation-delay:.24s; }
+#hero.is-visible .hero-headline-word:nth-child(4){ animation-delay:.32s; }
+#hero.is-visible .hero-headline-word:nth-child(5){ animation-delay:.42s; }
+@keyframes heroWordRise{
+  from{ opacity:0; transform:translateY(28px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-headline-word{ opacity:1; transform:none; animation:none; }
+}
+.hero-headline em{
+  font-style:italic;
+  /* same metallic shine-sweep technique as .quote-form-title — a
+     continuous, subtle gold sweep rather than a flat static tint, since
+     this is the one emphasized word in the headline */
+  background:linear-gradient(100deg, #8a6a1f 0%, #d4af37 25%, #fff6d8 50%, #d4af37 75%, #8a6a1f 100%);
+  background-size:250% 100%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  animation:quoteFormTitleShine 6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-headline em{ animation:none; background-position:50% 50%; }
+}
+.hero-sub{
+  margin-top:1.3rem;
+  max-width:38ch;
+  font-size:1.02rem;
+  line-height:1.6;
+  color:var(--paper-dim);
+}
+
+.hero-cta{
+  display:inline-flex;
+  align-items:center;
+  gap:.6rem;
+  margin-top:1.9rem;
+  padding:.95rem 1.6rem;
+  border-radius:999px;
+  background:var(--ink);
+  color:var(--cream);
+  font-size:.92rem;
+  font-weight:600;
+  letter-spacing:.01em;
+  text-decoration:none;
+  transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
+  box-shadow:0 16px 34px -18px rgba(11,11,12,.55);
+}
+.hero-cta:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -18px rgba(11,11,12,.65); }
+.hero-cta:active{ transform:translateY(0) scale(.98); }
+.hero-cta-plus{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:1.1em;
+  height:1.1em;
+  border-radius:50%;
+  background:rgba(243,237,226,.16);
+  font-size:.9em;
+  line-height:1;
+}
+/* smaller variant used inside the persistent nav header — same look,
+   scaled down, no top margin (the header lays it out via flex, not
+   the copy column's own vertical rhythm) */
+.hero-cta--nav{
+  margin-top:0;
+  padding:.55rem 1.05rem;
+  font-size:.78rem;
+}
+
+.hero-trusted{ margin-top:2.25rem; }
+.hero-trusted-label{
+  font-size:.72rem;
+  letter-spacing:.3em;
+  text-transform:uppercase;
+  font-weight:600;
+  color:var(--paper-dim);
+  margin-bottom:1.1rem;
+}
+/* looping logo marquee — .hero-trusted-marquee clips a track that's
+   exactly twice the logo set's own width (the HTML repeats the same
+   set of logo chips twice, back to back); animating the track from
+   translateX(0) to translateX(-50%) — exactly one set's width, since
+   both halves are identical — makes the loop seamless, with no visible
+   reset/jump. A soft mask fades the logos out at each edge instead of
+   an abrupt clip. Deliberately plain CSS transform + animation (no
+   backdrop-filter, no JS-driven per-frame work) — compositor-only,
+   costs nothing on the main thread. */
+.hero-trusted-marquee{
+  overflow:hidden;
+  mask-image:linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  -webkit-mask-image:linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+.hero-trusted-track{
+  display:flex;
+  align-items:center;
+  width:max-content;
+  gap:2.75rem;
+  animation:heroTrustedScroll 22s linear infinite;
+}
+@media (prefers-reduced-motion:reduce){
+  .hero-trusted-track{ animation:none; }
+}
+@keyframes heroTrustedScroll{
+  from{ transform:translateX(0); }
+  to{ transform:translateX(-50%); }
+}
+.hero-logo-chip{
+  display:flex;
+  align-items:center;
+  gap:.6rem;
+  flex:none;
+  white-space:nowrap;
+  font-family:'Fraunces', serif;
+  font-weight:500;
+  font-size:1rem;
+  letter-spacing:.02em;
+  /* darkened from a near-invisible .42 — the whole point of this row is
+     to be noticed, not to blend into the white hero background */
+  color:rgba(23,24,26,.74);
+}
+/* each icon sits inside its own small gold-tinted badge (same material
+   language as .hero-process-icon below) rather than a bare low-opacity
+   glyph — real color, not just a faint outline, is what actually reads
+   as "trusted brand mark" against a plain white background. */
+.hero-logo-chip svg{
+  width:24px;
+  height:24px;
+  padding:5px;
+  box-sizing:border-box;
+  border-radius:50%;
+  background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.95), rgba(203,168,105,.24) 78%);
+  box-shadow:inset 0 0 0 1px rgba(203,168,105,.45);
+  flex:none;
+  color:var(--gold-deep);
+  opacity:1;
+}
+
+/* ---- right column: the liquid mass + "Papi" + decorative droplets ---- */
+.hero-visual-col{
+  position:relative;
+  height:clamp(360px, 42vw, 560px);
+}
+
+/* small floating glass "droplets" scattered around the main mass —
+   purely decorative, plain CSS (radial-gradient fill + box-shadow for
+   the glassy highlight/rim), deliberately NOT backdrop-filter (see the
+   .site-header comment above for why that's avoided sitewide) — a slow
+   CSS keyframe float is compositor-only and costs nothing extra. */
+.hero-droplet{
+  position:absolute;
+  border-radius:50%;
+  background:radial-gradient(circle at 32% 26%, rgba(255,255,255,.95), rgba(255,255,255,.4) 38%, rgba(203,168,105,.16) 72%, rgba(203,168,105,.04) 100%);
+  box-shadow:0 10px 22px -10px rgba(120,90,40,.35), inset 0 0 0 1px rgba(255,255,255,.5);
+  animation:heroDropletFloat 7s ease-in-out infinite;
+}
+.hero-droplet--1{ width:36px; height:36px; top:6%; right:8%; animation-delay:0s; }
+.hero-droplet--2{ width:20px; height:20px; top:20%; right:24%; animation-delay:1.3s; }
+.hero-droplet--3{ width:50px; height:50px; bottom:12%; left:2%; animation-delay:.6s; }
+.hero-droplet--4{ width:16px; height:16px; bottom:28%; left:15%; animation-delay:2.1s; }
+@keyframes heroDropletFloat{
+  0%, 100%{ transform:translateY(0); }
+  50%{ transform:translateY(-10px); }
+}
+
+.hero-visual-caption{
+  position:absolute;
+  right:-.5rem;
+  bottom:8%;
+  writing-mode:vertical-rl;
+  font-size:.68rem;
+  letter-spacing:.24em;
+  text-transform:uppercase;
+  color:rgba(23,24,26,.38);
+  line-height:1.7;
+  pointer-events:none;
+}
+
+@media (max-width:860px){
+  .hero-inner{ grid-template-columns:1fr; }
+  .hero-visual-col{ height:min(88vw, 420px); margin-top:1rem; }
+  .hero-visual-caption{ display:none; }
+}
+
+/* ---- header / persistent nav — fixed, full-width, always visible
+   (previously just a small top-right brand mark, hidden for the whole
+   hero and only shown once scrolled past — replaced by a real nav bar
+   with real links now that the hero has real destinations to point
+   to). Transparent while still over the hero (matching the reference
+   this redesign is built around, and reusing the existing on-light-
+   section flip below for legibility over that white background) —
+   once scrolled past the hero (see .is-solid, toggled by
+   js/title-dock.js's update()) it gets a plain solid background
+   instead, deliberately NOT backdrop-filter (a real, documented perf
+   regression on this site — see the fan-card/testimonial/hero-CTA
+   history) — a solid background is what lets it sit cleanly on top of
+   .contrast-sticky/.showcase-sticky once those sections pin to the
+   viewport's own top edge further down the page, rather than
+   colliding with their own pinned content. */
 .site-header{
   position:fixed;
   top:0; left:0; right:0;
   z-index:200;
   display:flex;
-  justify-content:flex-end;
-  padding:clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 4vw, 3rem) 0;
-  pointer-events:none;
-  transition:opacity .5s var(--ease-out);
+  align-items:center;
+  justify-content:space-between;
+  gap:clamp(1rem, 3vw, 2rem);
+  padding:clamp(1.1rem, 3vw, 1.5rem) clamp(1.5rem, 4vw, 3rem);
+  background:transparent;
+  transition:background .4s var(--ease-out), box-shadow .4s var(--ease-out);
 }
-/* ducked on narrow screens for the stretch of the contrast section —
-   see js/title-dock.js — where the brand mark would otherwise sit
-   directly on top of the mock's own nav/CTA at this width */
-.site-header.is-hidden{ opacity:0; }
+.site-header.is-solid{
+  background:rgba(11,11,12,.94);
+  box-shadow:0 12px 30px -22px rgba(0,0,0,.7);
+}
 
 .brand-mark{
   font-family:'Fraunces', serif;
@@ -154,65 +415,40 @@ body, a{ cursor:none; }
   display:flex;
   color:var(--gold-soft);
   text-shadow:0 2px 20px rgba(0,0,0,.5);
+  text-decoration:none;
   transition:color .8s var(--ease-out), text-shadow .5s var(--ease-out);
 }
-/* dark-on-light while over the hero's own white background — every
-   other section has a fixed dark background, where the static gold
-   above already reads fine on its own. */
-body.on-light-section .brand-mark{ color:rgb(var(--style-contrast)); }
+/* dark-on-light while over the hero's own white background AND the
+   header is still transparent — scoped to :not(.is-solid) because
+   the header also passes back through a light section (the contrast
+   section) later in the scroll, by which point it already has its own
+   solid dark background and needs to keep its light, constant text
+   color rather than flipping to dark-on-dark and disappearing */
+body.on-light-section .site-header:not(.is-solid) .brand-mark{ color:rgb(var(--style-contrast)); }
 .brand-mark span{ display:inline-block; opacity:0; transition:opacity .9s var(--ease-out); }
 
-/* small title label that crossfades in below the brand mark once the
-   visitor scrolls past the hero — stays put through the showcase */
-.title-dock{
-  position:fixed;
-  top:clamp(3.6rem, 8vw, 5.1rem);
-  right:clamp(1.5rem, 4vw, 3rem);
-  z-index:190;
-  font-family:'Fraunces', serif;
-  font-size:.95rem;
-  font-weight:400;
-  color:var(--cream);
-  text-shadow:0 2px 14px rgba(0,0,0,.6);
-  opacity:0;
-  transform:translateY(-10px);
-  transition:opacity .6s var(--ease-out), transform .6s var(--ease-out), color .5s var(--ease-out), text-shadow .5s var(--ease-out);
-  pointer-events:none;
-  text-align:right;
+.site-nav{
+  display:flex;
+  align-items:center;
+  gap:clamp(1.3rem, 3vw, 2.2rem);
 }
-
-/* static gold, not the live hero-sweep contrast color — this label
-   only ever shows up after leaving the hero (it fades in well past
-   the point the visitor has scrolled away from the canvas), sitting
-   over each section's own fixed dark background from then on, so it
-   needs a reliably-visible color rather than one that can cycle to
-   near-black */
-.title-dock em{
-  font-style:italic;
-  color:#ffdd7a;
-}
-.title-dock.is-visible{ opacity:1; transform:translateY(0); }
-
-.title-dock-word{
-  margin-top:.35rem;
-  font-size:.72rem;
+.site-nav a{
+  font-family:'Inter', sans-serif;
+  font-size:.82rem;
   font-weight:500;
-  letter-spacing:.3em;
+  letter-spacing:.06em;
   text-transform:uppercase;
-  color:#ffdd7a;
-  opacity:0;
-  transform:translateY(-6px);
-  transition:opacity .7s var(--ease-out), transform .7s var(--ease-out);
+  color:var(--cream);
+  opacity:.8;
+  text-decoration:none;
+  transition:opacity .25s var(--ease-out), color .5s var(--ease-out);
 }
-.title-dock-word.is-visible{ opacity:1; transform:translateY(0); }
+.site-nav a:hover{ opacity:1; }
+body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--style-contrast)); }
 
-/* dark-on-light for the brief window where the docked label has
-   already faded in but the visitor hasn't fully scrolled past the
-   hero's white background yet (see body.on-light-section, above) —
-   the fixed gold/cream colors above assume a dark backdrop */
-body.on-light-section .title-dock{ color:rgb(var(--style-contrast)); text-shadow:none; }
-body.on-light-section .title-dock em{ color:var(--gold-deep); }
-body.on-light-section .title-dock-word{ color:var(--gold-deep); }
+@media (max-width:640px){
+  .site-nav{ display:none; }
+}
 
 /* closing brand signature — bottom-center, fades in only once the
    quote section is reached, as a closing echo of the top-right brand
@@ -247,25 +483,12 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   color:#ffdd7a;
 }
 
-/* ---- hero content: the floating "Papi" word fills the centre, a
-   small row of social icons sits near the bottom ---- */
-.hero-content{
-  position:relative;
-  z-index:15;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-end;
-  min-height:100vh;
-  min-height:100svh;
-  min-height:calc(100 * var(--stable-vh, 1vh));
-  padding: 6vw 1.5rem 4rem;
-}
-
-/* absolutely positioned over the whole hero-content area (rather than
-   sharing normal flow with .hero-social below) so it can sit centred
-   regardless of where the social row ends up, and never affects that
-   row's own layout. */
+/* the floating "Papi" word — absolutely positioned over the whole
+   .hero-visual-col (same box the liquid canvas fills, and deliberately
+   its immediate sibling rather than nested any deeper — js/title-
+   dock.js's per-letter liquid-follow tracking assumes both share that
+   exact coordinate space) so it sits centred regardless of where
+   .hero-social ends up, never affecting that row's own layout. */
 .hero-flow-word{
   position:absolute;
   inset:0;
@@ -309,21 +532,22 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   text-shadow:0 0 46px rgba(203,168,105,.4), 0 0 90px rgba(203,168,105,.2);
 }
 
-/* the row of clickable social icons below the Google review badge —
-   deliberately small and monochrome (currentColor, not the brands' own
-   loud colors) so it reads as a minimal, on-brand detail rather than a
-   row of logos competing with the rest of the hero. A plain one-time
-   fade/rise-in (see js/title-dock.js's revealSocial), no scroll-tied
-   fade — it just stays put. The one-time liquid-drop entrance (see
-   .hero-social-link svg/::before below) is a separate, purely
-   cosmetic layer on top of that and doesn't touch this opacity at
-   all, so the two never fight each other. */
+/* the row of clickable social icons, tucked at the bottom of
+   .hero-visual-col — deliberately small and monochrome (currentColor,
+   not the brands' own loud colors) so it reads as a minimal, on-brand
+   detail rather than a row of logos competing with the rest of the
+   hero. A plain one-time fade/rise-in (see js/title-dock.js's
+   revealSocial), no scroll-tied fade — it just stays put. The one-time
+   liquid-drop entrance (see .hero-social-link svg/::before below) is a
+   separate, purely cosmetic layer on top of that and doesn't touch
+   this opacity at all, so the two never fight each other. */
 .hero-social{
+  position:absolute;
+  left:0; right:0; bottom:2%;
   display:flex;
   align-items:center;
   justify-content:center;
   gap:1.1rem;
-  margin-top:1.5rem;
   opacity:0;
   will-change:opacity;
 }
@@ -383,6 +607,101 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   55%{ transform:scale(1.3) rotate(6deg); opacity:1; }
   75%{ transform:scale(.9) rotate(-3deg); opacity:1; }
   100%{ transform:scale(1) rotate(0deg); opacity:1; }
+}
+
+/* ---- process steps — a plain 4-column row beneath the two-column
+   intro, still inside <main id="hero"> (matching this page's existing
+   convention of not needing a dedicated <section> per "chapter" of
+   the hero — see the contrast/showcase sections for the more usual
+   pattern). #heroProcess is the "Process" nav link's actual scroll
+   target — anchoring to #hero itself would only scroll to the very
+   top of the two-column area. ---- */
+.hero-process{
+  position:relative;
+  z-index:15;
+  max-width:1320px;
+  margin:0 auto;
+  padding:clamp(1rem, 3vw, 2rem) clamp(1.5rem, 4vw, 3rem) clamp(4rem, 8vw, 6rem);
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:clamp(1.25rem, 3vw, 2rem);
+}
+/* no card/border/background of its own anymore — each step is just a
+   plain column (number, the liquid bubble holding the title, then the
+   description), all sitting directly on the hero's own white
+   background rather than inside a bordered box. */
+.hero-process-step{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  padding:0 .5rem;
+}
+.hero-process-num{
+  display:block;
+  font-size:.72rem;
+  letter-spacing:.28em;
+  font-weight:600;
+  color:rgba(23,24,26,.4);
+  margin-bottom:.6rem;
+}
+/* the primary visual now — a bigger, roomier metaball glass mass (see
+   js/process-liquid.js) with the step's own title sitting inside it,
+   the same "word floating inside the liquid" idea as the hero's own
+   Papi, just static (no per-letter physics) since these are short,
+   fixed titles rather than a word that needs to survive the mass
+   splitting apart. Sized generously wider than any of the four titles
+   so the glass reads as comfortably containing the word, not just
+   fitting it. */
+.hero-process-bubble{
+  position:relative;
+  overflow:hidden;
+  width:100%;
+  max-width:230px;
+  height:104px;
+  margin-bottom:1.1rem;
+}
+.hero-process-liquid{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  display:block;
+  pointer-events:none;
+}
+.hero-process-bubble h3{
+  position:relative;
+  z-index:1;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Fraunces', serif;
+  font-weight:500;
+  font-size:1.3rem;
+  color:rgb(var(--style-contrast));
+}
+.hero-process-step p{
+  font-size:.92rem;
+  line-height:1.55;
+  color:var(--paper-dim);
+  max-width:26ch;
+}
+@media (max-width:860px){
+  .hero-process{ grid-template-columns:repeat(2, 1fr); }
+}
+@media (max-width:560px){
+  .hero-process{ grid-template-columns:1fr; gap:1.25rem; }
+}
+
+/* nav anchor targets — enough top clearance that the fixed header
+   (see .site-header above) never overlaps whatever a Work/Process/
+   Pricing link scrolls to. */
+#showcase, #heroProcess, #quoteSection{
+  scroll-margin-top:clamp(4.5rem, 10vw, 6rem);
+}
+@media (prefers-reduced-motion:no-preference){
+  html{ scroll-behavior:smooth; }
 }
 
 /* ===================================================================
@@ -1710,10 +2029,10 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
    logic needed, since (unlike the hero canvas) it only ever wants one
    stacking position: above content, below chrome.
    z-index:60 — checked against every z-index in this file: ordinary
-   section content sits at 0-3, .title-dock is 190, .site-header is
-   200, the expanded fan card is 500, the newsletter popup is 900,
-   .custom-cursor is 2000. 60 clears all normal content and stays
-   under every piece of real UI chrome/overlay. =================== */
+   section content sits at 0-3, .site-header is 200, the expanded fan
+   card is 500, the newsletter popup is 900, .custom-cursor is 2000.
+   60 clears all normal content and stays under every piece of real UI
+   chrome/overlay. =================== */
 #cursorRippleLayer{
   position:fixed;
   inset:0;

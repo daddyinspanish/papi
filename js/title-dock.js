@@ -1,16 +1,19 @@
 /* ===================================================================
-   Papi — scroll-driven title docking
+   Papi — hero "Papi" liquid-follow + persistent-nav scroll state
    Two separate jobs live in this one file: the hero's own "Papi" word
    (fading in as hero-slime.js's own intro liquid-bubble opens up
    around it, then a perpetual idle ripple + cursor-push + liquid-
    follow loop, never fading out again — see flowLetterFrame) and the
    social icon row's one-time entrance, plus — entirely independent of
-   the hero — the small docked label that crossfades in below the
-   brand mark once the visitor scrolls past it, showing which later
-   section ("Difference"/"Industries"/"Results"/"Live"/"Proof") the
-   viewport is currently over. That label (and the brand mark) flips to
-   a dark-on-light look while a white section is behind it, then back
-   to light-on-dark once past it into the next dark section.
+   the hero — driving the persistent nav's (#siteHeader) own scroll-
+   dependent state: a dark-on-light text flip while it's still
+   transparent and over one of the site's two light zones (the hero,
+   and the contrast section further down), and a solid background once
+   it's been scrolled past the hero (see .is-solid in style.css) so it
+   sits cleanly on top of later sections' own pinned content instead of
+   needing to duck out of the way of it. An earlier version of this
+   file drove a small crossfading corner label here instead of a real
+   nav — retired once the hero gained one with actual destinations.
 
    The liquid-follow part specifically (updateFieldFollow) tracks each
    letter of "Papi" independently against hero-slime.js's own control
@@ -28,30 +31,8 @@
 (function(){
   const heroFlowWord = document.getElementById('heroFlowWord');
   const social   = document.getElementById('heroSocial');
-  const titleDock= document.getElementById('titleDock');
   const siteHeader = document.getElementById('siteHeader');
-  if(!titleDock) return;
-
-  const SCROLL_RANGE_RATIO = 0.95; // fraction of viewport height for the docked-label reveal distance
-  const DOCK_THRESHOLD = 0.62; // when the corner label appears
-
-  // cached, not read live from window.innerHeight on every scroll
-  // update — on iOS Safari, innerHeight grows as the address bar
-  // collapses partway through the very scroll gesture that triggers
-  // this transition, which made everything paced off "dist" below
-  // feel like it lagged or jumped partway through
-  let viewportH = window.innerHeight;
-  function measureViewport(){ viewportH = window.innerHeight; }
-  let lastResizeW = window.innerWidth;
-  window.addEventListener('resize', ()=>{
-    const w = window.innerWidth;
-    // >10px tolerance, not exact equality — see the --stable-vh
-    // comment in index.html's <head>
-    if(Math.abs(w - lastResizeW) <= 10) return;
-    lastResizeW = w;
-    clearTimeout(window.__papiDockResizeT);
-    window.__papiDockResizeT = setTimeout(measureViewport, 150);
-  });
+  const heroSlimeCanvas = document.getElementById('heroSlime');
 
   // ---- social icon row: fades/rises in right away, once, and just
   // stays there — no scroll-tied fade. The liquid-drop pop-in itself
@@ -124,7 +105,46 @@
   // shared point together, but each letter's OWN halfExtent is what
   // lets it size (or peel off to) real liquid independently if the
   // group can't currently fit it.
+  // the canvas's own current position relative to the viewport — see
+  // the comment on updateFieldFollow below for why this exists: it
+  // used to be safe to assume window.Papi.getPoints()' canvas-local
+  // coordinates WERE page coordinates, because #heroSlime used to fill
+  // the entire hero starting at the very top of the page. Now that the
+  // canvas is confined to .hero-visual-col (the right-hand column, no
+  // longer starting at viewport (0,0)), that assumption breaks unless
+  // this offset is folded in. Measured in the SAME call as the letters'
+  // own getBoundingClientRect() below (computeFlowHomes), not on some
+  // independent timer — both need to reflect the exact same scroll
+  // position for the arithmetic to stay consistent (getBoundingClientRect
+  // is always viewport-relative, i.e. it shifts as the page scrolls;
+  // as long as both this offset and every st.homeX/Y are captured
+  // together, the DIFFERENCE between them stays correct regardless of
+  // how much scrolling happens afterward, since neither side is ever
+  // live-updated mid-scroll — see updateFieldFollow for how they're
+  // recombined).
+  let canvasOffsetX = 0, canvasOffsetY = 0;
+  // measures each letter's own natural (undisturbed) position AND its
+  // own bounding-circle half-extent (half its box's diagonal — the
+  // radius a circle centred on this one letter would need to fully
+  // contain it, regardless of how the per-letter ripple physics skews
+  // it), plus each letter's offset from the word's own shared centre —
+  // see updateFieldFollow below for how these get used: letters try to
+  // keep their natural relative spacing (homeOffX/Y) while riding a
+  // shared point together, but each letter's OWN halfExtent is what
+  // lets it size (or peel off to) real liquid independently if the
+  // group can't currently fit it.
+  // the word's own fixed home centre (average of every letter's own
+  // natural, undisturbed position) — "Papi" is now pinned here at all
+  // times (see updateFieldFollow below); it no longer travels around
+  // chasing whichever liquid point is nearest, now that the liquid
+  // roams the WHOLE hero rather than staying confined near the word.
+  let homeCenterX = 0, homeCenterY = 0;
   function computeFlowHomes(){
+    if(heroSlimeCanvas){
+      const cr = heroSlimeCanvas.getBoundingClientRect();
+      canvasOffsetX = cr.left;
+      canvasOffsetY = cr.top;
+    }
     let sumX = 0, sumY = 0;
     flowLetterState.forEach(st=>{
       const r = st.el.getBoundingClientRect();
@@ -134,10 +154,11 @@
       sumX += st.homeX; sumY += st.homeY;
     });
     if(flowLetterState.length){
-      const centerX = sumX / flowLetterState.length, centerY = sumY / flowLetterState.length;
+      homeCenterX = sumX / flowLetterState.length;
+      homeCenterY = sumY / flowLetterState.length;
       flowLetterState.forEach(st=>{
-        st.homeOffX = st.homeX - centerX;
-        st.homeOffY = st.homeY - centerY;
+        st.homeOffX = st.homeX - homeCenterX;
+        st.homeOffY = st.homeY - homeCenterY;
       });
     }
   }
@@ -179,6 +200,16 @@
   const EDGE_PUSH_BUFFER = 6;     // extra px beyond a letter's own half-extent for the real-time inward-push
                                    // check below (getInwardPush) — a little slack so the correction kicks in
                                    // just before a letter would actually reach the true edge, not right at it
+  // how far outside the liquid's own real edge "Papi" is pinned to still
+  // count as "the liquid came back" — measured in canvas-height units so
+  // it scales with screen size, same convention as driftPx below
+  const HOME_CAPTURE_RANGE = 0.30;
+  // 0 = the liquid is nowhere near Papi's pinned spot (word just sits at
+  // home, rippling/reacting to the cursor as always); 1 = the liquid's
+  // real edge already reaches home (word rides it exactly like before
+  // this pin behaviour existed) — read by flowLetterFrame below to also
+  // fade the edge-repulsion push in/out, not just position tracking.
+  let latestCaptureT = 0;
   // recomputes every letter's field-follow target this frame and sends
   // updated size requests to hero-slime.js — see the file-level comment
   // above for the overall approach. `snap`, true only on the very first
@@ -186,6 +217,35 @@
   // offset directly to its target instead of easing into it (matching
   // this file's existing convention of a hard snap at handoff, not a
   // visible slide-in from nothing).
+  //
+  // "Papi" is now pinned at its own fixed home spot (homeCenterX/Y) at
+  // all times — it no longer travels around the hero chasing whichever
+  // liquid point is nearest, now that the liquid roams the WHOLE hero
+  // rather than staying confined to the word's own corner of it (see
+  // hero-slime.js's own #heroSlime CSS comment). Instead: find whichever
+  // real point is nearest home, and only pull the word toward riding it
+  // — using the same shared-anchor/peel-off mechanics as before — once
+  // that point's actual edge has drifted close enough to genuinely be
+  // "back" at Papi's spot. captureT (0..1) eases that pull in and out
+  // smoothly rather than snapping, so the handoff reads as the liquid
+  // reaching Papi, not a sudden jump.
+  // persisted (not re-derived from scratch every frame) so the "which
+  // real point is nearest" search below can require a genuine, clearly
+  // better candidate before switching — without this, two points sitting
+  // at similar distances flip back and forth as sub-pixel noise nudges
+  // them, and every flip snapped the target (and the drift-clamped
+  // displayed position right along with it, well outside what
+  // FIELD_FOLLOW_LERP's slow easing implies) to a completely different
+  // real point instantly. That flicker between two almost-equally-near
+  // points, not any one single large jump, is what actually read as
+  // "Papi glitching in place."
+  let primaryIdx = 0;
+  // only switch to a new nearest point once it's at least this much
+  // closer than the one currently held — a plain "always take the
+  // strictly closest" comparison switches on every frame two points
+  // happen to cross paths, which given the wander noise driving them is
+  // constant.
+  const ANCHOR_SWITCH_MARGIN = 0.82;
   function updateFieldFollow(snap){
     if(!(window.Papi && window.Papi.getPoints && window.Papi.getCanvasSize)) return;
     const pts = window.Papi.getPoints();
@@ -193,7 +253,11 @@
     const cw = size.width, ch = size.height;
     if(!cw || !ch || !pts.length) return;
 
-    const ptsPx = pts.map(p => ({ x: p.x*cw, y: p.y*ch, radius: p.radius*ch }));
+    // + canvasOffsetX/Y — converts each point's canvas-LOCAL position
+    // into the same frozen-viewport frame st.homeX/Y are captured in
+    // (see the comment on canvasOffsetX above); radius needs no offset,
+    // only position does.
+    const ptsPx = pts.map(p => ({ x: p.x*cw + canvasOffsetX, y: p.y*ch + canvasOffsetY, radius: p.radius*ch }));
     // small fixed wobble/lag budget, scaled to the canvas rather than a
     // flat pixel count so it reads proportionally the same across
     // screen sizes — independent of any letter's own fit requirement,
@@ -201,20 +265,28 @@
     // actually reserved (see the sizeRequests math below)
     const driftPx = ch * 0.02;
 
-    // the word's own shared "preferred" point — sticky nearest-to-its-
-    // own-last-position (same hysteresis principle as each letter's own
-    // fallback anchor below), so letters try to ride this one point
-    // together, at their natural relative spacing, before any of them
-    // considers peeling off.
-    let bestIdx = 0, bestDist = Infinity;
+    // whichever real point is nearest Papi's fixed home spot right now —
+    // sticky (see ANCHOR_SWITCH_MARGIN above): only reassigned when a
+    // candidate is clearly better than whichever index is already held,
+    // not just technically closer by a hair.
+    if(primaryIdx >= ptsPx.length) primaryIdx = 0;
+    let curDist = Math.hypot(ptsPx[primaryIdx].x-homeCenterX, ptsPx[primaryIdx].y-homeCenterY);
     for(let j=0;j<ptsPx.length;j++){
-      const dx = ptsPx[j].x-primaryAnchorPageX, dy = ptsPx[j].y-primaryAnchorPageY;
-      const d = dx*dx + dy*dy;
-      if(d < bestDist){ bestDist = d; bestIdx = j; }
+      if(j === primaryIdx) continue;
+      const d = Math.hypot(ptsPx[j].x-homeCenterX, ptsPx[j].y-homeCenterY);
+      if(d < curDist * ANCHOR_SWITCH_MARGIN){ primaryIdx = j; curDist = d; }
     }
-    primaryAnchorPageX = ptsPx[bestIdx].x;
-    primaryAnchorPageY = ptsPx[bestIdx].y;
-    const primaryIdx = bestIdx;
+    const nearest = ptsPx[primaryIdx];
+    const distToHome = curDist;
+    // <=0 once the liquid's own real edge already reaches home; ramps
+    // out to HOME_CAPTURE_RANGE*ch further beyond that
+    const gap = distToHome - nearest.radius;
+    const captureRangePx = ch * HOME_CAPTURE_RANGE;
+    const captureT = 1 - smoothstep(0, captureRangePx, gap);
+    latestCaptureT = captureT;
+
+    primaryAnchorPageX = nearest.x;
+    primaryAnchorPageY = nearest.y;
 
     const sizeRequests = new Array(ptsPx.length).fill(0);
 
@@ -224,32 +296,60 @@
       const neededR = st.halfExtent*LETTER_FIT_SAFETY + driftPx;
       const distToPrimary = Math.sqrt((idealX-primaryAnchorPageX)**2 + (idealY-primaryAnchorPageY)**2);
 
-      // always ask the shared point to grow enough to cover me at my
-      // natural word-relative spot, even on a frame it doesn't yet —
-      // that's what lets the whole group re-merge once it catches up,
-      // rather than a letter that's peeled off staying detached forever
-      sizeRequests[primaryIdx] = Math.max(sizeRequests[primaryIdx], (distToPrimary+neededR)/ch);
-
-      let targetX, targetY;
-      if(distToPrimary + neededR <= ptsPx[primaryIdx].radius){
-        // the shared point already (for real, using its current
-        // rendered radius, not a hoped-for one) covers me here
-        targetX = idealX; targetY = idealY;
-      } else {
-        // not currently covered riding the group — peel off and ride
-        // whichever real point is nearest to where I was last riding,
-        // guaranteeing I'm always somewhere the liquid actually is
-        // right now, never floating in empty space between blobs
-        let bi = 0, bd = Infinity;
-        for(let j=0;j<ptsPx.length;j++){
-          const dx = ptsPx[j].x-st.anchorPageX, dy = ptsPx[j].y-st.anchorPageY;
-          const d = dx*dx + dy*dy;
-          if(d < bd){ bd = d; bi = j; }
+      let rideX = st.homeX, rideY = st.homeY;
+      if(captureT > 0.01){
+        // only ask the nearby point to grow enough to cover me at my
+        // natural word-relative spot while it's actually in play
+        // (captureT > 0) — asking a point that's still far from home to
+        // balloon out just to reach it would visibly drag the liquid
+        // toward Papi rather than the other way around.
+        sizeRequests[primaryIdx] = Math.max(sizeRequests[primaryIdx], (distToPrimary+neededR)/ch * captureT);
+        if(distToPrimary + neededR <= ptsPx[primaryIdx].radius){
+          // the shared point already (for real, using its current
+          // rendered radius, not a hoped-for one) covers me here
+          rideX = idealX; rideY = idealY;
+        } else {
+          // not currently covered riding the group — peel off and ride
+          // whichever real point is nearest to where I was last riding,
+          // guaranteeing I'm always somewhere the liquid actually is
+          // right now, never floating in empty space between blobs.
+          // Same sticky margin as the shared anchor above and for the
+          // same reason — this per-letter fallback used to be re-picked
+          // from scratch every frame too, which could flip a peeled-off
+          // letter between two real points independently of (and just
+          // as visibly as) the shared-anchor flicker.
+          if(st.rideIdx === undefined || st.rideIdx >= ptsPx.length) st.rideIdx = primaryIdx;
+          let bd = Math.hypot(ptsPx[st.rideIdx].x-st.anchorPageX, ptsPx[st.rideIdx].y-st.anchorPageY);
+          for(let j=0;j<ptsPx.length;j++){
+            if(j === st.rideIdx) continue;
+            const d = Math.hypot(ptsPx[j].x-st.anchorPageX, ptsPx[j].y-st.anchorPageY);
+            if(d < bd * ANCHOR_SWITCH_MARGIN){ st.rideIdx = j; bd = d; }
+          }
+          // a fraction of this letter's own natural spacing, not the
+          // point's raw centre — without this, any two letters that
+          // both happen to peel off onto the SAME point landed at the
+          // exact same position and rendered fully overlapping (glyphs
+          // stacked on top of each other), which read as a glitch/pop
+          // the instant it happened. A partial offset (not the full
+          // homeOffX/Y — that's what didn't fit here in the first
+          // place) keeps them visibly separate while still hugging the
+          // point they're actually riding.
+          const peelOffX = st.homeOffX*0.4, peelOffY = st.homeOffY*0.4;
+          rideX = ptsPx[st.rideIdx].x + peelOffX;
+          rideY = ptsPx[st.rideIdx].y + peelOffY;
+          const peelNeededR = Math.hypot(peelOffX, peelOffY) + neededR;
+          sizeRequests[st.rideIdx] = Math.max(sizeRequests[st.rideIdx], peelNeededR/ch * captureT);
         }
-        targetX = ptsPx[bi].x; targetY = ptsPx[bi].y;
-        sizeRequests[bi] = Math.max(sizeRequests[bi], neededR/ch);
       }
-      st.anchorPageX = targetX; st.anchorPageY = targetY;
+      st.anchorPageX = rideX; st.anchorPageY = rideY;
+
+      // blends between "stay put at home" (captureT 0) and "ride the
+      // liquid" (captureT 1) — this is the actual pin behaviour: far
+      // from home the target collapses to st.homeX/Y exactly (offset 0),
+      // and only eases toward the real ride position as the liquid's
+      // own edge genuinely approaches.
+      const targetX = st.homeX + (rideX - st.homeX) * captureT;
+      const targetY = st.homeY + (rideY - st.homeY) * captureT;
 
       const targetOffX = targetX - st.homeX, targetOffY = targetY - st.homeY;
       if(snap){
@@ -308,6 +408,22 @@
     clearTimeout(window.__papiFlowResizeT);
     window.__papiFlowResizeT = setTimeout(()=>{ if(flowEffectsLive) computeFlowHomes(); }, 200);
   });
+  // resize isn't the only thing that can move the letters/canvas out
+  // from under their own frozen homeX/Y + canvasOffsetX/Y (see the
+  // comment on canvasOffsetX above) — a web font finishing its swap
+  // after the handoff already ran, or images further down the hero
+  // (the trusted-by logo icons, say) finishing load and nudging layout,
+  // can too, and neither fires a 'resize' event. Re-measuring once
+  // fonts are actually ready and once the whole page has fully loaded
+  // — the same two extra checkpoints measureZones() below already uses
+  // for the same class of problem — plus one short delayed re-check as
+  // a last safety net for anything that settles just after that, is
+  // what actually keeps "Papi" from drifting out of sync with the
+  // liquid it's supposed to be riding after a late reflow like that.
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(()=>{ if(flowEffectsLive) computeFlowHomes(); });
+  }
+  window.addEventListener('load', ()=>{ if(flowEffectsLive) computeFlowHomes(); });
 
   // ripple (a continuous idle wave through the letters) + cursor push,
   // combined into one transform per letter per frame — see the note
@@ -357,6 +473,13 @@
       flowLetterState.forEach(st=>{ st.anchorPageX = cx; st.anchorPageY = cy; });
       flowEffectsLive = true;
       updateFieldFollow(true);
+      // one more re-measure shortly after handoff, as a last safety net
+      // on top of the fonts.ready/load listeners above — covers
+      // anything that nudges layout in the brief window right after
+      // the intro finishes (a font swap or image load landing at
+      // exactly the wrong moment) without waiting on a 'resize' event
+      // that might never come.
+      setTimeout(()=>{ if(flowEffectsLive) computeFlowHomes(); }, 1000);
     }
 
     if(flowEffectsLive){
@@ -390,15 +513,33 @@
         // catches every source of displacement rather than just the
         // field-follow target. window.Papi.getInwardPush samples the
         // real, current liquid shape (hero-slime.js's own field(), not
-        // an estimate) at exactly this screen position and returns
-        // however much correction is needed to stay at least
-        // marginPx inside — {0,0} if already safely inside — so this
-        // is a hard floor, not a spring: whatever the letter's own
-        // physics computed, it can never actually end up outside.
-        if(window.Papi && window.Papi.getInwardPush){
+        // an estimate) and returns however much correction is needed to
+        // stay at least marginPx inside — {0,0} if already safely
+        // inside — so this is a hard floor, not a spring: whatever the
+        // letter's own physics computed, it can never actually end up
+        // outside. getInwardPush expects canvas-LOCAL coordinates (it
+        // has no idea where its own canvas sits in the viewport), so
+        // canvasOffsetX/Y — the same offset used above for ptsPx, just
+        // subtracted instead of added — converts back from this file's
+        // frozen-viewport frame into that local space first.
+        // ramped by latestCaptureT over a wide band (smoothstep, not a
+        // hard cutoff) — while the liquid is far from Papi's pinned spot
+        // (captureT near 0) this stays a no-op, since there's no nearby
+        // real liquid for the word to be "contained" by (and sampling
+        // getInwardPush way out there would return a correction the size
+        // of that whole gap, snapping the letter toward the distant
+        // liquid). A hard on/off toggle at a single threshold was tried
+        // first and caused a visible stutter every time captureT drifted
+        // back and forth across that one value — this ramp reaches full
+        // strength by captureT 0.65 (the ORIGINAL hard-floor behaviour:
+        // whatever the letter's tracking, ripple, and cursor-push physics
+        // computed, it still can never actually end up outside the
+        // liquid it's supposedly riding) but gets there smoothly.
+        if(window.Papi && window.Papi.getInwardPush && latestCaptureT > 0.001){
+          const pushT = smoothstep(0.35, 0.65, latestCaptureT);
           const marginPx = st.halfExtent + EDGE_PUSH_BUFFER;
-          const push = window.Papi.getInwardPush(st.homeX+totalX, st.homeY+totalY, marginPx);
-          totalX += push.dx; totalY += push.dy;
+          const push = window.Papi.getInwardPush(st.homeX+totalX-canvasOffsetX, st.homeY+totalY-canvasOffsetY, marginPx);
+          totalX += push.dx * pushT; totalY += push.dy * pushT;
         }
         st.el.style.transform = `translate(${totalX.toFixed(2)}px, ${totalY.toFixed(2)}px) skewX(${skew.toFixed(2)}deg)`;
       });
@@ -410,42 +551,29 @@
   window.Papi = window.Papi || {};
   window.Papi.revealSocial = revealSocial;
 
-  const showcaseEl = document.getElementById('showcase');
   const heroEl = document.getElementById('hero');
   const contrastSectionEl = document.getElementById('contrastSection');
 
-  // the docked top-right word swaps per section as the visitor scrolls
-  // through the page — one word standing in for what that section is
-  // about, rather than a single label that only ever meant "showcase"
-  const sectionDock = document.getElementById('sectionDock');
-  const sectionWords = [
-    { el: contrastSectionEl, word: 'Difference', top: 0, bottom: 0 },
-    { el: showcaseEl, word: 'Industries', top: 0, bottom: 0 },
-    { el: document.getElementById('comparisonSection'), word: 'Results', top: 0, bottom: 0 },
-    { el: document.getElementById('liveDemoSection'), word: 'Live', top: 0, bottom: 0 },
-    { el: document.getElementById('testimonialsSection'), word: 'Proof', top: 0, bottom: 0 },
-  ];
-  let currentDockWord = null;
-
-  // this update() runs on every single 'scroll' event for the entire
-  // page, forever — offsetTop/offsetHeight force a synchronous layout
-  // read, so reading them here (previously: heroEl once, then each
-  // section AGAIN inside the sectionWords loop below, on top of a
-  // separate live read for onContrast/onShowcase — the same elements'
-  // layout measured twice a frame) meant this one script alone forced
-  // several extra reflows on every scroll frame, stacking on top of
-  // every other section's own scroll handler doing the same kind of
-  // thing. None of these positions change from scrolling — only from
-  // resize/content changes — so they're measured once (plus on resize/
-  // fonts load, same convention as contrast.js's own sizing) instead.
+  // the persistent nav (see .site-header in style.css) needs two
+  // scroll-driven things: a dark-on-light flip for its own text while
+  // it's still transparent and over one of the site's two light zones
+  // (the hero, and the contrast section further down), and a solid
+  // background once it's left the hero entirely — see .is-solid, which
+  // is what actually keeps it from colliding with .contrast-sticky/
+  // .showcase-sticky once those sections pin their own content to the
+  // viewport's top edge. Both only depend on scroll position and a
+  // couple of section boundaries, measured once (not on every scroll
+  // event — offsetTop/offsetHeight force a synchronous layout read)
+  // and re-measured on resize/fonts-ready, same convention as the rest
+  // of this file and contrast.js's own sizing.
   let heroHeight = 0;
+  let contrastTop = 0, contrastBottom = 0;
   function measureZones(){
     heroHeight = heroEl ? heroEl.offsetHeight : 0;
-    sectionWords.forEach(s=>{
-      if(!s.el) return;
-      s.top = s.el.offsetTop;
-      s.bottom = s.top + s.el.offsetHeight;
-    });
+    if(contrastSectionEl){
+      contrastTop = contrastSectionEl.offsetTop;
+      contrastBottom = contrastTop + contrastSectionEl.offsetHeight;
+    }
     // update()'s own very first call (bottom of this file) runs
     // synchronously, before this rAF-deferred first measurement has
     // ever landed — heroHeight is still its initial 0 then, which
@@ -469,84 +597,26 @@
     clearTimeout(window.__papiDockZonesResizeT);
     window.__papiDockZonesResizeT = setTimeout(measureZones, 150);
   });
-  const contrastZone = sectionWords[0];
-  const showcaseZone = sectionWords[1];
-  const liveDemoZone = sectionWords[3];
 
   function update(){
-    const dist = viewportH * SCROLL_RANGE_RATIO;
-    const progress = Math.max(0, Math.min(1, window.scrollY / dist));
-
-    // the brand mark/docked label only need to flip to dark-on-light
-    // while over one of this site's white zones — the hero (a plain
-    // white background now, always) and the contrast section, also
-    // white. Every other section has a dark background, where the
-    // static gold/cream colors already read fine on their own.
+    // the nav's own text only needs to flip to dark-on-light while
+    // it's BOTH still transparent AND over one of this site's white
+    // zones — the hero (a plain white background now, always) and the
+    // contrast section, also white. Every other section has a dark
+    // background, where the static gold/cream text already reads fine
+    // on its own. (See .site-header:not(.is-solid) in style.css for
+    // the other half of that scoping.)
     const onHero = window.scrollY < heroHeight;
     const onContrast = contrastSectionEl
-      ? window.scrollY >= contrastZone.top && window.scrollY < contrastZone.bottom
+      ? window.scrollY >= contrastTop && window.scrollY < contrastBottom
       : false;
     document.body.classList.toggle('on-light-section', onHero || onContrast);
-
-    // the showcase section's own background trade icons/fan cards fill
-    // enough of the top-right corner on narrow screens that the docked
-    // brand mark/word cluster sitting on top reads as clutter — same
-    // duck-out-of-the-way treatment already used for the contrast
-    // section's mock nav below
-    const onShowcase = showcaseEl
-      ? window.scrollY >= showcaseZone.top && window.scrollY < showcaseZone.bottom
-      : false;
-
-    // same duck-out-of-the-way treatment for the live-demo section on
-    // narrow screens — its own browser-chrome-style frame already runs
-    // right up against the edges of the viewport there, so the docked
-    // brand mark/word cluster sitting on top of it read as clutter
-    const onLiveDemo = liveDemoZone.el
-      ? window.scrollY >= liveDemoZone.top && window.scrollY < liveDemoZone.bottom
-      : false;
-
-    // on narrow screens the whole top-right cluster — brand mark and
-    // the tagline/word dock beneath it — sits right on top of the
-    // contrast section's own mock nav/CTA (there's no room for both at
-    // this width) — duck both out of the way for that stretch only,
-    // fading back in once the visitor scrolls past the section
-    const hideDockForMobileZone = window.innerWidth <= 640 && (onContrast || onShowcase || onLiveDemo);
-    titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileZone);
-    // the corner "PAPI" brand mark stays hidden for the whole hero
-    // section, on every viewport — the big centre "Papi" word (now
-    // floating inside the liquid permanently, see flowLetterFrame
-    // below) is meant to be the only "Papi" on screen there. Reuses
-    // .site-header's existing is-hidden mechanism/transition (already
-    // used for the mobile-only showcase/contrast/live-demo duck-out-
-    // of-the-way case above) rather than adding a second one.
-    if(siteHeader) siteHeader.classList.toggle('is-hidden', hideDockForMobileZone || onHero);
-
-    // pick whichever section the viewport's centre currently sits in
-    if(sectionDock){
-      const y = window.scrollY + viewportH * 0.5;
-      let word = null;
-      for(let i=0;i<sectionWords.length;i++){
-        const s = sectionWords[i];
-        if(!s.el) continue;
-        if(y >= s.top && y < s.bottom){ word = s.word; break; }
-      }
-      sectionDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !!word);
-      if(word && word !== currentDockWord){
-        const isFirstWord = currentDockWord === null;
-        currentDockWord = word;
-        if(isFirstWord){
-          sectionDock.textContent = word;
-        } else {
-          // crossfade to the new word instead of snapping straight to
-          // it — reuses the element's existing opacity transition
-          sectionDock.style.opacity = '0';
-          setTimeout(()=>{
-            sectionDock.textContent = word;
-            sectionDock.style.opacity = '';
-          }, 320);
-        }
-      }
-    }
+    // solid background as soon as the hero's been scrolled past — see
+    // the comment above this function for why (keeps the nav sitting
+    // cleanly on top of later sections' own pinned content instead of
+    // needing to duck out of the way of it, the way the old small
+    // corner brand mark used to).
+    if(siteHeader) siteHeader.classList.toggle('is-solid', !onHero);
   }
 
   // batch to one update per animation frame — this reads offsetTop/

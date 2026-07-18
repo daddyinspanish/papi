@@ -76,59 +76,161 @@ window.scrollTo(0, 0);
 </head>
 <body>
 
-<!-- persistent top-right brand mark -->
+<!-- persistent full-width nav — brand mark, Work/Process/Pricing
+     (anchor-scroll to existing sections), and a "Start a Project" CTA.
+     Transparent over the hero, gains a solid background past it (see
+     .site-header.is-solid in style.css, toggled by js/title-dock.js). -->
 <header class="site-header" id="siteHeader">
-  <div class="brand-mark" id="brandMark">
+  <a href="#hero" class="brand-mark" id="brandMark" aria-label="Papi — back to top">
     <span>P</span><span>A</span><span>P</span><span>I</span>
-  </div>
+  </a>
+  <nav class="site-nav" aria-label="Primary">
+    <a href="#showcase">Work</a>
+    <a href="#heroProcess">Process</a>
+    <a href="#quoteSection">Pricing</a>
+  </nav>
+  <a href="#quoteSection" class="hero-cta hero-cta--nav">Start a Project<span class="hero-cta-plus">+</span></a>
 </header>
 
-<!-- small docked title label that crossfades in below the brand mark
-     once the visitor starts scrolling past the hero -->
-<div class="title-dock" id="titleDock" aria-hidden="true">
-  <div class="title-dock-line">Built with <em>Purpose</em>.</div>
-  <div class="title-dock-word" id="sectionDock">Craft</div>
-</div>
-
-<!-- ============ HERO — a single-viewport section: a liquid glass
-     mass on a white background that starts as one bubble fully
-     covering "Papi", eases open as "Papi" fades in and starts
-     tracking the mass's own centre of gravity, then wanders freely
-     forever, with a small social-icon row near the bottom. See
-     js/hero-slime.js's own header for the material/physics/intro, and
-     js/title-dock.js's flowLetterFrame for "Papi"'s own continuous
-     idle ripple + cursor-push + liquid-follow motion (it never fades
-     out once revealed). ============ -->
+<!-- ============ HERO — a two-column intro (copy + CTA + trusted-by on
+     the left, the liquid glass mass with "Papi" inside it on the
+     right) followed by a 4-step process row. The liquid mass starts as
+     one bubble fully covering "Papi", eases open as "Papi" fades in
+     and starts tracking the mass's own control points, then wanders
+     freely forever. See js/hero-slime.js's own header for the
+     material/physics/intro, and js/title-dock.js's flowLetterFrame for
+     "Papi"'s own continuous idle ripple + cursor-push + liquid-follow
+     motion (it never fades out once revealed). ============ -->
 <main id="hero" aria-hidden="true">
-<div class="hero-sticky">
 
-  <canvas id="heroSlime" aria-hidden="true"></canvas>
+  <div class="hero-top">
+    <canvas id="heroSlime" aria-hidden="true"></canvas>
+    <div class="hero-inner">
 
-  <section class="hero-content">
-    <div class="hero-flow-word" id="heroFlowWord" aria-hidden="true">Papi</div>
-    <div class="hero-social" id="heroSocial">
-      <a href="https://www.instagram.com/designedbypapi/" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on Instagram">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="3" width="18" height="18" rx="5"/>
-          <circle cx="12" cy="12" r="4.2"/>
-          <circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/>
-        </svg>
-      </a>
-      <a href="https://www.tiktok.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on TikTok">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z"/>
-        </svg>
-      </a>
-      <a href="https://www.youtube.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on YouTube">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="6" width="18" height="12" rx="4"/>
-          <path d="M10.3 9.6v4.8l4.4-2.4-4.4-2.4z" fill="currentColor" stroke="none"/>
-        </svg>
-      </a>
+      <div class="hero-copy-col">
+        <h1 class="hero-headline"><span class="hero-headline-word">Business-ready</span> <span class="hero-headline-word">websites,</span> <span class="hero-headline-word">built</span> <span class="hero-headline-word">with</span> <span class="hero-headline-word"><em>purpose</em>.</span></h1>
+        <p class="hero-sub">We design and build conversion-focused websites that build trust, communicate clearly, and guide visitors to their next step.</p>
+        <a href="#quoteSection" class="hero-cta">Start a Project<span class="hero-cta-plus">+</span></a>
+
+        <!-- looping logo marquee — the same 4 generic trade logos
+             repeated twice back to back (second copy aria-hidden so
+             screen readers don't hear it twice); see .hero-trusted-track
+             in style.css for how that repetition makes the loop seamless -->
+        <div class="hero-trusted">
+          <p class="hero-trusted-label">Trusted across industries</p>
+          <div class="hero-trusted-marquee">
+            <div class="hero-trusted-track">
+              <span class="hero-logo-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/></svg>
+                Roofing Co.
+              </span>
+              <span class="hero-logo-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4c-1.7 0-2.8 1-4 1-1.5 0-2.5-1.5-3.5 0C3.5 6.8 4 9 4.5 12c.4 3 1 7 2.5 7 1.2 0 1.3-3.2 1.8-5 .3-1.2.8-2 1.7-2h1c.9 0 1.4.8 1.7 2 .5 1.8.6 5 1.8 5 1.5 0 2.1-4 2.5-7 .5-3 1-5.2-.5-7-1-1.5-2 0-3.5 0-1.2 0-2.3-1-4-1z"/></svg>
+                Bright Dental
+              </span>
+              <span class="hero-logo-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2z"/></svg>
+                Apex Plumbing
+              </span>
+              <span class="hero-logo-chip">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+                Volt Electric
+              </span>
+              <span class="hero-logo-chip" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/></svg>
+                Roofing Co.
+              </span>
+              <span class="hero-logo-chip" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c-1.7 0-2.8 1-4 1-1.5 0-2.5-1.5-3.5 0C3.5 6.8 4 9 4.5 12c.4 3 1 7 2.5 7 1.2 0 1.3-3.2 1.8-5 .3-1.2.8-2 1.7-2h1c.9 0 1.4.8 1.7 2 .5 1.8.6 5 1.8 5 1.5 0 2.1-4 2.5-7 .5-3 1-5.2-.5-7-1-1.5-2 0-3.5 0-1.2 0-2.3-1-4-1z"/></svg>
+                Bright Dental
+              </span>
+              <span class="hero-logo-chip" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2z"/></svg>
+                Apex Plumbing
+              </span>
+              <span class="hero-logo-chip" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
+                Volt Electric
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-visual-col">
+        <div class="hero-flow-word" id="heroFlowWord" aria-hidden="true">Papi</div>
+
+        <div class="hero-droplets" aria-hidden="true">
+          <span class="hero-droplet hero-droplet--1"></span>
+          <span class="hero-droplet hero-droplet--2"></span>
+          <span class="hero-droplet hero-droplet--3"></span>
+          <span class="hero-droplet hero-droplet--4"></span>
+        </div>
+
+        <p class="hero-visual-caption" aria-hidden="true">Designed with purpose. Built to perform.</p>
+
+        <div class="hero-social" id="heroSocial">
+          <a href="https://www.instagram.com/designedbypapi/" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on Instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="5"/>
+              <circle cx="12" cy="12" r="4.2"/>
+              <circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/>
+            </svg>
+          </a>
+          <a href="https://www.tiktok.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on TikTok">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z"/>
+            </svg>
+          </a>
+          <a href="https://www.youtube.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on YouTube">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="6" width="18" height="12" rx="4"/>
+              <path d="M10.3 9.6v4.8l4.4-2.4-4.4-2.4z" fill="currentColor" stroke="none"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+
     </div>
-  </section>
+  </div>
 
-</div>
+  <!-- "Process" nav link's actual scroll target — anchoring to #hero
+       itself would only scroll to the top of the two-column area. -->
+  <div class="hero-process" id="heroProcess">
+    <div class="hero-process-step">
+      <span class="hero-process-num">01</span>
+      <div class="hero-process-bubble">
+        <canvas class="hero-process-liquid" aria-hidden="true"></canvas>
+        <h3>Discover</h3>
+      </div>
+      <p>We learn about your brand, goals, and audience.</p>
+    </div>
+    <div class="hero-process-step">
+      <span class="hero-process-num">02</span>
+      <div class="hero-process-bubble">
+        <canvas class="hero-process-liquid" aria-hidden="true"></canvas>
+        <h3>Design</h3>
+      </div>
+      <p>Strategic, modern designs that make an impact.</p>
+    </div>
+    <div class="hero-process-step">
+      <span class="hero-process-num">03</span>
+      <div class="hero-process-bubble">
+        <canvas class="hero-process-liquid" aria-hidden="true"></canvas>
+        <h3>Develop</h3>
+      </div>
+      <p>Fast, responsive, and built with clean code.</p>
+    </div>
+    <div class="hero-process-step">
+      <span class="hero-process-num">04</span>
+      <div class="hero-process-bubble">
+        <canvas class="hero-process-liquid" aria-hidden="true"></canvas>
+        <h3>Launch</h3>
+      </div>
+      <p>Tested, refined, and ready to perform from day one.</p>
+    </div>
+  </div>
+
 </main>
 
 <!-- ============ CONTRAST — the same fake business shown as two
@@ -625,6 +727,7 @@ window.scrollTo(0, 0);
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
 <script type="module" src="js/hero-slime.js"></script>
+<script type="module" src="js/process-liquid.js"></script>
 <script src="js/title-dock.js"></script>
 <script src="js/contrast.js"></script>
 <script src="js/showcase.js"></script>
