@@ -329,12 +329,19 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 
 /* ---- hero copy (no card, floats directly over the field) ---- */
+/* column flex, pinned to the bottom rather than centered — the liquid
+   cubes hold their tight formation across the upper/middle portion of
+   this same viewport (see hero-slime.js's cubeCloseVerticalLift), so
+   the real hero copy needs to sit clear below them, not layered over
+   the same center point "Flow" (position:absolute, unaffected by this)
+   occupies while the cubes are still forming. */
 .hero-content{
   position:relative;
   z-index:15;
   display:flex;
+  flex-direction:column;
   align-items:center;
-  justify-content:center;
+  justify-content:flex-end;
   min-height:100vh;
   min-height:100svh;
   min-height:calc(100 * var(--stable-vh, 1vh));
@@ -344,7 +351,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 
 .hero-copy{
   position:relative;
-  max-width:980px;
+  max-width:640px;
   width:100%;
   text-align:center;
 }
@@ -366,17 +373,40 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   font-size:clamp(4.5rem, 17vw, 12.5rem);
   line-height:1;
   letter-spacing:-0.02em;
-  /* a richer, higher-contrast sweep than the title's own "purpose" gold
-     (which stays inside a narrow gold range) — this is the one thing on
-     screen at this point, so it can afford to run from near-black
-     through the brand gold up to a pale cream highlight */
-  background:linear-gradient(135deg, #241706 0%, var(--gold-deep) 32%, var(--gold) 58%, #ffd23f 80%, #fff6d8 100%);
+  opacity:0;
+  pointer-events:none;
+}
+
+/* each letter ripples on its own staggered delay (see the animationDelay
+   set per-span in title-dock.js) — a gentle vertical bob plus a hint of
+   skew, so the wave reads as passing THROUGH the word left to right
+   rather than the whole word bobbing in unison. Purely an idle-state
+   loop: title-dock.js's fadeFrame() layers the scroll-driven "sucked
+   into the liquid" exit on top of this via the parent .hero-flow-word's
+   own transform, which composes cleanly with each child letter's own
+   independent transform here.
+   The gradient text-fill lives here rather than on the parent — once
+   "Flow" is split into per-letter spans (needed for the ripple), only
+   the element that actually owns the glyphs can clip a background to
+   their shape; a background-clip:text set on the (now textless) parent
+   has nothing to clip to and renders invisible. background-size/
+   -position are set per-letter, inline, by title-dock.js — sized to the
+   word's full length and offset by each letter's own position in it, so
+   the whole word still reads as one continuous gradient sweep (near-
+   black through the brand gold to a pale cream highlight) rather than
+   four separate mini-gradients repeating on each letter. */
+.flow-letter{
+  display:inline-block;
+  animation:flowRipple 2.6s ease-in-out infinite;
+  background-image:linear-gradient(135deg, #241706 0%, var(--gold-deep) 32%, var(--gold) 58%, #ffd23f 80%, #fff6d8 100%);
   -webkit-background-clip:text;
   background-clip:text;
   color:transparent;
   text-shadow:0 0 46px rgba(203,168,105,.4), 0 0 90px rgba(203,168,105,.2);
-  opacity:0;
-  pointer-events:none;
+}
+@keyframes flowRipple{
+  0%, 100%{ transform:translateY(0) skewX(0deg); }
+  50%{ transform:translateY(-9px) skewX(-2deg); }
 }
 
 .hero-title-row{
@@ -385,18 +415,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   justify-content:center;
   gap:clamp(1.6rem, 4vw, 3rem);
   flex-wrap:wrap;
-}
-
-.eyebrow{
-  font-size:.72rem;
-  font-weight:700;
-  letter-spacing:.32em;
-  text-transform:uppercase;
-  /* dark, matching the main title — the hero background is now white,
-     not the near-black this was originally tuned for */
-  color:var(--paper-ink);
-  margin-bottom:1.4rem;
-  transition:opacity .3s ease;
 }
 
 /* the row of clickable social icons below the Google review badge —
@@ -481,27 +499,23 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   75%{ transform:scale(.9) rotate(-3deg); opacity:1; }
   100%{ transform:scale(1) rotate(0deg); opacity:1; }
 }
-.eyebrow .char{
-  display:inline-block;
-  white-space:pre;
-  will-change:transform, opacity;
-}
-/* per-letter entrance for the eyebrow: a bright gold flash that settles
-   to the resting dark color, echoing the loader's own gold-fill-
-   through-the-letters reveal (see loader.js) rather than a plain fade */
-@keyframes eyebrowShine{
-  0%{ opacity:0; transform:translateY(8px); color:#fff6d6; text-shadow:0 0 18px rgba(255,205,110,.9), 0 0 34px rgba(255,205,110,.5); }
-  55%{ opacity:1; transform:translateY(0); color:#fff6d6; text-shadow:0 0 18px rgba(255,205,110,.9), 0 0 34px rgba(255,205,110,.5); }
-  100%{ opacity:1; transform:translateY(0); color:var(--paper-ink); text-shadow:none; }
-}
-
 .hero-title{
   font-family:'Fraunces', serif;
   font-weight:400;
   font-size:clamp(2.4rem, 6.4vw, 5rem);
   line-height:1.04;
   letter-spacing:-.01em;
-  color:var(--paper-ink);
+  /* was --paper-ink (dark ink, tuned for the hero's old white resting
+     background) — the title is only ever visible once the cubes have
+     drawn close and the background has already crossfaded to black
+     (see hero-slime.js's loop()), so it needs a color that contrasts
+     against BOTH that black backdrop and the gold cubes sitting just
+     above it, not a dark tone that would nearly vanish against either.
+     The dark text-shadow below adds a little definition against the
+     gold specifically, for the brief moments the title's own upper
+     edge sits close to a cube during the crossfade. */
+  color:var(--cream);
+  text-shadow:0 2px 20px rgba(0,0,0,.55), 0 0 44px rgba(0,0,0,.3);
   transform-style:preserve-3d;
   will-change:transform;
   display:inline-block;
@@ -552,7 +566,7 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   /* a lone space character inside an inline-block collapses to zero
      width by default (the browser trims leading/trailing whitespace
      within each inline box) — pre keeps the space's actual width, so
-     "Built with" and "not just design" don't run their words together */
+     "Built" and "with" don't run together */
   white-space:pre;
   will-change:transform, opacity;
 }
@@ -609,63 +623,29 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 
 .hero-sub{
   max-width:640px;
-  margin:1.8rem auto 2.6rem;
-  font-size:clamp(1.15rem, 2.4vw, 1.6rem);
+  margin:1rem auto 0;
+  font-size:clamp(1.1rem, 2.2vw, 1.4rem);
   line-height:1.4;
-  /* was --paper-dim (50%-opacity ink) — too pale against the hero's
-     white background; a solid, much darker tone reads clearly while
-     still sitting a step below the main title's full-strength ink */
-  color:rgba(23,24,26,.78);
+  /* was a dark ink tone, tuned for the hero's old white resting
+     background — see the matching note on .hero-title's own color for
+     why this now needs to read against a black backdrop instead */
+  color:rgba(243,237,226,.8);
   font-weight:300;
   opacity:0;
   transition:opacity .3s ease;
 }
 
-/* on a narrow phone, the hero copy now crossfades in over the tight
-   4-cube cluster (see hero-slime.js's desiredCloseBoxScale) rather than
-   a mostly-empty background — that cluster leaves much less vertical
-   room than it does on desktop/tablet even after being tapered down
-   there, so the copy block itself needs to run shorter too. Tightening
-   the eyebrow/title/subtitle's own spacing (not their font sizes, which
-   stay legible) is enough to keep the block clear of the cube edges
-   without changing how any of this reads on a wider screen. */
+/* on a narrow phone, the same title+subtitle+social block needs to sit
+   in a proportionally smaller clear band below the cube cluster (see
+   hero-slime.js's desiredCloseBoxScale/cubeCloseVerticalLift, tapered
+   further on portrait aspects) — tightening the spacing here (not the
+   font sizes, which stay legible) keeps the whole block compact enough
+   to comfortably clear the cubes above it. */
 @media (max-width:480px){
-  .eyebrow{ margin-bottom:.85rem; }
-  .hero-title{ font-size:clamp(2rem, 7.4vw, 5rem); line-height:1.02; }
-  .hero-sub{ margin:1.1rem auto 1.5rem; }
+  .hero-title{ font-size:clamp(1.9rem, 8vw, 5rem); line-height:1.05; }
+  .hero-sub{ margin-top:.7rem; }
+  .hero-social{ margin-top:1rem; }
 }
-
-/* a real Google-review-style trust badge — G logo, gold stars, rating
-   — styled as an outlined pill/button rather than plain text, echoing
-   the actual Google Business review widget look. Its own entrance
-   (js/title-dock.js's revealReview, staggered in after the subtitle)
-   fades/rises it in, then the same fadeOut this whole hero-copy block
-   already gets tied to scroll (title-dock.js's update()) carries it
-   back out again as the visitor scrolls down toward Contrast. */
-.hero-review{
-  display:inline-flex;
-  align-items:center;
-  gap:.55em;
-  padding:.6em 1.2em;
-  border-radius:999px;
-  border:1.5px solid rgba(23,24,26,.16);
-  background:rgba(255,255,255,.7);
-  font-size:.86rem;
-  color:var(--paper-ink);
-  opacity:0;
-  will-change:opacity, transform;
-  transition:border-color .3s var(--ease-out), background .3s var(--ease-out);
-}
-.hero-review:hover{
-  border-color:rgba(23,24,26,.3);
-  background:#fff;
-}
-.hero-review-stars{
-  color:#f5b400;
-  letter-spacing:.09em;
-  font-size:.78rem;
-}
-.hero-review-text strong{ font-weight:600; }
 
 /* ===================================================================
    CONTRAST — the same fake business ("Anderson Plumbing") built two

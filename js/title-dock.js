@@ -17,26 +17,22 @@
 (function(){
   const heroCopy = document.getElementById('heroCopy');
   const heroFlowWord = document.getElementById('heroFlowWord');
-  const eyebrow  = document.getElementById('heroEyebrow');
   const title    = document.getElementById('heroTitle');
   const sub      = document.getElementById('heroSub');
-  const review   = document.getElementById('heroReview');
   const social   = document.getElementById('heroSocial');
   const titleDock= document.getElementById('titleDock');
   const siteHeader = document.getElementById('siteHeader');
   if(!heroCopy || !titleDock) return;
 
-  // eyebrow/title's own CSS (.eyebrow, .hero-title) carries a
-  // transition:opacity .3s ease rule meant for a one-off fade-in — but
-  // neither element's OWN opacity ever actually fades in that way (only
-  // their individual per-letter .char spans do, handled separately by
-  // title.js); fadeFrame below sets these two elements' opacity every
-  // single frame from page load onward, so that leftover CSS transition
-  // just perpetually chases a constantly-moving target, lagging the
-  // real (already fully-eased) value by a good fraction of 300ms. sub/
-  // review/social clear this same transition once their own entrance
-  // finishes, further down.
-  if(eyebrow) eyebrow.style.transition = 'none';
+  // title's own CSS (.hero-title) carries a transition:opacity .3s ease
+  // rule meant for a one-off fade-in — but the element's OWN opacity
+  // never actually fades in that way (only its individual per-letter
+  // .char spans do, handled separately by title.js); fadeFrame below
+  // sets its opacity every single frame from page load onward, so that
+  // leftover CSS transition just perpetually chases a constantly-moving
+  // target, lagging the real (already fully-eased) value by a good
+  // fraction of 300ms. sub/social clear this same transition once their
+  // own entrance finishes, further down.
   if(title) title.style.transition = 'none';
 
   const SCROLL_RANGE_RATIO = 0.95; // fraction of viewport height for the full transition
@@ -97,32 +93,6 @@
   }
 
 
-  // ---- review badge: fades/rises in last, a beat after the subtitle,
-  // then tracks the same fadeOut as the rest of hero-copy in update()
-  // below once its own entrance is done ----
-  let reviewEntranceDone = false;
-  if(review){
-    review.style.transition = 'none';
-    review.style.opacity = '0';
-    review.style.transform = 'translateY(18px)';
-  }
-  function revealReview(){
-    if(!review) return;
-    requestAnimationFrame(()=>{
-      review.style.transition = 'opacity .6s ease, transform .6s var(--ease-out)';
-      review.style.opacity = '1';
-      review.style.transform = 'translateY(0)';
-    });
-    setTimeout(()=>{
-      reviewEntranceDone = true;
-      // opacity dropped here (fadeFrame below drives it continuously,
-      // already eased — see the eyebrow/title note above); the other
-      // two are unrelated to scroll-fade (a hover state on the badge
-      // itself), so they keep their own transition
-      review.style.transition = 'border-color .3s var(--ease-out), background .3s var(--ease-out)';
-    }, 650);
-  }
-
   // ---- social icon row: fades/rises in right away (it's the topmost
   // element, doesn't need to wait on anything else settling first),
   // then tracks the same fadeOut as the rest of hero-copy in update()
@@ -147,20 +117,41 @@
     setTimeout(()=>{
       socialEntranceDone = true;
       // fadeFrame below drives this continuously from here on — see
-      // the eyebrow/title note above for why keeping a CSS transition
-      // active on top of that would just add a perpetual lag
+      // the title note above for why keeping a CSS transition active
+      // on top of that would just add a perpetual lag
       social.style.transition = 'none';
     }, 900);
   }
 
   // ---- "Flow" — shown right after the loader in place of the real
-  // hero copy (see index.html's note on the markup). Its own one-off
-  // fade+rise entrance, same pattern as revealSubtitle/revealReview
-  // above; ongoing opacity (the crossfade against the real title as the
-  // liquid cubes draw close) is driven continuously in fadeFrame()
-  // below, off the exact same eased signal title.js already exposes ----
+  // hero copy (see index.html's note on the markup). Split into per-
+  // letter spans so each one can run its own staggered ripple (see
+  // .flow-letter/@keyframes flowRipple in style.css) — a continuous
+  // idle animation, independent of scroll, that reads like a wave
+  // passing through the water rather than a static gradient word. The
+  // one-off fade+rise entrance below is the same pattern as
+  // revealSubtitle above; ongoing opacity/transform (the crossfade
+  // against the real title, and the "sucked into the liquid" exit as
+  // the cubes draw close) is driven continuously in fadeFrame() below,
+  // off the exact same eased signal title.js already exposes ----
   let flowEntranceDone = false;
   if(heroFlowWord){
+    const flowText = heroFlowWord.textContent;
+    const flowLetters = Array.from(flowText);
+    heroFlowWord.innerHTML = '';
+    flowLetters.forEach((ch, i)=>{
+      const span = document.createElement('span');
+      span.className = 'flow-letter';
+      span.textContent = ch;
+      span.style.animationDelay = `${i * 0.16}s`;
+      // see the CSS note on .flow-letter — windows each letter into its
+      // own slice of one gradient sized/offset across the whole word,
+      // so the split-into-spans letters still read as a single
+      // continuous sweep rather than four separate mini-gradients
+      span.style.backgroundSize = `${flowLetters.length * 100}% 100%`;
+      span.style.backgroundPositionX = flowLetters.length > 1 ? `${(i / (flowLetters.length - 1)) * 100}%` : '0%';
+      heroFlowWord.appendChild(span);
+    });
     heroFlowWord.style.transition = 'none';
     heroFlowWord.style.opacity = '0';
     heroFlowWord.style.transform = 'translateY(14px)';
@@ -181,26 +172,23 @@
   window.Papi = window.Papi || {};
   window.Papi.revealFlow = revealFlow;
   window.Papi.revealSubtitle = revealSubtitle;
-  window.Papi.revealReview = revealReview;
   window.Papi.revealSocial = revealSocial;
 
-  // ---- the real hero copy's entrance (eyebrow shine, subtitle roll-in,
-  // review/social rise-in) used to all fire right after the loader —
-  // now deferred to the moment the liquid cubes actually finish drawing
-  // close together and hold (closeT reaching 1), watched continuously
-  // in fadeFrame() below rather than off a fixed timer, so it fires at
-  // the right moment regardless of how fast or slow the visitor
-  // scrolls to get there. Fires once, ever — scrolling back up and
-  // down again just crossfades the already-revealed copy back in via
-  // fadeOut below, it doesn't replay these entrance transforms. ----
+  // ---- the real hero copy's entrance (subtitle roll-in, social rise-
+  // in) used to all fire right after the loader — now deferred to the
+  // moment the liquid cubes actually finish drawing close together and
+  // hold (closeT reaching 1), watched continuously in fadeFrame() below
+  // rather than off a fixed timer, so it fires at the right moment
+  // regardless of how fast or slow the visitor scrolls to get there.
+  // Fires once, ever — scrolling back up and down again just crossfades
+  // the already-revealed copy back in via fadeOut below, it doesn't
+  // replay these entrance transforms. ----
   let heroCopyRevealTriggered = false;
   function triggerHeroCopyReveal(){
     if(heroCopyRevealTriggered) return;
     heroCopyRevealTriggered = true;
-    if(window.Papi.revealTitle) window.Papi.revealTitle();
     revealSubtitle();
-    setTimeout(revealReview, 200);
-    setTimeout(revealSocial, 350);
+    setTimeout(revealSocial, 250);
   }
 
   // magnetic pull — the CTA and each social icon lean slightly toward
@@ -343,23 +331,31 @@
       ? window.Papi.getHeroFadeProgress()
       : smoothstep(FADE_START, FADE_END, Math.max(0, Math.min(1, window.scrollY / (viewportH * SCROLL_RANGE_RATIO))));
 
-    if(eyebrow) eyebrow.style.opacity = String(1 - fadeOut);
     if(title) title.style.opacity = String(1 - fadeOut);
     if(sub && subEntranceDone) sub.style.opacity = String(1 - fadeOut);
-    if(review && reviewEntranceDone) review.style.opacity = String(1 - fadeOut);
     if(social && socialEntranceDone) social.style.opacity = String(1 - fadeOut);
     // the exact inverse crossfade — full opacity while the real title
     // is hidden, fading out in lockstep as it fades in, off the same
     // single eased value (never two independently-computed numbers
     // fighting each other, the exact bug already found and fixed once
-    // this same way for the eyebrow/title/etc. themselves above)
-    if(heroFlowWord && flowEntranceDone) heroFlowWord.style.opacity = String(fadeOut);
+    // this same way for the title/etc. themselves above). Beyond plain
+    // opacity, "sucked into the liquid" layers on a shrink+drop+blur as
+    // fadeOut falls toward 0 — suckT is 0 while Flow sits at rest (its
+    // own idle ripple, see .flow-letter, is the only motion), rising to
+    // 1 exactly as the crossfade finishes, reading as the word being
+    // drawn down into the mass rather than just dissolving in place.
+    if(heroFlowWord && flowEntranceDone){
+      heroFlowWord.style.opacity = String(fadeOut);
+      const suckT = 1 - fadeOut;
+      heroFlowWord.style.transform = `translateY(${suckT * 52}px) scale(${1 - suckT * 0.4})`;
+      heroFlowWord.style.filter = suckT > 0.015 ? `blur(${(suckT * 10).toFixed(1)}px)` : 'none';
+    }
 
     heroCopy.style.transform = `translateY(${-fadeOut * 34}px)`;
     heroCopy.style.pointerEvents = fadeOut > 0.6 ? 'none' : 'auto';
 
-    // the real hero copy's own entrance (eyebrow shine, subtitle/review/
-    // social rise-in) fires once, the first moment the crossfade is
+    // the real hero copy's own entrance (subtitle roll-in, social
+    // rise-in) fires once, the first moment the crossfade is
     // essentially complete — see triggerHeroCopyReveal above for why
     // this replaced firing all of these directly from loader.js
     if(fadeOut <= 0.02) triggerHeroCopyReveal();
@@ -419,7 +415,7 @@
     // fading back in once the visitor scrolls past the section
     const hideDockForMobileZone = window.innerWidth <= 640 && (onContrast || onShowcase || onLiveDemo);
     // also hidden for the duration of the hero's own cube phase — the
-    // docked "Built with purpose, not just design" line is the only
+    // docked "Built with Purpose." line is the only
     // thing titleDock ever shows while still inside the hero (the
     // rotating section word below only ever has a word once scrolled
     // into one of the LATER sections), and it read as clutter over the

@@ -4,9 +4,7 @@
      shows right after the loader instead, and the real title crossfades
      in against it once hero-slime.js's liquid cubes have drawn close
      together and are holding that formation (closeT reaching 1 — see
-     getExplodeProgress below). window.Papi.revealTitle, still called
-     from title-dock.js at that same moment, now only plays the
-     eyebrow's own per-letter gold shine flourish.
+     getExplodeProgress below).
    - Slow, smooth gyro tilt toward the cursor, strongest near the title.
    - Each of the title's letters drifts outward from the title's own
      centre and grows slightly while fading out — like the words are
@@ -125,42 +123,30 @@
     return { computeHomes, update };
   }
 
-  // ---- title: split into per-letter spans, tagged by which entrance
-  // group they belong to (em/br preserved). "purpose"'s letters are
-  // spans nested inside <em> rather than the <em> itself being one
-  // unit — the color styling still applies cleanly since color
-  // inherits down to the nested spans, and this way "purpose" gets the
-  // same letter-by-letter push/ripple physics as the rest of the title
-  // instead of moving as one rigid block. ----
-  const units = [];
-  const groups = [];
-  function appendGroup(parent, text, type, order){
-    const startIdx = units.length;
+  // ---- title: split into per-letter spans (em preserved). "Purpose"'s
+  // letters are spans nested inside <em> rather than the <em> itself
+  // being one unit — the color styling still applies cleanly since
+  // color inherits down to the nested spans, and this way "Purpose"
+  // gets the same letter-by-letter push/ripple physics as the rest of
+  // the title instead of moving as one rigid block. ----
+  const chars = [];
+  function appendChars(parent, text){
     Array.from(text).forEach(ch=>{
       const span = document.createElement('span');
       span.className = 'char';
       span.textContent = ch === ' ' ? ' ' : ch;
       parent.appendChild(span);
-      units.push(span);
+      chars.push(span);
     });
-    groups.push({ type, order, startIdx, endIdx: units.length - 1 });
   }
 
   title.innerHTML = '';
-  appendGroup(title, 'Built with ', 'fly-left', 0);
+  appendChars(title, 'Built with ');
   const em = document.createElement('em');
   title.appendChild(em);
-  appendGroup(em, 'purpose', 'fly-right', 1);
-  title.appendChild(document.createElement('br'));
-  appendGroup(title, 'not ', 'bounce', 2);
-  appendGroup(title, 'just ', 'bounce', 3);
-  appendGroup(title, 'design', 'bounce', 4);
+  appendChars(em, 'Purpose');
+  appendChars(title, '.');
 
-  const chars = units;
-  const groupOfIndex = new Array(chars.length);
-  groups.forEach(g=>{
-    for(let i=g.startIdx;i<=g.endIdx;i++) groupOfIndex[i] = g;
-  });
   const titleGroup = createCharGroup(chars);
 
   // ---- no more fly-in/bounce entrance: the title's own visibility is
@@ -181,25 +167,16 @@
 
   function computeHomes(){ titleGroup.computeHomes(); }
 
-  // the per-letter gold shine flourish only — see the scroll-triggered
-  // call site in title-dock.js (search "revealTitle") for why this is
-  // deferred until the title is actually about to become visible rather
-  // than fired at page load, when it'd play out unseen behind a still-
-  // fully-hidden (opacity 0) title
-  function revealTitle(){
-    revealEyebrow();
-  }
   window.Papi = window.Papi || {};
-  window.Papi.revealTitle = revealTitle;
 
   // the scatter/converge motion (titleGroup.update() below, driven by
   // curExplodeProgress) needs to be running from early on — well before
   // the title is actually visible — so that letters are already
   // visibly converging together as the cubes draw close, not just
   // popping into their final position the instant they become visible.
-  // Unlike revealTitle()'s shine flourish above, there's no reason to
-  // defer this: it's invisible motion (opacity is still 0, driven by
-  // title-dock.js) until the moment it needs to already be mid-motion.
+  // It's invisible motion (opacity is still 0, driven by title-dock.js)
+  // until the moment it needs to already be mid-motion, so there's no
+  // reason to defer it further.
   if(document.fonts && document.fonts.ready){
     document.fonts.ready.then(()=>{ computeHomes(); effectsLive = true; });
   } else {
@@ -272,20 +249,20 @@
   // Sinks straight down and fades on scroll-exit ('drop' mode) rather
   // than repeating the title's own outward-explode effect.
   //
-  // Only the static prefix ("Designed to build ") is split into these
-  // per-letter spans — the rotating word after it (#heroSubWord) is
-  // kept as one intact element instead, since its own text keeps
-  // changing (see the scramble-cycle below) and needs a stable node to
-  // rewrite, not 70 individual one-off letter spans rebuilt each time.
-  // It still fades with the rest of #heroSub (title-dock.js fades the
-  // whole element), just without the extra per-letter drift on exit. ----
+  // Only the static prefix ("Creating ") is split into these per-letter
+  // spans — the rotating word after it (#heroSubWord) is kept as one
+  // intact element instead, since its own text keeps changing (see the
+  // scramble-cycle below) and needs a stable node to rewrite, not 70
+  // individual one-off letter spans rebuilt each time. It still fades
+  // with the rest of #heroSub (title-dock.js fades the whole element),
+  // just without the extra per-letter drift on exit. ----
   const sub = document.getElementById('heroSub');
   let subChars = [];
   let subGroup = null;
   let subEffectsLive = false;
   let subWordEl = null;
   if(sub){
-    const prefixText = 'Designed to build ';
+    const prefixText = 'Creating ';
     sub.innerHTML = '';
     appendWordWrapped(sub, prefixText, subChars);
     subWordEl = document.createElement('span');
@@ -350,38 +327,6 @@
       });
     }
     next();
-  }
-
-  // ---- eyebrow ("Est. Business-Ready Websites"): same per-letter
-  // cursor push physics as the title/subtitle, plus its own entrance —
-  // a per-letter "shine" sweep (a bright gold flash that settles to the
-  // resting color) rather than a plain fade, echoing the loader's own
-  // gold-fill-through-the-letters reveal so the two read as one brand
-  // moment rather than two different techniques ----
-  const eyebrow = document.getElementById('heroEyebrow');
-  let eyebrowChars = [];
-  let eyebrowGroup = null;
-  let eyebrowEffectsLive = false;
-  if(eyebrow){
-    const text = eyebrow.textContent;
-    eyebrow.innerHTML = '';
-    appendWordWrapped(eyebrow, text, eyebrowChars);
-    eyebrowGroup = createCharGroup(eyebrowChars);
-  }
-  function revealEyebrow(){
-    if(!eyebrow || !eyebrowChars.length) return;
-    const STAGGER = 26;
-    const SHINE_DURATION = 700;
-    eyebrowChars.forEach((el, i)=>{
-      el.style.animation = `eyebrowShine ${SHINE_DURATION}ms ease forwards`;
-      el.style.animationDelay = `${i * STAGGER}ms`;
-    });
-    const total = (eyebrowChars.length - 1) * STAGGER + SHINE_DURATION;
-    setTimeout(()=>{
-      eyebrowChars.forEach(el => { el.style.animation = 'none'; });
-      eyebrowGroup.computeHomes();
-      eyebrowEffectsLive = true;
-    }, total + 60);
   }
 
   // width-only guard — on iOS Safari, scrolling for the very first time
@@ -535,7 +480,6 @@
     curExplodeProgress += (targetExplode - curExplodeProgress) * explodeAlpha;
     if(effectsLive) titleGroup.update(idle, curExplodeProgress);
     if(subEffectsLive) subGroup.update(idle, curExplodeProgress);
-    if(eyebrowEffectsLive) eyebrowGroup.update(idle, 0);
 
     requestAnimationFrame(frame);
   }

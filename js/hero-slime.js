@@ -135,25 +135,39 @@ import * as THREE from './vendor/three.module.min.js';
     // viewport is — picking fixed close/big numbers by eye on one test
     // window (like cubeSpacing/cubeBoxScale above originally were) is
     // exactly what let cubes touch on a different aspect ratio before.
-    cubeCloseBoxScale: 1.6,  // the box scale computeCloseGeometry() below AIMS for once cubes hold their
+    cubeCloseBoxScale: 1.3,  // the box scale computeCloseGeometry() below AIMS for once cubes hold their
                               // tight formation — reference is a set of 4 cubes reading as one unified
                               // bigger shape, edges almost meeting. Actually reached only where the
                               // current window has room for it at cubeCloseMinGap's clearance; narrower
-                              // windows fall back to less growth (see computeCloseGeometry)
-    cubeCloseMinGap: 0.025,  // the smallest gap ever allowed between a formed cube's own edge and its
+                              // windows fall back to less growth (see computeCloseGeometry). Lower than
+                              // an earlier version of this (was 1.6) — the real hero copy now sits in a
+                              // clear band below the whole cluster (see cubeCloseVerticalLift and
+                              // .hero-content in style.css) rather than overlapping it, so the cluster
+                              // itself needs to leave room for that band instead of filling the viewport.
+    cubeCloseMinGap: 0.014,  // the smallest gap ever allowed between a formed cube's own edge and its
                               // neighbour's, in the same normalized space as cubeSpacing — this is what
                               // "never touch" actually means numerically. Small on purpose: the whole
                               // point of this phase is reading as close to touching as possible (see the
                               // reference image) without a real risk of the liquid visibly merging —
                               // cubeTensionScale below is what actually keeps that safe at a gap this
-                              // small, not this number alone.
-    cubeTensionScale: 0.15,  // shrinks the smin() blend radius (surfaceTension, below) once cubes are
+                              // small, not this number alone. Tighter than before (was 0.025) — with the
+                              // real copy no longer needing to fit in the gap BETWEEN cube rows (see
+                              // cubeCloseBoxScale above), there's no reason left to hold that gap open;
+                              // the 4 cubes can read as one nearly-unified shape instead.
+    cubeTensionScale: 0.09,  // shrinks the smin() blend radius (surfaceTension, below) once cubes are
                               // formed, blended in by cubeFormT — see the long comment where this is
                               // actually applied (search "cubeTensionScale") for why a positive geometric
                               // gap (cubeCloseMinGap above) wasn't enough on its own to stop a visible
                               // connecting neck between two cubes that are close but not touching. Tighter
-                              // than before (was 0.25) to stay safely under the smaller cubeCloseMinGap
-                              // above (0.10 base tension * 0.15 = 0.015, comfortably under 0.025)
+                              // than before (was 0.15) to stay safely under the smaller cubeCloseMinGap
+                              // above (0.10 base tension * 0.09 = 0.009, comfortably under 0.014)
+    cubeCloseVerticalLift: 0.085, // shifts the whole 4-cube cluster's own centre UP (in the same
+                              // normalized space as cubeSpacing/cubeCloseMinGap), blended in by closeT
+                              // alongside everything else in this phase, so the cluster settles higher in
+                              // the viewport once close/tight rather than sitting dead-centre — opening a
+                              // real, asymmetrically bigger clear band below it for the real hero copy
+                              // (title/subtitle/social, anchored to the bottom of .hero-content) than
+                              // above, where nothing needs to sit.
     // extra points that only ever reveal themselves once the mass has
     // fallen into the Contrast section — see the fragmentation system
     // below (search "fragment") for how these stay invisibly merged
@@ -283,28 +297,28 @@ import * as THREE from './vendor/three.module.min.js';
   // independently of the desired size left barely any room for growth
   // on anything but a near-square window. Only backs the size down
   // below cubeCloseBoxScale if even the resting spacing can't fit it.
-  // on a narrow/tall (portrait) viewport, the full-size cluster below
-  // would grow to nearly fill the entire screen height — since the
-  // inter-cube gap stays a fixed tiny CONFIG.cubeCloseMinGap regardless
-  // of overall size, that leaves no clear space (inside the cross-
-  // shaped gap between cubes, OR in the margin around the whole
-  // cluster) for .hero-copy, which crossfades in centered over this
-  // same area once closeT reaches 1 — text just reads as illegible,
-  // laid directly over gold cube faces. Tapering the target size down
-  // as aspect gets more portrait keeps the cluster proportionally
-  // smaller (same tight non-touching relationship, just a smaller
-  // overall footprint) specifically on phone-shaped screens, leaving
-  // real breathing room for the copy, while anything landscape/square
-  // (aspect>=0.85 — tablets and up) still reaches the full
-  // CONFIG.cubeCloseBoxScale matching the reference image exactly as
-  // approved. Returns the ratio to CONFIG.cubeCloseBoxScale too (1 when
-  // untapered) — loop() uses that same ratio to shrink surfaceTension's
-  // blend radius by the same proportion as the cubes themselves, so the
-  // blend radius stays a constant FRACTION of cube size rather than a
-  // constant absolute value: without that, the *smaller* mobile cubes
-  // read as fused (the same untapered blend radius eats a much bigger
-  // share of their smaller silhouette) even though the geometric gap
-  // guarantee below is identical.
+  // bindingScaleFactor below (see computeCloseGeometry) grows the same
+  // symmetric x/y offset as aspect drops below 1 to keep the actual
+  // ON-SCREEN horizontal gap adequate on a narrow window — since that
+  // offset isn't separately aspect-corrected in the vertical direction,
+  // the side effect is a taller vertical footprint for the whole 4-cube
+  // cluster on a narrow/tall (portrait) phone than on a landscape
+  // window at the very same box scale. The real hero copy now sits in
+  // a clear band below the cluster (not overlapping it — see
+  // cubeCloseVerticalLift and .hero-content in style.css), so a taller
+  // cluster footprint on a phone leaves that band with less room to
+  // work with. Tapering the target size down as aspect gets more
+  // portrait keeps the cluster's footprint (and hence that band)
+  // roughly consistent across window shapes, while anything landscape/
+  // square (aspect>=0.85 — tablets and up) still reaches the full
+  // CONFIG.cubeCloseBoxScale. Returns the ratio to CONFIG.cubeCloseBoxScale
+  // too (1 when untapered) — loop() uses that same ratio to shrink
+  // surfaceTension's blend radius by the same proportion as the cubes
+  // themselves, so the blend radius stays a constant FRACTION of cube
+  // size rather than a constant absolute value: without that, the
+  // *smaller* mobile cubes read as fused (the same untapered blend
+  // radius eats a much bigger share of their smaller silhouette) even
+  // though the geometric gap guarantee below is identical.
   function desiredCloseBoxScale(){
     const aspect = W / H;
     const portraitEase = Math.max(0, Math.min(1, (0.85 - aspect) / 0.45));
@@ -326,23 +340,38 @@ import * as THREE from './vendor/three.module.min.js';
     const halfWidthAtDesired = boxHalfP * desiredBoxScale;
     const requiredSpacing = (halfWidthAtDesired + CONFIG.cubeCloseMinGap/2) / bindingScaleFactor;
 
-    let closeSpacing, closeBoxScaleMul;
+    let closeBoxScaleMul;
     if(requiredSpacing <= cubeSpacingActual){
       // the current window has enough room for the full desired size at
       // a spacing tighter than resting — the common case on anything
       // wider than a narrow phone
-      closeSpacing = requiredSpacing;
       closeBoxScaleMul = desiredBoxScale;
     } else {
       // not enough room to hit the desired size while also drawing
       // closer than resting — hold at resting spacing instead and grow
       // only as much as THAT leaves safely clear
-      closeSpacing = cubeSpacingActual;
-      const maxHalfP = (closeSpacing * bindingScaleFactor) - CONFIG.cubeCloseMinGap/2;
+      const maxHalfP = (cubeSpacingActual * bindingScaleFactor) - CONFIG.cubeCloseMinGap/2;
       closeBoxScaleMul = Math.max(1, Math.min(desiredBoxScale, maxHalfP / boxHalfP));
     }
 
-    return { closeSpacing, closeBoxScaleMul };
+    // solved independently per axis, at whatever box scale was just
+    // settled on above — a single shared spacing (the old approach: one
+    // value picked to keep whichever axis is tighter at exactly
+    // cubeCloseMinGap, per bindingScaleFactor above) leaves the OTHER,
+    // non-binding axis with far more than cubeCloseMinGap of real gap,
+    // since that same inflated spacing still gets applied there too.
+    // Barely visible at a generous minGap, but at how tight this phase
+    // runs now it read as a noticeably lopsided cluster — tight left/
+    // right pairs, a wide-open gap between top/bottom ones on a phone's
+    // narrow aspect (or the reverse on an ultra-wide window). Solving x
+    // and y separately for the exact same real-world gap in both
+    // directions keeps the cluster reading as evenly, uniformly close
+    // regardless of window shape.
+    const finalHalfWidth = boxHalfP * closeBoxScaleMul;
+    const closeSpacingX = (finalHalfWidth + CONFIG.cubeCloseMinGap/2) / aspect;
+    const closeSpacingY = finalHalfWidth + CONFIG.cubeCloseMinGap/2;
+
+    return { closeSpacingX, closeSpacingY, closeBoxScaleMul };
   }
 
   // ===================================================================
@@ -1038,8 +1067,16 @@ import * as THREE from './vendor/three.module.min.js';
     // safe without a corresponding cubeFormT/closeT change to hook a
     // recompute onto otherwise
     const closeGeo = closeT > 0 ? computeCloseGeometry() : null;
-    const cubeSpacingNow = closeGeo
-      ? cubeSpacingActual + (closeGeo.closeSpacing - cubeSpacingActual) * closeT
+    // solved independently per axis (see computeCloseGeometry) so the
+    // real on-screen gap between cubes reads the same in both
+    // directions regardless of window aspect, rather than one shared
+    // spacing value leaving whichever axis isn't the binding constraint
+    // with a much bigger gap than the other
+    const cubeSpacingNowX = closeGeo
+      ? cubeSpacingActual + (closeGeo.closeSpacingX - cubeSpacingActual) * closeT
+      : cubeSpacingActual;
+    const cubeSpacingNowY = closeGeo
+      ? cubeSpacingActual + (closeGeo.closeSpacingY - cubeSpacingActual) * closeT
       : cubeSpacingActual;
 
     for(let i=0;i<points.length;i++){
@@ -1072,9 +1109,14 @@ import * as THREE from './vendor/three.module.min.js';
         // risk of two visible points exactly overlapping, and a uniform
         // spacing keeps the real gap between adjacent cubes predictable
         // rather than varying per point.
-        const slot = project3D(p.cubeSignX*cubeSpacingNow, p.cubeSignY*cubeSpacingNow, angleY, angleX);
+        const slot = project3D(p.cubeSignX*cubeSpacingNowX, p.cubeSignY*cubeSpacingNowY, angleY, angleX);
+        // see CONFIG.cubeCloseVerticalLift — rises in step with closeT
+        // (0 until the cubes start drawing close, full once they're
+        // holding tight), shifting the whole cluster's own centre up so
+        // the real hero copy below has a bigger clear band to sit in
+        const lift = CONFIG.cubeCloseVerticalLift * closeT;
         targetX = targetX + (slot.x - targetX) * cubeFormT;
-        targetY = targetY + (slot.y - targetY) * cubeFormT;
+        targetY = targetY + ((slot.y + lift) - targetY) * cubeFormT;
         p.cubeDepth = slot.depth;
       }
 
