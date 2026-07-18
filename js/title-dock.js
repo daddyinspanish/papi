@@ -105,6 +105,51 @@
     });
   }
   let flowEffectsLive = false;
+
+  // "Papi" doesn't just sit centred over the liquid — it's meant to
+  // read as actually being carried by it, staying inside the mass's
+  // own current outline rather than drifting near it. window.Papi.
+  // getFieldCenter() (hero-slime.js) is the liquid mass's own true
+  // centre of gravity in normalized 0..1 space — the SAME space each
+  // point's own x/y already lives in, and each point's own on-screen
+  // pixel position is just point.x * (canvas width), point.y *
+  // (canvas height) (see field() in hero-slime.js's shader — the
+  // aspect correction there cancels out for this exact mapping).
+  // Multiplying the centred offset by the viewport's own width/height
+  // with no extra gain reproduces that same mapping exactly, so "Papi"
+  // ends up sitting precisely at the mass's real centre of gravity in
+  // real screen pixels — not an exaggerated version of it, which was
+  // pushing the word out past the mass's own visual edge in some
+  // frames (a >1 gain used to live here for exactly the opposite,
+  // wrong reason: making an otherwise-subtle drift more visible).
+  //
+  // stableViewportH mirrors index.html's own --stable-vh: raw
+  // window.innerHeight changes as iOS Safari's address bar collapses,
+  // which tends to land in almost the same window as this effect
+  // first kicking in, and was reading as a visible "jump" right at
+  // that moment. Cached, only re-measured on the same width-only
+  // resize tolerance the rest of this file already uses (a height-only
+  // change, e.g. a chrome collapse, is exactly what this should ignore).
+  function readStableViewportH(){
+    const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stable-vh'));
+    return (v && v > 0) ? v * 100 : window.innerHeight;
+  }
+  let stableViewportH = readStableViewportH();
+  const FIELD_FOLLOW_MAX_FRAC = 0.22; // a safety clamp, not the primary shaping constraint —
+                                       // true (unamplified) centre-of-gravity tracking rarely
+                                       // needs it, but it's cheap insurance against any edge case
+  const FIELD_FOLLOW_LERP = 0.05; // eases toward the target slowly, matching the liquid's own
+                                   // heavy, viscous character rather than tracking it instantly
+  let flowOffsetX = 0, flowOffsetY = 0;
+  function fieldFollowTarget(){
+    const center = (window.Papi && window.Papi.getFieldCenter) ? window.Papi.getFieldCenter() : { x:0.5, y:0.5 };
+    const maxPx = Math.min(window.innerWidth, stableViewportH) * FIELD_FOLLOW_MAX_FRAC;
+    return {
+      x: Math.max(-maxPx, Math.min(maxPx, (center.x - 0.5) * window.innerWidth)),
+      y: Math.max(-maxPx, Math.min(maxPx, (center.y - 0.5) * stableViewportH)),
+    };
+  }
+
   function revealFlow(){
     if(!heroFlowWord) return;
     requestAnimationFrame(()=>{
@@ -120,6 +165,15 @@
       // would bake a wrong (still-rising) home position into every
       // letter's own push-physics rest point
       computeFlowHomes();
+      // snapped directly to the current target rather than left at its
+      // initial (0,0) to ease in from — by this point the liquid has
+      // already been drifting for over a second, so easing in from a
+      // stale zero baseline toward an already-nonzero target is exactly
+      // what read as a visible jump right as this kicks in.
+      const target = fieldFollowTarget();
+      flowOffsetX = target.x;
+      flowOffsetY = target.y;
+      heroFlowWord.style.transform = `translate(${flowOffsetX.toFixed(1)}px, ${flowOffsetY.toFixed(1)}px)`;
       flowEffectsLive = true;
     }, 1150);
   }
@@ -132,6 +186,7 @@
     const w = window.innerWidth;
     if(Math.abs(w - lastResizeWFlow) <= 10) return;
     lastResizeWFlow = w;
+    stableViewportH = readStableViewportH();
     clearTimeout(window.__papiFlowResizeT);
     window.__papiFlowResizeT = setTimeout(()=>{ if(flowEffectsLive) computeFlowHomes(); }, 200);
   });
@@ -152,38 +207,12 @@
     mouseY = e.clientY;
   });
 
-  // "Papi" doesn't just sit centred over the liquid — it's meant to
-  // read as actually being carried by it. window.Papi.getFieldCenter()
-  // (hero-slime.js) is the liquid mass's own centre of gravity,
-  // already averaged across every point so it drifts as one slow,
-  // smooth signal rather than any single point's own noisier wander.
-  // Applied as a translate on the PARENT heroFlowWord element — a
-  // separate layer of motion from each letter's own ripple/cursor-push
-  // transform above, which stays exactly as-is on the child spans, so
-  // the two compose rather than fight (coarse "carried by the mass"
-  // drift underneath, fine per-letter liquid detail on top).
-  // GAIN amplifies the raw centre-of-gravity signal (which, averaged
-  // across several independently-wandering points, is naturally quite
-  // damped/subtle) back up to something visibly "Papi is moving with
-  // the liquid" rather than nearly imperceptible; MAX_FRAC clamps it
-  // to a fraction of the smaller viewport dimension so it can never
-  // drift the word uncomfortably far off-centre regardless of gain;
-  // LERP eases toward that target slowly, matching the liquid's own
-  // heavy, viscous character rather than tracking it instantly.
-  const FIELD_FOLLOW_GAIN = 1.4;
-  const FIELD_FOLLOW_MAX_FRAC = 0.22;
-  const FIELD_FOLLOW_LERP = 0.05;
-  let flowOffsetX = 0, flowOffsetY = 0;
-
   function flowLetterFrame(){
     if(flowEffectsLive){
-      if(heroFlowWord && window.Papi && window.Papi.getFieldCenter){
-        const center = window.Papi.getFieldCenter();
-        const maxPx = Math.min(window.innerWidth, window.innerHeight) * FIELD_FOLLOW_MAX_FRAC;
-        const targetX = Math.max(-maxPx, Math.min(maxPx, (center.x - 0.5) * window.innerWidth * FIELD_FOLLOW_GAIN));
-        const targetY = Math.max(-maxPx, Math.min(maxPx, (center.y - 0.5) * window.innerHeight * FIELD_FOLLOW_GAIN));
-        flowOffsetX += (targetX - flowOffsetX) * FIELD_FOLLOW_LERP;
-        flowOffsetY += (targetY - flowOffsetY) * FIELD_FOLLOW_LERP;
+      if(heroFlowWord){
+        const target = fieldFollowTarget();
+        flowOffsetX += (target.x - flowOffsetX) * FIELD_FOLLOW_LERP;
+        flowOffsetY += (target.y - flowOffsetY) * FIELD_FOLLOW_LERP;
         heroFlowWord.style.transform = `translate(${flowOffsetX.toFixed(1)}px, ${flowOffsetY.toFixed(1)}px)`;
       }
       const t = performance.now() / 1000;
