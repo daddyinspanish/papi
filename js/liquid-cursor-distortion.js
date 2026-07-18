@@ -45,8 +45,30 @@
    cursor. The canvas also fades itself out for the duration of any
    scroll (a static snapshot mid-scroll would visibly lag the real
    page) and recaptures fresh the moment scrolling settles.
+
+   One real limitation, found by testing directly against the live
+   site rather than assuming html2canvas would just work: html2canvas
+   cannot reliably capture any of this site's three tall
+   scroll-pinned sections (#heroProcess, #contrastSection, #showcase —
+   the sitewide "400vh outer + 100vh position:sticky inner" pattern
+   used throughout, see js/process-flow.js's own header for why that
+   pattern exists). html2canvas's cloning approach doesn't resolve
+   position:sticky correctly, so a capture taken while scrolled into
+   any of those three renders mostly blank, or shows whatever content
+   happened to render before it gave up — confirmed with direct visual
+   tests on designedbypapi.com, not a guess. Rather than ship a
+   distortion lens that's silently refracting broken/stale content
+   through most of the page, STICKY_ZONE_SELECTORS below is checked on
+   every scroll: the effect fades out and stops capturing entirely for
+   as long as the current scroll position sits inside any of those
+   three sections, and resumes normally the moment scroll moves back
+   into ordinary (non-sticky) page flow.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
+
+// the three sitewide tall-outer/sticky-inner sections html2canvas
+// can't capture correctly — see the file header above
+const STICKY_ZONE_SELECTORS = ['#heroProcess', '#contrastSection', '#showcase'];
 
 const DEFAULTS = {
   simResolution: 256,     // long-axis resolution of the low-res displacement buffer
@@ -270,6 +292,25 @@ export class LiquidCursorDistortion {
 
     this.simMaterial.uniforms.uTexel.value.set(1 / simW, 1 / simH);
     this.simMaterial.uniforms.uAspect.value = aspect;
+
+    this._measureStickyZones();
+  }
+
+  // ===================================================================
+  // sticky-zone detection — see the file header for why this exists
+  // ===================================================================
+  _measureStickyZones(){
+    this._stickyZones = STICKY_ZONE_SELECTORS.map(sel => document.querySelector(sel))
+      .filter(Boolean)
+      .map(el => ({ top: el.offsetTop, bottom: el.offsetTop + el.offsetHeight }));
+  }
+
+  _isInStickyZone(scrollY){
+    if(!this._stickyZones) return false;
+    for(const zone of this._stickyZones){
+      if(scrollY >= zone.top && scrollY <= zone.bottom) return true;
+    }
+    return false;
   }
 
   // ===================================================================
@@ -296,6 +337,14 @@ export class LiquidCursorDistortion {
 
   _capture(){
     if(!window.html2canvas || this._capturing) return;
+    // see the file header — html2canvas can't reliably capture any of
+    // these three sections, so rather than refract broken/stale
+    // content, just stay off for as long as scroll sits inside one
+    this._suppressedForSticky = this._isInStickyZone(window.scrollY);
+    if(this._suppressedForSticky){
+      this.canvas.style.opacity = '0';
+      return;
+    }
     this._capturing = true;
     const w = window.innerWidth, h = window.innerHeight;
     window.html2canvas(document.documentElement, {
@@ -312,6 +361,14 @@ export class LiquidCursorDistortion {
       ignoreElements: (el) => el === this.canvas || el.tagName === 'CANVAS' || el.tagName === 'VIDEO' || el.tagName === 'IFRAME',
     }).then((snapshot)=>{
       this._capturing = false;
+      // scroll may have moved into one of the sticky zones while this
+      // (async) capture was in flight — check again rather than
+      // trusting the check from when the capture started
+      this._suppressedForSticky = this._isInStickyZone(window.scrollY);
+      if(this._suppressedForSticky){
+        this.canvas.style.opacity = '0';
+        return;
+      }
       if(this._pageTexture) this._pageTexture.dispose();
       this._pageTexture = new THREE.CanvasTexture(snapshot);
       this._pageTexture.minFilter = THREE.LinearFilter;
@@ -440,7 +497,7 @@ export class LiquidCursorDistortion {
 
     const stillSettling = !st.idleSinceMs || (ts - st.idleSinceMs) < this.config.settleMs;
 
-    if(stillSettling && !st.scrolling){
+    if(stillSettling && !st.scrolling && !this._suppressedForSticky){
       this._runSimPass();
       this._runCompositePass();
     }
