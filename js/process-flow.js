@@ -279,11 +279,13 @@ import * as THREE from './vendor/three.module.min.js';
       // just a flat wave painted on top. Centred on the hub (always at
       // normalized (0.5, 0.5)) and timed to uRippleTime — see the
       // lastBoundaryCrossMs comment in the JS above — so a ring fires
-      // right as scroll crosses into each new step and decays away
-      // over about a second, rather than rippling constantly.
+      // right as scroll crosses into each new step and decays away over
+      // a bit more than a second (was ~1s/0.026 amplitude — bumped both
+      // for a noticeably stronger reaction on every step transition),
+      // rather than rippling constantly.
       float distFromHub = length(p - vec2(0.5*aspect, 0.5));
-      float rippleEnvelope = exp(-uRippleTime*2.4);
-      float ripple = sin(distFromHub*24.0 - uRippleTime*10.0) * rippleEnvelope * 0.026;
+      float rippleEnvelope = exp(-uRippleTime*1.8);
+      float ripple = sin(distFromHub*24.0 - uRippleTime*10.0) * rippleEnvelope * 0.055;
 
       float f = raw - n*uNoiseStrength*0.13 - ripple;
 
