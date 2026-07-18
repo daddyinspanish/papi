@@ -1,6 +1,6 @@
 /* ===================================================================
    PAPI — Premium Business Template Studio
-   Loader + Hero
+   Hero
 =================================================================== */
 
 :root{
@@ -12,7 +12,7 @@
   --gold-soft: #e4cd9a;
   --gold-deep: #8a6a1f; /* darker gold for legibility over light backgrounds */
 
-  /* luxury white — used for the loader and the showcase section */
+  /* luxury white — used for the showcase section */
   --paper: #f8f6f2;
   --paper-ink: #17181a;
   --paper-dim: rgba(23,24,26,.5);
@@ -75,62 +75,12 @@ body{ overflow-x:hidden; }
    This class just hides the root's own scrollbar/rubber-band to match. */
 html.scroll-lock{ overflow:hidden; }
 
-html.no-scroll{ overflow:hidden; }
-body.no-scroll{ overflow:hidden; }
-
 ::selection{ background:rgba(var(--accent),.4); color:var(--cream); }
 
 a{ color:inherit; text-decoration:none; }
 
 /* custom cursor replaces the system pointer across the whole page */
 body, a{ cursor:none; }
-
-/* ===================================================================
-   LOADER — black and gold, on brand: a single stylized "Papi"
-   wordmark fills in from white to gold, then dissolves into the hero.
-=================================================================== */
-#loader{
-  position:fixed;
-  inset:0;
-  z-index:1000;
-  background:var(--ink);
-  overflow:hidden;
-}
-
-/* the same italic Fraunces treatment as "purpose" in the hero title
-   (see .hero-title em) — ties the very first thing a visitor sees to
-   the same on-brand serif/gold-italic moment they see again seconds
-   later, rather than a generic sans wordmark that has nothing to do
-   with the rest of the page. The rise settles the whole word into
-   place, then loader.js fades each letter in on its own before
-   pouring the gold fill through them in turn. */
-.loader-word{
-  position:absolute;
-  left:50%;
-  top:50%;
-  transform:translate(-50%,-50%) translateY(20px) scale(.94);
-  font-family:'Fraunces', serif;
-  font-style:italic;
-  font-weight:400;
-  letter-spacing:.02em;
-  font-size:clamp(2.6rem, 11vw, 6.2rem);
-  line-height:1;
-  display:flex;
-  will-change:transform, opacity;
-  opacity:0;
-}
-.loader-letter{
-  display:inline-block;
-  opacity:0;
-  color:#fff;
-  transform:translateY(16px);
-  will-change:opacity, transform, color;
-}
-
-/* loader exit */
-#loader.is-done{
-  pointer-events:none;
-}
 
 /* ===================================================================
    HERO / CANVAS FIELD
@@ -185,9 +135,19 @@ body, a{ cursor:none; }
 
 /* container for the WebGL gold slime — js/hero-slime.js renders into
    the <canvas> inside it. See that file's header for how the
-   simulation and shader work. */
+   simulation and shader work.
+   position:fixed rather than absolute: while #hero's own .hero-sticky
+   wrapper is pinned (the entire hero scroll), a fixed and an absolute
+   position:0 child look identical, since the pinned sticky box already
+   coincides exactly with the viewport — but fixed keeps behaving
+   correctly once the visitor scrolls past the hero entirely too, which
+   is what lets the canvas shrink into a small persistent corner logo
+   (see the docking block in loop()) and stay correctly positioned
+   there for the rest of the page, with no reparenting into any later
+   section needed. transform-origin:0 0 matches the math the docking
+   transform itself is derived against (see DOCK_SIZE in hero-slime.js). */
 #heroSlime{
-  position:absolute;
+  position:fixed;
   inset:0;
   width:100%;
   height:100%;
@@ -195,21 +155,9 @@ body, a{ cursor:none; }
   pointer-events:none;
   opacity:0;
   transition:opacity 1.4s ease;
+  transform-origin:0 0;
 }
 #heroSlime.is-visible{ opacity:1; }
-/* js/hero-slime.js reparents the canvas into .contrast-sticky while
-   that section is on screen (position:absolute there works exactly
-   like it does inside #hero — .contrast-sticky is position:sticky,
-   which is a positioned element same as #hero's position:relative) so
-   the mass keeps wandering there instead of just fading out at the
-   boundary. z-index:1 keeps it above that section's own background
-   (.contrast-intro/.contrast-stage are both z-index:2, above this) —
-   only needed while roaming there, since inside #hero the plain DOM
-   order already puts it behind .hero-content with no z-index at all.
-   transition:none since the exit fade near the end of that section is
-   set directly, every frame, from scroll position — the 1.4s reveal
-   transition above would otherwise lag it into a smeared mismatch. */
-#heroSlime.is-roaming{ z-index:1; transition:none; }
 
 /* ---- header / brand mark — fixed, always top right ---- */
 .site-header{

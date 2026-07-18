@@ -1,18 +1,20 @@
 /* ===================================================================
    Papi — title interaction
-   - No fly-in entrance anymore: "Flow" (heroFlowWord, in title-dock.js)
-     shows right after the loader instead, and the real title crossfades
-     in against it once hero-slime.js's liquid cubes have drawn close
-     together and are holding that formation (closeT reaching 1 — see
-     getExplodeProgress below).
+   - No fly-in entrance anymore: the big hero-flow word (heroFlowWord in
+     title-dock.js, showing "Papi") appears immediately on load instead,
+     and the real title crossfades in against it once hero-slime.js's
+     liquid cubes have drawn close together and are holding that
+     formation (closeT reaching 1 — see getExplodeProgress below).
    - Slow, smooth gyro tilt toward the cursor, strongest near the title.
    - Each of the title's letters drifts outward from the title's own
      centre and grows slightly while fading out — like the words are
      expanding out into the field's orbiting cluster — as closeT falls
-     back toward 0 (scrolling away from the held cube formation, in
-     either direction: back up toward "Flow", or on through disperse
-     before Contrast). The subtitle instead sinks straight down as one
-     line and fades, rather than repeating the title's own explode.
+     back toward 0 on a scroll back UP out of the held cube formation
+     (the only direction that still happens — scrolling further down
+     from there just docks the cubes into the corner, see
+     hero-slime.js's dockT, while closeT itself stays pinned at 1 and
+     the title stays put). The subtitle instead sinks straight down as
+     one line and fades, rather than repeating the title's own explode.
      Both are purely a function of the current closeT (not an
      accumulated value), so they reverse cleanly on their own if the
      visitor scrolls back up. The same per-letter push/ripple physics

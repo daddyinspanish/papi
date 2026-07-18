@@ -26,36 +26,22 @@
    principle traditional animation uses for anything heavy and fluid,
    here computed directly rather than being a separate keyframed effect.
 
-   Beyond the primary points that make up the mass in the hero, there
-   are extra "fragment" points that stay invisibly hidden inside that
-   same mass (each shadowing one primary point's position) for as long
-   as the visitor is still in the hero. As the mass falls into the
-   Contrast section below, those fragment points peel away toward
-   their own independent wander targets while the whole mass shrinks —
-   together that reads as the single blob breaking apart into many
-   small, varied-size droplets scattering around the section, rather
-   than one smaller blob. Scrolling back up runs the same, fully
-   reversible scroll-position math backwards, re-merging them into the
-   one normal mass by the time the hero is back on screen. See "fragT"
-   throughout this file for the details.
-
-   The hero itself is now a tall (400vh), pinned scroll section (see
+   The hero itself is a tall (400vh), pinned scroll section (see
    .hero-sticky in style.css) purely to give the mass room to run
-   through its own choreography before any of the above even starts:
-   free wander → the primary points coalesce into 4 small liquid cubes,
+   through its own choreography: free wander (shown alongside the big
+   "Papi" wordmark) → the primary points coalesce into 4 small liquid
+   cubes, tilted in true 3D (project3D(), a fixed angle rather than a
+   continuous spin — see CUBE_TILT_Y/X — with a perspective divide and a
+   matching per-point size cue, so each one reads as a real 6-faced box)
    clustered tight together at the centre (still nudge-able by the
    cursor, springing back once it moves away — the same mouse-force
-   physics every point already has) → once fully formed, that tight
-   cluster tumbles in true 3D (rotated around two different axes at
-   once via project3D(), with a perspective divide and a matching
-   per-point size cue, not just a flat in-plane spin) as the visitor
-   keeps scrolling → they disperse back into the normal free-wandering
-   mass → then the existing fall-into-Contrast sequence picks up right
-   where it always did. Search "heroProgress" and "cubeFormT" for the
-   details — the fragment points need no awareness of any of this at
-   all, since they just keep shadowing wherever their primary partner
-   currently is (unchanged), so they automatically ride along hidden
-   inside whatever shape the primaries take, cubes included.
+   physics every point already has) → draw closer together/bigger and
+   hold, static, while the real hero copy reveals → shrink and dock,
+   permanently, into the top-right corner next to the PAPI brand mark as
+   a small persistent logo (the canvas itself is position:fixed — see
+   style.css — so it keeps tracking the viewport correctly regardless of
+   how far the visitor has scrolled past the hero by then). Search
+   "heroProgress" and "cubeFormT" for the details.
 
    IMPORTANT, and worth being direct about: this renders through a
    requestAnimationFrame loop, same as every JS-driven animation this
@@ -78,13 +64,6 @@ import * as THREE from './vendor/three.module.min.js';
   const canvas = document.getElementById('heroSlime');
   if(!canvas) return;
   const heroEl = document.getElementById('hero');
-  // #hero is now the tall (400vh) outer scroll container; the canvas
-  // itself needs to live in the pinned inner wrapper so its inset:0
-  // sizing matches the actual one-viewport-tall visible box, not the
-  // whole 400vh outer section
-  const heroStickyEl = heroEl ? heroEl.querySelector('.hero-sticky') : null;
-  const contrastSectionEl = document.getElementById('contrastSection');
-  const contrastStickyEl = contrastSectionEl ? contrastSectionEl.querySelector('.contrast-sticky') : null;
 
   // ===================================================================
   // CONFIG — the knobs asked for, gathered in one place. Everything
@@ -97,11 +76,11 @@ import * as THREE from './vendor/three.module.min.js';
     cubeSpacing: 0.24,       // half-distance (in each of x/y) from the cluster's own centre to a cube
                               // slot — sized so the 4 cubes sit close together near the middle of the
                               // hero with real, visible gaps between them (matching the reference
-                              // logo), not touching/fused into one blob. Verified in sandbox across
-                              // the full CUBE_TILT_*_MAX range with the isCubeExtra/fragment shrink
-                              // below in place — without that shrink, two invisible near-duplicate
-                              // metaballs stacked on every visible cube were quietly inflating each
-                              // one's effective radius through the smin fold and closing the gap
+                              // logo), not touching/fused into one blob. Verified in sandbox with the
+                              // isCubeExtra shrink below in place — without that shrink, an invisible
+                              // near-duplicate metaball stacked on every visible cube was quietly
+                              // inflating each one's effective radius through the smin fold and
+                              // closing the gap
     // the shader's own field() scales every point's X position by the
     // viewport's aspect ratio (see the comment on that in field()) so a
     // point at normalized x=0.5 always lands at screen-centre regardless
@@ -172,19 +151,6 @@ import * as THREE from './vendor/three.module.min.js';
                               // above, where nothing needs to sit. Smaller than before (was 0.085) now that
                               // cubeCloseBoxScale itself is much smaller — the cluster needs a lot less
                               // help clearing the copy below it than it did at the old, much bigger scale.
-    // extra points that only ever reveal themselves once the mass has
-    // fallen into the Contrast section — see the fragmentation system
-    // below (search "fragment") for how these stay invisibly merged
-    // into the primary mass the rest of the time
-    numFragmentPoints: 8,
-    fragmentSizeScale: 0.4,     // how much smaller every point gets once fully fragmented (fragT===1)
-    fragmentTensionScale: 0.4,  // matching shrink for the smooth-min blend radius, so the merge/split
-                                // threshold scales down with the new smaller size instead of staying
-                                // oversized relative to it (which would just look like one smaller blob
-                                // instead of many separate little ones)
-    fragmentSpeedBoost: 1.3,   // fragment points drift a bit livelier than the calmer primary mass once
-                                // scattered — the point of this whole effect is to read as more eye-
-                                // catching once it lands in Contrast, not just structurally different
     slimeSize: 0.105,        // base radius of each control point, in aspect-corrected 0..1 space
     movementSpeed: 0.24,     // how quickly points travel toward their (slowly wandering) targets
     // raised further still (was 0.88) — the free-wander open right after
@@ -257,8 +223,7 @@ import * as THREE from './vendor/three.module.min.js';
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isMobile = window.innerWidth < CONFIG.mobileWidth;
   const primaryCount = isMobile ? Math.max(4, Math.round(CONFIG.numControlPoints * 0.7)) : CONFIG.numControlPoints;
-  const fragmentCount = isMobile ? Math.max(4, Math.round(CONFIG.numFragmentPoints * 0.7)) : CONFIG.numFragmentPoints;
-  const pointCount = primaryCount + fragmentCount;
+  const pointCount = primaryCount;
   const qualityScale = isMobile ? CONFIG.mobileQuality : 1;
   // see the comments on cubeSpacingMobile/cubeBoxScaleMobile above —
   // both compensate for the shader's own aspect-scaling reading much
@@ -379,7 +344,7 @@ import * as THREE from './vendor/three.module.min.js';
     const closeSpacingX = (finalHalfWidth + CONFIG.cubeCloseMinGap/2) / aspect;
     const closeSpacingY = finalHalfWidth + CONFIG.cubeCloseMinGap/2;
 
-    return { closeSpacingX, closeSpacingY, closeBoxScaleMul };
+    return { closeSpacingX, closeSpacingY, closeBoxScaleMul, finalHalfWidth };
   }
 
   // ===================================================================
@@ -399,11 +364,9 @@ import * as THREE from './vendor/three.module.min.js';
     uniform vec2 uResolution;
     uniform float uTime;
     uniform vec4 uPoints[${pointCount}]; // xy = position (0..1), zw = velocity
-    // per-point size multiplier — 1.0 for the primary points that make
-    // up the mass in the hero; the extra "fragment" points (see the JS
-    // fragmentation system) carry their own randomized multiplier so
-    // the scattered droplets in Contrast read as varied little pieces
-    // rather than identical dots
+    // per-point size multiplier — 1.0 normally; shrunk to 0 for the
+    // invisible "extra" points sharing a cube slot once cubeFormT rises
+    // (see isCubeExtra in the JS point setup)
     uniform float uPointSize[${pointCount}];
     // the cube cluster's shared 3D tumble — every cube rotates in
     // unison by this same angle (see rotateYX()/project3D() in JS)
@@ -629,8 +592,8 @@ import * as THREE from './vendor/three.module.min.js';
         // place, which read as boxy edges bleeding through liquid
         // that's still in motion rather than a clean liquid-to-cube
         // morph. 0.85 (not just "late", e.g. 0.55) specifically because
-        // the invisible "extra"/fragment duplicate sharing this same
-        // slot (see isCubeExtra/sizeMul*(1-cubeFormT) in stepPoints)
+        // the invisible "extra" duplicate sharing this same slot (see
+        // isCubeExtra/sizeMul*(1-cubeFormT) in stepPoints)
         // only shrinks down to a small sliver by then — any earlier and
         // its own still-sizeable box corner smin's against the real
         // point's box at a different scale, which reads as a small
@@ -923,31 +886,15 @@ import * as THREE from './vendor/three.module.min.js';
   // per-point noise offsets — large, decorrelated seeds so no two
   // points ever sample the same phase of the wander noise, which is
   // what keeps the whole mass from ever looking like it's repeating.
-  //
-  // indices >= primaryCount are "fragment" points: each is assigned a
-  // primary point to shadow (see stepPoints below) — while fragT is 0
-  // (hero zone) it sits exactly on that partner's position, at full
-  // size, contributing nothing visually distinct from the merged mass
-  // it's hiding inside of. As fragT rises toward 1 (falling into
-  // Contrast), its target blends away from the partner and toward its
-  // own independent wander target instead, and the global size/tension
-  // shrink (see loop()) lets it actually separate out and read as its
-  // own small droplet rather than staying glued to the partner by a
-  // now-oversized blend radius.
   const points = [];
   for(let i=0;i<pointCount;i++){
-    const isFragment = i >= primaryCount;
-    const partner = isFragment ? (i % primaryCount) : -1;
-    const startX = isFragment ? points[partner].x : 0.5 + (Math.random()-0.5)*0.3;
-    const startY = isFragment ? points[partner].y : 0.5 + (Math.random()-0.5)*0.3;
+    const startX = 0.5 + (Math.random()-0.5)*0.3;
+    const startY = 0.5 + (Math.random()-0.5)*0.3;
     // which of the 4 cube slots this point aims for once the hero's
-    // coalesce phase kicks in (meaningless for fragment points — they
-    // never look at this, they just keep shadowing their primary
-    // partner's position, cube or not) — only primary points needed
-    // any change at all for the cube choreography. A plain 2x2 grid of
-    // signs (-1/-1, 1/-1, -1/1, 1/1) rather than a diagonal layout, so
-    // the cluster reads as a flat 2x2 block face-on before any rotation
-    // starts, matching the reference look this was asked to match.
+    // coalesce phase kicks in. A plain 2x2 grid of signs (-1/-1, 1/-1,
+    // -1/1, 1/1) rather than a diagonal layout, so the cluster reads as
+    // a flat 2x2 block face-on before any tilt is applied, matching the
+    // reference look this was asked to match.
     const cubeIndex = i % 4;
     const cubeSignX = (cubeIndex & 1) ? 1 : -1;
     const cubeSignY = (cubeIndex & 2) ? 1 : -1;
@@ -957,25 +904,20 @@ import * as THREE from './vendor/three.module.min.js';
       vx: 0, vy: 0,
       seedX: Math.random()*1000,
       seedY: Math.random()*1000,
-      isFragment,
-      partner,
-      // fixed per-point size variety for fragments (1.0 for primaries,
-      // unaffected) — what makes the scattered droplets read as varied
-      // little pieces instead of identical dots once shrunk
-      sizeMul: isFragment ? (0.45 + Math.random()*0.4) : 1.0,
+      sizeMul: 1.0,
       // primaries 0-3 are each slot's one true representative; any
       // further primaries sharing that same slot (4-7, etc., when
-      // primaryCount > 4) are just as redundant there as the fragments
-      // are — two metaballs stacked near the same spot don't merely
-      // double up harmlessly, running both through the same smin fold
-      // measurably inflates that spot's effective radius, which was
-      // quietly closing the real gap between adjacent cubes. See the
-      // matching shrink in renderOnce().
-      isCubeExtra: !isFragment && i >= 4,
+      // primaryCount > 4) are just as redundant there — two metaballs
+      // stacked near the same spot don't merely double up harmlessly,
+      // running both through the same smin fold measurably inflates
+      // that spot's effective radius, which was quietly closing the
+      // real gap between adjacent cubes. See the matching shrink in
+      // renderOnce().
+      isCubeExtra: i >= 4,
       cubeSignX,
       cubeSignY,
-      // last-computed depth (see project3D) while tumbling — read back
-      // in renderOnce() for the per-point size-by-depth cue; harmless/
+      // last-computed depth (see project3D) while tilted — read back in
+      // renderOnce() for the per-point size-by-depth cue; harmless/
       // unused whenever cubeFormT is 0
       cubeDepth: 0,
     });
@@ -1016,14 +958,12 @@ import * as THREE from './vendor/three.module.min.js';
     return [(clientX - canvasRect.left) / canvasRect.width, (clientY - canvasRect.top) / canvasRect.height];
   }
   window.addEventListener('mousemove', (e)=>{
-    if(zone === 'gone') return;
     const [x,y] = toLocalNorm(e.clientX, e.clientY);
     mouse.x = x; mouse.y = y; mouse.active = true;
     lastMoveTime = performance.now();
   });
   window.addEventListener('mouseleave', ()=>{ mouse.active = false; });
   window.addEventListener('touchmove', (e)=>{
-    if(zone === 'gone') return;
     const t = e.touches && e.touches[0];
     if(!t) return;
     const [x,y] = toLocalNorm(t.clientX, t.clientY);
@@ -1073,7 +1013,7 @@ import * as THREE from './vendor/three.module.min.js';
     return { x: 0.5 + x1*persp, y: 0.5 + y1*persp, depth: z2 };
   }
 
-  function stepPoints(dtMs, elapsedMs, fragT, cubeFormT, angleY, angleX, closeT){
+  function stepPoints(dtMs, elapsedMs, cubeFormT, angleY, angleX, closeT){
     if(mouse.active && performance.now() - lastMoveTime > MOUSE_IDLE_MS) mouse.active = false;
     const dtScale = dtMs / 16.6667; // normalizes physics to "per ~60fps frame" units, using the capped dt
     // see computeCloseGeometry() above — solved fresh from the current
@@ -1101,16 +1041,7 @@ import * as THREE from './vendor/three.module.min.js';
       let targetX = 0.5 + nx*WANDER_RANGE;
       let targetY = 0.5 + ny*WANDER_RANGE;
 
-      // fragment points blend away from shadowing their partner and
-      // toward this own independent target as fragT rises — at fragT=0
-      // this collapses to exactly the partner's current position (no
-      // separate target of its own), at fragT=1 it's identical to a
-      // normal primary point's own wander
-      if(p.isFragment){
-        const partner = points[p.partner];
-        targetX = partner.x + (targetX - partner.x) * fragT;
-        targetY = partner.y + (targetY - partner.y) * fragT;
-      } else if(cubeFormT > 0){
+      if(cubeFormT > 0){
         // primary points blend their free-wander target toward this
         // point's own resting slot in the 4-cube cluster as cubeFormT
         // rises — that slot itself tumbles in 3D by (angleY, angleX),
@@ -1144,14 +1075,9 @@ import * as THREE from './vendor/three.module.min.js';
       // that moving target tightly instead — blended in by cubeFormT so
       // the coalesce phase itself still eases in smoothly rather than
       // snapping.
-      const pointElasticity = p.isFragment ? CONFIG.elasticity
-        : CONFIG.elasticity + (CONFIG.cubeElasticity - CONFIG.elasticity) * cubeFormT;
-      const pointViscosity = p.isFragment ? CONFIG.viscosity
-        : CONFIG.viscosity + (CONFIG.cubeViscosity - CONFIG.viscosity) * cubeFormT;
-      // see cubeMouseForceMul in CONFIG — fragments never lock into cube
-      // formation, so they always get the full free-wander strength
-      const pointMouseForceMul = p.isFragment ? 1
-        : 1 + (CONFIG.cubeMouseForceMul - 1) * cubeFormT;
+      const pointElasticity = CONFIG.elasticity + (CONFIG.cubeElasticity - CONFIG.elasticity) * cubeFormT;
+      const pointViscosity = CONFIG.viscosity + (CONFIG.cubeViscosity - CONFIG.viscosity) * cubeFormT;
+      const pointMouseForceMul = 1 + (CONFIG.cubeMouseForceMul - 1) * cubeFormT;
 
       let ax = (targetX - p.x) * pointElasticity;
       let ay = (targetY - p.y) * pointElasticity;
@@ -1175,12 +1101,8 @@ import * as THREE from './vendor/three.module.min.js';
       p.vx *= CONFIG.damping;
       p.vy *= CONFIG.damping;
 
-      // fragments move a bit livelier than the calm primary mass once
-      // actually scattered (fragT>0) — ramped by fragT itself so they
-      // ease into that energy rather than snapping to it
-      const speedMul = p.isFragment ? (1 + fragT*(CONFIG.fragmentSpeedBoost-1)) : 1;
-      p.x += p.vx * CONFIG.movementSpeed * speedMul * dtScale;
-      p.y += p.vy * CONFIG.movementSpeed * speedMul * dtScale;
+      p.x += p.vx * CONFIG.movementSpeed * dtScale;
+      p.y += p.vy * CONFIG.movementSpeed * dtScale;
     }
   }
 
@@ -1252,11 +1174,11 @@ import * as THREE from './vendor/three.module.min.js';
     uTime: { value: 0 },
     uPoints: { value: new Array(pointCount).fill(0).map(()=> new THREE.Vector4(0,0,0,0)) },
     // per-point size multiplier — starts as each point's own sizeMul
-    // (1.0 for primaries, randomized for fragments) and is rewritten
-    // every frame in renderOnce() for primaries currently tumbling as
-    // part of the cube cluster (see CUBE_DEPTH_SIZE), same as uPoints
+    // (always 1.0) and is rewritten every frame in renderOnce() for
+    // points currently tilted as part of the cube cluster (see
+    // CUBE_DEPTH_SIZE), same as uPoints
     uPointSize: { value: points.map(p => p.sizeMul) },
-    // the cube cluster's shared tumble angle — every cube rotates in
+    // the cube cluster's shared tilt angle — every cube tilts in
     // unison, rewritten every frame in loop() alongside uCubeT
     uCubeAngleY: { value: 0 },
     uCubeAngleX: { value: 0 },
@@ -1309,12 +1231,15 @@ import * as THREE from './vendor/three.module.min.js';
   let latestCubeFormT = 0;
   let latestCloseT = 0;
   // true once heroProgress has passed CUBE_PHASE.holdEnd, i.e. the
-  // visitor has scrolled on past the held cube formation into the
-  // disperse-back-to-liquid stretch toward Contrast — see
-  // window.Papi.getPastHold further down, read by title-dock.js so
-  // "Flow" doesn't reappear on the way OUT toward the next section
-  // (closeT falling back toward 0 there would otherwise fade it back in,
-  // exactly like scrolling up out of the hold phase legitimately does)
+  // visitor has scrolled on past the held cube formation into the dock
+  // phase (see dockT) toward Contrast — closeT itself stays pinned at 1
+  // for that whole stretch now (the formation holds, docking is purely
+  // a canvas-level transform, not a change to any point's own target),
+  // so in practice this mainly guards the moment #hero scrolls fully
+  // off-screen and heroProgress resets to 0 (see inHero below), which
+  // would otherwise read as "back to the wander phase" and fade the
+  // "Papi" word visible again — see window.Papi.getPastHold further
+  // down, read by title-dock.js
   let latestPastHold = false;
 
   let W = 1, H = 1;
@@ -1356,7 +1281,17 @@ import * as THREE from './vendor/three.module.min.js';
     if(Math.abs(w - lastResizeW) <= 10) return;
     lastResizeW = w;
     clearTimeout(window.__papiSlimeResizeT);
-    window.__papiSlimeResizeT = setTimeout(()=>{ resize(); measureHeroScrollable(); }, 150);
+    window.__papiSlimeResizeT = setTimeout(()=>{
+      resize();
+      measureHeroScrollable();
+      measureDockTarget();
+      // the cluster's own on-screen fraction of canvas width (see
+      // measureClusterFraction) can change with aspect ratio — clear the
+      // cached measurement so it's retaken fresh next time the cluster
+      // is fully held, rather than reusing a now-stale value from
+      // before the resize
+      measuredClusterFraction = null;
+    }, 150);
   });
 
   let revealed = false;
@@ -1370,22 +1305,18 @@ import * as THREE from './vendor/three.module.min.js';
       const v = uniforms.uPoints.value[i];
       v.set(p.x, p.y, p.vx * CONFIG.movementSpeed, p.vy * CONFIG.movementSpeed);
       let sizeMul = p.sizeMul;
-      if(p.isFragment || p.isCubeExtra){
-        // every fragment sits EXACTLY on its primary partner's position
-        // for as long as fragT is 0 — which is the entire cube phase,
-        // start to finish (fragT and cubeFormT are never both nonzero
-        // at once) — and any "extra" primary sharing a cube slot with
-        // another primary is in the same boat once cubeFormT rises.
-        // Two near-identical metaballs stacked on the same spot don't
-        // just double up harmlessly: running them both through the same
-        // smin fold measurably inflates that spot's effective radius
-        // (smin(x,x,k) computes to x - k/4, not x), which was quietly
-        // shrinking the real gap between adjacent cubes below what the
-        // target positions alone would suggest. Since both are 100%
-        // redundant here anyway, shrinking them to nothing while cubes
-        // are formed removes that inflation with zero visible change,
-        // and they fade back to full size the moment cubeFormT eases
-        // back toward 0.
+      if(p.isCubeExtra){
+        // any "extra" primary sharing a cube slot with another primary
+        // is fully redundant once cubeFormT rises — two near-identical
+        // metaballs stacked on the same spot don't just double up
+        // harmlessly: running them both through the same smin fold
+        // measurably inflates that spot's effective radius (smin(x,x,k)
+        // computes to x - k/4, not x), which was quietly shrinking the
+        // real gap between adjacent cubes below what the target
+        // positions alone would suggest. Shrinking it to nothing while
+        // cubes are formed removes that inflation with zero visible
+        // change, and it fades back to full size the moment cubeFormT
+        // eases back toward 0.
         sizeMul = p.sizeMul * (1 - cubeFormT);
       } else if(cubeFormT > 0){
         // a point currently tumbled toward the viewer reads slightly
@@ -1399,29 +1330,6 @@ import * as THREE from './vendor/three.module.min.js';
     renderer.render(scene, camera);
   }
 
-  // the mass doesn't just belong to the hero — it follows the visitor
-  // into the contrast section too, reparented (the same "move the real
-  // node, don't duplicate the effect" trick showcase.js already uses
-  // for its expanded card/quote) into that section's own sticky so it
-  // keeps wandering there, at full opacity, for the whole time that
-  // section is pinned. Reparenting alone made it *teleport* in though —
-  // the instant it became a plain inset:0 child of the (always-pinned-
-  // at-the-top) sticky, whatever was still off-screen above the old
-  // hero box was suddenly sitting in full view, since the new
-  // container's own on-screen position doesn't match where the old one
-  // had scrolled to. Fixed by compensating with a translateY that
-  // starts exactly cancelling that jump (so the very first frame in
-  // the new container looks identical to the last frame in the old
-  // one) and eases to zero over FALL_DIST — reading as gravity pulling
-  // the mass down into place rather than a cut. It's a pure function of
-  // how far past the hero/contrast boundary the scroll position is, so
-  // scrolling back up runs the exact same motion in reverse, right back
-  // through the same boundary, with no separate rise-up logic needed.
-  // It only fades near the very end of the section, in the last
-  // EXIT_FADE_RATIO of one viewport height, as the sticky is about to
-  // let go into showcase. Reparenting is still what keeps this cheap:
-  // it's the one canvas, one WebGL context, one simulation throughout —
-  // never two instances running at once.
   function smoothstep(e0, e1, x){
     const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0)));
     return t * t * (3 - 2 * t);
@@ -1430,26 +1338,29 @@ import * as THREE from './vendor/three.module.min.js';
   // ===================================================================
   // hero cube choreography — the tall (400vh) hero exists purely to
   // give this room to run: free wander → the primary points coalesce
-  // into a tight, centred 2x2 cluster of 4 liquid cubes → they draw
-  // much closer together/bigger (see computeCloseGeometry) → hold that
-  // tight formation, static, for the rest of the visitor's scroll
-  // through the "reveal" stretch (see title.js/title-dock.js, which
-  // read closeT reaching 1 as the cue to reveal the real hero copy) →
-  // disperse back into the normal free-wandering mass → then the
-  // existing fall-into-Contrast/fragment sequence above picks up right
-  // where it always did. Boundaries are fractions of heroProgress (0 at
-  // the very top of the hero's own scroll range, 1 once fully scrolled
-  // through it — see loop() below).
-  //
-  // this used to also tumble the formed cluster in true 3D (project3D
-  // still takes an angleY/angleX for that, and still needs to — it's
-  // what turns a flat offset into the perspective-projected slot
-  // position/depth used elsewhere), but the held formation reads more
-  // like the reference this is matching without any rotation at all, so
-  // angleY/angleX below are always 0 now.
+  // into a tight, centred 2x2 cluster of 4 liquid cubes, tilted in true
+  // 3D (project3D, a fixed CUBE_TILT_Y/X rather than a continuous spin —
+  // see the note there) so each one reads as a real 6-faced box, not a
+  // flat square → they draw much closer together/bigger (see
+  // computeCloseGeometry) → hold that tight formation for the rest of
+  // the visitor's scroll through the "reveal" stretch (see title.js/
+  // title-dock.js, which read closeT reaching 1 as the cue to reveal
+  // the real hero copy) → shrink and dock into the top-right corner
+  // near the PAPI brand mark, permanently, for the rest of the page
+  // (see "dockT" below and the docking block in loop()). Boundaries are
+  // fractions of heroProgress (0 at the very top of the hero's own
+  // scroll range, 1 once fully scrolled through it — see loop() below).
   // ===================================================================
+  // a fixed tilt (not a continuous spin — this formation holds still
+  // once formed) angled enough to show the top face plus two side
+  // faces at once, the classic "3D icon cube" read, without an extreme
+  // enough angle to swing the near corner's perspective growth (see
+  // project3D/CUBE_PERSPECTIVE) far enough to threaten the tight gap
+  // between cubes — verified in sandbox across aspect ratios.
+  const CUBE_TILT_Y = 0.40;
+  const CUBE_TILT_X = 0.26;
   const CUBE_PHASE = {
-    // pure free wander/"Flow" runs much longer than before (was 0.12) —
+    // pure free wander/"Papi" runs much longer than before (was 0.12) —
     // the cubes are meant to read as a distinct "second act" you scroll
     // into after a full first scroll's worth of the liquid mass just
     // wandering, not something that starts coalescing almost
@@ -1457,53 +1368,57 @@ import * as THREE from './vendor/three.module.min.js';
     // heroProgress covers a 300vh scrollable range — 0.32 lands cube
     // formation's start just past one full extra 100vh scroll.
     wanderEnd: 0.32,
-    formEnd: 0.5,       // coalesce into the tight 4-cube cluster complete
+    formEnd: 0.5,       // coalesce into the tight, tilted 4-cube cluster complete
     closeEnd: 0.62,     // cubes finish drawing much closer together/bigger (closeT below) — this is
                         // the cue title.js/title-dock.js wait for before revealing the real hero copy
     holdEnd: 0.88,      // hold that tight formation, static, until this point
-    disperseEnd: 0.96,  // back to free liquid — the remaining stretch up to heroProgress===1 is
-                        // plain free wander again, so the handoff into Contrast's own fall/fragment
-                        // sequence has nothing cube-related left to unwind
+    dockEnd: 0.98,      // shrinks/moves into the corner dock (dockT below) across this stretch, then
+                        // holds there — see the docking block in loop() — for the rest of the page
   };
   function computeChoreography(heroProgress){
     if(heroProgress <= CUBE_PHASE.wanderEnd){
-      return { cubeFormT: 0, angleY: 0, angleX: 0, closeT: 0 };
+      return { cubeFormT: 0, angleY: 0, angleX: 0, closeT: 0, dockT: 0 };
     }
     if(heroProgress <= CUBE_PHASE.formEnd){
-      return { cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress), angleY: 0, angleX: 0, closeT: 0 };
+      // tilt eases in alongside cubeFormT itself, so the cubes already
+      // read as tilted 3D boxes the moment they're recognizable as
+      // cubes at all, rather than snapping to an angle after the fact
+      const t = smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress);
+      return { cubeFormT: t, angleY: CUBE_TILT_Y*t, angleX: CUBE_TILT_X*t, closeT: 0, dockT: 0 };
     }
     if(heroProgress <= CUBE_PHASE.closeEnd){
-      // cubes are already fully formed (cubeFormT===1) by this point —
-      // closeT alone drives them drawing closer together/bigger, see
-      // computeCloseGeometry() and its callers
+      // cubes are already fully formed/tilted (cubeFormT===1) by this
+      // point — closeT alone drives them drawing closer together/
+      // bigger, see computeCloseGeometry() and its callers
       return {
         cubeFormT: 1,
-        angleY: 0,
-        angleX: 0,
+        angleY: CUBE_TILT_Y,
+        angleX: CUBE_TILT_X,
         closeT: smoothstep(CUBE_PHASE.formEnd, CUBE_PHASE.closeEnd, heroProgress),
+        dockT: 0,
       };
     }
     if(heroProgress <= CUBE_PHASE.holdEnd){
-      return { cubeFormT: 1, angleY: 0, angleX: 0, closeT: 1 };
+      return { cubeFormT: 1, angleY: CUBE_TILT_Y, angleX: CUBE_TILT_X, closeT: 1, dockT: 0 };
     }
-    if(heroProgress <= CUBE_PHASE.disperseEnd){
-      const t = smoothstep(CUBE_PHASE.holdEnd, CUBE_PHASE.disperseEnd, heroProgress);
-      return {
-        cubeFormT: 1 - t,
-        angleY: 0,
-        angleX: 0,
-        // eases back out to the resting spacing/size in lockstep with
-        // cubeFormT's own decay, so the cubes are back to their normal
-        // spacing by the moment they've fully melted back into liquid
-        closeT: 1 - t,
-      };
-    }
-    return { cubeFormT: 0, angleY: 0, angleX: 0, closeT: 0 };
+    // dock phase: the formation itself doesn't change at all (still
+    // fully formed/close/tilted) — dockT alone drives the CANVAS's own
+    // shrink+move toward the corner in loop(), a viewport-level
+    // transform rather than a change to any point's own p-space target,
+    // so this stays scroll-scrubbed/reversible the exact same way
+    // everything else in this choreography already is. Past dockEnd,
+    // heroProgress keeps climbing to 1 as the visitor finishes
+    // scrolling through the hero's own remaining height — dockT is
+    // already pinned at 1 there (smoothstep clamps past its own edge1),
+    // so the formation just holds, docked, through that stretch too.
+    return {
+      cubeFormT: 1,
+      angleY: CUBE_TILT_Y,
+      angleX: CUBE_TILT_X,
+      closeT: 1,
+      dockT: smoothstep(CUBE_PHASE.holdEnd, CUBE_PHASE.dockEnd, heroProgress),
+    };
   }
-
-  const FALL_RATIO = 0.7;
-  const EXIT_FADE_RATIO = 0.28;
-  let zone = 'hero'; // 'hero' | 'contrast' | 'gone'
 
   // capped at 60 rather than left fully uncapped — the hero is meant to
   // be the smoothest thing on the page, so this stays at 60 even though
@@ -1513,6 +1428,23 @@ import * as THREE from './vendor/three.module.min.js';
   const RENDER_FPS = 60;
   const RENDER_INTERVAL = 1000 / RENDER_FPS;
   let lastRenderTs = 0;
+
+  // ---- corner dock target — where the shrunk cluster settles, right
+  // next to the PAPI brand mark, once dockT reaches 1. Measured off the
+  // real brand-mark element (not a hardcoded pixel guess) so it tracks
+  // that element's own responsive clamp()'d position exactly, on both
+  // the initial measurement and every width-changing resize afterward
+  // (same >10px-tolerance guard as the rest of this file). ----
+  const brandMarkEl = document.getElementById('brandMark');
+  const DOCK_SIZE = 30; // px — roughly the on-screen footprint the docked cluster settles to, matching the brand mark's own text scale
+  const DOCK_GAP = 20;  // px — clearance between the docked cluster and the "PAPI" wordmark itself
+  let dockTargetX = 0, dockTargetY = 0;
+  function measureDockTarget(){
+    if(!brandMarkEl) return;
+    const r = brandMarkEl.getBoundingClientRect();
+    dockTargetX = r.left - DOCK_GAP;
+    dockTargetY = r.top + r.height/2;
+  }
 
   function loop(ts){
     if(!revealed){ rafId = requestAnimationFrame(loop); return; }
@@ -1526,7 +1458,7 @@ import * as THREE from './vendor/three.module.min.js';
     // the very top of the document, so -heroRect.top is exactly how far
     // scrolled past its own top edge already
     const heroProgress = (inHero && heroRect) ? Math.max(0, Math.min(1, -heroRect.top / heroScrollableHeight)) : 0;
-    const { cubeFormT, angleY, angleX, closeT } = computeChoreography(heroProgress);
+    const { cubeFormT, angleY, angleX, closeT, dockT } = computeChoreography(heroProgress);
     uniforms.uCubeT.value = cubeFormT;
     uniforms.uCubeAngleY.value = angleY;
     uniforms.uCubeAngleX.value = angleX;
@@ -1538,14 +1470,18 @@ import * as THREE from './vendor/three.module.min.js';
       : 1;
     // the hero's own background: white for the free-liquid look, easing
     // to black as the cubes form (cubeFormT already carries exactly the
-    // right timing — 0 through wander, rising through the coalesce, held
-    // at 1 through the whole tumble, back down through disperse) so the
-    // glowing cube material below actually reads as glowing rather than
-    // as a lit shape on white paper. title-dock.js reads the same
-    // cubeFormT (via window.Papi.getCubeFormT) to keep the docked title
-    // label/on-light-section brand styling in sync with this same
-    // transition instead of computing its own separate approximation of
-    // "is the cube phase active" from scroll position.
+    // right timing) so the glowing cube material below actually reads as
+    // glowing rather than as a lit shape on white paper. Held at black
+    // through the whole dock phase too (cubeFormT stays pinned at 1
+    // there — see computeChoreography), which is what's actually behind
+    // the canvas by the time it's shrunk into the corner; the CSS
+    // background only matters while #hero itself is still the thing on
+    // screen, so this has no effect once scrolled past it either way.
+    // title-dock.js reads the same cubeFormT (via window.Papi.
+    // getCubeFormT) to keep the docked title label/on-light-section
+    // brand styling in sync with this same transition instead of
+    // computing its own separate approximation of "is the cube phase
+    // active" from scroll position.
     latestCubeFormT = cubeFormT;
     latestCloseT = closeT;
     latestPastHold = heroProgress > CUBE_PHASE.holdEnd;
@@ -1555,58 +1491,60 @@ import * as THREE from './vendor/three.module.min.js';
       heroEl.style.backgroundColor = `rgb(${bgVal},${bgVal},${bgVal})`;
     }
 
-    let inContrast = false;
-    let exitOpacity = 1;
-    let fallOffset = 0;
-    // 0 = merged into the one normal-size mass (hero), 1 = fully
-    // fragmented into many small independent droplets (fully fallen
-    // into Contrast) — reuses the same fall-in progress as fallOffset
-    // above so the mass fragments *as* it falls, not on a separate
-    // timeline, and re-merges on the way back up through the same
-    // reversible scroll-position math
-    let fragT = 0;
-    if(!inHero && contrastStickyEl){
-      const cRect = contrastSectionEl.getBoundingClientRect();
-      if(cRect.bottom > 0){
-        inContrast = true;
-
-        const pastPx = -heroRect.bottom; // how far we've scrolled beyond hero's own bottom edge
-        const fallDist = window.innerHeight * FALL_RATIO;
-        const fallT = smoothstep(0, fallDist, pastPx);
-        const canvasH = canvas.clientHeight || window.innerHeight;
-        fallOffset = -canvasH * (1 - fallT);
-        fragT = fallT;
-
-        const exitPx = window.innerHeight * EXIT_FADE_RATIO;
-        if(cRect.bottom < exitPx) exitOpacity = Math.max(0, cRect.bottom / exitPx);
-      }
+    // ---- corner dock — a pure CSS transform on the canvas itself
+    // (position:fixed the whole time, see style.css), not a change to
+    // any point's own p-space target: the formed/tilted/close cluster
+    // holds its exact shape, the whole canvas just shrinks and slides
+    // toward dockTargetX/Y as dockT rises. transform-origin is the
+    // canvas's own top-left (set in style.css), so a point at the
+    // canvas's local centre (W/2,H/2) — where the cluster sits — maps
+    // to exactly (dockTargetX, dockTargetY) once dockT reaches 1; see
+    // the derivation in the comment above DOCK_SIZE. Purely a function
+    // of heroProgress like everything else here, so it's automatically
+    // reversible on scroll back up — no separate "undock" logic needed.
+    if(dockT > 0){
+      // how much of the canvas's own on-screen WIDTH the held/tilted
+      // close cluster actually spans, derived from the exact same
+      // geometry computeCloseGeometry() already solved (closeGeoNow,
+      // computed above whenever closeT>0 — which it always is here,
+      // pinned at 1 through the whole dock phase). Two different unit
+      // systems combine here: closeSpacingX (the cube centres' own
+      // offset from the middle) is already in "fraction of canvas
+      // width" units (see computeCloseGeometry's own /aspect), but
+      // finalHalfWidth (each cube's own half-size) is in "fraction of
+      // canvas HEIGHT" units instead — field()'s aspect correction is
+      // what keeps a cube looking square in real pixels regardless of
+      // window shape, and that correction is exactly what makes those
+      // two quantities live in different units. Multiplying
+      // finalHalfWidth by aspect (W/H) converts it into the same
+      // width-fraction units as closeSpacingX before adding them.
+      // (An earlier version of this guessed a single fixed fraction by
+      // eye on desktop — looked right there, but left the docked
+      // cluster roughly 3x too big on a narrow phone, where this same
+      // width/height unit split lands very differently.)
+      const aspect = W / H;
+      const clusterFraction = closeGeoNow
+        ? 2 * (closeGeoNow.closeSpacingX + closeGeoNow.finalHalfWidth * aspect)
+        : 0.55;
+      const finalScale = DOCK_SIZE / (clusterFraction * W);
+      const finalTx = dockTargetX - (W/2) * finalScale;
+      const finalTy = dockTargetY - (H/2) * finalScale;
+      const s = 1 + (finalScale - 1) * dockT;
+      const tx = finalTx * dockT;
+      const ty = finalTy * dockT;
+      canvas.style.transform = `translate(${tx.toFixed(2)}px, ${ty.toFixed(2)}px) scale(${s.toFixed(4)})`;
+      // sits behind the hero's own copy while still large/mid-transition
+      // (matches the plain DOM order this canvas already reads behind
+      // at z-index:auto — see #heroSlime in style.css), then pops above
+      // whatever page content happens to be scrolled underneath once
+      // it's mostly shrunk into the corner, so the docked logo actually
+      // stays visible rather than disappearing behind the next section's
+      // own background.
+      canvas.style.zIndex = dockT > 0.5 ? '195' : '';
+    } else if(canvas.style.transform){
+      canvas.style.transform = '';
+      canvas.style.zIndex = '';
     }
-
-    const nextZone = inHero ? 'hero' : (inContrast ? 'contrast' : 'gone');
-    if(nextZone !== zone){
-      if(nextZone === 'contrast' && contrastStickyEl){
-        contrastStickyEl.insertBefore(canvas, contrastStickyEl.firstChild);
-        canvas.classList.add('is-roaming');
-      } else if(nextZone === 'hero' && heroStickyEl){
-        heroStickyEl.insertBefore(canvas, heroStickyEl.firstChild);
-        canvas.classList.remove('is-roaming');
-        canvas.style.transform = ''; // hero phase needs no JS transform at all — plain inset:0 already matches its normal position within the pinned .hero-sticky wrapper
-      }
-      // 'gone': leave it parked wherever it last was — paused and
-      // faded to nothing, so its parent no longer matters until the
-      // visitor scrolls back up into one of the other two zones
-      zone = nextZone;
-      resize();
-    }
-
-    if(zone === 'contrast'){
-      canvas.style.opacity = String(exitOpacity);
-      canvas.style.transform = `translateY(${fallOffset.toFixed(1)}px)`;
-    } else if(zone === 'hero' && canvas.style.opacity){
-      canvas.style.opacity = ''; // hand control back to the .is-visible class's own transition
-    }
-
-    if(zone === 'gone'){ rafId = requestAnimationFrame(loop); return; }
 
     if(ts - lastRenderTs < RENDER_INTERVAL){
       rafId = requestAnimationFrame(loop);
@@ -1623,12 +1561,6 @@ import * as THREE from './vendor/three.module.min.js';
     if(elapsedStart === null) elapsedStart = ts;
     const elapsed = ts - elapsedStart;
 
-    // global shrink toward the fragmented scale as fragT rises — applies
-    // to every point (primaries included, each still scaled by its own
-    // uPointSize on top of this), which is what actually lets the mass
-    // separate into visibly distinct small droplets rather than just
-    // becoming one smaller blob
-    uniforms.uSlimeSize.value = CONFIG.slimeSize * (1 - fragT*(1 - CONFIG.fragmentSizeScale));
     // smin()'s own blend radius (surfaceTension) is what actually reads
     // as "touching" visually — two shapes geometrically apart by less
     // than roughly this radius still show a soft connecting neck, even
@@ -1638,19 +1570,16 @@ import * as THREE from './vendor/three.module.min.js';
     // small — see cubeCloseMinGap) dropped below the *un*-shrunk
     // surfaceTension (0.10), which is exactly what a formed cube's own
     // resting gap already can be on some window shapes even before
-    // drawing closer at all. Shrinking this the same way fragments
-    // already do above (search "fragmentTensionScale") keeps every
-    // formed cube's edge crisp enough to actually read as separate.
-    // portraitTensionRatio (see desiredCloseBoxScale) shrinks this the
-    // same proportion the cubes themselves are tapered down on a
-    // portrait screen, so the blend radius stays a constant fraction of
-    // cube size instead of visually fusing the smaller mobile cubes.
+    // drawing closer at all. portraitTensionRatio (see
+    // desiredCloseBoxScale) shrinks this the same proportion the cubes
+    // themselves are tapered down on a portrait screen, so the blend
+    // radius stays a constant fraction of cube size instead of visually
+    // fusing the smaller mobile cubes.
     const portraitTensionRatio = desiredCloseBoxScale().ratio;
     uniforms.uSurfaceTension.value = CONFIG.surfaceTension
-      * (1 - fragT*(1 - CONFIG.fragmentTensionScale))
       * (1 - cubeFormT*(1 - CONFIG.cubeTensionScale * portraitTensionRatio));
 
-    stepPoints(dt, elapsed, fragT, cubeFormT, angleY, angleX, closeT);
+    stepPoints(dt, elapsed, cubeFormT, angleY, angleX, closeT);
     renderOnce(elapsed, cubeFormT);
 
     rafId = requestAnimationFrame(loop);
@@ -1659,11 +1588,12 @@ import * as THREE from './vendor/three.module.min.js';
 
   resize();
   measureHeroScrollable();
+  measureDockTarget();
 
   if(prefersReducedMotion){
     // a single static frame — settle the points near center once, no
     // ongoing simulation and no render loop at all
-    stepPoints(16.6667, 0, 0, 0, 0, 0, 0);
+    stepPoints(16.6667, 0, 0, 0, 0, 0);
     renderOnce(0, 0);
   } else {
     rafId = requestAnimationFrame(loop);
@@ -1677,12 +1607,12 @@ import * as THREE from './vendor/three.module.min.js';
   window.Papi.getCubeFormT = () => latestCubeFormT;
   // 0 until the cubes finish drawing close together, 1 once they're
   // fully tight and holding — title.js/title-dock.js use this as the
-  // cue to crossfade "Flow" out and the real hero copy in
+  // cue to crossfade "Papi" out and the real hero copy in
   window.Papi.getCloseT = () => latestCloseT;
-  // see latestPastHold above — title-dock.js reads this to keep "Flow"
-  // hidden for good once the visitor has scrolled on past the held
-  // cube formation, rather than letting it fade back in as the cubes
-  // disperse back to liquid on the way toward Contrast
+  // see latestPastHold above — title-dock.js reads this to keep "Papi"
+  // hidden for good once the visitor has scrolled on past the held/
+  // docking cube formation, rather than letting it fade back in once
+  // #hero itself has scrolled fully off-screen
   window.Papi.getPastHold = () => latestPastHold;
   window.Papi.revealField = function(){
     if(revealed) return;

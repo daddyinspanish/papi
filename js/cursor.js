@@ -3,8 +3,7 @@
    A small dot tracks the pointer closely while a soft ring trails
    behind it with a slower lerp, giving that "dragging" lag feel. The
    ring grows on interactive elements and on press. Stays invisible
-   until the loader has fully finished (window.Papi.revealCursor,
-   called from loader.js) — no cursor during the loading sequence.
+   until window.Papi.revealCursor is called (see js/init.js).
 =================================================================== */
 (function(){
   if(window.matchMedia && window.matchMedia('(hover:none), (pointer:coarse)').matches) return;

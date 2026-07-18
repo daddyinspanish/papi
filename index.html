@@ -1,13 +1,14 @@
 <!doctype html>
-<html lang="en" class="no-scroll">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script>
 // run as early as possible, before the browser has a chance to
 // restore a scrolled-down position from the last visit/reload — that
-// restored scrollY, arriving before the loader has even started,
-// was one way the hero's fill animation could get skipped entirely
+// restored scrollY, arriving before the hero has even had a chance to
+// reveal, was one way the hero's fill animation could get skipped
+// entirely
 if('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.scrollTo(0, 0);
 
@@ -73,12 +74,7 @@ window.scrollTo(0, 0);
 
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body class="no-scroll">
-
-<!-- ============ LOADER ============ -->
-<div id="loader">
-  <div class="loader-word" id="loaderWord">Papi</div>
-</div>
+<body>
 
 <!-- persistent top-right brand mark -->
 <header class="site-header" id="siteHeader">
@@ -105,11 +101,14 @@ window.scrollTo(0, 0);
   <canvas id="heroSlime" aria-hidden="true"></canvas>
 
   <section class="hero-content">
-    <!-- shown right after the loader, in place of the real hero copy —
+    <!-- shown immediately on load, in place of the real hero copy —
          crossfades out once the liquid cubes draw close together and
          hold (js/title.js reads window.Papi.getCloseT() for the cue),
-         at which point heroCopy below crossfades in over the same spot -->
-    <div class="hero-flow-word" id="heroFlowWord" aria-hidden="true">Flow</div>
+         at which point heroCopy below crossfades in over the same spot.
+         Element/class names here still say "flow" (its own name up
+         until this word became "Papi") — purely a historical label,
+         doesn't affect behavior. -->
+    <div class="hero-flow-word" id="heroFlowWord" aria-hidden="true">Papi</div>
     <div class="hero-copy" id="heroCopy">
       <div class="hero-title-row">
         <h1 class="hero-title" id="heroTitle">
@@ -640,6 +639,6 @@ window.scrollTo(0, 0);
 <script src="js/quote-form.js"></script>
 <script src="js/newsletter-popup.js"></script>
 <script src="js/cursor.js"></script>
-<script src="js/loader.js"></script>
+<script src="js/init.js"></script>
 </body>
 </html>
