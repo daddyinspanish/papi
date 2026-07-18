@@ -105,6 +105,55 @@ body, a{ cursor:none; }
   visibility:visible;
   opacity:1;
 }
+/* js/liquid-cursor-distortion.js's own material needs actual variation
+   in the page pixels it's refracting to read as anything at all — a
+   flat #ffffff behind it (what this used to be) gives the shader
+   nothing to bend, so the whole effect was nearly invisible here
+   despite working correctly. This stays entirely within the site's
+   existing light palette (no new hue, nothing dark) — just enough
+   texture for a lens passing over it to actually have an edge: a soft
+   gradient, two faint warm/cool glows (the same "the falloff IS the
+   blur" radial-gradient technique used sitewide instead of a real
+   blur filter — see js/process-fog.js's own header for why), a barely-
+   there grid, a single oversized watermark word, and a static grain
+   image (decoded once like any other background image, NOT a live
+   filter re-run every frame — a different, much cheaper thing than
+   the backdrop-filter/blur class of effect this project avoids). */
+.hero-texture{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  overflow:hidden;
+  pointer-events:none;
+  background:
+    radial-gradient(38% 30% at 12% 14%, rgba(203,168,105,.12) 0%, transparent 100%),
+    radial-gradient(34% 30% at 90% 86%, rgba(150,170,190,.14) 0%, transparent 100%),
+    repeating-linear-gradient(to right, rgba(23,24,26,.035) 0 1px, transparent 1px 96px),
+    repeating-linear-gradient(to bottom, rgba(23,24,26,.035) 0 1px, transparent 1px 96px),
+    linear-gradient(165deg, #fbfaf7 0%, #f4f2ec 52%, #ebe8e0 100%);
+}
+.hero-texture::before{
+  content:'';
+  position:absolute;
+  inset:-15%;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity:.05;
+  mix-blend-mode:multiply;
+}
+.hero-texture-word{
+  position:absolute;
+  bottom:-8%;
+  left:50%;
+  transform:translateX(-50%);
+  font-family:'Fraunces', serif;
+  font-style:italic;
+  font-weight:600;
+  font-size:min(30vw, 26rem);
+  line-height:1;
+  color:rgba(23,24,26,.032);
+  white-space:nowrap;
+  user-select:none;
+}
 /* wraps just the two-column intro area (not the process-steps row
    below it) — overflow:hidden here, scoped to this wrapper rather than
    the whole (now taller) #hero, keeps the liquid canvas from ever

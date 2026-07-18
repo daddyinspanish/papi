@@ -135,6 +135,7 @@ const COMPOSITE_FRAGMENT = `
   varying vec2 vUv;
   uniform sampler2D uDisplacement;
   uniform sampler2D uPageTex;
+  uniform vec2 uDispTexel;
   uniform float uStrength;
   uniform bool uHasTexture;
 
@@ -143,16 +144,51 @@ const COMPOSITE_FRAGMENT = `
     vec2 disp = texture2D(uDisplacement, vUv).xy;
     float mag = length(disp);
     if(mag < 0.0006) discard;
-    vec2 uv2 = clamp(vUv + disp * uStrength, 0.0015, 0.9985);
-    vec3 color = texture2D(uPageTex, uv2).rgb;
-    // a cheap stand-in for a real specular highlight — brightens
-    // roughly where the disturbance itself is strongest, the same
-    // "the surface catches light where it's actually curved" idea as
-    // the rest of this page's liquid shaders, just without a full
-    // normal/lighting calc (this runs full-screen every frame, so it
-    // stays deliberately cheap).
-    float highlight = smoothstep(0.0, 0.05, mag) * 0.16;
-    color += highlight;
+
+    // a real surface normal built from the displacement FIELD's own
+    // shape (finite-difference gradient of its magnitude across
+    // neighbouring texels) — the same "treat the field as a height map"
+    // approach every other liquid surface on this page already uses
+    // (see js/hero-slime.js's own header), rather than a flat magnitude-
+    // based glow with no actual direction to it.
+    float mL = length(texture2D(uDisplacement, vUv - vec2(uDispTexel.x, 0.0)).xy);
+    float mR = length(texture2D(uDisplacement, vUv + vec2(uDispTexel.x, 0.0)).xy);
+    float mD = length(texture2D(uDisplacement, vUv - vec2(0.0, uDispTexel.y)).xy);
+    float mU = length(texture2D(uDisplacement, vUv + vec2(0.0, uDispTexel.y)).xy);
+    vec3 normal = normalize(vec3((mL - mR) * 14.0, (mD - mU) * 14.0, 1.0));
+
+    vec3 lightDir = normalize(vec3(-0.4, 0.55, 0.7));
+    vec3 viewDir = vec3(0.0, 0.0, 1.0);
+    float diff = max(0.0, dot(normal, lightDir));
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(0.0, dot(reflectDir, viewDir)), 70.0);
+    float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 2.2);
+
+    // chromatic separation — sample the page texture three times at
+    // slightly different displacement scales per channel, the same
+    // "glass doesn't bend every wavelength the same amount" trick this
+    // page's other liquid shaders use (see hero-slime.js's own
+    // refractDirR/G/B) — real dispersion built from the actual sampled
+    // content, rather than a flat colour fringe painted over it.
+    vec2 uvR = clamp(vUv + disp * uStrength * 1.14, 0.0015, 0.9985);
+    vec2 uvG = clamp(vUv + disp * uStrength, 0.0015, 0.9985);
+    vec2 uvB = clamp(vUv + disp * uStrength * 0.86, 0.0015, 0.9985);
+    vec3 color = vec3(
+      texture2D(uPageTex, uvR).r,
+      texture2D(uPageTex, uvG).g,
+      texture2D(uPageTex, uvB).b
+    );
+
+    // real highlight/shadow from the surface normal itself — brighter
+    // where the bump catches the light, a little darker on its own
+    // away side, plus a thin fresnel-like rim right at the edge of the
+    // disturbance — all modulating the SAMPLED content's own
+    // brightness rather than adding a new flat colour, so this never
+    // reads as a tinted blob sitting on top of the page.
+    color *= (0.82 + 0.30 * diff);
+    color += vec3(1.0) * spec * 0.55;
+    color += vec3(1.0) * fresnel * smoothstep(0.0006, 0.01, mag) * 0.12;
+
     float alpha = smoothstep(0.0006, 0.012, mag);
     gl_FragColor = vec4(color, alpha);
   }
@@ -245,6 +281,7 @@ export class LiquidCursorDistortion {
       uniforms: {
         uDisplacement: { value: null },
         uPageTex: { value: null },
+        uDispTexel: { value: new THREE.Vector2(1, 1) },
         uStrength: { value: this.config.strength },
         uHasTexture: { value: false },
       },
@@ -292,6 +329,10 @@ export class LiquidCursorDistortion {
 
     this.simMaterial.uniforms.uTexel.value.set(1 / simW, 1 / simH);
     this.simMaterial.uniforms.uAspect.value = aspect;
+    // uDisplacement (composite) samples the SAME render target as
+    // uPrev (sim), so it needs the same texel size for its own
+    // neighbour-sampling normal calc
+    this.compositeMaterial.uniforms.uDispTexel.value.set(1 / simW, 1 / simH);
 
     this._measureStickyZones();
   }
