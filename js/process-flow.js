@@ -97,27 +97,79 @@ import * as THREE from './vendor/three.module.min.js';
   // scrolled mid-section doesn't fire a spurious ripple immediately.
   let lastRoundedStep = null;
   let lastBoundaryCrossMs = -9999;
+  // each ripple's own strength/decay, read by renderFlowFrame — set
+  // whenever a boundary trigger fires below, alongside
+  // lastBoundaryCrossMs, so the ripple that's about to play uses
+  // whichever amplitude belongs to the step just entered (or to the
+  // final exit) rather than one fixed strength throughout.
+  let lastRippleAmpMul = 1;
+  let lastRippleDecay = 1.8;
+  // multiplier for the ripple fired when ENTERING step index 1/2/3
+  // (index 0 never fires one — that step is already visible on load) —
+  // each one noticeably bigger than the last, per "first step small,
+  // second bigger, third bigger still".
+  const RIPPLE_AMP_BY_STEP = [0, 1, 1.7, 2.5];
+  // the biggest of all four, and the one that also shatters the hub
+  // (see exitProgress/hubShatterT below) — fired once scroll crosses
+  // OUT of the section's last step into whatever comes next, not on a
+  // fixed timer, so scrolling back up cancels it cleanly like
+  // everything else in this file.
+  const EXIT_RIPPLE_AMP_MUL = 3.6;
+  const EXIT_RIPPLE_DECAY = 1.1;
+  let lastExitedPast = null;
+  // 0 through the whole section, ramping 0->1 over the one viewport-
+  // height of extra scroll it takes .process-sticky to actually finish
+  // scrolling away once unpinned (see the CSS: position:sticky simply
+  // releases at the parent's own bottom edge and continues in normal
+  // flow from there) — a pure function of scroll position like
+  // everything else here, so driving the hub-shatter/title-hide off it
+  // un-shatters cleanly if scrolled back up instead of needing separate
+  // reverse logic.
+  let latestExitProgress = 0;
 
   let pinnedLow = false, pinnedHigh = false;
   function update(){
     const scrollable = Math.max(1, sectionHeight - viewportH);
     const rawProgress = (window.scrollY - sectionTop) / scrollable;
 
-    // same "skip the redundant recompute once fully settled at either
-    // end" optimization as contrast.js/quote-form.js — everything this
-    // touches is already pinned at its resting state once past either
-    // edge, so there's nothing new to write on every further scroll tick
     if(rawProgress < 0){
       if(pinnedLow) return;
       pinnedLow = true;
     } else pinnedLow = false;
+
+    // how far past the point where .process-sticky actually starts to
+    // unpin we've scrolled, in viewport heights — that point is
+    // sectionTop+scrollable (exactly where rawProgress hits 1), NOT
+    // sectionTop+sectionHeight: sticky positioning releases as soon as
+    // the PARENT's remaining height runs out, which happens a full
+    // viewport-height before the parent's own bottom edge (the sticky
+    // is itself one viewport tall). Using sectionHeight here instead
+    // measured from a point where the sticky had ALREADY fully
+    // scrolled away, so the whole shatter sequence below was playing
+    // out after the liquid was already off-screen rather than while it
+    // was still visibly scrolling away.
+    //
+    // Computed BEFORE the pinnedHigh early-return below so that guard
+    // can keep this (and the shatter it drives) recomputing for as
+    // long as there's still something left to animate, rather than
+    // freezing the moment rawProgress first ticks past 1 (which is
+    // what the old single rawProgress>1 check did, and which is
+    // exactly why the last step's title used to stay visible forever).
+    const exitPastPx = window.scrollY - (sectionTop + scrollable);
+    const exitProgress = Math.max(0, Math.min(1, exitPastPx / viewportH));
+
+    // same "skip the redundant recompute once fully settled" optimization
+    // as contrast.js/quote-form.js, just gated on the shatter/exit
+    // sequence actually having finished (exitProgress reaching 1) rather
+    // than merely having started.
     if(rawProgress > 1){
-      if(pinnedHigh) return;
+      if(pinnedHigh && exitProgress >= 1) return;
       pinnedHigh = true;
     } else pinnedHigh = false;
 
     const progress = Math.max(0, Math.min(1, rawProgress));
     latestProgress = progress;
+    latestExitProgress = exitProgress;
 
     // segment BOUNDARIES sit at stepFloat = 1, 2, 3 (integers) —
     // Math.floor is what detects crossing one of those; Math.round
@@ -131,9 +183,38 @@ import * as THREE from './vendor/three.module.min.js';
     } else if(flooredStep !== lastRoundedStep){
       lastRoundedStep = flooredStep;
       lastBoundaryCrossMs = performance.now();
+      lastRippleAmpMul = RIPPLE_AMP_BY_STEP[flooredStep] || 1;
+      lastRippleDecay = 1.8;
     }
 
-    let activeIndex = 0;
+    // the fourth, biggest ripple — fires once when exitProgress first
+    // ticks above 0 (just like the step-boundary crossings above, but
+    // for "crossed the section's own final edge" instead of "crossed
+    // into a step"), and reverses the same way if scrolled back up.
+    const nowExited = exitProgress > 0;
+    if(lastExitedPast === null){
+      lastExitedPast = nowExited;
+    } else if(nowExited !== lastExitedPast){
+      lastExitedPast = nowExited;
+      if(nowExited){
+        lastBoundaryCrossMs = performance.now();
+        lastRippleAmpMul = EXIT_RIPPLE_AMP_MUL;
+        lastRippleDecay = EXIT_RIPPLE_DECAY;
+      }
+    }
+
+    // fades the whole step out in sync with the hub shattering (see
+    // hubShatterT in renderFlowFrame) rather than leaving the last
+    // step's title sitting on screen after the liquid behind it has
+    // already broken apart.
+    const exitFade = 1 - smoothstep(0, 1, exitProgress);
+
+    // defaults to the LAST step, not the first — once exitFade has
+    // dragged every step's opacity below 0.5 (see exitFade above),
+    // nothing below ever overrides this default, and the section is
+    // always being exited FROM its last step, never its first, so that's
+    // the dot that should stay lit while everything else fades away.
+    let activeIndex = steps.length - 1;
     stepParts.forEach(({el, num, title, para}, i)=>{
       const segStart = i * SEGMENT;
       const segEnd = segStart + SEGMENT;
@@ -147,7 +228,7 @@ import * as THREE from './vendor/three.module.min.js';
       // rather than one finishing before the other starts.
       const fadeIn = i === 0 ? 1 : smoothstep(segStart - FADE_MARGIN, segStart + FADE_MARGIN, progress);
       const fadeOut = i === steps.length - 1 ? 0 : smoothstep(segEnd - FADE_MARGIN, segEnd + FADE_MARGIN, progress);
-      const opacity = fadeIn * (1 - fadeOut);
+      const opacity = fadeIn * (1 - fadeOut) * exitFade;
       el.style.opacity = opacity.toFixed(3);
 
       // staggered reveal within that same fade-in window — the number
@@ -215,6 +296,8 @@ import * as THREE from './vendor/three.module.min.js';
     uniform float uSurfaceTension;
     uniform float uNoiseStrength;
     uniform float uRippleTime; // seconds since the last step-boundary crossing
+    uniform float uRippleAmp; // this ripple's own strength — see RIPPLE_AMP_BY_STEP/EXIT_RIPPLE_AMP_MUL in the JS
+    uniform float uRippleDecay;
     uniform vec3 uColorMid;
     uniform vec3 uColorBright;
     uniform sampler2D uEnvMap;
@@ -280,12 +363,15 @@ import * as THREE from './vendor/three.module.min.js';
       // normalized (0.5, 0.5)) and timed to uRippleTime — see the
       // lastBoundaryCrossMs comment in the JS above — so a ring fires
       // right as scroll crosses into each new step and decays away over
-      // a bit more than a second (was ~1s/0.026 amplitude — bumped both
-      // for a noticeably stronger reaction on every step transition),
-      // rather than rippling constantly.
+      // roughly a second — see RIPPLE_AMP_BY_STEP/EXIT_RIPPLE_AMP_MUL in
+      // the JS above for why its strength (uRippleAmp) isn't a single
+      // fixed number: each step's own ripple is bigger than the last,
+      // and the final one (exiting the section) is the biggest of all
+      // and doubles as the hub-shatter trigger — rather than rippling
+      // constantly.
       float distFromHub = length(p - vec2(0.5*aspect, 0.5));
-      float rippleEnvelope = exp(-uRippleTime*1.8);
-      float ripple = sin(distFromHub*24.0 - uRippleTime*10.0) * rippleEnvelope * 0.055;
+      float rippleEnvelope = exp(-uRippleTime*uRippleDecay);
+      float ripple = sin(distFromHub*24.0 - uRippleTime*10.0) * rippleEnvelope * uRippleAmp;
 
       float f = raw - n*uNoiseStrength*0.13 - ripple;
 
@@ -402,6 +488,13 @@ import * as THREE from './vendor/three.module.min.js';
         startY: rand()*1.4 - 0.3,
         fallSpeed: 0.05 + rand()*0.035, // fraction of viewport-height per second
         radius: CONFIG.dropletRadius + (rand()-0.5)*CONFIG.dropletRadiusVar,
+        // fixed, seeded outward direction/distance used only once the
+        // hub shatters (see hubShatterT in renderFlowFrame) — each
+        // droplet gets blown outward from the hub's centre along its
+        // own angle rather than all fragments flying the same way,
+        // which is what actually reads as a burst instead of a slide.
+        burstAngle: rand() * Math.PI * 2,
+        burstDist: 0.22 + rand() * 0.4,
       });
     }
   })();
@@ -417,6 +510,8 @@ import * as THREE from './vendor/three.module.min.js';
     uSurfaceTension: { value: CONFIG.surfaceTension },
     uNoiseStrength: { value: CONFIG.noiseStrength },
     uRippleTime: { value: 999 },
+    uRippleAmp: { value: 0.055 },
+    uRippleDecay: { value: 1.8 },
     uColorMid: { value: new THREE.Vector3(...CONFIG.colorMid) },
     uColorBright: { value: new THREE.Vector3(...CONFIG.colorBright) },
     uEnvMap: { value: makeEnvTexture() },
@@ -454,7 +549,13 @@ import * as THREE from './vendor/three.module.min.js';
     const distToBoundary = Math.abs(stepFloat - Math.round(stepFloat));
     const pulse = 1 + (1 - smoothstep(0, 0.12, distToBoundary)) * CONFIG.hubPulseAmp;
 
-    uniforms.uPoints.value[HUB_IDX].set(0.5, 0.5, CONFIG.hubRadius * pulse, 0);
+    // 0 through the whole section, easing to 1 across latestExitProgress
+    // (see its own comment in update() above) — shrinks the hub to
+    // nothing exactly as the biggest/final ripple fires, so "the ripple
+    // that breaks it" and "the hub actually breaking" are the same
+    // moment rather than two separately-timed effects.
+    const hubShatterT = smoothstep(0, 1, latestExitProgress);
+    uniforms.uPoints.value[HUB_IDX].set(0.5, 0.5, Math.max(0, CONFIG.hubRadius * pulse * (1 - hubShatterT)), 0);
     // real elapsed wall-clock time since the last crossing (see
     // lastBoundaryCrossMs in the scroll handler above) — NOT the same
     // clock as elapsedMs/t above, which restarts from 0 every time this
@@ -463,6 +564,8 @@ import * as THREE from './vendor/three.module.min.js';
     // that, so the ripple's own decay timing is never thrown off by
     // the render loop pausing and resuming in between.
     uniforms.uRippleTime.value = (performance.now() - lastBoundaryCrossMs) / 1000;
+    uniforms.uRippleAmp.value = 0.055 * lastRippleAmpMul;
+    uniforms.uRippleDecay.value = lastRippleDecay;
 
     DROPLETS.forEach((d, i)=>{
       const idx = i + 1;
@@ -470,7 +573,24 @@ import * as THREE from './vendor/three.module.min.js';
       if(yFrac < 0) yFrac += 1.4;
       const y = yFrac - 0.2;
       const sway = Math.sin(t * (2*Math.PI/d.swayPeriod) + d.swayPhase) * d.swayAmp;
-      uniforms.uPoints.value[idx].set(d.homeX + sway, 1 - y, d.radius, 0);
+      let px = d.homeX + sway;
+      let py = 1 - y;
+      // the hub "shattering" blows each currently-falling droplet
+      // outward from the hub's own centre along its fixed seeded
+      // angle/distance, scaled by the SAME hubShatterT driving the hub
+      // itself down to nothing — reads as the hub bursting into
+      // whichever pieces already happen to be nearby, rather than a
+      // separate bolted-on animation, and un-shatters cleanly if
+      // scrolled back up since hubShatterT is itself just a function of
+      // scroll position. Radius shrinks toward "tiny little bubbles"
+      // rather than to nothing, so the fragments stay visible as they
+      // scatter instead of vanishing outright.
+      if(hubShatterT > 0.001){
+        px += Math.cos(d.burstAngle) * d.burstDist * hubShatterT;
+        py += Math.sin(d.burstAngle) * d.burstDist * hubShatterT;
+      }
+      const radiusNow = d.radius * (1 - hubShatterT * 0.6);
+      uniforms.uPoints.value[idx].set(px, py, Math.max(0.006, radiusNow), 0);
     });
 
     renderer.render(scene, camera);
