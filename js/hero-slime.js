@@ -33,10 +33,17 @@
    <body> to escape into a corner logo) existed in an earlier version
    of this file and has been removed wholesale on request, along with
    the hero copy it used to reveal — the hero is now just this liquid
-   mass on a plain white background, with "Papi" floating inside it
-   (see js/title-dock.js's revealFlow/flowLetterFrame, which already
-   ran a perpetual idle-ripple + cursor-push loop and needed no changes
-   to serve that on its own).
+   mass on a plain white background, with "Papi" living inside it: the
+   mass starts as one big bubble fully covering the word (see
+   CONFIG.introDurationMs/introSizeBoost, and introT in loop() below),
+   easing open into the normal free-wandering liquid as "Papi" fades
+   in and its own letters start independently riding whichever real
+   control point actually covers each of them (see getPoints/
+   requestPointSizes below, read/driven by js/title-dock.js's
+   flowLetterFrame) — including splitting apart across separate points
+   if the mass itself splits, since a single shared position has no
+   guarantee of ever being covered once the points aren't all mutually
+   touching.
 
    IMPORTANT, and worth being direct about: this renders through a
    requestAnimationFrame loop, same as every JS-driven animation this
@@ -115,6 +122,17 @@ import * as THREE from './vendor/three.module.min.js';
                              // with a normal-sized step instead of one huge one — same lesson learned the
                              // hard way earlier rebuilding this hero background: an uncapped dt fed into a
                              // physics integrator produces a single-frame explosion, not a smooth catch-up
+
+    // ---- intro: the mass starts as one big bubble sitting over "Papi",
+    // fully covering it, then eases open into the normal free-wandering
+    // liquid — see introT in loop() below, and the tightened initial
+    // spread on the points array a little further down (a bubble needs
+    // the points to already be close together the moment the very
+    // first frame renders, not slowly drift into place). ----
+    introDurationMs: 2000,  // how long the whole bubble-to-wander easing takes
+    introSizeBoost: 2.4,    // each point's radius starts this many times CONFIG.slimeSize (so the
+                             // merged bubble is comfortably bigger than "Papi"'s own text, at any
+                             // screen size), easing back down to 1x by the time introT reaches 1
   };
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -141,6 +159,14 @@ import * as THREE from './vendor/three.module.min.js';
     uniform float uTime;
     uniform vec4 uPoints[${pointCount}]; // xy = position (0..1), zw = velocity
     uniform float uSlimeSize;
+    // per-point radius override — every point normally renders at
+    // uSlimeSize, EXCEPT whichever ones title-dock.js has asked to be
+    // grown (see window.Papi.requestPointSizes in the JS below), each
+    // to whatever size is enough to contain the specific letter(s) of
+    // "Papi" currently riding it. Kept as a separate array rather than
+    // folding into uPoints' otherwise-unused vec4 slot so the existing
+    // xy/zw (position/velocity) layout there doesn't need to change.
+    uniform float uPointSize[${pointCount}];
     uniform float uSurfaceTension;
     uniform float uNoiseStrength;
     uniform float uOpacity;
@@ -224,7 +250,7 @@ import * as THREE from './vendor/three.module.min.js';
           float compress = 1.0 + speed*uCompressAmount;
           d = dir*(along/stretch) + perp*compress;
         }
-        float dist = length(d) - uSlimeSize;
+        float dist = length(d) - uPointSize[i];
         f = smin(f, dist, uSurfaceTension);
       }
       return f;
@@ -390,14 +416,44 @@ import * as THREE from './vendor/three.module.min.js';
   // points ever sample the same phase of the wander noise, which is
   // what keeps the whole mass from ever looking like it's repeating.
   const points = [];
-  // the mass's own centre of gravity, in the same normalized 0..1
-  // space as each point's x/y — recomputed every step in stepPoints()
-  // below, exposed via window.Papi.getFieldCenter() further down
-  let latestFieldCenterX = 0.5, latestFieldCenterY = 0.5;
+  // per-point render sizes, in the same normalized 0..1 space as
+  // CONFIG.slimeSize. Every point defaults to the current normal size
+  // (see slimeSizeNow in loop()) unless title-dock.js has asked for a
+  // specific point to be bigger — see window.Papi.requestPointSizes and
+  // requestedSizes below. currentSizes is recomputed every frame in
+  // renderOnce() (normalSize vs the latest request, whichever is
+  // bigger) and is also what's exposed via getPoints() so title-dock.js
+  // is always reasoning about the size that's ACTUALLY being rendered,
+  // not a stale or predicted one.
+  let currentSizes = new Array(pointCount).fill(CONFIG.slimeSize);
+  // per-point minimum-size requests from title-dock.js, normalized —
+  // index i asks point i to render at least this big (0 = no request,
+  // just use the normal current size). This is the entire mechanism
+  // behind "grow the bubble Papi splits off into so it can always
+  // fit": title-dock.js decides, every frame, which real point each
+  // letter (or group of letters) is riding and how big that letter
+  // group's own bounding circle is, and asks for exactly that — this
+  // file has no idea what a "letter" or "word" is, it just renders
+  // whatever sizes it's told, per point. Persists between calls (rather
+  // than resetting every frame) since title-dock.js's own rAF chain is
+  // a separate loop that isn't guaranteed to run in lockstep with this
+  // one — a stale-by-one-frame request is fine, a request that silently
+  // reverts to 0 every frame this file's own loop happens to run first
+  // is not.
+  let requestedSizes = new Array(pointCount).fill(0);
+  // tight on purpose (was a much wider *0.3) — the intro bubble (see
+  // CONFIG.introDurationMs above) needs the points already close
+  // together the moment the very first frame renders, not slowly
+  // drifting into a cluster over the first second while introT's own
+  // near-zero wander range keeps their TARGET already basically
+  // coincident anyway — starting the points themselves far apart would
+  // still show them visibly travelling inward first, which reads as
+  // "the liquid is gathering itself" rather than "there's already one
+  // bubble here."
   for(let i=0;i<pointCount;i++){
     points.push({
-      x: 0.5 + (Math.random()-0.5)*0.3,
-      y: 0.5 + (Math.random()-0.5)*0.3,
+      x: 0.5 + (Math.random()-0.5)*0.05,
+      y: 0.5 + (Math.random()-0.5)*0.05,
       vx: 0, vy: 0,
       seedX: Math.random()*1000,
       seedY: Math.random()*1000,
@@ -458,16 +514,24 @@ import * as THREE from './vendor/three.module.min.js';
                               // of whether the viewport is portrait or landscape.
   const WANDER_SPEED = 0.00014; // how fast the noise field driving targets itself evolves
 
-  function stepPoints(dtMs, elapsedMs){
+  function stepPoints(dtMs, elapsedMs, introT){
     if(mouse.active && performance.now() - lastMoveTime > MOUSE_IDLE_MS) mouse.active = false;
     const dtScale = dtMs / 16.6667; // normalizes physics to "per ~60fps frame" units, using the capped dt
+
+    // 0 at the very start (every point's own wander target collapses to
+    // exactly the shared centre, (0.5,0.5), regardless of that point's
+    // own noise phase — this is what keeps the whole mass reading as
+    // one bubble rather than several already-separating blobs) rising
+    // to 1 (full WANDER_RANGE, the normal free-wander behaviour) as the
+    // intro eases open — see CONFIG.introDurationMs/introT in loop().
+    const wanderRangeNow = WANDER_RANGE * introT;
 
     for(let i=0;i<points.length;i++){
       const p = points[i];
       const nx = noise2(p.seedX + elapsedMs*WANDER_SPEED, 0) * 2 - 1;
       const ny = noise2(p.seedY + elapsedMs*WANDER_SPEED, 100) * 2 - 1;
-      const targetX = 0.5 + nx*WANDER_RANGE;
-      const targetY = 0.5 + ny*WANDER_RANGE;
+      const targetX = 0.5 + nx*wanderRangeNow;
+      const targetY = 0.5 + ny*wanderRangeNow;
 
       let ax = (targetX - p.x) * CONFIG.elasticity;
       let ay = (targetY - p.y) * CONFIG.elasticity;
@@ -494,19 +558,6 @@ import * as THREE from './vendor/three.module.min.js';
       p.x += p.vx * CONFIG.movementSpeed * dtScale;
       p.y += p.vy * CONFIG.movementSpeed * dtScale;
     }
-
-    // the mass's own centre of gravity — every point wanders
-    // independently (that's the whole point, see the file header), but
-    // averaging all of them washes out each individual point's own
-    // noise and leaves a much slower, smoother drift, which is exactly
-    // what "Papi" rides on top of (see getFieldCenter below, read by
-    // title-dock.js's flowLetterFrame) to look like it's actually
-    // being carried by the liquid rather than sitting on top of it
-    // independently.
-    let sumX = 0, sumY = 0;
-    for(let i=0;i<points.length;i++){ sumX += points[i].x; sumY += points[i].y; }
-    latestFieldCenterX = sumX / points.length;
-    latestFieldCenterY = sumY / points.length;
   }
 
   // ===================================================================
@@ -577,6 +628,7 @@ import * as THREE from './vendor/three.module.min.js';
     uTime: { value: 0 },
     uPoints: { value: new Array(pointCount).fill(0).map(()=> new THREE.Vector4(0,0,0,0)) },
     uSlimeSize: { value: CONFIG.slimeSize },
+    uPointSize: { value: new Array(pointCount).fill(CONFIG.slimeSize) },
     uSurfaceTension: { value: CONFIG.surfaceTension },
     uNoiseStrength: { value: CONFIG.noiseStrength },
     uOpacity: { value: CONFIG.opacity },
@@ -634,11 +686,19 @@ import * as THREE from './vendor/three.module.min.js';
   let lastTs = null;
   let rafId = null;
 
-  function renderOnce(elapsedMs){
+  function renderOnce(elapsedMs, slimeSizeNow){
     uniforms.uTime.value = elapsedMs / 1000;
     for(let i=0;i<points.length;i++){
       const p = points[i];
       uniforms.uPoints.value[i].set(p.x, p.y, p.vx * CONFIG.movementSpeed, p.vy * CONFIG.movementSpeed);
+      // every point renders at the current normal size UNLESS
+      // title-dock.js has asked for it specifically to be bigger (see
+      // requestedSizes/window.Papi.requestPointSizes above) — never
+      // smaller than normal, so a stale/zero request never shrinks a
+      // point below its usual size.
+      const sizeNow = Math.max(slimeSizeNow, requestedSizes[i] || 0);
+      currentSizes[i] = sizeNow;
+      uniforms.uPointSize.value[i] = sizeNow;
     }
     renderer.render(scene, camera);
   }
@@ -651,7 +711,36 @@ import * as THREE from './vendor/three.module.min.js';
   const RENDER_FPS = 60;
   const RENDER_INTERVAL = 1000 / RENDER_FPS;
   let lastRenderTs = 0;
-  let elapsedStart = null;
+  // accumulated from the same capped per-frame dt used for the point
+  // physics below, deliberately NOT a raw `ts - startTs` wall-clock
+  // delta — a raw delta is exactly what turned "Papi still jumps at
+  // the beginning" from a rare glitch into a near-guaranteed one: any
+  // stall in the first couple seconds of load (a throttled/backgrounded
+  // tab, a slow device still parsing/compiling, a font swap, a GC
+  // pause — all things a fresh page load is especially prone to) makes
+  // the very next rendered frame's raw elapsed time jump straight past
+  // CONFIG.introDurationMs in one step, snapping introT to 1 and Papi's
+  // opacity/position to their end state instantly instead of easing.
+  // Accumulating from the same maxDt-capped dt already used for the
+  // point physics (see the maxDt comment above) guarantees the intro
+  // always plays out over a real minimum number of rendered frames no
+  // matter what stalls happen around it — a stall just makes it take
+  // longer in wall-clock terms, never skips it.
+  let elapsedAccum = 0;
+  // 0 the moment the mass is first revealed (one bubble, covering
+  // "Papi"), easing to 1 once it's fully open into the normal free-
+  // wander liquid — see CONFIG.introDurationMs, the wanderRangeNow
+  // scaling in stepPoints(), and the uSlimeSize scaling just below.
+  // Exposed via getIntroT so title-dock.js can hand off from "still
+  // covered by the bubble" to "actively tracking/following the now-
+  // open liquid" at the true moment that finishes, rather than a
+  // guessed fixed timer (which is what used to read as a visible jump
+  // on slower devices that hadn't actually caught up to that guess yet).
+  let latestIntroT = 0;
+  function smoothstep01(t){
+    const c = Math.max(0, Math.min(1, t));
+    return c*c*(3-2*c);
+  }
 
   function loop(ts){
     if(!revealed){ rafId = requestAnimationFrame(loop); return; }
@@ -668,11 +757,20 @@ import * as THREE from './vendor/three.module.min.js';
 
     const dt = lastTs === null ? 16.6667 : Math.min(ts - lastTs, CONFIG.maxDt);
     lastTs = ts;
-    if(elapsedStart === null) elapsedStart = ts;
-    const elapsed = ts - elapsedStart;
+    elapsedAccum += dt;
+    const elapsed = elapsedAccum;
 
-    stepPoints(dt, elapsed);
-    renderOnce(elapsed);
+    const introT = smoothstep01(elapsed / CONFIG.introDurationMs);
+    latestIntroT = introT;
+    // eases from introSizeBoost× down to the normal 1x — a single
+    // uniform shared by every point, so the whole cluster shrinks
+    // together as it opens up rather than any one point changing size
+    // independently of the others
+    const slimeSizeNow = CONFIG.slimeSize * (CONFIG.introSizeBoost - (CONFIG.introSizeBoost - 1) * introT);
+    uniforms.uSlimeSize.value = slimeSizeNow;
+
+    stepPoints(dt, elapsed, introT);
+    renderOnce(elapsed, slimeSizeNow);
 
     rafId = requestAnimationFrame(loop);
   }
@@ -680,22 +778,66 @@ import * as THREE from './vendor/three.module.min.js';
   resize();
 
   if(prefersReducedMotion){
-    // a single static frame — settle the points near center once, no
-    // ongoing simulation and no render loop at all
-    stepPoints(16.6667, 0);
-    renderOnce(0);
+    // a single static frame, already fully settled (introT=1) rather
+    // than frozen mid-intro — no ongoing simulation and no render loop
+    // at all otherwise
+    uniforms.uSlimeSize.value = CONFIG.slimeSize;
+    stepPoints(16.6667, 0, 1);
+    latestIntroT = 1;
+    renderOnce(0, CONFIG.slimeSize);
   } else {
     rafId = requestAnimationFrame(loop);
   }
 
   window.Papi = window.Papi || {};
   window.Papi.resizeField = resize;
-  // the liquid mass's own slow centre-of-gravity drift (normalized
-  // 0..1, same space as each point's x/y) — read every frame by
-  // title-dock.js's flowLetterFrame to carry "Papi" along with the
-  // liquid itself, on top of that word's own separate per-letter
-  // ripple/cursor-push physics
-  window.Papi.getFieldCenter = () => ({ x: latestFieldCenterX, y: latestFieldCenterY });
+  // every control point's own current position (normalized 0..1, same
+  // space as point.x/y) and its ACTUAL currently-rendered radius
+  // (already normalized the same way, including any boost granted via
+  // requestPointSizes below) — read every frame by title-dock.js so it
+  // can work out, per letter, which real point (if any) already covers
+  // that letter's ideal position, or which one to ride instead if none
+  // do. This file has no notion of "letters" or "words" at all — it
+  // just hands back the raw, real, current state of the field and
+  // accepts size requests against it.
+  window.Papi.getPoints = () => points.map((p, i) => ({ x: p.x, y: p.y, radius: currentSizes[i] }));
+  // the canvas's own actual current rendered size, in real pixels — the
+  // ONLY correct basis for converting the normalized positions/radii
+  // above into on-screen pixels. Position needs per-axis conversion
+  // (x * width, y * height); a RADIUS needs a single isotropic factor,
+  // and that factor is specifically height (not width, not
+  // min(width,height)) — the shader's own aspect correction (see
+  // field()'s ptPos/p) makes its whole distance/radius space isotropic
+  // in units of screen HEIGHT (both vUv.y and vUv.x*aspect reduce to
+  // screenCoord/height). Handing back the canvas's own W/H (rather than
+  // title-dock.js reading window.innerWidth/innerHeight itself) also
+  // keeps both files using the exact same numbers the shader is
+  // actually using right now, avoiding yet another momentary mismatch
+  // of the kind already fixed once this session (H can briefly differ
+  // from window.innerHeight around an iOS address-bar collapse).
+  window.Papi.getCanvasSize = () => ({ width: W, height: H });
+  // asks specific points to render at least this big — sizesNormArray
+  // is a plain array, one normalized radius per point index (0 = no
+  // request, keep the normal current size). This is the entire
+  // mechanism behind "grow the bubble Papi splits off into so it can
+  // always fit," generalized to work per-letter/per-group rather than
+  // for the whole word at once: title-dock.js decides which point(s)
+  // "Papi"'s letters are currently riding and how big each needs to be,
+  // this file just renders it. See requestedSizes/currentSizes above.
+  window.Papi.requestPointSizes = function(sizesNormArray){
+    requestedSizes = sizesNormArray;
+    // prefers-reduced-motion renders exactly one static frame up front
+    // (see below) rather than an ongoing loop — without this, a size
+    // request arriving after that frame (title-dock.js's own rAF chain
+    // keeps running regardless of this file's reduced-motion state)
+    // would never actually get drawn, silently breaking containment
+    // for exactly the visitors this mode exists to accommodate. One
+    // extra static render on request, still no ongoing animation.
+    if(prefersReducedMotion) renderOnce(0, CONFIG.slimeSize);
+  };
+  // 0 through the opening intro bubble, 1 once fully settled into the
+  // normal free-wander liquid — see the comment on latestIntroT above
+  window.Papi.getIntroT = () => latestIntroT;
   window.Papi.revealField = function(){
     if(revealed) return;
     revealed = true;

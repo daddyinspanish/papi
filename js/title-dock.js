@@ -1,15 +1,29 @@
 /* ===================================================================
    Papi — scroll-driven title docking
    Two separate jobs live in this one file: the hero's own "Papi" word
-   entrance (a perpetual idle ripple + cursor-push loop, never fading
-   out — see revealFlow/flowLetterFrame) and the social icon row's
-   one-time entrance, plus — entirely independent of the hero — the
-   small docked label that crossfades in below the brand mark once the
-   visitor scrolls past it, showing which later section ("Difference"/
-   "Industries"/"Results"/"Live"/"Proof") the viewport is currently
-   over. That label (and the brand mark) flips to a dark-on-light look
-   while a white section is behind it, then back to light-on-dark once
-   past it into the next dark section.
+   (fading in as hero-slime.js's own intro liquid-bubble opens up
+   around it, then a perpetual idle ripple + cursor-push + liquid-
+   follow loop, never fading out again — see flowLetterFrame) and the
+   social icon row's one-time entrance, plus — entirely independent of
+   the hero — the small docked label that crossfades in below the
+   brand mark once the visitor scrolls past it, showing which later
+   section ("Difference"/"Industries"/"Results"/"Live"/"Proof") the
+   viewport is currently over. That label (and the brand mark) flips to
+   a dark-on-light look while a white section is behind it, then back
+   to light-on-dark once past it into the next dark section.
+
+   The liquid-follow part specifically (updateFieldFollow) tracks each
+   letter of "Papi" independently against hero-slime.js's own control
+   points, rather than moving the whole word as one rigid block: every
+   letter prefers to ride one shared point together, at the letters'
+   natural relative spacing, but any letter that shared point genuinely
+   can't currently fit peels off and rides whichever real point is
+   actually nearest to it instead. That's what keeps "Papi" always
+   inside the liquid's real silhouette even as the mass splits apart,
+   merges back together, or moves somewhere the whole word can't fit at
+   once — the word reorganizes itself around whatever keeps every
+   letter genuinely covered, rather than the covering bubble needing to
+   be inflated to some guessed-safe size.
 =================================================================== */
 (function(){
   const heroFlowWord = document.getElementById('heroFlowWord');
@@ -71,11 +85,13 @@
   // always wins over an inline style on the same property, silently
   // discarding whatever the push physics writes there. Computing both
   // in one JS loop and writing a single combined transform per frame
-  // avoids that fight entirely. After the one-off fade+rise entrance
-  // below, this just keeps rippling/reacting to the cursor forever —
-  // "Papi" never fades or gets pulled away. ----
-  let flowEntranceDone = false;
-  let flowLetterState = []; // {el, homeX, homeY, x, y, vx, vy}
+  // avoids that fight entirely. After fading in (see PAPI_REVEAL_START/
+  // END further down), this just keeps rippling/reacting to the cursor
+  // forever — "Papi" never fades or gets pulled away again. ----
+  // {el, homeX, homeY, homeOffX, homeOffY, halfExtent, offX, offY,
+  //  anchorPageX, anchorPageY, x, y, vx, vy} — see computeFlowHomes and
+  // updateFieldFollow below for what each field means.
+  let flowLetterState = [];
   if(heroFlowWord){
     const flowText = heroFlowWord.textContent;
     const flowChars = Array.from(flowText);
@@ -91,92 +107,192 @@
       span.style.backgroundSize = `${flowChars.length * 100}% 100%`;
       span.style.backgroundPositionX = flowChars.length > 1 ? `${(i / (flowChars.length - 1)) * 100}%` : '0%';
       heroFlowWord.appendChild(span);
-      flowLetterState.push({ el: span, homeX: 0, homeY: 0, x: 0, y: 0, vx: 0, vy: 0 });
+      flowLetterState.push({
+        el: span, homeX: 0, homeY: 0, homeOffX: 0, homeOffY: 0, halfExtent: 0,
+        offX: 0, offY: 0, anchorPageX: 0, anchorPageY: 0,
+        x: 0, y: 0, vx: 0, vy: 0,
+      });
     });
-    heroFlowWord.style.transition = 'none';
-    heroFlowWord.style.opacity = '0';
-    heroFlowWord.style.transform = 'translateY(14px)';
   }
+  // measures each letter's own natural (undisturbed) position AND its
+  // own bounding-circle half-extent (half its box's diagonal — the
+  // radius a circle centred on this one letter would need to fully
+  // contain it, regardless of how the per-letter ripple physics skews
+  // it), plus each letter's offset from the word's own shared centre —
+  // see updateFieldFollow below for how these get used: letters try to
+  // keep their natural relative spacing (homeOffX/Y) while riding a
+  // shared point together, but each letter's OWN halfExtent is what
+  // lets it size (or peel off to) real liquid independently if the
+  // group can't currently fit it.
   function computeFlowHomes(){
+    let sumX = 0, sumY = 0;
     flowLetterState.forEach(st=>{
       const r = st.el.getBoundingClientRect();
       st.homeX = r.left + r.width/2;
       st.homeY = r.top + r.height/2;
+      st.halfExtent = Math.sqrt((r.width/2)**2 + (r.height/2)**2);
+      sumX += st.homeX; sumY += st.homeY;
     });
+    if(flowLetterState.length){
+      const centerX = sumX / flowLetterState.length, centerY = sumY / flowLetterState.length;
+      flowLetterState.forEach(st=>{
+        st.homeOffX = st.homeX - centerX;
+        st.homeOffY = st.homeY - centerY;
+      });
+    }
   }
   let flowEffectsLive = false;
 
   // "Papi" doesn't just sit centred over the liquid — it's meant to
-  // read as actually being carried by it, staying inside the mass's
-  // own current outline rather than drifting near it. window.Papi.
-  // getFieldCenter() (hero-slime.js) is the liquid mass's own true
-  // centre of gravity in normalized 0..1 space — the SAME space each
-  // point's own x/y already lives in, and each point's own on-screen
-  // pixel position is just point.x * (canvas width), point.y *
-  // (canvas height) (see field() in hero-slime.js's shader — the
-  // aspect correction there cancels out for this exact mapping).
-  // Multiplying the centred offset by the viewport's own width/height
-  // with no extra gain reproduces that same mapping exactly, so "Papi"
-  // ends up sitting precisely at the mass's real centre of gravity in
-  // real screen pixels — not an exaggerated version of it, which was
-  // pushing the word out past the mass's own visual edge in some
-  // frames (a >1 gain used to live here for exactly the opposite,
-  // wrong reason: making an otherwise-subtle drift more visible).
+  // read as actually being carried inside it, contained by the mass's
+  // own current outline at all times, even if the mass itself splits
+  // apart. Rather than forcing one shared bubble to always be big
+  // enough for the WHOLE word (which either looks like an oddly
+  // oversized single blob, or fails outright the moment the mass
+  // splits somewhere the word can't grow around), each LETTER
+  // independently tracks whichever real control point (from
+  // window.Papi.getPoints(), hero-slime.js) actually covers it —
+  // preferring to ride one shared point together, at the letters'
+  // natural relative spacing, but individually peeling off to ride
+  // whatever real liquid is nearest to a letter the shared point
+  // genuinely can't fit right now. See updateFieldFollow below for the
+  // actual mechanics; this is what makes "split into 2 characters...
+  // it doesn't matter what it has to do" an accurate description
+  // rather than an exaggeration — the word visually reorganizes itself
+  // to whatever keeps every letter genuinely covered.
   //
-  // stableViewportH mirrors index.html's own --stable-vh: raw
-  // window.innerHeight changes as iOS Safari's address bar collapses,
-  // which tends to land in almost the same window as this effect
-  // first kicking in, and was reading as a visible "jump" right at
-  // that moment. Cached, only re-measured on the same width-only
-  // resize tolerance the rest of this file already uses (a height-only
-  // change, e.g. a chrome collapse, is exactly what this should ignore).
-  function readStableViewportH(){
-    const v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--stable-vh'));
-    return (v && v > 0) ? v * 100 : window.innerHeight;
-  }
-  let stableViewportH = readStableViewportH();
-  const FIELD_FOLLOW_MAX_FRAC = 0.22; // a safety clamp, not the primary shaping constraint —
-                                       // true (unamplified) centre-of-gravity tracking rarely
-                                       // needs it, but it's cheap insurance against any edge case
+  // Every point's position/radius from getPoints() is normalized
+  // (0..1); window.Papi.getCanvasSize() gives the exact width/height
+  // hero-slime.js is rendering at right now, used to convert both into
+  // real screen pixels here — reading the canvas's OWN tracked size
+  // (rather than window.innerWidth/innerHeight independently) keeps
+  // this file and hero-slime.js always agreeing on the same numbers,
+  // avoiding the kind of momentary mismatch already fixed once this
+  // session (window.innerHeight can briefly differ from the canvas's
+  // actual rendered height around an iOS address-bar collapse).
+  let primaryAnchorPageX = 0, primaryAnchorPageY = 0;
   const FIELD_FOLLOW_LERP = 0.05; // eases toward the target slowly, matching the liquid's own
                                    // heavy, viscous character rather than tracking it instantly
-  let flowOffsetX = 0, flowOffsetY = 0;
-  function fieldFollowTarget(){
-    const center = (window.Papi && window.Papi.getFieldCenter) ? window.Papi.getFieldCenter() : { x:0.5, y:0.5 };
-    const maxPx = Math.min(window.innerWidth, stableViewportH) * FIELD_FOLLOW_MAX_FRAC;
-    return {
-      x: Math.max(-maxPx, Math.min(maxPx, (center.x - 0.5) * window.innerWidth)),
-      y: Math.max(-maxPx, Math.min(maxPx, (center.y - 0.5) * stableViewportH)),
-    };
-  }
+  const LETTER_FIT_SAFETY = 1.2;  // margin over each letter's own exact half-extent — the shader's
+                                   // edge falloff means the literal boundary isn't fully opaque, and
+                                   // this keeps a letter reading as clearly inside, not brushing the rim
+  // recomputes every letter's field-follow target this frame and sends
+  // updated size requests to hero-slime.js — see the file-level comment
+  // above for the overall approach. `snap`, true only on the very first
+  // call right after the intro bubble finishes, sets each letter's
+  // offset directly to its target instead of easing into it (matching
+  // this file's existing convention of a hard snap at handoff, not a
+  // visible slide-in from nothing).
+  function updateFieldFollow(snap){
+    if(!(window.Papi && window.Papi.getPoints && window.Papi.getCanvasSize)) return;
+    const pts = window.Papi.getPoints();
+    const size = window.Papi.getCanvasSize();
+    const cw = size.width, ch = size.height;
+    if(!cw || !ch || !pts.length) return;
 
-  function revealFlow(){
-    if(!heroFlowWord) return;
-    requestAnimationFrame(()=>{
-      heroFlowWord.style.transition = 'opacity 1s ease, transform 1.1s cubic-bezier(.16,1,.3,1)';
-      heroFlowWord.style.opacity = '1';
-      heroFlowWord.style.transform = 'translateY(0)';
+    const ptsPx = pts.map(p => ({ x: p.x*cw, y: p.y*ch, radius: p.radius*ch }));
+    // small fixed wobble/lag budget, scaled to the canvas rather than a
+    // flat pixel count so it reads proportionally the same across
+    // screen sizes — independent of any letter's own fit requirement,
+    // so the two can never combine to ask for more room than was
+    // actually reserved (see the sizeRequests math below)
+    const driftPx = ch * 0.02;
+
+    // the word's own shared "preferred" point — sticky nearest-to-its-
+    // own-last-position (same hysteresis principle as each letter's own
+    // fallback anchor below), so letters try to ride this one point
+    // together, at their natural relative spacing, before any of them
+    // considers peeling off.
+    let bestIdx = 0, bestDist = Infinity;
+    for(let j=0;j<ptsPx.length;j++){
+      const dx = ptsPx[j].x-primaryAnchorPageX, dy = ptsPx[j].y-primaryAnchorPageY;
+      const d = dx*dx + dy*dy;
+      if(d < bestDist){ bestDist = d; bestIdx = j; }
+    }
+    primaryAnchorPageX = ptsPx[bestIdx].x;
+    primaryAnchorPageY = ptsPx[bestIdx].y;
+    const primaryIdx = bestIdx;
+
+    const sizeRequests = new Array(ptsPx.length).fill(0);
+
+    flowLetterState.forEach(st=>{
+      const idealX = primaryAnchorPageX + st.homeOffX;
+      const idealY = primaryAnchorPageY + st.homeOffY;
+      const neededR = st.halfExtent*LETTER_FIT_SAFETY + driftPx;
+      const distToPrimary = Math.sqrt((idealX-primaryAnchorPageX)**2 + (idealY-primaryAnchorPageY)**2);
+
+      // always ask the shared point to grow enough to cover me at my
+      // natural word-relative spot, even on a frame it doesn't yet —
+      // that's what lets the whole group re-merge once it catches up,
+      // rather than a letter that's peeled off staying detached forever
+      sizeRequests[primaryIdx] = Math.max(sizeRequests[primaryIdx], (distToPrimary+neededR)/ch);
+
+      let targetX, targetY;
+      if(distToPrimary + neededR <= ptsPx[primaryIdx].radius){
+        // the shared point already (for real, using its current
+        // rendered radius, not a hoped-for one) covers me here
+        targetX = idealX; targetY = idealY;
+      } else {
+        // not currently covered riding the group — peel off and ride
+        // whichever real point is nearest to where I was last riding,
+        // guaranteeing I'm always somewhere the liquid actually is
+        // right now, never floating in empty space between blobs
+        let bi = 0, bd = Infinity;
+        for(let j=0;j<ptsPx.length;j++){
+          const dx = ptsPx[j].x-st.anchorPageX, dy = ptsPx[j].y-st.anchorPageY;
+          const d = dx*dx + dy*dy;
+          if(d < bd){ bd = d; bi = j; }
+        }
+        targetX = ptsPx[bi].x; targetY = ptsPx[bi].y;
+        sizeRequests[bi] = Math.max(sizeRequests[bi], neededR/ch);
+      }
+      st.anchorPageX = targetX; st.anchorPageY = targetY;
+
+      const targetOffX = targetX - st.homeX, targetOffY = targetY - st.homeY;
+      if(snap){
+        st.offX = targetOffX; st.offY = targetOffY;
+      } else {
+        st.offX += (targetOffX - st.offX) * FIELD_FOLLOW_LERP;
+        st.offY += (targetOffY - st.offY) * FIELD_FOLLOW_LERP;
+      }
+      // clamp the still-easing displayed position to within the small
+      // drift budget of where the target REALLY is right now — same
+      // "distance from the real target, not from any fixed reference"
+      // principle established earlier for the whole word, just applied
+      // per letter: however far the ease is still catching up, the
+      // *displayed* position can never end up further from the real
+      // covering point than the small budget actually reserved for it.
+      const curX = st.homeX+st.offX, curY = st.homeY+st.offY;
+      const ddx = curX-targetX, ddy = curY-targetY;
+      const ddist = Math.sqrt(ddx*ddx + ddy*ddy);
+      if(ddist > driftPx && ddist > 0){
+        const s = driftPx/ddist;
+        st.offX = (targetX+ddx*s) - st.homeX;
+        st.offY = (targetY+ddy*s) - st.homeY;
+      }
     });
-    setTimeout(()=>{
-      flowEntranceDone = true;
-      heroFlowWord.style.transition = 'none';
-      // measured only once the rise entrance has fully settled — any
-      // earlier and the transform above is still mid-transition, which
-      // would bake a wrong (still-rising) home position into every
-      // letter's own push-physics rest point
-      computeFlowHomes();
-      // snapped directly to the current target rather than left at its
-      // initial (0,0) to ease in from — by this point the liquid has
-      // already been drifting for over a second, so easing in from a
-      // stale zero baseline toward an already-nonzero target is exactly
-      // what read as a visible jump right as this kicks in.
-      const target = fieldFollowTarget();
-      flowOffsetX = target.x;
-      flowOffsetY = target.y;
-      heroFlowWord.style.transform = `translate(${flowOffsetX.toFixed(1)}px, ${flowOffsetY.toFixed(1)}px)`;
-      flowEffectsLive = true;
-    }, 1150);
+
+    window.Papi.requestPointSizes(sizeRequests);
   }
+  // 2-edge smoothstep, same shape as the one already used further down
+  // in update() for the dock-label reveal — kept local here rather
+  // than shared, since this file doesn't currently have one top-level
+  // helper both call
+  function smoothstep(edge0, edge1, x){
+    const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+    return t*t*(3 - 2*t);
+  }
+  // "Papi" fades in as the liquid's own intro bubble (see
+  // CONFIG.introDurationMs/introT in hero-slime.js) opens up, rather
+  // than on its own independently-guessed CSS transition timer — there
+  // is now only ONE real "is this ready yet" signal (the liquid's own
+  // actual progress) driving both the bubble and the word it reveals,
+  // instead of two separately-timed things that could (and did, on
+  // slower devices, where the bubble hadn't actually finished by the
+  // time a fixed timer assumed it had) drift out of sync and read as a
+  // visible jump.
+  const PAPI_REVEAL_START = 0.45; // fraction of introT where "Papi" starts fading in
+  const PAPI_REVEAL_END = 0.95;   // fraction of introT where it reaches full opacity
   // same >10px-tolerance width-only guard as every other resize
   // handler in this file (see the --stable-vh comment in index.html's
   // <head>) — an iOS toolbar collapse fires 'resize' without the
@@ -186,7 +302,6 @@
     const w = window.innerWidth;
     if(Math.abs(w - lastResizeWFlow) <= 10) return;
     lastResizeWFlow = w;
-    stableViewportH = readStableViewportH();
     clearTimeout(window.__papiFlowResizeT);
     window.__papiFlowResizeT = setTimeout(()=>{ if(flowEffectsLive) computeFlowHomes(); }, 200);
   });
@@ -208,17 +323,39 @@
   });
 
   function flowLetterFrame(){
+    const introT = (window.Papi && window.Papi.getIntroT) ? window.Papi.getIntroT() : 1;
+
+    if(heroFlowWord){
+      heroFlowWord.style.opacity = String(smoothstep(PAPI_REVEAL_START, PAPI_REVEAL_END, introT));
+    }
+
+    // the liquid's own intro bubble (see hero-slime.js) is what's
+    // actually covering "Papi" up to this point — the follow/ripple
+    // physics below only start once it's finished opening, rather than
+    // on a fixed guessed timer, so this always lines up with what the
+    // visitor can actually see regardless of how fast that intro
+    // played out on their specific device.
+    if(!flowEffectsLive && introT >= 1 && heroFlowWord){
+      computeFlowHomes();
+      // seeds the shared anchor (and every letter's own fallback
+      // anchor) at the word's own natural centre, giving
+      // updateFieldFollow's very first "nearest point" search a sane
+      // starting point rather than (0,0) — self-corrects to whichever
+      // real point is actually nearest on that very first call anyway.
+      const cx = flowLetterState.length ? flowLetterState.reduce((s, st)=>s+st.homeX, 0)/flowLetterState.length : window.innerWidth/2;
+      const cy = flowLetterState.length ? flowLetterState.reduce((s, st)=>s+st.homeY, 0)/flowLetterState.length : window.innerHeight/2;
+      primaryAnchorPageX = cx; primaryAnchorPageY = cy;
+      flowLetterState.forEach(st=>{ st.anchorPageX = cx; st.anchorPageY = cy; });
+      flowEffectsLive = true;
+      updateFieldFollow(true);
+    }
+
     if(flowEffectsLive){
-      if(heroFlowWord){
-        const target = fieldFollowTarget();
-        flowOffsetX += (target.x - flowOffsetX) * FIELD_FOLLOW_LERP;
-        flowOffsetY += (target.y - flowOffsetY) * FIELD_FOLLOW_LERP;
-        heroFlowWord.style.transform = `translate(${flowOffsetX.toFixed(1)}px, ${flowOffsetY.toFixed(1)}px)`;
-      }
+      updateFieldFollow(false);
       const t = performance.now() / 1000;
       flowLetterState.forEach((st, i)=>{
-        const dx = (st.homeX + st.x) - mouseX;
-        const dy = (st.homeY + st.y) - mouseY;
+        const dx = (st.homeX + st.offX + st.x) - mouseX;
+        const dy = (st.homeY + st.offY + st.y) - mouseY;
         const d = Math.sqrt(dx*dx + dy*dy) + 0.01;
         if(d < FLOW_PUSH_RADIUS){
           const force = (1 - d/FLOW_PUSH_RADIUS) * FLOW_PUSH;
@@ -236,7 +373,9 @@
         const ripplePhase = t * FLOW_RIPPLE_SPEED + i * FLOW_RIPPLE_PHASE;
         const rippleY = Math.sin(ripplePhase) * FLOW_RIPPLE_AMP;
         const skew = Math.sin(ripplePhase) * -2;
-        st.el.style.transform = `translate(${st.x.toFixed(2)}px, ${(st.y + rippleY).toFixed(2)}px) skewX(${skew.toFixed(2)}deg)`;
+        const totalX = st.offX + st.x;
+        const totalY = st.offY + st.y + rippleY;
+        st.el.style.transform = `translate(${totalX.toFixed(2)}px, ${totalY.toFixed(2)}px) skewX(${skew.toFixed(2)}deg)`;
       });
     }
     requestAnimationFrame(flowLetterFrame);
@@ -244,7 +383,6 @@
   requestAnimationFrame(flowLetterFrame);
 
   window.Papi = window.Papi || {};
-  window.Papi.revealFlow = revealFlow;
   window.Papi.revealSocial = revealSocial;
 
   const showcaseEl = document.getElementById('showcase');

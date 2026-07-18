@@ -20,7 +20,6 @@
     const brandMark = document.getElementById('brandMark');
     if(brandMark) brandMark.querySelectorAll('span').forEach(s => s.style.opacity = '1');
 
-    if(window.Papi && window.Papi.revealFlow) window.Papi.revealFlow();
     if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
     if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
     if(window.Papi && window.Papi.revealField) window.Papi.revealField();

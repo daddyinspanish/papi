@@ -90,13 +90,15 @@ window.scrollTo(0, 0);
   <div class="title-dock-word" id="sectionDock">Craft</div>
 </div>
 
-<!-- ============ HERO — a single-viewport section: a perpetually-
-     wandering liquid glass mass on a white background, with "Papi"
-     floating inside it and a small social-icon row near the bottom.
-     See js/hero-slime.js's own header for the material/physics, and
-     js/title-dock.js's revealFlow/flowLetterFrame for "Papi"'s
-     continuous idle ripple + cursor-push motion (it never fades out).
-     ============ -->
+<!-- ============ HERO — a single-viewport section: a liquid glass
+     mass on a white background that starts as one bubble fully
+     covering "Papi", eases open as "Papi" fades in and starts
+     tracking the mass's own centre of gravity, then wanders freely
+     forever, with a small social-icon row near the bottom. See
+     js/hero-slime.js's own header for the material/physics/intro, and
+     js/title-dock.js's flowLetterFrame for "Papi"'s own continuous
+     idle ripple + cursor-push + liquid-follow motion (it never fades
+     out once revealed). ============ -->
 <main id="hero" aria-hidden="true">
 <div class="hero-sticky">
 
