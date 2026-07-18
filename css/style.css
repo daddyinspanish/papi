@@ -377,19 +377,20 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   pointer-events:none;
 }
 
-/* each letter ripples on its own staggered delay (see the animationDelay
-   set per-span in title-dock.js) — a gentle vertical bob plus a hint of
-   skew, so the wave reads as passing THROUGH the word left to right
-   rather than the whole word bobbing in unison. Purely an idle-state
-   loop: title-dock.js's fadeFrame() layers the scroll-driven "sucked
-   into the liquid" exit on top of this via the parent .hero-flow-word's
-   own transform, which composes cleanly with each child letter's own
-   independent transform here.
+/* each letter's ripple + cursor-push transform is computed and written
+   entirely in JS now (see flowLetterFrame in title-dock.js), not a CSS
+   animation — a CSS animation targeting transform always overrides an
+   inline style on that same property, which would have silently
+   discarded whatever the cursor-push physics wrote here every frame.
+   Purely an idle-state loop by default: title-dock.js's fadeFrame()
+   layers the scroll-driven "sucked into the liquid" exit on top of
+   this via the parent .hero-flow-word's own transform, which composes
+   cleanly with each child letter's own independent transform here.
    The gradient text-fill lives here rather than on the parent — once
-   "Flow" is split into per-letter spans (needed for the ripple), only
-   the element that actually owns the glyphs can clip a background to
-   their shape; a background-clip:text set on the (now textless) parent
-   has nothing to clip to and renders invisible. background-size/
+   "Flow" is split into per-letter spans (needed for the ripple/push),
+   only the element that actually owns the glyphs can clip a background
+   to their shape; a background-clip:text set on the (now textless)
+   parent has nothing to clip to and renders invisible. background-size/
    -position are set per-letter, inline, by title-dock.js — sized to the
    word's full length and offset by each letter's own position in it, so
    the whole word still reads as one continuous gradient sweep (near-
@@ -397,16 +398,12 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
    four separate mini-gradients repeating on each letter. */
 .flow-letter{
   display:inline-block;
-  animation:flowRipple 2.6s ease-in-out infinite;
+  will-change:transform;
   background-image:linear-gradient(135deg, #241706 0%, var(--gold-deep) 32%, var(--gold) 58%, #ffd23f 80%, #fff6d8 100%);
   -webkit-background-clip:text;
   background-clip:text;
   color:transparent;
   text-shadow:0 0 46px rgba(203,168,105,.4), 0 0 90px rgba(203,168,105,.2);
-}
-@keyframes flowRipple{
-  0%, 100%{ transform:translateY(0) skewX(0deg); }
-  50%{ transform:translateY(-9px) skewX(-2deg); }
 }
 
 .hero-title-row{

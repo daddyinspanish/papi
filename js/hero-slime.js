@@ -135,39 +135,43 @@ import * as THREE from './vendor/three.module.min.js';
     // viewport is — picking fixed close/big numbers by eye on one test
     // window (like cubeSpacing/cubeBoxScale above originally were) is
     // exactly what let cubes touch on a different aspect ratio before.
-    cubeCloseBoxScale: 1.3,  // the box scale computeCloseGeometry() below AIMS for once cubes hold their
+    cubeCloseBoxScale: 0.98,  // the box scale computeCloseGeometry() below AIMS for once cubes hold their
                               // tight formation — reference is a set of 4 cubes reading as one unified
-                              // bigger shape, edges almost meeting. Actually reached only where the
+                              // shape with real black margin around the whole cluster, matching a supplied
+                              // reference photo of 4 smaller cubes on a mostly-empty black frame, not a
+                              // cluster that fills most of the viewport. Actually reached only where the
                               // current window has room for it at cubeCloseMinGap's clearance; narrower
-                              // windows fall back to less growth (see computeCloseGeometry). Lower than
-                              // an earlier version of this (was 1.6) — the real hero copy now sits in a
-                              // clear band below the whole cluster (see cubeCloseVerticalLift and
-                              // .hero-content in style.css) rather than overlapping it, so the cluster
-                              // itself needs to leave room for that band instead of filling the viewport.
-    cubeCloseMinGap: 0.014,  // the smallest gap ever allowed between a formed cube's own edge and its
+                              // windows fall back to less growth (see computeCloseGeometry). Much lower
+                              // than earlier versions of this (was 1.6, then 1.3) to match that photo.
+    cubeCloseMinGap: 0.02,   // the smallest gap ever allowed between a formed cube's own edge and its
                               // neighbour's, in the same normalized space as cubeSpacing — this is what
-                              // "never touch" actually means numerically. Small on purpose: the whole
-                              // point of this phase is reading as close to touching as possible (see the
-                              // reference image) without a real risk of the liquid visibly merging —
-                              // cubeTensionScale below is what actually keeps that safe at a gap this
-                              // small, not this number alone. Tighter than before (was 0.025) — with the
-                              // real copy no longer needing to fit in the gap BETWEEN cube rows (see
-                              // cubeCloseBoxScale above), there's no reason left to hold that gap open;
-                              // the 4 cubes can read as one nearly-unified shape instead.
-    cubeTensionScale: 0.09,  // shrinks the smin() blend radius (surfaceTension, below) once cubes are
+                              // "never touch" actually means numerically, and what actually reads as the
+                              // small but clearly visible black gap in the reference photo (was 0.014,
+                              // tuned back when the cubes themselves were much bigger — the same ABSOLUTE
+                              // gap reads as proportionally smaller, easier to lose entirely, against the
+                              // now-much-smaller cubeCloseBoxScale below).
+    cubeTensionScale: 0.065, // shrinks the smin() blend radius (surfaceTension, below) once cubes are
                               // formed, blended in by cubeFormT — see the long comment where this is
                               // actually applied (search "cubeTensionScale") for why a positive geometric
                               // gap (cubeCloseMinGap above) wasn't enough on its own to stop a visible
                               // connecting neck between two cubes that are close but not touching. Tighter
-                              // than before (was 0.15) to stay safely under the smaller cubeCloseMinGap
-                              // above (0.10 base tension * 0.09 = 0.009, comfortably under 0.014)
-    cubeCloseVerticalLift: 0.085, // shifts the whole 4-cube cluster's own centre UP (in the same
+                              // than before (was 0.09) — that value was tuned for the old, much bigger
+                              // cubeCloseBoxScale (1.3); the blend radius is an ABSOLUTE size (a fraction
+                              // of the base, unshrunk surfaceTension), so shrinking the cubes themselves
+                              // without shrinking this too leaves the same-size blend radius eating a much
+                              // bigger share of the now-smaller cubes' own silhouette — exactly the
+                              // "smaller cubes read as fused" issue already found and fixed once for
+                              // portrait phones (see desiredCloseBoxScale's own ratio), just triggered here
+                              // by a smaller BASE scale instead of a smaller aspect-tapered one.
+    cubeCloseVerticalLift: 0.05, // shifts the whole 4-cube cluster's own centre UP (in the same
                               // normalized space as cubeSpacing/cubeCloseMinGap), blended in by closeT
                               // alongside everything else in this phase, so the cluster settles higher in
                               // the viewport once close/tight rather than sitting dead-centre — opening a
                               // real, asymmetrically bigger clear band below it for the real hero copy
                               // (title/subtitle/social, anchored to the bottom of .hero-content) than
-                              // above, where nothing needs to sit.
+                              // above, where nothing needs to sit. Smaller than before (was 0.085) now that
+                              // cubeCloseBoxScale itself is much smaller — the cluster needs a lot less
+                              // help clearing the copy below it than it did at the old, much bigger scale.
     // extra points that only ever reveal themselves once the mass has
     // fallen into the Contrast section — see the fragmentation system
     // below (search "fragment") for how these stay invisibly merged
@@ -237,9 +241,13 @@ import * as THREE from './vendor/three.module.min.js';
     // real transparent glass, not a flat gold fill: the shader refracts
     // a view ray through the surface and samples a baked, non-repeating
     // texture (pale near the top, richer amber lower down) through that
-    // bent direction, then tints the result with these two colors
-    colorMid:    [0.90, 0.68, 0.28],
-    colorBright: [1.00, 0.92, 0.68],
+    // bent direction, then tints the result with these two colors.
+    // Paler/warmer cream tones than before (was a deeper amber-gold),
+    // matching a supplied reference photo of the 4-cube formation — the
+    // saturated amber now lives mainly at the rim/highlights (see
+    // goldRef further down in the shader), not the body fill itself.
+    colorMid:    [0.94, 0.83, 0.60],
+    colorBright: [1.00, 0.97, 0.88],
     maxDt: 1000/24,          // caps the simulation step so a long paused-JS gap (see file header) resumes
                              // with a normal-sized step instead of one huge one — same lesson learned the
                              // hard way earlier rebuilding this hero background: an uncapped dt fed into a
@@ -322,7 +330,7 @@ import * as THREE from './vendor/three.module.min.js';
   function desiredCloseBoxScale(){
     const aspect = W / H;
     const portraitEase = Math.max(0, Math.min(1, (0.85 - aspect) / 0.45));
-    const desiredBoxScale = CONFIG.cubeCloseBoxScale - (CONFIG.cubeCloseBoxScale - 1.0) * portraitEase;
+    const desiredBoxScale = CONFIG.cubeCloseBoxScale - (CONFIG.cubeCloseBoxScale - 0.8) * portraitEase;
     return { desiredBoxScale, ratio: desiredBoxScale / CONFIG.cubeCloseBoxScale };
   }
 
@@ -862,8 +870,10 @@ import * as THREE from './vendor/three.module.min.js';
       // — real reflected/refracted light alone reads as "a lit object",
       // even a bright one; an additive term that ISN'T dependent on the
       // light/view/rotation geometry at all is what actually reads as
-      // "glowing" rather than "well-lit"
-      color += vec3(1.0, 0.7, 0.22) * uCubeT * 0.4;
+      // "glowing" rather than "well-lit". Paler/less saturated than
+      // before (was 1.0,0.7,0.22) to match the reference photo's warm
+      // ivory glow rather than a deeper orange one.
+      color += vec3(1.0, 0.85, 0.58) * uCubeT * 0.32;
 
       // several of the steps above (the fresnel-white mix, the specular
       // add) each individually wash a little toward white — stacked
@@ -878,8 +888,13 @@ import * as THREE from './vendor/three.module.min.js';
       // Once formed into cubes, pushed much closer to a full override
       // (0.9) — the whole point there is a locked, consistent colour,
       // and refracted/lit detail is exactly what was making it drift.
+      // paler ramp than before at both ends (was 0.45,0.26,0.05 →
+      // 1.0,0.68,0.18, a deep brown-amber to saturated orange-gold) to
+      // match the warm ivory/champagne body a supplied reference photo
+      // shows, with amber staying a rim/highlight accent (rimGlow/spec
+      // above) rather than the dominant body hue
       float lum = dot(color, vec3(0.299, 0.587, 0.114));
-      vec3 goldRef = mix(vec3(0.45, 0.26, 0.05), vec3(1.0, 0.68, 0.18), lum);
+      vec3 goldRef = mix(vec3(0.58, 0.46, 0.28), vec3(1.0, 0.9, 0.68), lum);
       color = mix(color, goldRef, mix(0.56, 0.9, uCubeT));
 
       // real page content (the hero title/subtitle/CTA) sits behind
@@ -1293,6 +1308,14 @@ import * as THREE from './vendor/three.module.min.js';
   let lastHeroBgVal = 255;
   let latestCubeFormT = 0;
   let latestCloseT = 0;
+  // true once heroProgress has passed CUBE_PHASE.holdEnd, i.e. the
+  // visitor has scrolled on past the held cube formation into the
+  // disperse-back-to-liquid stretch toward Contrast — see
+  // window.Papi.getPastHold further down, read by title-dock.js so
+  // "Flow" doesn't reappear on the way OUT toward the next section
+  // (closeT falling back toward 0 there would otherwise fade it back in,
+  // exactly like scrolling up out of the hold phase legitimately does)
+  let latestPastHold = false;
 
   let W = 1, H = 1;
   function resize(){
@@ -1426,12 +1449,19 @@ import * as THREE from './vendor/three.module.min.js';
   // angleY/angleX below are always 0 now.
   // ===================================================================
   const CUBE_PHASE = {
-    wanderEnd: 0.12,    // pure free wander, matches the look before this existed
-    formEnd: 0.38,      // coalesce into the tight 4-cube cluster complete
-    closeEnd: 0.55,     // cubes finish drawing much closer together/bigger (closeT below) — this is
+    // pure free wander/"Flow" runs much longer than before (was 0.12) —
+    // the cubes are meant to read as a distinct "second act" you scroll
+    // into after a full first scroll's worth of the liquid mass just
+    // wandering, not something that starts coalescing almost
+    // immediately. #hero is 400vh with a 100vh sticky viewport, so
+    // heroProgress covers a 300vh scrollable range — 0.32 lands cube
+    // formation's start just past one full extra 100vh scroll.
+    wanderEnd: 0.32,
+    formEnd: 0.5,       // coalesce into the tight 4-cube cluster complete
+    closeEnd: 0.62,     // cubes finish drawing much closer together/bigger (closeT below) — this is
                         // the cue title.js/title-dock.js wait for before revealing the real hero copy
-    holdEnd: 0.85,      // hold that tight formation, static, until this point
-    disperseEnd: 0.94,  // back to free liquid — the remaining stretch up to heroProgress===1 is
+    holdEnd: 0.88,      // hold that tight formation, static, until this point
+    disperseEnd: 0.96,  // back to free liquid — the remaining stretch up to heroProgress===1 is
                         // plain free wander again, so the handoff into Contrast's own fall/fragment
                         // sequence has nothing cube-related left to unwind
   };
@@ -1518,6 +1548,7 @@ import * as THREE from './vendor/three.module.min.js';
     // "is the cube phase active" from scroll position.
     latestCubeFormT = cubeFormT;
     latestCloseT = closeT;
+    latestPastHold = heroProgress > CUBE_PHASE.holdEnd;
     const bgVal = Math.round(255 * (1 - cubeFormT));
     if(bgVal !== lastHeroBgVal){
       lastHeroBgVal = bgVal;
@@ -1648,6 +1679,11 @@ import * as THREE from './vendor/three.module.min.js';
   // fully tight and holding — title.js/title-dock.js use this as the
   // cue to crossfade "Flow" out and the real hero copy in
   window.Papi.getCloseT = () => latestCloseT;
+  // see latestPastHold above — title-dock.js reads this to keep "Flow"
+  // hidden for good once the visitor has scrolled on past the held
+  // cube formation, rather than letting it fade back in as the cubes
+  // disperse back to liquid on the way toward Contrast
+  window.Papi.getPastHold = () => latestPastHold;
   window.Papi.revealField = function(){
     if(revealed) return;
     revealed = true;

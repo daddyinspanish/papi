@@ -125,37 +125,53 @@
 
   // ---- "Flow" — shown right after the loader in place of the real
   // hero copy (see index.html's note on the markup). Split into per-
-  // letter spans so each one can run its own staggered ripple (see
-  // .flow-letter/@keyframes flowRipple in style.css) — a continuous
-  // idle animation, independent of scroll, that reads like a wave
-  // passing through the water rather than a static gradient word. The
+  // letter spans, each tracking its own small state object so it can
+  // both ripple continuously AND get pushed by a nearby cursor (see
+  // flowLetterFrame below) — a plain CSS animation can't do the ripple
+  // half of that alongside a JS-driven push offset, since a CSS
+  // animation targeting transform always wins over an inline style on
+  // the same property, silently discarding whatever the push physics
+  // writes there. Computing both in one JS loop and writing a single
+  // combined transform per frame avoids that fight entirely — the same
+  // reasoning title.js's own char push physics already relies on. The
   // one-off fade+rise entrance below is the same pattern as
-  // revealSubtitle above; ongoing opacity/transform (the crossfade
-  // against the real title, and the "sucked into the liquid" exit as
-  // the cubes draw close) is driven continuously in fadeFrame() below,
-  // off the exact same eased signal title.js already exposes ----
+  // revealSubtitle above; ongoing opacity/transform on the parent (the
+  // crossfade against the real title, and the "sucked into the liquid"
+  // exit as the cubes draw close) is driven continuously in fadeFrame()
+  // below, off the exact same eased signal title.js already exposes —
+  // composes cleanly with each letter's own transform here since it's
+  // a different element (the parent vs. its children). ----
   let flowEntranceDone = false;
+  let flowLetterState = []; // {el, homeX, homeY, x, y, vx, vy}
   if(heroFlowWord){
     const flowText = heroFlowWord.textContent;
-    const flowLetters = Array.from(flowText);
+    const flowChars = Array.from(flowText);
     heroFlowWord.innerHTML = '';
-    flowLetters.forEach((ch, i)=>{
+    flowChars.forEach((ch, i)=>{
       const span = document.createElement('span');
       span.className = 'flow-letter';
       span.textContent = ch;
-      span.style.animationDelay = `${i * 0.16}s`;
       // see the CSS note on .flow-letter — windows each letter into its
       // own slice of one gradient sized/offset across the whole word,
       // so the split-into-spans letters still read as a single
       // continuous sweep rather than four separate mini-gradients
-      span.style.backgroundSize = `${flowLetters.length * 100}% 100%`;
-      span.style.backgroundPositionX = flowLetters.length > 1 ? `${(i / (flowLetters.length - 1)) * 100}%` : '0%';
+      span.style.backgroundSize = `${flowChars.length * 100}% 100%`;
+      span.style.backgroundPositionX = flowChars.length > 1 ? `${(i / (flowChars.length - 1)) * 100}%` : '0%';
       heroFlowWord.appendChild(span);
+      flowLetterState.push({ el: span, homeX: 0, homeY: 0, x: 0, y: 0, vx: 0, vy: 0 });
     });
     heroFlowWord.style.transition = 'none';
     heroFlowWord.style.opacity = '0';
     heroFlowWord.style.transform = 'translateY(14px)';
   }
+  function computeFlowHomes(){
+    flowLetterState.forEach(st=>{
+      const r = st.el.getBoundingClientRect();
+      st.homeX = r.left + r.width/2;
+      st.homeY = r.top + r.height/2;
+    });
+  }
+  let flowEffectsLive = false;
   function revealFlow(){
     if(!heroFlowWord) return;
     requestAnimationFrame(()=>{
@@ -166,8 +182,69 @@
     setTimeout(()=>{
       flowEntranceDone = true;
       heroFlowWord.style.transition = 'none';
+      // measured only once the rise entrance has fully settled — any
+      // earlier and the transform above is still mid-transition, which
+      // would bake a wrong (still-rising) home position into every
+      // letter's own push-physics rest point
+      computeFlowHomes();
+      flowEffectsLive = true;
     }, 1150);
   }
+  // same >10px-tolerance width-only guard as every other resize
+  // handler in this file (see the --stable-vh comment in index.html's
+  // <head>) — an iOS toolbar collapse fires 'resize' without the
+  // letters' own horizontal position actually changing
+  let lastResizeWFlow = window.innerWidth;
+  window.addEventListener('resize', ()=>{
+    const w = window.innerWidth;
+    if(Math.abs(w - lastResizeWFlow) <= 10) return;
+    lastResizeWFlow = w;
+    clearTimeout(window.__papiFlowResizeT);
+    window.__papiFlowResizeT = setTimeout(()=>{ if(flowEffectsLive) computeFlowHomes(); }, 200);
+  });
+
+  // ripple (a continuous idle wave through the letters) + cursor push,
+  // combined into one transform per letter per frame — see the note
+  // above on why this replaced a plain CSS animation. Radius/spring
+  // constants match title.js's own char-push physics exactly, so a
+  // cursor grazing "Flow" and then the real title moments later feels
+  // like the same material reacting both times.
+  const FLOW_PUSH_RADIUS = 85;
+  const FLOW_PUSH = 0.34;
+  const FLOW_SPRING = 0.05;
+  const FLOW_DAMPING = 0.82;
+  const FLOW_RIPPLE_SPEED = (2 * Math.PI) / 2.6; // matches the old CSS keyframe's 2.6s period
+  const FLOW_RIPPLE_PHASE = 0.39; // per-letter phase offset, matches the old 0.16s-of-2.6s stagger
+  const FLOW_RIPPLE_AMP = 9;
+  function flowLetterFrame(){
+    if(flowEffectsLive){
+      const t = performance.now() / 1000;
+      flowLetterState.forEach((st, i)=>{
+        const dx = (st.homeX + st.x) - mouseX;
+        const dy = (st.homeY + st.y) - mouseY;
+        const d = Math.sqrt(dx*dx + dy*dy) + 0.01;
+        if(d < FLOW_PUSH_RADIUS){
+          const force = (1 - d/FLOW_PUSH_RADIUS) * FLOW_PUSH;
+          const ang = Math.atan2(dy, dx);
+          st.vx += Math.cos(ang) * force;
+          st.vy += Math.sin(ang) * force;
+        }
+        st.vx += (0 - st.x) * FLOW_SPRING;
+        st.vy += (0 - st.y) * FLOW_SPRING;
+        st.vx *= FLOW_DAMPING;
+        st.vy *= FLOW_DAMPING;
+        st.x += st.vx;
+        st.y += st.vy;
+
+        const ripplePhase = t * FLOW_RIPPLE_SPEED + i * FLOW_RIPPLE_PHASE;
+        const rippleY = Math.sin(ripplePhase) * FLOW_RIPPLE_AMP;
+        const skew = Math.sin(ripplePhase) * -2;
+        st.el.style.transform = `translate(${st.x.toFixed(2)}px, ${(st.y + rippleY).toFixed(2)}px) skewX(${skew.toFixed(2)}deg)`;
+      });
+    }
+    requestAnimationFrame(flowLetterFrame);
+  }
+  requestAnimationFrame(flowLetterFrame);
 
   window.Papi = window.Papi || {};
   window.Papi.revealFlow = revealFlow;
@@ -339,16 +416,27 @@
     // single eased value (never two independently-computed numbers
     // fighting each other, the exact bug already found and fixed once
     // this same way for the title/etc. themselves above). Beyond plain
-    // opacity, "sucked into the liquid" layers on a shrink+drop+blur as
-    // fadeOut falls toward 0 — suckT is 0 while Flow sits at rest (its
-    // own idle ripple, see .flow-letter, is the only motion), rising to
-    // 1 exactly as the crossfade finishes, reading as the word being
-    // drawn down into the mass rather than just dissolving in place.
+    // opacity, "sucked into the liquid" layers on a shrink+drop+blur —
+    // both curved with Math.pow (exponent<1) rather than applied
+    // linearly against fadeOut, so "Flow" stays close to fully visible/
+    // at rest for most of the scroll range and then gets pulled in
+    // sharply right at the very end, reading as a quick snap into the
+    // liquid rather than a slow drift the whole way through.
+    //
+    // pastHold (see window.Papi.getPastHold in hero-slime.js) forces
+    // this to fully hidden once the visitor has scrolled on past the
+    // held cube formation toward Contrast — closeT (and so fadeOut)
+    // falls back toward 1 there exactly like scrolling back UP out of
+    // the hold phase does, but only the latter is a real "return to
+    // Flow": the former is scrolling further AWAY, into the next
+    // section, where Flow reappearing would read as a mistake.
+    const pastHold = window.Papi && window.Papi.getPastHold && window.Papi.getPastHold();
     if(heroFlowWord && flowEntranceDone){
-      heroFlowWord.style.opacity = String(fadeOut);
-      const suckT = 1 - fadeOut;
-      heroFlowWord.style.transform = `translateY(${suckT * 52}px) scale(${1 - suckT * 0.4})`;
-      heroFlowWord.style.filter = suckT > 0.015 ? `blur(${(suckT * 10).toFixed(1)}px)` : 'none';
+      const suckCurve = pastHold ? 0 : Math.pow(Math.max(0, fadeOut), 0.4);
+      heroFlowWord.style.opacity = String(suckCurve);
+      const suckT = 1 - suckCurve;
+      heroFlowWord.style.transform = `translateY(${suckT * 70}px) scale(${1 - suckT * 0.55})`;
+      heroFlowWord.style.filter = suckT > 0.015 ? `blur(${(suckT * 14).toFixed(1)}px)` : 'none';
     }
 
     heroCopy.style.transform = `translateY(${-fadeOut * 34}px)`;
