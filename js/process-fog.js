@@ -163,6 +163,28 @@
       const [red, green, blue] = w.hue;
       paintSoftCircle(x*W, y*H, w.size*wispSize*breathe, red, green, blue, w.alpha*edgeFade);
     });
+
+    // BASE_GLOWS are deliberately huge relative to the canvas (see their
+    // own comment above), so their alpha is still meaningfully non-zero
+    // all the way up to this canvas's own top edge — which is exactly
+    // where the hero section ends and this one starts. Without this,
+    // that reads as a hard "wall" of warm tint switching on right at
+    // that DOM boundary (visible as a straight horizontal line, with
+    // js/process-flow.js's first falling droplet then looking like it's
+    // emerging from underneath it) rather than the wash actually
+    // building up gradually the way real ambient depth would. Erasing
+    // (not just dimming — full alpha at y=0) the top ~22% and easing
+    // back to fully untouched removes that edge regardless of what got
+    // drawn into it above, rather than having to reason about every
+    // individual shape's own math near y=0.
+    const topFadeH = H * 0.22;
+    const topFade = ctx.createLinearGradient(0, 0, 0, topFadeH);
+    topFade.addColorStop(0, 'rgba(0,0,0,1)');
+    topFade.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = topFade;
+    ctx.fillRect(0, 0, W, topFadeH);
+    ctx.globalCompositeOperation = 'source-over';
   }
   function updateScrollFade(){
     const rect = row.getBoundingClientRect();
