@@ -645,6 +645,14 @@ window.scrollTo(0, 0);
   </div>
 </div>
 
+<!-- last real child of <body> on purpose — see js/cursor-ripple.js and
+     the CURSOR RIPPLE block in style.css for why: unlike the hero
+     canvas (which needs to change stacking position depending on
+     scroll), this layer always wants the same one ("above content,
+     below chrome"), so being last in DOM order is enough on its own
+     to paint above every section, no runtime reparenting needed. -->
+<div id="cursorRippleLayer" aria-hidden="true"></div>
+
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
 <script type="module" src="js/hero-slime.js"></script>
@@ -659,6 +667,7 @@ window.scrollTo(0, 0);
 <script src="js/quote-form.js"></script>
 <script src="js/newsletter-popup.js"></script>
 <script src="js/cursor.js"></script>
+<script src="js/cursor-ripple.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>
