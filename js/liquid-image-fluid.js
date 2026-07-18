@@ -30,21 +30,24 @@
    scroll/layout for free with no manual position-syncing needed beyond
    its own resize.
 
-   Performance: the whole fluid solve runs on a small buffer (128px
-   long axis) — every one of its ~24 passes/frame (1 splat + 1 curl + 1
-   vorticity + 1 divergence + 20 pressure Jacobi iterations + 1 gradient
-   subtract + 1 advection) is therefore only a few thousand pixels, the
-   same iteration count and resolution ballpark as every public
-   from-scratch implementation of this algorithm. Only the final
-   composite pass runs at the image's own display resolution. The whole
-   thing pauses entirely once the flow has settled and the cursor has
-   been away long enough, exactly like every other cursor-reactive
-   effect on this page.
+   Performance: the whole fluid solve runs on a small buffer (224px long
+   axis — bumped up from an initial 128px once the container became the
+   full-width hero background rather than a narrow card, since the same
+   128 texels stretched across a much wider area read as visibly blocky
+   during motion) — every one of its ~23 passes/frame (1 splat + 1
+   divergence + 20 pressure Jacobi iterations + 1 gradient subtract + 1
+   advection; no curl/vorticity pass, see _step() below) is therefore
+   only a few tens of thousands of pixels, still cheap next to public
+   from-scratch implementations of this algorithm that commonly run at
+   256px+. Only the final composite pass runs at the image's own display
+   resolution. The whole thing pauses entirely once the flow has settled
+   and the cursor has been away long enough, exactly like every other
+   cursor-reactive effect on this page.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
 
 const DEFAULTS = {
-  simResolution: 128,
+  simResolution: 224,
   pressureIterations: 20,
   velocityDissipation: 1.1,   // per-second — how quickly the flow itself loses energy
   splatRadius: 0.09,

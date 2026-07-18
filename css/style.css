@@ -362,17 +362,17 @@ body, a{ cursor:none; }
 }
 /* the real photo js/liquid-image-fluid.js distorts — see that file's
    own header for why this needs to be an actual photo rather than a
-   screenshot of arbitrary page content. Sized to most of the column,
-   leaving room for .hero-social pinned at the very bottom below it
-   (that's why this stops short of the column's own full height rather
-   than using inset:0). */
+   screenshot of arbitrary page content. Spans the ENTIRE hero (inset:0
+   on .hero-top, same box #heroSlime uses) rather than being confined to
+   the right-hand visual column, so it reads as the hero's own
+   background rather than a floating card — sits behind both #heroSlime
+   (z-index:1) and .hero-inner's text (z-index:15), clipped by
+   .hero-top's own overflow:hidden. */
 .hero-water{
   position:absolute;
-  top:0; left:0; right:0;
-  bottom:14%;
-  border-radius:1.25rem;
+  inset:0;
+  z-index:0;
   overflow:hidden;
-  box-shadow:0 40px 90px -40px rgba(23,24,26,.35);
 }
 .hero-water img{
   position:absolute;
