@@ -1,44 +1,24 @@
 /* ===================================================================
    Papi — scroll-driven title docking
-   On load the title shows; shortly after, the CTA fades/rises in and
-   the subtitle rolls into place beneath it like a block dropping in.
-   The CTA also has a subtle magnetic pull toward the cursor when it's
-   nearby. Scrolling isn't gated on anything here — the background
-   field (particles.js) runs its own orbiting/breathing loop
-   independent of scroll, so as the visitor scrolls the whole hero
-   block just lifts and fades away immediately while a small "Creating
-   style for businesses" label crossfades in
-   below the Papi mark, top right, and stays there for the rest of
-   the scroll. That label (and the brand mark) flips to a
-   dark-on-light look while the white showcase section is behind it,
-   then back to light-on-dark once past it into the next dark
-   section.
+   Two separate jobs live in this one file: the hero's own "Papi" word
+   entrance (a perpetual idle ripple + cursor-push loop, never fading
+   out — see revealFlow/flowLetterFrame) and the social icon row's
+   one-time entrance, plus — entirely independent of the hero — the
+   small docked label that crossfades in below the brand mark once the
+   visitor scrolls past it, showing which later section ("Difference"/
+   "Industries"/"Results"/"Live"/"Proof") the viewport is currently
+   over. That label (and the brand mark) flips to a dark-on-light look
+   while a white section is behind it, then back to light-on-dark once
+   past it into the next dark section.
 =================================================================== */
 (function(){
-  const heroCopy = document.getElementById('heroCopy');
   const heroFlowWord = document.getElementById('heroFlowWord');
-  const title    = document.getElementById('heroTitle');
-  const sub      = document.getElementById('heroSub');
   const social   = document.getElementById('heroSocial');
   const titleDock= document.getElementById('titleDock');
   const siteHeader = document.getElementById('siteHeader');
-  const brandMark = document.getElementById('brandMark');
-  if(!heroCopy || !titleDock) return;
+  if(!titleDock) return;
 
-  // title's own CSS (.hero-title) carries a transition:opacity .3s ease
-  // rule meant for a one-off fade-in — but the element's OWN opacity
-  // never actually fades in that way (only its individual per-letter
-  // .char spans do, handled separately by title.js); fadeFrame below
-  // sets its opacity every single frame from page load onward, so that
-  // leftover CSS transition just perpetually chases a constantly-moving
-  // target, lagging the real (already fully-eased) value by a good
-  // fraction of 300ms. sub/social clear this same transition once their
-  // own entrance finishes, further down.
-  if(title) title.style.transition = 'none';
-
-  const SCROLL_RANGE_RATIO = 0.95; // fraction of viewport height for the full transition
-  const FADE_START    = 0.42; // everything starts fading out
-  const FADE_END       = 0.82; // everything fully gone
+  const SCROLL_RANGE_RATIO = 0.95; // fraction of viewport height for the docked-label reveal distance
   const DOCK_THRESHOLD = 0.62; // when the corner label appears
 
   // cached, not read live from window.innerHeight on every scroll
@@ -59,50 +39,12 @@
     window.__papiDockResizeT = setTimeout(measureViewport, 150);
   });
 
-  function smoothstep(edge0, edge1, x){
-    const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-    return t * t * (3 - 2 * t);
-  }
-
-  // ---- subtitle: rolls into place shortly after the title, once ----
-  let subEntranceDone = false;
-  if(sub){
-    sub.style.transition = 'none';
-    sub.style.opacity = '0';
-    sub.style.transform = 'translateY(-46px) rotate(-14deg) scale(.82)';
-  }
-  function revealSubtitle(){
-    if(!sub) return;
-    requestAnimationFrame(()=>{
-      sub.style.transition = 'opacity .6s ease, transform .85s cubic-bezier(.34,1.56,.64,1)';
-      sub.style.opacity = '1';
-      sub.style.transform = 'translateY(0) rotate(0deg) scale(1)';
-    });
-    setTimeout(()=>{
-      subEntranceDone = true;
-      // hand off cleanly to fadeFrame's own continuous, already-eased
-      // per-frame opacity updates below — leaving the entrance's own
-      // transition active here would have it perpetually chasing that
-      // constantly-moving target instead
-      sub.style.transition = 'none';
-      // lets title.js know it's safe to measure the subtitle's
-      // characters and start their own scroll/cursor ripple — doing
-      // that before the block-roll entrance settles would measure the
-      // wrong (mid-animation) positions
-      window.dispatchEvent(new Event('papi:subtitlerevealed'));
-    }, 950);
-  }
-
-
-  // ---- social icon row: fades/rises in right away (it's the topmost
-  // element, doesn't need to wait on anything else settling first),
-  // then tracks the same fadeOut as the rest of hero-copy in update()
-  // below once its own entrance is done. The liquid-drop pop-in itself
+  // ---- social icon row: fades/rises in right away, once, and just
+  // stays there — no scroll-tied fade. The liquid-drop pop-in itself
   // (see .hero-social.is-visible in style.css) lives entirely in CSS,
   // triggered by the is-visible class added below — it animates each
   // icon's own svg/::before, never this container's opacity, so it
-  // can't conflict with the fade this function (and later update())
-  // drives here. ----
+  // can't conflict with the fade this function drives. ----
   let socialEntranceDone = false;
   if(social){
     social.style.transition = 'none';
@@ -117,31 +59,21 @@
     });
     setTimeout(()=>{
       socialEntranceDone = true;
-      // fadeFrame below drives this continuously from here on — see
-      // the title note above for why keeping a CSS transition active
-      // on top of that would just add a perpetual lag
       social.style.transition = 'none';
     }, 900);
   }
 
-  // ---- "Flow" — shown right after the loader in place of the real
-  // hero copy (see index.html's note on the markup). Split into per-
-  // letter spans, each tracking its own small state object so it can
-  // both ripple continuously AND get pushed by a nearby cursor (see
-  // flowLetterFrame below) — a plain CSS animation can't do the ripple
-  // half of that alongside a JS-driven push offset, since a CSS
-  // animation targeting transform always wins over an inline style on
-  // the same property, silently discarding whatever the push physics
-  // writes there. Computing both in one JS loop and writing a single
-  // combined transform per frame avoids that fight entirely — the same
-  // reasoning title.js's own char push physics already relies on. The
-  // one-off fade+rise entrance below is the same pattern as
-  // revealSubtitle above; ongoing opacity/transform on the parent (the
-  // crossfade against the real title, and the "sucked into the liquid"
-  // exit as the cubes draw close) is driven continuously in fadeFrame()
-  // below, off the exact same eased signal title.js already exposes —
-  // composes cleanly with each letter's own transform here since it's
-  // a different element (the parent vs. its children). ----
+  // ---- "Papi" — split into per-letter spans, each tracking its own
+  // small state object so it can both ripple continuously AND get
+  // pushed by a nearby cursor (see flowLetterFrame below) — a plain
+  // CSS animation can't do the ripple half of that alongside a JS-
+  // driven push offset, since a CSS animation targeting transform
+  // always wins over an inline style on the same property, silently
+  // discarding whatever the push physics writes there. Computing both
+  // in one JS loop and writing a single combined transform per frame
+  // avoids that fight entirely. After the one-off fade+rise entrance
+  // below, this just keeps rippling/reacting to the cursor forever —
+  // "Papi" never fades or gets pulled away. ----
   let flowEntranceDone = false;
   let flowLetterState = []; // {el, homeX, homeY, x, y, vx, vy}
   if(heroFlowWord){
@@ -206,10 +138,7 @@
 
   // ripple (a continuous idle wave through the letters) + cursor push,
   // combined into one transform per letter per frame — see the note
-  // above on why this replaced a plain CSS animation. Radius/spring
-  // constants match title.js's own char-push physics exactly, so a
-  // cursor grazing "Flow" and then the real title moments later feels
-  // like the same material reacting both times.
+  // above on why this replaced a plain CSS animation.
   const FLOW_PUSH_RADIUS = 85;
   const FLOW_PUSH = 0.34;
   const FLOW_SPRING = 0.05;
@@ -217,6 +146,11 @@
   const FLOW_RIPPLE_SPEED = (2 * Math.PI) / 2.6; // matches the old CSS keyframe's 2.6s period
   const FLOW_RIPPLE_PHASE = 0.39; // per-letter phase offset, matches the old 0.16s-of-2.6s stagger
   const FLOW_RIPPLE_AMP = 9;
+  let mouseX = -9999, mouseY = -9999;
+  window.addEventListener('mousemove', (e)=>{
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
   function flowLetterFrame(){
     if(flowEffectsLive){
       const t = performance.now() / 1000;
@@ -249,94 +183,7 @@
 
   window.Papi = window.Papi || {};
   window.Papi.revealFlow = revealFlow;
-  window.Papi.revealSubtitle = revealSubtitle;
   window.Papi.revealSocial = revealSocial;
-
-  // ---- the real hero copy's entrance (subtitle roll-in, social rise-
-  // in, and the "PAPI" brand mark itself) used to all fire right after
-  // the loader — now deferred to the moment the liquid cubes actually
-  // finish drawing close together and hold (closeT reaching 1),
-  // watched continuously in fadeFrame() below rather than off a fixed
-  // timer, so it fires at the right moment regardless of how fast or
-  // slow the visitor scrolls to get there. The brand mark specifically
-  // stays hidden until right here rather than showing immediately on
-  // load (see init.js) — the big centre "Papi" word is meant to be the
-  // only "Papi" on screen until it's actually gone, not visible
-  // alongside a second, smaller one in the corner the whole time.
-  // Fires once, ever — scrolling back up and down again just crossfades
-  // the already-revealed copy back in via fadeOut below, it doesn't
-  // replay these entrance transforms. ----
-  let heroCopyRevealTriggered = false;
-  function triggerHeroCopyReveal(){
-    if(heroCopyRevealTriggered) return;
-    heroCopyRevealTriggered = true;
-    if(brandMark) brandMark.querySelectorAll('span').forEach(s => s.style.opacity = '1');
-    revealSubtitle();
-    setTimeout(revealSocial, 250);
-  }
-
-  // magnetic pull — the CTA and each social icon lean slightly toward
-  // a nearby cursor. Generalized into a small per-element state object
-  // (own position/target/lerp) rather than duplicating the same
-  // handful of variables per element, so the CTA and all three icons
-  // can each react independently in the same loop.
-  let mouseX = -9999, mouseY = -9999;
-  window.addEventListener('mousemove', (e)=>{
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-  });
-
-  function createMagnet(el, radius, strength, entranceDoneRef){
-    return { el, radius, strength, entranceDoneRef, x:0, y:0, targetX:0, targetY:0 };
-  }
-  const magnets = [];
-  if(social){
-    // small radius/higher pull, proportionate to how small these
-    // icons are, so the effect still reads at that scale instead of
-    // feeling barely-there
-    Array.from(social.querySelectorAll('.hero-social-link')).forEach(link=>{
-      magnets.push(createMagnet(link, 42, 0.42, ()=>socialEntranceDone));
-    });
-  }
-
-  function magnetFrame(){
-    // this used to call heroElForMagnet.getBoundingClientRect() every
-    // single frame, forever, for the entire rest of the page's life —
-    // a forced synchronous layout read that never stopped, even long
-    // after the hero (and the CTA inside it) had scrolled out of view.
-    // heroHeight (measured once at load and on resize by measureZones
-    // below, the same cached value update() uses for onHero) gives the
-    // same answer via plain arithmetic against window.scrollY instead,
-    // with no forced layout at all.
-    const heroVisible = window.scrollY < heroHeight;
-    if(heroVisible){
-      magnets.forEach(m=>{
-        if(!m.entranceDoneRef()) return;
-        const rect = m.el.getBoundingClientRect();
-        const cx = rect.left + rect.width/2;
-        const cy = rect.top + rect.height/2;
-        const dx = mouseX - cx, dy = mouseY - cy;
-        const dist = Math.hypot(dx, dy);
-        if(dist < m.radius){
-          const pull = 1 - dist / m.radius;
-          m.targetX = dx * pull * m.strength;
-          m.targetY = dy * pull * m.strength;
-        } else {
-          m.targetX = 0;
-          m.targetY = 0;
-        }
-        m.x += (m.targetX - m.x) * 0.2;
-        m.y += (m.targetY - m.y) * 0.2;
-        m.el.style.transform = `translate(${m.x.toFixed(1)}px, ${m.y.toFixed(1)}px)`;
-      });
-    }
-    requestAnimationFrame(magnetFrame);
-  }
-  // deferred to the next frame (rather than called directly here) so
-  // that heroHeight below — declared further down this same script,
-  // but assigned before any rAF callback can actually fire — is never
-  // read while still in its temporal dead zone
-  requestAnimationFrame(magnetFrame);
 
   const showcaseEl = document.getElementById('showcase');
   const heroEl = document.getElementById('hero');
@@ -391,107 +238,16 @@
   const showcaseZone = sectionWords[1];
   const liveDemoZone = sectionWords[3];
 
-  // continuous rAF loop (same pattern as magnetFrame above) rather than
-  // only reacting to 'scroll' events like update() below — title.js
-  // eases its shared progress value toward its target over several
-  // frames (deliberately, so a sudden scroll jump glides rather than
-  // snaps), and that easing keeps running every frame via title.js's
-  // own rAF loop even after the visitor stops scrolling. Computing
-  // opacity only inside update() (scroll-event-triggered) meant it
-  // froze at whatever value it last saw the instant scrolling stopped,
-  // while the letters kept drifting toward their real target for
-  // another beat — the title would sit fully visible over a stale,
-  // still-scattered layout (or the reverse: correctly repositioned
-  // letters at a stale, wrong opacity) until the next scroll event
-  // happened to fire. Running this every frame, independent of scroll
-  // events, keeps opacity and letter position in exact lockstep
-  // regardless of whether the visitor is actively scrolling right now.
-  function fadeFrame(){
-    // fadeOut here is 1 while "Flow" is showing (title.js's closeT===0),
-    // easing down to 0 once the liquid cubes have drawn close together
-    // and are holding — see getExplodeProgress in title.js for the
-    // actual source signal this now tracks
-    const fadeOut = (window.Papi && window.Papi.getHeroFadeProgress)
-      ? window.Papi.getHeroFadeProgress()
-      : smoothstep(FADE_START, FADE_END, Math.max(0, Math.min(1, window.scrollY / (viewportH * SCROLL_RANGE_RATIO))));
-
-    // "melts" the real hero copy away with a downward, blurring fade as
-    // the cubes shrink into the corner dock (see window.Papi.getDockT
-    // in hero-slime.js) — Math.pow (exponent<1, the same curve the
-    // "sucked into the liquid" Flow-word exit below already uses) keeps
-    // the copy looking normal for most of the dock transition and only
-    // visibly drips away in the back half, reading as a deliberate
-    // water-like exit rather than a slow fade the whole way through.
-    const dockT = (window.Papi && window.Papi.getDockT) ? window.Papi.getDockT() : 0;
-    const dockCurve = Math.pow(Math.max(0, dockT), 0.6);
-    const heroCopyOpacity = (1 - fadeOut) * (1 - dockCurve);
-    if(title) title.style.opacity = String(heroCopyOpacity);
-    if(sub && subEntranceDone) sub.style.opacity = String(heroCopyOpacity);
-    if(social && socialEntranceDone) social.style.opacity = String(heroCopyOpacity);
-    // the exact inverse crossfade — full opacity while the real title
-    // is hidden, fading out in lockstep as it fades in, off the same
-    // single eased value (never two independently-computed numbers
-    // fighting each other, the exact bug already found and fixed once
-    // this same way for the title/etc. themselves above). Beyond plain
-    // opacity, "sucked into the liquid" layers on a shrink+drop+blur —
-    // both curved with Math.pow (exponent<1) rather than applied
-    // linearly against fadeOut, so "Flow" stays close to fully visible/
-    // at rest for most of the scroll range and then gets pulled in
-    // sharply right at the very end, reading as a quick snap into the
-    // liquid rather than a slow drift the whole way through.
-    //
-    // pastHold (see window.Papi.getPastHold in hero-slime.js) forces
-    // this to fully hidden once the visitor has scrolled on past the
-    // held cube formation toward Contrast — closeT (and so fadeOut)
-    // falls back toward 1 there exactly like scrolling back UP out of
-    // the hold phase does, but only the latter is a real "return to
-    // Flow": the former is scrolling further AWAY, into the next
-    // section, where Flow reappearing would read as a mistake.
-    const pastHold = window.Papi && window.Papi.getPastHold && window.Papi.getPastHold();
-    if(heroFlowWord && flowEntranceDone){
-      const suckCurve = pastHold ? 0 : Math.pow(Math.max(0, fadeOut), 0.4);
-      heroFlowWord.style.opacity = String(suckCurve);
-      const suckT = 1 - suckCurve;
-      heroFlowWord.style.transform = `translateY(${suckT * 70}px) scale(${1 - suckT * 0.55})`;
-      heroFlowWord.style.filter = suckT > 0.015 ? `blur(${(suckT * 14).toFixed(1)}px)` : 'none';
-    }
-
-    heroCopy.style.transform = `translateY(${(-fadeOut * 34 + dockCurve * 90).toFixed(1)}px)`;
-    heroCopy.style.filter = dockCurve > 0.01 ? `blur(${(dockCurve * 9).toFixed(1)}px)` : 'none';
-    heroCopy.style.pointerEvents = (fadeOut > 0.6 || dockCurve > 0.3) ? 'none' : 'auto';
-
-    // the real hero copy's own entrance (subtitle roll-in, social
-    // rise-in) fires once, the first moment the crossfade is
-    // essentially complete — see triggerHeroCopyReveal above for why
-    // this replaced firing all of these directly from loader.js
-    if(fadeOut <= 0.02) triggerHeroCopyReveal();
-
-    requestAnimationFrame(fadeFrame);
-  }
-  requestAnimationFrame(fadeFrame);
-
   function update(){
     const dist = viewportH * SCROLL_RANGE_RATIO;
     const progress = Math.max(0, Math.min(1, window.scrollY / dist));
 
-    // hero-slime.js fades the hero's own background from white to black
-    // as the liquid mass forms into cubes (see uCubeCloseScale/the
-    // background-colour block in its loop(), and getCubeFormT here) —
-    // reading its live cubeFormT rather than approximating "is the cube
-    // phase active" separately from scroll position keeps this in exact
-    // lockstep with whatever that background is actually doing
-    const cubePhaseActive = window.Papi && window.Papi.getCubeFormT
-      ? window.Papi.getCubeFormT() > 0.03
-      : false;
-
     // the brand mark/docked label only need to flip to dark-on-light
-    // while over one of this site's white zones — the hero's own
-    // sweeping gold/black field (gold-on-gold was going invisible
-    // there) when it's NOT in its own cube-phase black background, and
-    // the contrast section, also white. Every other section (including
-    // the hero during the cube phase) has a dark background, where the
+    // while over one of this site's white zones — the hero (a plain
+    // white background now, always) and the contrast section, also
+    // white. Every other section has a dark background, where the
     // static gold/cream colors already read fine on their own.
-    const onHero = window.scrollY < heroHeight && !cubePhaseActive;
+    const onHero = window.scrollY < heroHeight;
     const onContrast = contrastSectionEl
       ? window.scrollY >= contrastZone.top && window.scrollY < contrastZone.bottom
       : false;
@@ -520,13 +276,7 @@
     // this width) — duck both out of the way for that stretch only,
     // fading back in once the visitor scrolls past the section
     const hideDockForMobileZone = window.innerWidth <= 640 && (onContrast || onShowcase || onLiveDemo);
-    // also hidden for the duration of the hero's own cube phase — the
-    // docked "Built with Purpose." line is the only
-    // thing titleDock ever shows while still inside the hero (the
-    // rotating section word below only ever has a word once scrolled
-    // into one of the LATER sections), and it read as clutter over the
-    // black glowing-cube look
-    titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileZone && !cubePhaseActive);
+    titleDock.classList.toggle('is-visible', progress > DOCK_THRESHOLD && !hideDockForMobileZone);
     if(siteHeader) siteHeader.classList.toggle('is-hidden', hideDockForMobileZone);
 
     // pick whichever section the viewport's centre currently sits in

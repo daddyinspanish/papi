@@ -13,12 +13,15 @@
   function start(){
     hero.classList.add('is-visible');
     hero.removeAttribute('aria-hidden');
-    // the "PAPI" brand mark (top-right) is deliberately NOT revealed
-    // here — it only appears once the big centre "Papi" word has
-    // faded out and the real hero copy has taken its place, see
-    // triggerHeroCopyReveal in title-dock.js
+
+    // the "PAPI" brand mark (top-right) and the big centre "Papi" word
+    // are both on screen at once, permanently, now that the hero no
+    // longer fades one out in favor of the other — nothing to defer.
+    const brandMark = document.getElementById('brandMark');
+    if(brandMark) brandMark.querySelectorAll('span').forEach(s => s.style.opacity = '1');
 
     if(window.Papi && window.Papi.revealFlow) window.Papi.revealFlow();
+    if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
     if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
     if(window.Papi && window.Papi.revealField) window.Papi.revealField();
     if(window.Papi && window.Papi.resizeField) window.Papi.resizeField();

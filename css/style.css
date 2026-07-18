@@ -85,19 +85,17 @@ body, a{ cursor:none; }
 /* ===================================================================
    HERO / CANVAS FIELD
 =================================================================== */
-/* the tall outer section — 400vh of scroll room for js/hero-slime.js's
-   coalesce → orbit → disperse choreography to play out in before
-   handing off into Contrast, same tall-outer-plus-sticky-inner pattern
-   .contrast-section/.contrast-sticky already use below. Stays
-   position:relative (the sticky child needs a normal-flow ancestor,
-   not this element specifically) but no longer clips anything itself
-   — .hero-sticky below takes over that job, sized to just the pinned
-   viewport rather than this whole tall box. */
+/* a normal, single-viewport section — no scroll-driven choreography
+   lives here anymore (an earlier version pinned this as a tall 400vh
+   section to give a cube-formation/corner-dock sequence room to play
+   out; that whole system, and the hero copy it used to reveal, has
+   been removed — see js/hero-slime.js's own header). The liquid mass
+   just wanders freely, forever, with "Papi" floating inside it. */
 #hero{
   position:relative;
-  height:400vh;
-  height:400svh;
-  height:calc(400 * var(--stable-vh, 1vh));
+  height:100vh;
+  height:100svh;
+  height:calc(100 * var(--stable-vh, 1vh));
   width:100%;
   background:#ffffff;
   visibility:hidden;
@@ -109,45 +107,19 @@ body, a{ cursor:none; }
   opacity:1;
 }
 .hero-sticky{
-  position:sticky;
-  top:0;
-  height:100vh;
-  height:100svh;
-  height:calc(100 * var(--stable-vh, 1vh));
+  height:100%;
   overflow:hidden;
 }
 
-/* a previous "pilot" here used a native view-timeline (animation-range:
-   exit 0%..100%) to fade/lift the hero copy as a Safari-JS-pause-proof
-   duplicate of title-dock.js's own JS-driven fade. That range is
-   defined by #hero's own exit-from-viewport phase, which for a normal
-   one-viewport-tall #hero happened to line up with the same short
-   distance title-dock.js paces its fade against — but now that #hero
-   is a 400vh pinned section, its "exit" phase doesn't begin until the
-   very end of that whole 400vh scroll, nowhere near where the copy is
-   actually meant to fade (early, within about one viewport, so the
-   rest of the tall scroll is the liquid choreography's alone). Rather
-   than retune an experimental, Safari-only optimization I have no way
-   to verify on real iOS Safari, it's removed here — title-dock.js's
-   always-on JS version (already correctly paced to a fixed one-
-   viewport distance, unchanged) is the sole mechanism again.
-*/
-
-/* container for the WebGL gold slime — js/hero-slime.js renders into
+/* container for the WebGL glass slime — js/hero-slime.js renders into
    the <canvas> inside it. See that file's header for how the
-   simulation and shader work.
-   position:fixed rather than absolute: while #hero's own .hero-sticky
-   wrapper is pinned (the entire hero scroll), a fixed and an absolute
-   position:0 child look identical, since the pinned sticky box already
-   coincides exactly with the viewport — but fixed keeps behaving
-   correctly once the visitor scrolls past the hero entirely too, which
-   is what lets the canvas shrink into a small persistent corner logo
-   (see the docking block in loop()) and stay correctly positioned
-   there for the rest of the page, with no reparenting into any later
-   section needed. transform-origin:0 0 matches the math the docking
-   transform itself is derived against (see DOCK_SIZE in hero-slime.js). */
+   simulation and shader work. position:absolute rather than fixed —
+   an earlier version needed fixed positioning so the canvas could
+   escape into a permanent corner-docked logo once scrolled past; with
+   that system removed, the canvas only ever needs to fill its own
+   #hero section. */
 #heroSlime{
-  position:fixed;
+  position:absolute;
   inset:0;
   width:100%;
   height:100%;
@@ -155,7 +127,6 @@ body, a{ cursor:none; }
   pointer-events:none;
   opacity:0;
   transition:opacity 1.4s ease;
-  transform-origin:0 0;
 }
 #heroSlime.is-visible{ opacity:1; }
 
@@ -276,13 +247,8 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   color:#ffdd7a;
 }
 
-/* ---- hero copy (no card, floats directly over the field) ---- */
-/* column flex, pinned to the bottom rather than centered — the liquid
-   cubes hold their tight formation across the upper/middle portion of
-   this same viewport (see hero-slime.js's cubeCloseVerticalLift), so
-   the real hero copy needs to sit clear below them, not layered over
-   the same center point "Flow" (position:absolute, unaffected by this)
-   occupies while the cubes are still forming. */
+/* ---- hero content: the floating "Papi" word fills the centre, a
+   small row of social icons sits near the bottom ---- */
 .hero-content{
   position:relative;
   z-index:15;
@@ -294,21 +260,12 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   min-height:100svh;
   min-height:calc(100 * var(--stable-vh, 1vh));
   padding: 6vw 1.5rem 4rem;
-  perspective:1400px;
 }
 
-.hero-copy{
-  position:relative;
-  max-width:640px;
-  width:100%;
-  text-align:center;
-}
-
-/* shown in place of .hero-copy right after the loader — see the note
-   on the markup itself (index.html) for the reveal/crossfade sequence.
-   Absolutely positioned over the same area rather than sharing normal
-   flow with .hero-copy so it never affects that block's own layout,
-   before or during the crossfade. */
+/* absolutely positioned over the whole hero-content area (rather than
+   sharing normal flow with .hero-social below) so it can sit centred
+   regardless of where the social row ends up, and never affects that
+   row's own layout. */
 .hero-flow-word{
   position:absolute;
   inset:0;
@@ -326,15 +283,13 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
 }
 
 /* each letter's ripple + cursor-push transform is computed and written
-   entirely in JS now (see flowLetterFrame in title-dock.js), not a CSS
+   entirely in JS (see flowLetterFrame in title-dock.js), not a CSS
    animation — a CSS animation targeting transform always overrides an
    inline style on that same property, which would have silently
    discarded whatever the cursor-push physics wrote here every frame.
-   Purely an idle-state loop by default: title-dock.js's fadeFrame()
-   layers the scroll-driven "sucked into the liquid" exit on top of
-   this via the parent .hero-flow-word's own transform, which composes
-   cleanly with each child letter's own independent transform here.
-   The gradient text-fill lives here rather than on the parent — once
+   A perpetual idle loop — once revealed, "Papi" just keeps rippling
+   and reacting to the cursor forever, with no fade-out. The gradient
+   text-fill lives here rather than on the parent — once
    "Flow" is split into per-letter spans (needed for the ripple/push),
    only the element that actually owns the glyphs can clip a background
    to their shape; a background-clip:text set on the (now textless)
@@ -354,25 +309,15 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   text-shadow:0 0 46px rgba(203,168,105,.4), 0 0 90px rgba(203,168,105,.2);
 }
 
-.hero-title-row{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:clamp(1.6rem, 4vw, 3rem);
-  flex-wrap:wrap;
-}
-
 /* the row of clickable social icons below the Google review badge —
    deliberately small and monochrome (currentColor, not the brands' own
    loud colors) so it reads as a minimal, on-brand detail rather than a
-   row of logos competing with the rest of the hero. Its own container-
-   level fade (see js/title-dock.js's revealSocial) is folded into the
-   same scroll-tied fadeOut the rest of hero-copy already gets, so it
-   fades away scrolling down and reappears scrolling back into the
-   hero — same as everything else here. The one-time liquid-drop
-   entrance (see .hero-social-link svg/::before below) is a separate,
-   purely cosmetic layer on top of that and doesn't touch this opacity
-   at all, so the two never fight each other. */
+   row of logos competing with the rest of the hero. A plain one-time
+   fade/rise-in (see js/title-dock.js's revealSocial), no scroll-tied
+   fade — it just stays put. The one-time liquid-drop entrance (see
+   .hero-social-link svg/::before below) is a separate, purely
+   cosmetic layer on top of that and doesn't touch this opacity at
+   all, so the two never fight each other. */
 .hero-social{
   display:flex;
   align-items:center;
@@ -392,11 +337,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   color:rgba(23,24,26,.42);
   cursor:none;
   transition:color .3s var(--ease-out);
-  /* the JS magnet effect in title-dock.js writes a translate() here
-     directly every frame while the cursor is nearby — this is the
-     element that actually moves, kept free of any CSS animation of
-     its own so the two never conflict (the liquid entrance below
-     lives on this element's children instead) */
 }
 .hero-social-link:hover{ color:var(--gold-deep); }
 .hero-social-link svg{
@@ -443,153 +383,6 @@ body.on-light-section .title-dock-word{ color:var(--gold-deep); }
   55%{ transform:scale(1.3) rotate(6deg); opacity:1; }
   75%{ transform:scale(.9) rotate(-3deg); opacity:1; }
   100%{ transform:scale(1) rotate(0deg); opacity:1; }
-}
-.hero-title{
-  font-family:'Fraunces', serif;
-  font-weight:400;
-  font-size:clamp(2.4rem, 6.4vw, 5rem);
-  line-height:1.04;
-  letter-spacing:-.01em;
-  /* was --paper-ink (dark ink, tuned for the hero's old white resting
-     background) — the title is only ever visible once the cubes have
-     drawn close and the background has already crossfaded to black
-     (see hero-slime.js's loop()), so it needs a color that contrasts
-     against BOTH that black backdrop and the gold cubes sitting just
-     above it, not a dark tone that would nearly vanish against either.
-     The dark text-shadow below adds a little definition against the
-     gold specifically, for the brief moments the title's own upper
-     edge sits close to a cube during the crossfade. */
-  color:var(--cream);
-  text-shadow:0 2px 20px rgba(0,0,0,.55), 0 0 44px rgba(0,0,0,.3);
-  transform-style:preserve-3d;
-  will-change:transform;
-  display:inline-block;
-  transition:opacity .3s ease;
-}
-.hero-title em{
-  font-style:italic;
-  font-weight:400;
-  /* a fixed, defined gold glow — always visible and legible on its own,
-     rather than swapping color based on whether the slime mass happens
-     to be behind it (the previous approach, removed: it meant "purpose"
-     read differently depending on the mass's current position). The
-     glow itself lives here (text-shadow is inherited, so it reaches the
-     per-letter .char spans below); very subtly pulses rather than
-     sitting at one fixed intensity forever. */
-  color:var(--gold-deep);
-  animation:purposeGlowPulse 3.6s ease-in-out infinite;
-}
-@keyframes purposeGlowPulse{
-  0%, 100%{
-    text-shadow:
-      0 0 9px rgba(203,168,105,.4),
-      0 0 20px rgba(203,168,105,.24),
-      0 0 36px rgba(203,168,105,.14);
-  }
-  50%{
-    text-shadow:
-      0 0 13px rgba(203,168,105,.62),
-      0 0 28px rgba(203,168,105,.4),
-      0 0 48px rgba(203,168,105,.24);
-  }
-}
-/* the metallic gold fill itself — a vertical sweep (bright near the
-   top, richer bronze toward the bottom) applied per-letter rather than
-   across the whole word, since "purpose" is split into individual
-   .char spans for the push/ripple physics elsewhere in this file; a
-   vertical gradient looks identical regardless of which letter it's
-   on, so it doesn't need the letters to share one continuous
-   horizontal sweep to read as one cohesive metallic surface */
-.hero-title em .char{
-  background:linear-gradient(180deg, #fff6d8 0%, #e8c874 32%, #cba869 62%, #8a6a1f 100%);
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
-}
-.hero-title .char{
-  display:inline-block;
-  /* a lone space character inside an inline-block collapses to zero
-     width by default (the browser trims leading/trailing whitespace
-     within each inline box) — pre keeps the space's actual width, so
-     "Built" and "with" don't run together */
-  white-space:pre;
-  will-change:transform, opacity;
-}
-/* the subtitle's own per-letter spans (title.js) run the exact same
-   per-frame transform physics as the title's chars above, but lived
-   under a different ancestor (#heroSub, not .hero-title) so they never
-   picked up that rule's will-change hint — meaning the browser had no
-   reason to pre-promote any of these 70+ elements to their own
-   compositor layer ahead of time. The moment they actually started
-   moving by a meaningful amount every frame (exactly what happens as
-   soon as scrolling begins, via the explode effect below), that's 70+
-   elements suddenly needing real paint work instead of a cheap
-   GPU-composited transform — a very plausible source of a hitch
-   landing right at that exact moment. */
-#heroSub .char{
-  display:inline-block;
-  white-space:pre;
-  will-change:transform, opacity;
-}
-/* keeps each word (and any punctuation stuck directly to it, like a
-   trailing comma) together as one unbreakable unit — without this,
-   splitting the subtitle into individual letter spans let the browser
-   wrap a line between a word and its own attached punctuation, which
-   is what showed up on iPhone as a comma stranded alone on its own line */
-.word-wrap{
-  display:inline-block;
-  white-space:nowrap;
-}
-
-/* the subtitle's rotating word (title.js scrambles its text between
-   "trust"/"direction"/"action") — a fixed min-width sized to the
-   longest of the three keeps the sentence from visibly reflowing as
-   the word's length changes, both mid-scramble and once it settles.
-   text-align:left (rather than inheriting the hero copy's centered
-   alignment) keeps the word itself hugging "build" — without it,
-   shorter words like "trust" centered within the reserved min-width
-   box instead, opening up a visible gap right after "build" */
-.sub-word{
-  display:inline-block;
-  min-width:9.2ch;
-  text-align:left;
-  color:var(--gold-deep);
-  font-weight:600;
-}
-/* on narrow screens "Designed to build" wraps onto its own line above
-   the word instead of sharing a line with it, so there's no "build"
-   immediately to its left to hug anymore — the left-align above then
-   just reads as the whole word sitting off-centre inside its own
-   reserved box. Centering it here, only at this width, fixes that
-   without touching the desktop reasoning above. */
-@media (max-width:640px){
-  .sub-word{ text-align:center; }
-}
-
-.hero-sub{
-  max-width:640px;
-  margin:1rem auto 0;
-  font-size:clamp(1.1rem, 2.2vw, 1.4rem);
-  line-height:1.4;
-  /* was a dark ink tone, tuned for the hero's old white resting
-     background — see the matching note on .hero-title's own color for
-     why this now needs to read against a black backdrop instead */
-  color:rgba(243,237,226,.8);
-  font-weight:300;
-  opacity:0;
-  transition:opacity .3s ease;
-}
-
-/* on a narrow phone, the same title+subtitle+social block needs to sit
-   in a proportionally smaller clear band below the cube cluster (see
-   hero-slime.js's desiredCloseBoxScale/cubeCloseVerticalLift, tapered
-   further on portrait aspects) — tightening the spacing here (not the
-   font sizes, which stay legible) keeps the whole block compact enough
-   to comfortably clear the cubes above it. */
-@media (max-width:480px){
-  .hero-title{ font-size:clamp(1.9rem, 8vw, 5rem); line-height:1.05; }
-  .hero-sub{ margin-top:.7rem; }
-  .hero-social{ margin-top:1rem; }
 }
 
 /* ===================================================================
@@ -2281,10 +2074,8 @@ body.on-light-section .cursor-ripple{
 .comparison-title em{
   font-style:italic;
   color:#ffdd7a;
-  /* the same pulsing-glow treatment as "purpose" in the hero title
-     (see purposeGlowPulse) — tuned to this heading's own gold
-     (#ffdd7a rather than the hero's --gold-deep) so it reads as the
-     same on-brand effect, not an identical color rebadged */
+  /* a subtle pulsing text-shadow glow, tuned to this heading's own
+     gold (#ffdd7a) */
   animation:comparisonGlowPulse 3.6s ease-in-out infinite;
 }
 @keyframes comparisonGlowPulse{

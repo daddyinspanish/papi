@@ -90,72 +90,39 @@ window.scrollTo(0, 0);
   <div class="title-dock-word" id="sectionDock">Craft</div>
 </div>
 
-<!-- ============ HERO — a tall (400vh) pinned section, same
-     tall-outer-plus-sticky-inner pattern as Contrast/Showcase below,
-     so js/hero-slime.js has real scroll room to run the liquid mass
-     through its coalesce → orbit → disperse choreography before
-     handing off into Contrast's own fall/fragment sequence ============ -->
+<!-- ============ HERO — a single-viewport section: a perpetually-
+     wandering liquid glass mass on a white background, with "Papi"
+     floating inside it and a small social-icon row near the bottom.
+     See js/hero-slime.js's own header for the material/physics, and
+     js/title-dock.js's revealFlow/flowLetterFrame for "Papi"'s
+     continuous idle ripple + cursor-push motion (it never fades out).
+     ============ -->
 <main id="hero" aria-hidden="true">
 <div class="hero-sticky">
 
-  <!-- position:fixed + inset:0, styled purely by #heroSlime's own ID
-       (see style.css). Lives here — nested inside .hero-sticky, BEHIND
-       .hero-content below in paint order — for the whole wander/form/
-       close/hold stretch, which is what keeps the liquid mass sitting
-       behind the hero copy and in front of #hero's own black background
-       exactly like before. hero-slime.js's own loop() reparents this
-       element onto the very end of <body> at runtime once dockT starts
-       rising (see "reparented" in that file) so the shrunk, docked
-       corner logo can paint above whatever later section the visitor
-       has scrolled to — .hero-sticky's position:sticky always creates
-       its own stacking context regardless of z-index, so a z-index set
-       here alone could only ever win WITHIN that stacking context, never
-       let the canvas escape it to paint above a LATER section's own
-       stacking context (Contrast's opacity/transform-animated
-       .contrast-stage-wrap, for instance) — the exact bug this
-       reparenting fixes, and the same root cause/fix as the showcase
-       fan-card's own reparent-onto-body trick documented in style.css's
-       body{ overflow-x:hidden } comment. It's moved back here, restoring
-       this original position, the moment dockT drops back to 0 on a
-       scroll back up. -->
   <canvas id="heroSlime" aria-hidden="true"></canvas>
 
   <section class="hero-content">
-    <!-- shown immediately on load, in place of the real hero copy —
-         crossfades out once the liquid cubes draw close together and
-         hold (js/title.js reads window.Papi.getCloseT() for the cue),
-         at which point heroCopy below crossfades in over the same spot.
-         Element/class names here still say "flow" (its own name up
-         until this word became "Papi") — purely a historical label,
-         doesn't affect behavior. -->
     <div class="hero-flow-word" id="heroFlowWord" aria-hidden="true">Papi</div>
-    <div class="hero-copy" id="heroCopy">
-      <div class="hero-title-row">
-        <h1 class="hero-title" id="heroTitle">
-          Built with <em>Purpose</em>.
-        </h1>
-      </div>
-      <p class="hero-sub" id="heroSub">Creating <span class="sub-word" id="heroSubWord"></span></p>
-      <div class="hero-social" id="heroSocial">
-        <a href="https://www.instagram.com/designedbypapi/" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on Instagram">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="3" width="18" height="18" rx="5"/>
-            <circle cx="12" cy="12" r="4.2"/>
-            <circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/>
-          </svg>
-        </a>
-        <a href="https://www.tiktok.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on TikTok">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z"/>
-          </svg>
-        </a>
-        <a href="https://www.youtube.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on YouTube">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="6" width="18" height="12" rx="4"/>
-            <path d="M10.3 9.6v4.8l4.4-2.4-4.4-2.4z" fill="currentColor" stroke="none"/>
-          </svg>
-        </a>
-      </div>
+    <div class="hero-social" id="heroSocial">
+      <a href="https://www.instagram.com/designedbypapi/" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on Instagram">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="5"/>
+          <circle cx="12" cy="12" r="4.2"/>
+          <circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/>
+        </svg>
+      </a>
+      <a href="https://www.tiktok.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on TikTok">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z"/>
+        </svg>
+      </a>
+      <a href="https://www.youtube.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on YouTube">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="6" width="18" height="12" rx="4"/>
+          <path d="M10.3 9.6v4.8l4.4-2.4-4.4-2.4z" fill="currentColor" stroke="none"/>
+        </svg>
+      </a>
     </div>
   </section>
 
@@ -656,7 +623,6 @@ window.scrollTo(0, 0);
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
 <script type="module" src="js/hero-slime.js"></script>
-<script src="js/title.js"></script>
 <script src="js/title-dock.js"></script>
 <script src="js/contrast.js"></script>
 <script src="js/showcase.js"></script>
