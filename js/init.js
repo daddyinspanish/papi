@@ -9,12 +9,14 @@
 =================================================================== */
 (function(){
   const hero = document.getElementById('hero');
-  const brandMark = document.getElementById('brandMark');
 
   function start(){
     hero.classList.add('is-visible');
     hero.removeAttribute('aria-hidden');
-    if(brandMark) brandMark.querySelectorAll('span').forEach(s => s.style.opacity = '1');
+    // the "PAPI" brand mark (top-right) is deliberately NOT revealed
+    // here — it only appears once the big centre "Papi" word has
+    // faded out and the real hero copy has taken its place, see
+    // triggerHeroCopyReveal in title-dock.js
 
     if(window.Papi && window.Papi.revealFlow) window.Papi.revealFlow();
     if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();

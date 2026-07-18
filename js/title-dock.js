@@ -22,6 +22,7 @@
   const social   = document.getElementById('heroSocial');
   const titleDock= document.getElementById('titleDock');
   const siteHeader = document.getElementById('siteHeader');
+  const brandMark = document.getElementById('brandMark');
   if(!heroCopy || !titleDock) return;
 
   // title's own CSS (.hero-title) carries a transition:opacity .3s ease
@@ -252,11 +253,16 @@
   window.Papi.revealSocial = revealSocial;
 
   // ---- the real hero copy's entrance (subtitle roll-in, social rise-
-  // in) used to all fire right after the loader — now deferred to the
-  // moment the liquid cubes actually finish drawing close together and
-  // hold (closeT reaching 1), watched continuously in fadeFrame() below
-  // rather than off a fixed timer, so it fires at the right moment
-  // regardless of how fast or slow the visitor scrolls to get there.
+  // in, and the "PAPI" brand mark itself) used to all fire right after
+  // the loader — now deferred to the moment the liquid cubes actually
+  // finish drawing close together and hold (closeT reaching 1),
+  // watched continuously in fadeFrame() below rather than off a fixed
+  // timer, so it fires at the right moment regardless of how fast or
+  // slow the visitor scrolls to get there. The brand mark specifically
+  // stays hidden until right here rather than showing immediately on
+  // load (see init.js) — the big centre "Papi" word is meant to be the
+  // only "Papi" on screen until it's actually gone, not visible
+  // alongside a second, smaller one in the corner the whole time.
   // Fires once, ever — scrolling back up and down again just crossfades
   // the already-revealed copy back in via fadeOut below, it doesn't
   // replay these entrance transforms. ----
@@ -264,6 +270,7 @@
   function triggerHeroCopyReveal(){
     if(heroCopyRevealTriggered) return;
     heroCopyRevealTriggered = true;
+    if(brandMark) brandMark.querySelectorAll('span').forEach(s => s.style.opacity = '1');
     revealSubtitle();
     setTimeout(revealSocial, 250);
   }
@@ -408,9 +415,19 @@
       ? window.Papi.getHeroFadeProgress()
       : smoothstep(FADE_START, FADE_END, Math.max(0, Math.min(1, window.scrollY / (viewportH * SCROLL_RANGE_RATIO))));
 
-    if(title) title.style.opacity = String(1 - fadeOut);
-    if(sub && subEntranceDone) sub.style.opacity = String(1 - fadeOut);
-    if(social && socialEntranceDone) social.style.opacity = String(1 - fadeOut);
+    // "melts" the real hero copy away with a downward, blurring fade as
+    // the cubes shrink into the corner dock (see window.Papi.getDockT
+    // in hero-slime.js) — Math.pow (exponent<1, the same curve the
+    // "sucked into the liquid" Flow-word exit below already uses) keeps
+    // the copy looking normal for most of the dock transition and only
+    // visibly drips away in the back half, reading as a deliberate
+    // water-like exit rather than a slow fade the whole way through.
+    const dockT = (window.Papi && window.Papi.getDockT) ? window.Papi.getDockT() : 0;
+    const dockCurve = Math.pow(Math.max(0, dockT), 0.6);
+    const heroCopyOpacity = (1 - fadeOut) * (1 - dockCurve);
+    if(title) title.style.opacity = String(heroCopyOpacity);
+    if(sub && subEntranceDone) sub.style.opacity = String(heroCopyOpacity);
+    if(social && socialEntranceDone) social.style.opacity = String(heroCopyOpacity);
     // the exact inverse crossfade — full opacity while the real title
     // is hidden, fading out in lockstep as it fades in, off the same
     // single eased value (never two independently-computed numbers
@@ -439,8 +456,9 @@
       heroFlowWord.style.filter = suckT > 0.015 ? `blur(${(suckT * 14).toFixed(1)}px)` : 'none';
     }
 
-    heroCopy.style.transform = `translateY(${-fadeOut * 34}px)`;
-    heroCopy.style.pointerEvents = fadeOut > 0.6 ? 'none' : 'auto';
+    heroCopy.style.transform = `translateY(${(-fadeOut * 34 + dockCurve * 90).toFixed(1)}px)`;
+    heroCopy.style.filter = dockCurve > 0.01 ? `blur(${(dockCurve * 9).toFixed(1)}px)` : 'none';
+    heroCopy.style.pointerEvents = (fadeOut > 0.6 || dockCurve > 0.3) ? 'none' : 'auto';
 
     // the real hero copy's own entrance (subtitle roll-in, social
     // rise-in) fires once, the first moment the crossfade is

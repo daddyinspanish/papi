@@ -98,6 +98,26 @@ window.scrollTo(0, 0);
 <main id="hero" aria-hidden="true">
 <div class="hero-sticky">
 
+  <!-- position:fixed + inset:0, styled purely by #heroSlime's own ID
+       (see style.css). Lives here — nested inside .hero-sticky, BEHIND
+       .hero-content below in paint order — for the whole wander/form/
+       close/hold stretch, which is what keeps the liquid mass sitting
+       behind the hero copy and in front of #hero's own black background
+       exactly like before. hero-slime.js's own loop() reparents this
+       element onto the very end of <body> at runtime once dockT starts
+       rising (see "reparented" in that file) so the shrunk, docked
+       corner logo can paint above whatever later section the visitor
+       has scrolled to — .hero-sticky's position:sticky always creates
+       its own stacking context regardless of z-index, so a z-index set
+       here alone could only ever win WITHIN that stacking context, never
+       let the canvas escape it to paint above a LATER section's own
+       stacking context (Contrast's opacity/transform-animated
+       .contrast-stage-wrap, for instance) — the exact bug this
+       reparenting fixes, and the same root cause/fix as the showcase
+       fan-card's own reparent-onto-body trick documented in style.css's
+       body{ overflow-x:hidden } comment. It's moved back here, restoring
+       this original position, the moment dockT drops back to 0 on a
+       scroll back up. -->
   <canvas id="heroSlime" aria-hidden="true"></canvas>
 
   <section class="hero-content">

@@ -30,15 +30,14 @@
    .hero-sticky in style.css) purely to give the mass room to run
    through its own choreography: free wander (shown alongside the big
    "Papi" wordmark) → the primary points coalesce into 4 small liquid
-   cubes, tilted in true 3D (project3D(), a fixed angle rather than a
-   continuous spin — see CUBE_TILT_Y/X — with a perspective divide and a
-   matching per-point size cue, so each one reads as a real 6-faced box)
-   clustered tight together at the centre (still nudge-able by the
-   cursor, springing back once it moves away — the same mouse-force
-   physics every point already has) → draw closer together/bigger and
-   hold, static, while the real hero copy reveals → shrink and dock,
-   permanently, into the top-right corner next to the PAPI brand mark as
-   a small persistent logo (the canvas itself is position:fixed — see
+   cubes, clustered tight together at the centre, flat/face-on (no tilt
+   — tried once, didn't actually read right, so this holds still and
+   square instead), still nudge-able by the cursor, springing back once
+   it moves away — the same mouse-force physics every point already has
+   → draw closer together/bigger and hold, static, while the real hero
+   copy reveals → shrink and dock, permanently, into the top-right
+   corner next to the PAPI brand mark as a small persistent logo (the
+   canvas itself is position:fixed — see
    style.css — so it keeps tracking the viewport correctly regardless of
    how far the visitor has scrolled past the hero by then). Search
    "heroProgress" and "cubeFormT" for the details.
@@ -64,6 +63,13 @@ import * as THREE from './vendor/three.module.min.js';
   const canvas = document.getElementById('heroSlime');
   if(!canvas) return;
   const heroEl = document.getElementById('hero');
+  // canvas's original position (inside .hero-sticky, right before
+  // .hero-content) — captured once, up front, so it can be restored
+  // exactly via insertBefore once the runtime reparent in loop() (search
+  // "wantBodyParent") moves the canvas onto <body> and back again
+  const canvasHome = canvas.parentElement;
+  const canvasHomeNextSibling = canvas.nextSibling;
+  let canvasInBody = false;
 
   // ===================================================================
   // CONFIG — the knobs asked for, gathered in one place. Everything
@@ -798,11 +804,10 @@ import * as THREE from './vendor/three.module.min.js';
       // bends the ray into a different patch of the procedural "world"
       // behind it. Once formed into cubes, partially flattening this
       // toward its own luminance (still refracting, just less of a hue
-      // swing as the sample position moves around) is the biggest single
-      // lever for "glowing, not changing colour" — full uCubeT here
-      // rather than tying it to rimGlow/diff, since the goal is exactly
-      // to remove the thing that correlates with rotation angle.
-      envColor = mix(envColor, vec3(dot(envColor, vec3(0.333))), uCubeT * 0.6);
+      // swing) used to go much further (was uCubeT*0.6) — pulled back
+      // so more of the actual refracted variation survives, reading as
+      // clearer glass instead of a flatter, more solid-looking fill.
+      envColor = mix(envColor, vec3(dot(envColor, vec3(0.333))), uCubeT * 0.25);
 
       // Beer's-law-style absorption: light that travels further through
       // the glass (deep toward a point's own centre) picks up more of
@@ -819,15 +824,12 @@ import * as THREE from './vendor/three.module.min.js';
       // real contrast — a shallow 0.85..1.0 range (the first attempt)
       // reads as flat, soft plastic; glass needs a genuine dark side to
       // read as reflective/refractive rather than uniformly lit paint.
-      // Once formed into cubes though, that same dark side is what read
-      // as each face "changing colour" as it turned — the darkest face
-      // dropping to 42% brightness while the lit one sat near 100%.
-      // Flattened toward a bright, even 0.92 as uCubeT rises so every
-      // face stays close to the same brightness regardless of which way
-      // it's currently turned, rather than removing the diffuse term
-      // outright (a little shading is still what sells these as solid
-      // 3D shapes rather than flat stickers).
-      color *= mix(0.42 + 0.58*diff, 0.92, uCubeT);
+      // Once formed into cubes, still flattened somewhat (this used to
+      // go all the way to a near-uniform 0.92 — now pulled back to 0.75,
+      // leaving more real light/dark variation in for a clearer, more
+      // glass-like read) so every face stays roughly close in
+      // brightness without going fully flat/solid-looking.
+      color *= mix(0.42 + 0.58*diff, 0.75, uCubeT);
 
       // a self-lit glow on top of everything above, scaled in by uCubeT
       // — real reflected/refracted light alone reads as "a lit object",
@@ -855,26 +857,31 @@ import * as THREE from './vendor/three.module.min.js';
       // 1.0,0.68,0.18, a deep brown-amber to saturated orange-gold) to
       // match the warm ivory/champagne body a supplied reference photo
       // shows, with amber staying a rim/highlight accent (rimGlow/spec
-      // above) rather than the dominant body hue
+      // above) rather than the dominant body hue. Blended in much more
+      // lightly once formed into cubes too (was mix(0.56, 0.9, uCubeT)
+      // — nearly a full override) so more of the actual refracted/lit
+      // colour underneath survives instead of being replaced by a flat
+      // locked tone, reading as clearer, more transparent glass.
       float lum = dot(color, vec3(0.299, 0.587, 0.114));
       vec3 goldRef = mix(vec3(0.58, 0.46, 0.28), vec3(1.0, 0.9, 0.68), lum);
-      color = mix(color, goldRef, mix(0.56, 0.9, uCubeT));
+      color = mix(color, goldRef, mix(0.4, 0.5, uCubeT));
 
       // real page content (the hero title/subtitle/CTA) sits behind
       // this canvas — alpha blending toward a white page dilutes even a
       // fully-saturated colour toward pale at low alpha, no matter how
-      // rich the computed colour itself is. Lowered further (was
-      // 0.36..0.97) so the body itself reads as genuinely see-through
-      // water/glass rather than a translucent solid — the fresnel edge
-      // still climbs to nearly opaque at a grazing angle, exactly the
-      // way a real glass or water surface brightens and turns opaque-
-      // looking right at its own silhouette edge while staying clear
-      // through the middle. Once formed into cubes (now on a dark
-      // background rather than the page showing through), raised the
-      // floor considerably so the glow above actually reads solid
-      // rather than translucent-over-black.
-      float bodyAlphaFloor = mix(0.32, 0.78, uCubeT);
-      float bodyAlpha = mix(bodyAlphaFloor, 0.97, rimGlow);
+      // rich the computed colour itself is. Kept low so the body itself
+      // reads as genuinely see-through water/glass rather than a
+      // translucent solid — the fresnel edge still climbs close to
+      // opaque at a grazing angle, exactly the way a real glass or
+      // water surface brightens and turns opaque-looking right at its
+      // own silhouette edge while staying clear through the middle.
+      // Once formed into cubes, still floors higher than the loose
+      // liquid state (some real body is needed to read as a solid-ish
+      // cube shape at all against the black background), but nowhere
+      // near solid — pulled back further (was 0.32..0.78, ceiling 0.97)
+      // for a noticeably clearer, more transparent glass look.
+      float bodyAlphaFloor = mix(0.28, 0.42, uCubeT);
+      float bodyAlpha = mix(bodyAlphaFloor, 0.88, rimGlow);
 
       gl_FragColor = vec4(color, edge*uOpacity*bodyAlpha);
     }
@@ -1219,10 +1226,12 @@ import * as THREE from './vendor/three.module.min.js';
   // read), refreshed on load and on the same width-tolerant resize as
   // everything else in this file
   let heroScrollableHeight = 1;
+  let heroDocTop = 0;
   function measureHeroScrollable(){
     if(!heroEl) return;
     const h = heroEl.offsetHeight - window.innerHeight;
     if(h > 0) heroScrollableHeight = h;
+    heroDocTop = heroEl.offsetTop;
   }
 
   // see the hero background-color block in loop() below and
@@ -1230,16 +1239,19 @@ import * as THREE from './vendor/three.module.min.js';
   let lastHeroBgVal = 255;
   let latestCubeFormT = 0;
   let latestCloseT = 0;
+  // 0 through hold, rising to 1 across the dock (shrink-into-corner)
+  // phase — see window.Papi.getDockT further down, read by
+  // title-dock.js to melt the real hero copy away (a downward "water"
+  // drip, not just a fade) in lockstep with the cubes actually leaving
+  let latestDockT = 0;
   // true once heroProgress has passed CUBE_PHASE.holdEnd, i.e. the
   // visitor has scrolled on past the held cube formation into the dock
   // phase (see dockT) toward Contrast — closeT itself stays pinned at 1
   // for that whole stretch now (the formation holds, docking is purely
   // a canvas-level transform, not a change to any point's own target),
-  // so in practice this mainly guards the moment #hero scrolls fully
-  // off-screen and heroProgress resets to 0 (see inHero below), which
-  // would otherwise read as "back to the wander phase" and fade the
-  // "Papi" word visible again — see window.Papi.getPastHold further
-  // down, read by title-dock.js
+  // so this mainly exists as an explicit, easy-to-read signal for
+  // title-dock.js rather than having it re-derive the same "are we past
+  // hold" condition itself — see window.Papi.getPastHold further down
   let latestPastHold = false;
 
   let W = 1, H = 1;
@@ -1338,27 +1350,24 @@ import * as THREE from './vendor/three.module.min.js';
   // ===================================================================
   // hero cube choreography — the tall (400vh) hero exists purely to
   // give this room to run: free wander → the primary points coalesce
-  // into a tight, centred 2x2 cluster of 4 liquid cubes, tilted in true
-  // 3D (project3D, a fixed CUBE_TILT_Y/X rather than a continuous spin —
-  // see the note there) so each one reads as a real 6-faced box, not a
-  // flat square → they draw much closer together/bigger (see
-  // computeCloseGeometry) → hold that tight formation for the rest of
-  // the visitor's scroll through the "reveal" stretch (see title.js/
-  // title-dock.js, which read closeT reaching 1 as the cue to reveal
-  // the real hero copy) → shrink and dock into the top-right corner
-  // near the PAPI brand mark, permanently, for the rest of the page
-  // (see "dockT" below and the docking block in loop()). Boundaries are
-  // fractions of heroProgress (0 at the very top of the hero's own
-  // scroll range, 1 once fully scrolled through it — see loop() below).
+  // into a tight, centred 2x2 cluster of 4 liquid cubes → they draw
+  // much closer together/bigger (see computeCloseGeometry) → hold that
+  // tight formation for the rest of the visitor's scroll through the
+  // "reveal" stretch (see title.js/title-dock.js, which read closeT
+  // reaching 1 as the cue to reveal the real hero copy) → shrink and
+  // dock into the top-right corner near the PAPI brand mark,
+  // permanently, for the rest of the page (see "dockT" below and the
+  // docking block in loop()). Boundaries are fractions of heroProgress
+  // (0 at the very top of the hero's own scroll range, 1 once fully
+  // scrolled through it — see loop() below).
+  //
+  // angleY/angleX (still threaded through project3D/uCubeAngleY/X below
+  // — that's what turns a flat offset into the perspective-projected
+  // slot position/depth the rest of this file still reads) are always
+  // 0 now: a fixed tilt was tried here once, to read each cube as a
+  // true 6-faced box rather than a flat square, but it didn't actually
+  // look right in practice, so the formation holds flat/face-on again.
   // ===================================================================
-  // a fixed tilt (not a continuous spin — this formation holds still
-  // once formed) angled enough to show the top face plus two side
-  // faces at once, the classic "3D icon cube" read, without an extreme
-  // enough angle to swing the near corner's perspective growth (see
-  // project3D/CUBE_PERSPECTIVE) far enough to threaten the tight gap
-  // between cubes — verified in sandbox across aspect ratios.
-  const CUBE_TILT_Y = 0.40;
-  const CUBE_TILT_X = 0.26;
   const CUBE_PHASE = {
     // pure free wander/"Papi" runs much longer than before (was 0.12) —
     // the cubes are meant to read as a distinct "second act" you scroll
@@ -1368,7 +1377,7 @@ import * as THREE from './vendor/three.module.min.js';
     // heroProgress covers a 300vh scrollable range — 0.32 lands cube
     // formation's start just past one full extra 100vh scroll.
     wanderEnd: 0.32,
-    formEnd: 0.5,       // coalesce into the tight, tilted 4-cube cluster complete
+    formEnd: 0.5,       // coalesce into the tight 4-cube cluster complete
     closeEnd: 0.62,     // cubes finish drawing much closer together/bigger (closeT below) — this is
                         // the cue title.js/title-dock.js wait for before revealing the real hero copy
     holdEnd: 0.88,      // hold that tight formation, static, until this point
@@ -1380,29 +1389,28 @@ import * as THREE from './vendor/three.module.min.js';
       return { cubeFormT: 0, angleY: 0, angleX: 0, closeT: 0, dockT: 0 };
     }
     if(heroProgress <= CUBE_PHASE.formEnd){
-      // tilt eases in alongside cubeFormT itself, so the cubes already
-      // read as tilted 3D boxes the moment they're recognizable as
-      // cubes at all, rather than snapping to an angle after the fact
-      const t = smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress);
-      return { cubeFormT: t, angleY: CUBE_TILT_Y*t, angleX: CUBE_TILT_X*t, closeT: 0, dockT: 0 };
+      return {
+        cubeFormT: smoothstep(CUBE_PHASE.wanderEnd, CUBE_PHASE.formEnd, heroProgress),
+        angleY: 0, angleX: 0, closeT: 0, dockT: 0,
+      };
     }
     if(heroProgress <= CUBE_PHASE.closeEnd){
-      // cubes are already fully formed/tilted (cubeFormT===1) by this
-      // point — closeT alone drives them drawing closer together/
-      // bigger, see computeCloseGeometry() and its callers
+      // cubes are already fully formed (cubeFormT===1) by this point —
+      // closeT alone drives them drawing closer together/bigger, see
+      // computeCloseGeometry() and its callers
       return {
         cubeFormT: 1,
-        angleY: CUBE_TILT_Y,
-        angleX: CUBE_TILT_X,
+        angleY: 0,
+        angleX: 0,
         closeT: smoothstep(CUBE_PHASE.formEnd, CUBE_PHASE.closeEnd, heroProgress),
         dockT: 0,
       };
     }
     if(heroProgress <= CUBE_PHASE.holdEnd){
-      return { cubeFormT: 1, angleY: CUBE_TILT_Y, angleX: CUBE_TILT_X, closeT: 1, dockT: 0 };
+      return { cubeFormT: 1, angleY: 0, angleX: 0, closeT: 1, dockT: 0 };
     }
     // dock phase: the formation itself doesn't change at all (still
-    // fully formed/close/tilted) — dockT alone drives the CANVAS's own
+    // fully formed/close) — dockT alone drives the CANVAS's own
     // shrink+move toward the corner in loop(), a viewport-level
     // transform rather than a change to any point's own p-space target,
     // so this stays scroll-scrubbed/reversible the exact same way
@@ -1413,8 +1421,8 @@ import * as THREE from './vendor/three.module.min.js';
     // so the formation just holds, docked, through that stretch too.
     return {
       cubeFormT: 1,
-      angleY: CUBE_TILT_Y,
-      angleX: CUBE_TILT_X,
+      angleY: 0,
+      angleX: 0,
       closeT: 1,
       dockT: smoothstep(CUBE_PHASE.holdEnd, CUBE_PHASE.dockEnd, heroProgress),
     };
@@ -1449,15 +1457,18 @@ import * as THREE from './vendor/three.module.min.js';
   function loop(ts){
     if(!revealed){ rafId = requestAnimationFrame(loop); return; }
 
-    const heroRect = heroEl ? heroEl.getBoundingClientRect() : null;
-    const inHero = heroRect ? heroRect.bottom > 0 : false;
-
     // 0 at the very top of the hero's own scroll range, 1 once fully
-    // scrolled through it — reuses heroRect.top (already measured just
-    // above) rather than a second scrollY/offsetTop read: #hero sits at
-    // the very top of the document, so -heroRect.top is exactly how far
-    // scrolled past its own top edge already
-    const heroProgress = (inHero && heroRect) ? Math.max(0, Math.min(1, -heroRect.top / heroScrollableHeight)) : 0;
+    // scrolled through it and beyond — computed directly from scrollY
+    // against the hero's own measured document position/height (see
+    // measureHeroScrollable), not getBoundingClientRect: that forces a
+    // layout read every single frame, and — more importantly — reports
+    // a top of 0 once #hero has scrolled fully off-screen, which used
+    // to reset this value back to "the very start" the moment the
+    // visitor scrolled far enough past the hero, silently undocking the
+    // corner logo right when it's supposed to stay put for good. Once
+    // scrollY exceeds the hero's own scrollable range this naturally
+    // clamps at 1 and just stays there, with no separate latch needed.
+    const heroProgress = Math.max(0, Math.min(1, (window.scrollY - heroDocTop) / heroScrollableHeight));
     const { cubeFormT, angleY, angleX, closeT, dockT } = computeChoreography(heroProgress);
     uniforms.uCubeT.value = cubeFormT;
     uniforms.uCubeAngleY.value = angleY;
@@ -1484,6 +1495,7 @@ import * as THREE from './vendor/three.module.min.js';
     // active" from scroll position.
     latestCubeFormT = cubeFormT;
     latestCloseT = closeT;
+    latestDockT = dockT;
     latestPastHold = heroProgress > CUBE_PHASE.holdEnd;
     const bgVal = Math.round(255 * (1 - cubeFormT));
     if(bgVal !== lastHeroBgVal){
@@ -1544,6 +1556,42 @@ import * as THREE from './vendor/three.module.min.js';
     } else if(canvas.style.transform){
       canvas.style.transform = '';
       canvas.style.zIndex = '';
+    }
+
+    // ---- runtime reparent, same threshold as the z-index flip just
+    // above — a z-index alone can't actually deliver on the comment
+    // right above it ("pops above whatever page content..."):
+    // .hero-sticky (canvas's own parent, see index.html) is
+    // position:sticky, which always creates its own stacking context
+    // regardless of z-index, and a descendant's z-index can only ever
+    // win WITHIN its nearest stacking-context-creating ancestor — it
+    // can't let the canvas escape .hero-sticky's own place in the
+    // OUTER paint order to get above a later section's own stacking
+    // context (Contrast's opacity/transform-animated
+    // .contrast-stage-wrap, for instance). Confirmed directly: with
+    // z-index:195 alone (no reparent), the transform/opacity above were
+    // both correct but the docked cube logo was invisible the moment
+    // the visitor scrolled past the hero into Contrast, painted right
+    // over by that section's own background.
+    // document.body.appendChild moves the canvas to the very END of
+    // <body> — after every section — so it paints above all of them,
+    // exactly the showcase fan-card's own reparent-onto-body trick (see
+    // style.css's body{ overflow-x:hidden } comment) applied to this
+    // same problem. Moving a canvas via appendChild is a live DOM move,
+    // not a remove+recreate — its WebGL context/content survives
+    // untouched. Only run once per actual crossing (not every frame),
+    // and undone via insertBefore(canvasHomeNextSibling) — restoring
+    // its original spot right before .hero-content — the moment dockT
+    // drops back under the threshold on a scroll back up, which is
+    // also what keeps the liquid mass sitting correctly BEHIND the
+    // hero's own black background and copy for the whole wander/form/
+    // close/hold stretch (paints via plain DOM order there, same as
+    // before this reparenting existed at all).
+    const wantBodyParent = dockT > 0.5;
+    if(wantBodyParent !== canvasInBody){
+      canvasInBody = wantBodyParent;
+      if(wantBodyParent) document.body.appendChild(canvas);
+      else canvasHome.insertBefore(canvas, canvasHomeNextSibling);
     }
 
     if(ts - lastRenderTs < RENDER_INTERVAL){
@@ -1609,6 +1657,9 @@ import * as THREE from './vendor/three.module.min.js';
   // fully tight and holding — title.js/title-dock.js use this as the
   // cue to crossfade "Papi" out and the real hero copy in
   window.Papi.getCloseT = () => latestCloseT;
+  // see latestDockT above — title-dock.js reads this to melt the real
+  // hero copy away as the cubes shrink into the corner
+  window.Papi.getDockT = () => latestDockT;
   // see latestPastHold above — title-dock.js reads this to keep "Papi"
   // hidden for good once the visitor has scrolled on past the held/
   // docking cube formation, rather than letting it fade back in once
