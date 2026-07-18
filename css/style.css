@@ -1993,69 +1993,6 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
 }
 
 /* ===================================================================
-   CURSOR RIPPLE — sitewide, see js/cursor-ripple.js. A soft gold
-   ripple trails the pointer across every section, echoing the hero's
-   liquid-glass material without re-running that metaball simulation
-   sitewide. Deliberately NOT backdrop-filter or filter:blur() — this
-   project has already been burned by both (see the fan-card and
-   testimonials-glow removal comments above), and a sitewide effect is
-   the highest-risk place to reintroduce that class of jank. Each
-   ripple is a plain div animated by transform+opacity alone (both
-   compositor-only properties), so once spawned it costs nothing on
-   the main thread.
-   #cursorRippleLayer sits as the very last child of <body> (see
-   index.html) rather than nested inside any one section — the same
-   lesson just learned fixing the docked hero-cube visibility bug: an
-   element nested inside an early section can get trapped behind a
-   LATER section's own stacking context. Being last in DOM order
-   guarantees this paints above every section with no reparenting
-   logic needed, since (unlike the hero canvas) it only ever wants one
-   stacking position: above content, below chrome.
-   z-index:60 — checked against every z-index in this file: ordinary
-   section content sits at 0-3, .site-header is 200, the expanded fan
-   card is 500, the newsletter popup is 900, .custom-cursor is 2000.
-   60 clears all normal content and stays under every piece of real UI
-   chrome/overlay. =================== */
-#cursorRippleLayer{
-  position:fixed;
-  inset:0;
-  z-index:60;
-  pointer-events:none;
-}
-.cursor-ripple{
-  position:absolute;
-  top:0; left:0;
-  width:16px; height:16px;
-  border-radius:50%;
-  /* --ripple-peak-scale/--ripple-peak-opacity are set inline per
-     ripple by cursor-ripple.js (speed-scaled — a fast flick of the
-     pointer reads as a slightly bigger/brighter ripple than a slow
-     drift), read by the keyframe below via var() */
-  --ripple-peak-scale:2;
-  --ripple-peak-opacity:.14;
-  background:radial-gradient(circle, var(--gold-soft) 0%, var(--gold) 55%, transparent 72%);
-  animation:cursorRippleExpand .8s ease-out forwards;
-  will-change:transform, opacity;
-}
-/* the site's only two light-background zones — the hero before its
-   liquid mass forms into cubes, and the contrast section (see
-   js/title-dock.js's own on-light-section toggle, "onHero ||
-   onContrast" — every other section already has a dark background,
-   per that file's own comment) — need the ripple pulled toward the
-   deeper, more legible gold rather than the paler tone tuned for dark
-   backgrounds everywhere else. */
-body.on-light-section .cursor-ripple{
-  background:radial-gradient(circle, var(--gold) 0%, var(--gold-deep) 55%, transparent 72%);
-}
-@keyframes cursorRippleExpand{
-  0%{ transform: translate3d(var(--rx,0),var(--ry,0),0) scale(.4); opacity:var(--ripple-peak-opacity); }
-  100%{ transform: translate3d(var(--rx,0),var(--ry,0),0) scale(var(--ripple-peak-scale)); opacity:0; }
-}
-@media (hover:none), (pointer:coarse){
-  #cursorRippleLayer{ display:none; }
-}
-
-/* ===================================================================
    TESTIMONIALS — businesses across industries, swipeable left/right.
    Deliberately NOT a tall scroll-hijacked section like the showcase
    and cube — a visitor shouldn't have to scroll through all of them
