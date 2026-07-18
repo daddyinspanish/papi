@@ -187,32 +187,36 @@ const COMPOSITE_FRAGMENT = `
     vec3 viewDir = vec3(0.0, 0.0, 1.0);
     float diff = max(0.0, dot(normal, lightDir));
     vec3 reflectDir = reflect(-lightDir, normal);
-    float spec = pow(max(0.0, dot(reflectDir, viewDir)), 60.0);
+    float spec = pow(max(0.0, dot(reflectDir, viewDir)), 38.0);
     float fresnel = pow(1.0 - max(0.0, dot(normal, viewDir)), 2.0);
 
-    // chromatic separation — same "glass bends each wavelength a
-    // little differently" trick as hero-slime.js's refractDirR/G/B,
-    // sampling the actual photo three times at slightly different
-    // displacement scales per channel rather than painting a flat
-    // colour fringe on top.
-    vec2 uvR = clamp(vUv + vel * uStrength * 1.15, 0.001, 0.999);
+    // a whisper of chromatic separation — real water/glass does bend
+    // each wavelength a hair differently, but the previous 15%-per-
+    // channel spread was strong enough to read as a broken-TV colour
+    // fringe rather than water, especially at the higher velocities a
+    // fast flick produces. Toned down to something barely perceptible,
+    // there for subtle realism rather than as the effect's main look.
+    vec2 uvR = clamp(vUv + vel * uStrength * 1.035, 0.001, 0.999);
     vec2 uvG = clamp(vUv + vel * uStrength, 0.001, 0.999);
-    vec2 uvB = clamp(vUv + vel * uStrength * 0.85, 0.001, 0.999);
+    vec2 uvB = clamp(vUv + vel * uStrength * 0.965, 0.001, 0.999);
     vec3 color = vec3(
       texture2D(uImage, uvR).r,
       texture2D(uImage, uvG).g,
       texture2D(uImage, uvB).b
     );
 
-    color *= (0.85 + 0.28 * diff);
-    color += vec3(1.0) * spec * 0.5;
-    color += vec3(1.0) * fresnel * smoothstep(1.0, 18.0, mag) * 0.1;
+    color *= (0.9 + 0.22 * diff);
+    color += vec3(1.0) * spec * 0.35;
+    color += vec3(1.0) * fresnel * smoothstep(1.0, 22.0, mag) * 0.08;
 
-    // the fluid sim's raw velocity is in "splat force" units (order of
-    // thousands, not the tiny 0..1-per-second scale a UV displacement
-    // would suggest) — these thresholds/uStrength are calibrated to
-    // that actual scale, not to 0..1
-    float alpha = smoothstep(1.0, 18.0, mag);
+    // wider, more gradual smoothstep range than before (was 1..18) —
+    // the disturbed area now fades in/out over a broader span of the
+    // velocity field rather than popping in with a fairly hard edge,
+    // reading as a soft ripple spreading outward instead of a sharply
+    // bounded blob. The fluid sim's raw velocity is in "splat force"
+    // units (thousands), not a 0..1-per-second scale, hence the large
+    // numbers here.
+    float alpha = smoothstep(0.6, 26.0, mag);
     gl_FragColor = vec4(color, alpha);
   }
 `;
@@ -400,7 +404,9 @@ class LiquidImageFluid {
       const p = pointerFromEvent(e);
       if(!p.inside) return;
       const st = this._state;
-      st.lastPointerUv.copy(st.pointerUv);
+      // lastPointerUv is deliberately NOT updated here — see _step()'s
+      // own comment on why that has to happen once per rendered frame,
+      // not once per mousemove event.
       st.pointerUv.set(p.x, p.y);
       st.hasMoved = true;
       st.lastMoveMs = performance.now();
@@ -448,7 +454,17 @@ class LiquidImageFluid {
 
     // splat — only while actually moving; velocity/dt already folded
     // into the force uniform so a slow drag and a fast flick feed the
-    // field proportionally to real speed, not just "moved vs not"
+    // field proportionally to real speed, not just "moved vs not".
+    // lastPointerUv is advanced HERE, once per rendered frame, rather
+    // than in the mousemove handler itself — the browser can fire
+    // several mousemove events between two animation frames (routine
+    // during a fast flick, more so on high-poll-rate mice/trackpads),
+    // and updating lastPointerUv per-event meant only the tiny delta
+    // between the last two of those events ever reached the sim, with
+    // all the movement before that silently discarded. That under-
+    // counted fast motion relative to slow motion — the opposite of
+    // how real water responds — and read as a choppy, inconsistent
+    // "glitch" rather than a smooth continuous ripple trail.
     if(performance.now() - st.lastMoveMs < 100){
       const dx = (st.pointerUv.x - st.lastPointerUv.x);
       const dy = (st.pointerUv.y - st.lastPointerUv.y);
@@ -459,6 +475,7 @@ class LiquidImageFluid {
       this._renderPass(this.splatMaterial, this.velocityB);
       [this.velocityA, this.velocityB] = [this.velocityB, this.velocityA];
     }
+    st.lastPointerUv.copy(st.pointerUv);
 
     // curl + vorticity confinement (materials still built in
     // _buildScene, kept available) is deliberately NOT in this loop —
