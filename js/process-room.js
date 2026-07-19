@@ -209,6 +209,37 @@ function buildRecessedRiserGeometry(radius, depth, bevel, segments){
   return new THREE.LatheGeometry(pts, segments);
 }
 
+// displaces every vertex along its own normal by a deterministic,
+// multi-frequency "noise" (a handful of sine terms at different
+// frequencies/phases/axes, not Math.random — stable across reloads,
+// same convention as radiusWobble above) plus a few concentrated
+// inward divots for chip-like damage — breaks the icosahedron's
+// perfect symmetry into something that reads as carved/eroded rather
+// than a smooth mathematical blob, then recomputes normals so lighting
+// actually reacts to the new bumpy surface instead of the old smooth
+// one
+function sculptStoneGeometry(geometry, seed, chips){
+  const pos = geometry.attributes.position;
+  const v = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  for(let i = 0; i < pos.count; i++){
+    v.fromBufferAttribute(pos, i);
+    n.copy(v).normalize();
+    let d = 0;
+    d += 0.09 * Math.sin(v.x * 1.3 + seed) * Math.cos(v.y * 1.1 - seed * 0.7);
+    d += 0.05 * Math.sin(v.y * 2.6 + v.z * 2.1 + seed * 1.3);
+    d += 0.035 * Math.sin(v.x * 4.7 - v.z * 3.9 + seed * 0.4) * Math.sin(v.y * 3.3);
+    chips.forEach((ch) => {
+      const dist = v.distanceTo(ch.center);
+      if(dist < ch.radius) d -= ch.depth * (1 - dist / ch.radius) ** 2;
+    });
+    v.addScaledVector(n, d);
+    pos.setXYZ(i, v.x, v.y, v.z);
+  }
+  pos.needsUpdate = true;
+  geometry.computeVertexNormals();
+}
+
 // traces a rounded-top rectangle into an existing Shape/Path — shared
 // by the doorway's outer wall-patch boundary and its inner hole, so
 // both come out of the same real Three.js extrusion rather than a
@@ -227,7 +258,9 @@ function tracePath(path, width, height, cornerRadius){
 // a solid wall-plaster patch with a real through-hole for the doorway
 // opening — ExtrudeGeometry computes the hole's inner tunnel walls and
 // (with bevelEnabled) its rounded rim automatically, which is far more
-// reliable than hand-rolling a tube mesh's per-vertex normals
+// reliable than hand-rolling a tube mesh's per-vertex normals. Depth
+// and bevel both sized up from an earlier pass for a genuinely thick,
+// chamfered opening rather than a thin plate with a soft edge.
 function buildDoorwayPatchGeometry(){
   const shape = new THREE.Shape();
   tracePath(shape, 3.6, 5.6, 0.5);
@@ -235,7 +268,7 @@ function buildDoorwayPatchGeometry(){
   tracePath(hole, 2.3, 3.6, 0.42);
   shape.holes.push(hole);
   return new THREE.ExtrudeGeometry(shape, {
-    depth: 0.6, bevelEnabled: true, bevelThickness: 0.07, bevelSize: 0.07, bevelSegments: 3, steps: 1,
+    depth: 0.85, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 4, steps: 1,
   });
 }
 
@@ -320,18 +353,67 @@ function makeShadowDecalTexture(peakAlpha){
 // simple and predictable, unlike RingGeometry's) this reads as a soft
 // contact shadow all the way around where the floor meets the wall,
 // without needing a second shadow-casting light for that seam
-function makeEdgeVignetteTexture(peakAlpha){
+// warm dark-brown "grime", not pure black — real contact dirt at a
+// wall/floor or platform/floor seam has colour to it, and a perfectly
+// smooth ring reads as a lighting vignette rather than accumulated
+// dirt, so a scatter of small soft blotches breaks up the ring's own
+// otherwise-uniform edge
+function makeEdgeVignetteTexture(peakAlpha, seed){
   const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
+  const [r, g, b] = [46, 36, 26];
   const grad = ctx.createRadialGradient(size / 2, size / 2, size * 0.32, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(0.72, `rgba(0,0,0,${peakAlpha * 0.35})`);
-  grad.addColorStop(1, `rgba(0,0,0,${peakAlpha})`);
+  grad.addColorStop(0, `rgba(${r},${g},${b},0)`);
+  grad.addColorStop(0.72, `rgba(${r},${g},${b},${peakAlpha * 0.35})`);
+  grad.addColorStop(1, `rgba(${r},${g},${b},${peakAlpha})`);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
+
+  let s = seed >>> 0;
+  const rand = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return (s % 10000) / 10000; };
+  for(let i = 0; i < 46; i++){
+    const ang = rand() * Math.PI * 2;
+    const rad = size * 0.36 + rand() * size * 0.14;
+    const x = size / 2 + Math.cos(ang) * rad, y = size / 2 + Math.sin(ang) * rad;
+    const rr = 5 + rand() * 16;
+    const a = peakAlpha * (0.18 + rand() * 0.3);
+    const sg = ctx.createRadialGradient(x, y, 0, x, y, rr);
+    sg.addColorStop(0, `rgba(${(r * 0.7) | 0},${(g * 0.7) | 0},${(b * 0.7) | 0},${a})`);
+    sg.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.fillStyle = sg;
+    ctx.fillRect(x - rr, y - rr, rr * 2, rr * 2);
+  }
   return new THREE.CanvasTexture(canvas);
+}
+
+// thin, low-opacity random line strokes — a subtle "well-worn stone
+// floor" scratch pass, layered above the floor as its own decal rather
+// than baked into the roughness map (keeps the real photographed
+// roughness map untouched, and this can tile independently of it)
+function makeScratchesTexture(seed){
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  let s = seed >>> 0;
+  const rand = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return (s % 10000) / 10000; };
+  for(let i = 0; i < 110; i++){
+    const x1 = rand() * size, y1 = rand() * size;
+    const len = 18 + rand() * 65;
+    const ang = rand() * Math.PI * 2;
+    const x2 = x1 + Math.cos(ang) * len, y2 = y1 + Math.sin(ang) * len;
+    ctx.strokeStyle = `rgba(255,248,238,${0.03 + rand() * 0.05})`;
+    ctx.lineWidth = 0.6 + rand() * 1.1;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
 }
 
 class ProcessRoom {
@@ -402,8 +484,10 @@ class ProcessRoom {
     const wallMat = new THREE.MeshStandardMaterial({
       color: 0x8c8170, roughness: 0.95, metalness: 0.02,
     });
-    loadPBRSet(loader, 'walls', wallMat, 2, 2, anisotropy, false);
+    wallMat.normalScale = new THREE.Vector2(1.4, 1.4); // more pronounced micro-relief under grazing light
+    loadPBRSet(loader, 'walls', wallMat, 2, 2, anisotropy, true);
     const wallGeo = buildWallGeometry(R, H, -ROOM.wallTheta, ROOM.wallTheta, ROOM.wallSegments);
+    wallGeo.setAttribute('uv2', wallGeo.attributes.uv); // aoMap needs a second UV channel
     const wall = new THREE.Mesh(wallGeo, wallMat);
     wall.receiveShadow = true;
     group.add(wall);
@@ -417,8 +501,10 @@ class ProcessRoom {
       clearcoat: 0.5, clearcoatRoughness: 0.22,
       envMap: makeFloorEnvTexture(), envMapIntensity: 0.85,
     });
-    loadPBRSet(loader, 'floor', floorMat, 5, 5, anisotropy, false);
-    const floor = new THREE.Mesh(new THREE.CircleGeometry(R, 64), floorMat);
+    loadPBRSet(loader, 'floor', floorMat, 5, 5, anisotropy, true);
+    const floorGeo = new THREE.CircleGeometry(R, 64);
+    floorGeo.setAttribute('uv2', floorGeo.attributes.uv);
+    const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     group.add(floor);
@@ -429,7 +515,8 @@ class ProcessRoom {
     const domeMat = new THREE.MeshStandardMaterial({
       color: 0x39352d, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
     });
-    loadPBRSet(loader, 'ceiling', domeMat, 6, 2, anisotropy, false);
+    loadPBRSet(loader, 'ceiling', domeMat, 6, 2, anisotropy, true);
+    domeGeo.setAttribute('uv2', domeGeo.attributes.uv);
     const dome = new THREE.Mesh(domeGeo, domeMat);
     dome.receiveShadow = true;
     group.add(dome);
@@ -459,30 +546,43 @@ class ProcessRoom {
     const platformMat = new THREE.MeshStandardMaterial({
       color: 0x0e0c0a, roughness: 0.14, metalness: 0.16,
     });
-    loadPBRSet(loader, 'platform', platformMat, 2, 2, anisotropy, false);
+    loadPBRSet(loader, 'platform', platformMat, 2, 2, anisotropy, true);
 
     // recessed circular platform: a sunken floor disc + a rounded riser
     // dropping down to it, rather than a raised dais
     const pitDepth = 0.22, pitRadius = 2.7;
-    const riser = new THREE.Mesh(buildRecessedRiserGeometry(pitRadius, pitDepth, 0.08, 48), platformMat);
+    const riserGeo = buildRecessedRiserGeometry(pitRadius, pitDepth, 0.08, 48);
+    riserGeo.setAttribute('uv2', riserGeo.attributes.uv);
+    const riser = new THREE.Mesh(riserGeo, platformMat);
     riser.position.set(0, 0, -2.2);
     riser.receiveShadow = true;
     group.add(riser);
-    const pitFloor = new THREE.Mesh(new THREE.CircleGeometry(pitRadius - 0.08, 48), platformMat);
+    const pitFloorGeo = new THREE.CircleGeometry(pitRadius - 0.08, 48);
+    pitFloorGeo.setAttribute('uv2', pitFloorGeo.attributes.uv);
+    const pitFloor = new THREE.Mesh(pitFloorGeo, platformMat);
     pitFloor.rotation.x = -Math.PI / 2;
     pitFloor.position.set(0, -pitDepth, -2.2);
     pitFloor.receiveShadow = true;
     group.add(pitFloor);
 
-    // smooth sculptural stone seat — light, porous natural limestone,
-    // no glossy finish, deliberately distinct from the platform's
-    // near-black polish. detail:3 (a heavily-subdivided icosahedron)
-    // reads as an eased, smoothed organic form rather than the
-    // low-poly faceted boulder this replaces
+    // sculpted, carved stone seat — light, porous natural limestone, no
+    // glossy finish, deliberately distinct from the platform's
+    // near-black polish. Starts as a heavily-subdivided (detail:3)
+    // icosahedron for a dense, evenly-distributed vertex mesh to sculpt
+    // against, then sculptStoneGeometry breaks its perfect symmetry
+    // with deterministic noise + a few concentrated chip divots (see
+    // that function's own header) rather than leaving it a smooth
+    // mathematical blob
     const seatMat = new THREE.MeshStandardMaterial({
       color: 0xa89880, roughness: 0.88, metalness: 0.01,
     });
     const seatGeo = new THREE.IcosahedronGeometry(1.15, 3);
+    sculptStoneGeometry(seatGeo, 2.7, [
+      { center: new THREE.Vector3(0.85, 0.35, 0.55), radius: 0.55, depth: 0.16 },
+      { center: new THREE.Vector3(-0.65, -0.25, 0.75), radius: 0.42, depth: 0.12 },
+      { center: new THREE.Vector3(0.2, 0.65, -0.75), radius: 0.48, depth: 0.14 },
+      { center: new THREE.Vector3(-0.4, 0.6, 0.3), radius: 0.32, depth: 0.09 },
+    ]);
     seatGeo.setAttribute('uv2', seatGeo.attributes.uv); // aoMap needs a second UV channel
     loadPBRSet(loader, 'seat', seatMat, 1, 1, anisotropy, true);
     const seat = new THREE.Mesh(seatGeo, seatMat);
@@ -503,17 +603,39 @@ class ProcessRoom {
     seatShadow.position.set(0.15, -pitDepth + 0.01, -2.4);
     group.add(seatShadow);
 
-    // soft contact shadow where the wall meets the floor, all the way
+    // contact dirt/grime where the wall meets the floor, all the way
     // around — a full floor-sized disc with an edge-darkening decal
     // (see makeEdgeVignetteTexture), standing in for a real AO pass
     // at that seam
     const wallContactMat = new THREE.MeshBasicMaterial({
-      map: makeEdgeVignetteTexture(0.4), transparent: true, depthWrite: false,
+      map: makeEdgeVignetteTexture(0.4, 11), transparent: true, depthWrite: false,
     });
     const wallContact = new THREE.Mesh(new THREE.CircleGeometry(R, 64), wallContactMat);
     wallContact.rotation.x = -Math.PI / 2;
     wallContact.position.y = 0.012;
     group.add(wallContact);
+
+    // contact dirt around the platform's own rim, the same decal
+    // technique at a smaller radius so it lands right at the pit's
+    // edge rather than the far wall
+    const platformContactMat = new THREE.MeshBasicMaterial({
+      map: makeEdgeVignetteTexture(0.4, 29), transparent: true, depthWrite: false,
+    });
+    const platformContact = new THREE.Mesh(new THREE.CircleGeometry(pitRadius + 0.6, 48), platformContactMat);
+    platformContact.rotation.x = -Math.PI / 2;
+    platformContact.position.set(0, 0.013, -2.2);
+    group.add(platformContact);
+
+    // faint scratches across the floor, standing in for the years of
+    // foot traffic a real polished-stone floor this scale would show
+    const scratchesMat = new THREE.MeshBasicMaterial({
+      map: makeScratchesTexture(5), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    scratchesMat.map.repeat.set(5, 5);
+    const scratches = new THREE.Mesh(new THREE.CircleGeometry(R, 64), scratchesMat);
+    scratches.rotation.x = -Math.PI / 2;
+    scratches.position.y = 0.008;
+    group.add(scratches);
 
     // hidden LED strip at the base of the wall — thin warm-white, not
     // orange — a continuous emissive ring, unlit (MeshBasicMaterial,
@@ -546,17 +668,22 @@ class ProcessRoom {
     });
 
     // dark charcoal concrete, matte finish — its own material for the
-    // doorway surrounds, distinct from the wall's plaster
+    // doorway's interior reveal, distinct from the wall's plaster
     const doorwayMat = new THREE.MeshStandardMaterial({ color: 0x2b2822, roughness: 0.92, metalness: 0.02 });
-    loadPBRSet(loader, 'doorway', doorwayMat, 1, 1, anisotropy, false);
+    loadPBRSet(loader, 'doorway', doorwayMat, 1, 1, anisotropy, true);
 
     // three doorway alcoves: two side (left/right), one center back —
-    // each a real carved-through opening (see buildDoorwayPatchGeometry)
+    // each a real carved-through opening (see buildDoorwayPatchGeometry).
+    // wallMat is passed through too — the patch's own visible frame
+    // face (facing the room) uses the wall's own plaster material via
+    // ExtrudeGeometry's material groups, so the opening reads as a
+    // continuous wall with a hole carved into it, only switching to
+    // the darker concrete once you're actually inside the reveal
     const doorwayThetas = [-ROOM.doorTheta, ROOM.doorTheta, 0];
-    doorwayThetas.forEach((theta) => this._buildDoorway(group, theta, doorwayMat));
+    doorwayThetas.forEach((theta) => this._buildDoorway(group, theta, doorwayMat, wallMat));
   }
 
-  _buildDoorway(group, theta, doorwayMat){
+  _buildDoorway(group, theta, doorwayMat, wallMat){
     const R = ROOM.radius;
     // slightly inside the wall's own nominal radius so this patch's
     // outer face fully occludes the (still-present, unmodified) wall
@@ -569,32 +696,38 @@ class ProcessRoom {
     doorGroup.rotation.y = angle;
     group.add(doorGroup);
 
-    const patch = new THREE.Mesh(buildDoorwayPatchGeometry(), doorwayMat);
+    const patchGeo = buildDoorwayPatchGeometry();
+    patchGeo.setAttribute('uv2', patchGeo.attributes.uv);
+    // ExtrudeGeometry-with-a-hole's default material groups: index 0
+    // is the extruded "sides" (both the hole's inner tunnel walls AND
+    // the outer perimeter, which is hidden behind the main wall), and
+    // index 1 is the front/back caps (the visible flat frame facing
+    // the room) -- confirmed directly against the actual render, not
+    // assumed from the minified source
+    const patch = new THREE.Mesh(patchGeo, [doorwayMat, wallMat]);
     patch.castShadow = true;
     patch.receiveShadow = true;
     doorGroup.add(patch);
 
     // dark plane at the back of the carved recess, beyond which the
-    // fog/darkness reads as "leads somewhere", same trick as before
-    // but now sitting behind a real carved opening instead of flush
-    // against the wall's own face
+    // fog/darkness reads as "leads somewhere", pushed back to match
+    // the reveal's own increased depth
     const voidMat = new THREE.MeshBasicMaterial({ color: 0x050403 });
     const voidPlane = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 3.5), voidMat);
-    voidPlane.position.set(0, 1.9, 0.72);
+    voidPlane.position.set(0, 1.9, 0.97);
     doorGroup.add(voidPlane);
 
-    // hidden LED strip recessed into the door reveal, warm-white — now
-    // sitting inside the opening's real depth rather than floating
-    // flush against a flat plane
+    // hidden LED strip recessed into the door reveal, warm-white —
+    // sitting inside the opening's own real depth
     const rimMat = new THREE.MeshBasicMaterial({ color: 0xfff0da });
     [-1.05, 1.05].forEach((x) => {
       const strip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 3.4, 0.05), rimMat);
-      strip.position.set(x, 1.9, 0.3);
+      strip.position.set(x, 1.9, 0.45);
       doorGroup.add(strip);
     });
 
     const rimLight = new THREE.PointLight(0xffe9c8, 3, 5, 2);
-    rimLight.position.set(0, 2.1, 0.5);
+    rimLight.position.set(0, 2.1, 0.65);
     doorGroup.add(rimLight);
   }
 
@@ -610,16 +743,26 @@ class ProcessRoom {
     const hemi = new THREE.HemisphereLight(0xfff4e2, 0x3d3120, 0.95);
     this.scene.add(hemi);
 
-    const spot = new THREE.SpotLight(0xfff6e8, 10.5, 27, 0.74, 0.68, 1.05);
+    const spot = new THREE.SpotLight(0xfff6e8, 8.5, 27, 0.5, 0.68, 1.05);
     spot.position.set(0, ROOM.height + ROOM.domeRise - 0.3, -1.4);
     spot.target.position.set(0, 0, -2.0);
     spot.castShadow = true;
-    const shadowSize = this.isMobile ? CONFIG.shadowSizeMobile : CONFIG.shadowSize;
+    const shadowSize = this.isMobile ? CONFIG.shadowSizeMobile : CONFIG.shadowSize * 2;
     spot.shadow.mapSize.set(shadowSize, shadowSize);
     spot.shadow.camera.near = 1;
     spot.shadow.camera.far = 16;
-    spot.shadow.bias = -0.0015;
+    spot.shadow.bias = -0.0012;
+    spot.shadow.radius = 3.5; // softer PCF penumbra than the default hard-edged kernel
     this.scene.add(spot, spot.target);
+
+    // a second, much wider and softer light also at the oculus —
+    // distinct from the spotlight's own tight focused cone, this reads
+    // as diffuse skylight spilling through the whole opening rather
+    // than a single beam, the way real daylight through a real oculus
+    // would fill the room broadly, not just where the beam lands
+    const skylight = new THREE.PointLight(0xf3ecdb, 3.2, 26, 1.4);
+    skylight.position.set(0, ROOM.height + ROOM.domeRise - 0.6, -1.4);
+    this.scene.add(skylight);
 
     // soft warm bounce off the floor, filling the underside of the
     // dome the way real light reflected up off a pale floor would —
