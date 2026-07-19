@@ -1343,13 +1343,36 @@ class ProcessRoom {
     };
     window.addEventListener('resize', this._onResize);
 
-    if(!this.isCoarsePointer && !this.prefersReducedMotion){
-      this._onMouseMove = (e) => {
-        this.mouseTarget.x = (e.clientX / window.innerWidth) * 2 - 1;
-        this.mouseTarget.y = (e.clientY / window.innerHeight) * 2 - 1;
-        this._wake();
-      };
-      window.addEventListener('mousemove', this._onMouseMove, { passive: true });
+    if(!this.prefersReducedMotion){
+      if(!this.isCoarsePointer){
+        this._onMouseMove = (e) => {
+          this.mouseTarget.x = (e.clientX / window.innerWidth) * 2 - 1;
+          this.mouseTarget.y = (e.clientY / window.innerHeight) * 2 - 1;
+          this._wake();
+        };
+        window.addEventListener('mousemove', this._onMouseMove, { passive: true });
+      } else {
+        // touch gets the same look-around parallax as desktop's mouse
+        // move, driven by finger position instead of cursor position —
+        // a single finger was previously ONLY able to scroll the page
+        // (see touch-action:pan-y on .process-room-sticky/#processRoomCanvas
+        // in style.css), with no way to actually look around the room.
+        // Listening here rather than switching that touch-action is what
+        // keeps vertical scroll working exactly as before (this is a
+        // passive listener, nothing calls preventDefault) while ALSO
+        // feeding the same mouseTarget the desktop parallax already
+        // reads in _frame() — dragging a finger now rotates the camera
+        // the same way moving a mouse does, scroll or no scroll
+        this._onTouchMove = (e) => {
+          const t = e.touches[0];
+          if(!t) return;
+          this.mouseTarget.x = (t.clientX / window.innerWidth) * 2 - 1;
+          this.mouseTarget.y = (t.clientY / window.innerHeight) * 2 - 1;
+          this._wake();
+        };
+        window.addEventListener('touchstart', this._onTouchMove, { passive: true });
+        window.addEventListener('touchmove', this._onTouchMove, { passive: true });
+      }
     }
 
     this._measure();
