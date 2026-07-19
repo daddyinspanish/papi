@@ -45,15 +45,6 @@
      the wall/dome radius (a few fixed sine terms at different
      frequencies/phases, not Math.random) — smooth and organic rather
      than jagged, and identical on every load rather than reshuffling.
-   - Roughness/albedo variation on the plaster surfaces comes from a
-     small canvas-generated blotch texture (generated once at
-     construction, tiled via the wall's own UVs) rather than an
-     authored texture map this project doesn't have.
-   - The floor's "subtle reflection" is MeshPhysicalMaterial + a
-     static canvas-gradient equirect envMap, not a live planar-
-     reflection render pass (a real second scene render every frame,
-     and worse on mobile) — a fixed soft sheen reads as "polished"
-     without that cost.
    - "Indirect bounce" is faked with a few extra low-intensity, non-
      shadow-casting fill lights placed where bounced light would
      actually land (floor-ward, doorway-ward) instead of one dominant
@@ -64,6 +55,30 @@
      — the same "the falloff IS the blur, not a per-frame filter"
      technique documented above and in js/process-fog.js's own header,
      rather than a real SSAO pass.
+
+   Materials pass — real PBR texture sets, not solid colours:
+   every wall/ceiling/floor/platform/seat/doorway/stepping-stone
+   material below loads its own color+normal+roughness(+AO where the
+   source set has one) maps from img/textures/<surface>/, downloaded
+   once from ambientCG (CC0, commercially usable) and saved locally —
+   nothing fetches from ambientcg.com at runtime. Sources, for
+   attribution/re-download:
+     walls           ambientCG Plaster001        (2K)
+     ceiling/doorway ambientCG Concrete035/036   (2K/1K)
+     floor           ambientCG Marble006         (2K)
+     platform        ambientCG Marble016         (2K)
+     seat            ambientCG Rock019           (1K)
+     stepping stones ambientCG Rock028           (1K)
+   Displacement maps were downloaded but aren't wired in — this
+   room's geometry (a handful of large ribbons/lathes/extrusions) isn't
+   subdivided finely enough for true vertex displacement to read as
+   surface detail rather than blobby distortion; shipping the maps
+   unused would just be dead weight, so they were left out of
+   img/textures entirely. Every load goes through _loadPBRSet() below,
+   which assigns the texture immediately (so a slow load never blocks
+   first paint — the material already has its own solid base colour
+   as an interim look) and falls back to that same solid colour if the
+   file 404s, rather than leaving a broken/blank map reference.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
 
@@ -226,27 +241,6 @@ function buildDoorwayPatchGeometry(){
 
 // a small canvas-generated blotch pattern used as a roughness map on
 // the plaster surfaces — generated at a low resolution and left to the
-// GPU's own linear texture filtering to soften into broad, irregular
-// patches (real plaster/concrete has exactly this kind of soft sheen
-// variation, not fine-grained noise) rather than an authored roughness
-// map this project has no pipeline to produce
-function makePlasterRoughnessTexture(){
-  const size = 40;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(size, size);
-  for(let i = 0; i < img.data.length; i += 4){
-    const v = 150 + Math.random() * 90; // mid-to-high roughness, patchy
-    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
-    img.data[i + 3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
-}
-
 // a fixed, simple vertical gradient used as the floor's reflection
 // environment — warm/bright near the top (standing in for the oculus
 // light and dome), dark near the bottom (the floor's own surroundings)
@@ -270,46 +264,35 @@ function makeFloorEnvTexture(){
   return tex;
 }
 
-// a soft tint gradient for the dome — darker where it meets the wall,
-// brighter (warm ivory) near the oculus opening. LatheGeometry's own
-// V coordinate runs 0 (first profile point, the wall junction) to 1
-// (last profile point, the oculus edge) exactly once per revolution —
-// unlike the wall's own repeated UV scale, this can carry a single
-// smooth positional gradient with no tiling conflict. Used as the
-// dome's own colour map (multiplied against its base colour) rather
-// than a second light, so this is a fixed cost paid once, not a
-// render-order/light-count concern
-function makeDomeGradientTexture(){
-  const canvas = document.createElement('canvas');
-  canvas.width = 8; canvas.height = 64;
-  const ctx = canvas.getContext('2d');
-  const grad = ctx.createLinearGradient(0, 64, 0, 0);
-  grad.addColorStop(0, '#79705f');
-  grad.addColorStop(0.55, '#a89a80');
-  grad.addColorStop(1, '#f2e6cc');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 8, 64);
-  return new THREE.CanvasTexture(canvas);
+// loads one map into one material slot, tuned for tiling at this
+// room's own scale — assigns the texture immediately (so a slow
+// network load never blocks first paint; the material's own solid
+// base colour is already a reasonable interim look) and, if the file
+// 404s, nulls the slot back out rather than leaving a broken/blank
+// texture reference so the surface still renders as its solid colour
+function loadPBRMap(loader, path, material, slot, repeatX, repeatY, anisotropy, srgb){
+  const tex = loader.load(path, undefined, undefined, () => {
+    material[slot] = null;
+    material.needsUpdate = true;
+  });
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(repeatX, repeatY);
+  tex.anisotropy = anisotropy;
+  if(srgb) tex.colorSpace = THREE.SRGBColorSpace;
+  material[slot] = tex;
+  return tex;
 }
 
-// a coarser, higher-contrast blotch pattern than the plaster texture
-// above — used as a roughness map on the platform/seat's natural
-// stone, reading as visible grain rather than a smooth painted surface
-function makeStoneGrainTexture(){
-  const size = 48;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(size, size);
-  for(let i = 0; i < img.data.length; i += 4){
-    const v = 110 + Math.random() * 140;
-    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
-    img.data[i + 3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  return tex;
+// wires a full color/normal/roughness(+AO) set from img/textures/
+// <folder>/ into an already-constructed material — see this file's
+// own header for exactly which ambientCG set backs each folder, and
+// why there's no displacementMap here
+function loadPBRSet(loader, folder, material, repeatX, repeatY, anisotropy, hasAO){
+  const base = `img/textures/${folder}`;
+  loadPBRMap(loader, `${base}/color.jpg`, material, 'map', repeatX, repeatY, anisotropy, true);
+  loadPBRMap(loader, `${base}/normal.jpg`, material, 'normalMap', repeatX, repeatY, anisotropy, false);
+  loadPBRMap(loader, `${base}/roughness.jpg`, material, 'roughnessMap', repeatX, repeatY, anisotropy, false);
+  if(hasAO) loadPBRMap(loader, `${base}/ao.jpg`, material, 'aoMap', repeatX, repeatY, anisotropy, false);
 }
 
 // a soft-edged radial gradient (dark centre, fading to transparent) —
@@ -410,45 +393,43 @@ class ProcessRoom {
     const group = new THREE.Group();
     this.scene.add(group);
 
-    const plasterRoughMap = makePlasterRoughnessTexture();
-    // warm gray-brown lime plaster, not chocolate brown — sampled off
-    // the reference photo's own wall tone
+    const loader = new THREE.TextureLoader();
+    const anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+
+    // warm gray-brown lime plaster, not chocolate brown — real PBR set
+    // (see this file's header for source/attribution), base colour
+    // below is just the fallback if the texture fails to load
     const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x8c8170, roughness: 0.95, roughnessMap: plasterRoughMap, metalness: 0.02,
+      color: 0x8c8170, roughness: 0.95, metalness: 0.02,
     });
+    loadPBRSet(loader, 'walls', wallMat, 2, 2, anisotropy, false);
     const wallGeo = buildWallGeometry(R, H, -ROOM.wallTheta, ROOM.wallTheta, ROOM.wallSegments);
     const wall = new THREE.Mesh(wallGeo, wallMat);
     wall.receiveShadow = true;
     group.add(wall);
 
-    // dark polished charcoal floor, warm (not orange) reflections —
-    // MeshPhysicalMaterial + a fixed gradient envMap for a soft,
-    // subtle sheen (see this file's header for why that's a static
-    // texture rather than a live planar-reflection pass)
+    // dark polished charcoal floor with restrained warm reflections —
+    // MeshPhysicalMaterial (real marble PBR set + a fixed gradient
+    // envMap for a soft sheen; see this file's header for why that's a
+    // static texture rather than a live planar-reflection pass)
     const floorMat = new THREE.MeshPhysicalMaterial({
       color: 0x18140f, roughness: 0.18, metalness: 0.08,
       clearcoat: 0.5, clearcoatRoughness: 0.22,
       envMap: makeFloorEnvTexture(), envMapIntensity: 0.85,
     });
+    loadPBRSet(loader, 'floor', floorMat, 5, 5, anisotropy, false);
     const floor = new THREE.Mesh(new THREE.CircleGeometry(R, 64), floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     group.add(floor);
 
-    // darker charcoal plaster than the walls, real dome (not a flat
-    // ring) — see buildDomeGeometry's own header. LatheGeometry's own
-    // UV.x only spans 0..1 once per revolution (unlike the wall's own
-    // t*6 scale) — scaled up here so the shared plaster texture tiles
-    // at roughly the same physical size on the dome as it does on the
-    // wall, rather than stretching into one huge soft smear.
+    // dark charcoal architectural concrete, a real dome (not a flat
+    // ring) — see buildDomeGeometry's own header
     const domeGeo = buildDomeGeometry(R, H, ROOM.oculusRadius, ROOM.domeRise, 14, 96);
-    const domeUv = domeGeo.attributes.uv;
-    for(let i = 0; i < domeUv.count; i++) domeUv.setX(i, domeUv.getX(i) * 8);
-    domeUv.needsUpdate = true;
     const domeMat = new THREE.MeshStandardMaterial({
-      color: 0x8f8370, map: makeDomeGradientTexture(), roughness: 0.95,
-      roughnessMap: plasterRoughMap, metalness: 0, side: THREE.DoubleSide,
+      color: 0x39352d, roughness: 0.95, metalness: 0, side: THREE.DoubleSide,
     });
+    loadPBRSet(loader, 'ceiling', domeMat, 6, 2, anisotropy, false);
     const dome = new THREE.Mesh(domeGeo, domeMat);
     dome.receiveShadow = true;
     group.add(dome);
@@ -473,34 +454,38 @@ class ProcessRoom {
     // The spotlight + glowing oculus lip + fog already read as "light
     // spilling from the hole" without needing a literal visible beam.
 
-    // near-black polished stone, distinct from the lighter seat
-    const stoneGrainMap = makeStoneGrainTexture();
-    const stoneMat = new THREE.MeshStandardMaterial({
-      color: 0x0e0c0a, roughness: 0.2, roughnessMap: stoneGrainMap, metalness: 0.14,
+    // near-black polished marble, slightly more reflective than the
+    // floor, distinct from the lighter seat
+    const platformMat = new THREE.MeshStandardMaterial({
+      color: 0x0e0c0a, roughness: 0.14, metalness: 0.16,
     });
+    loadPBRSet(loader, 'platform', platformMat, 2, 2, anisotropy, false);
 
     // recessed circular platform: a sunken floor disc + a rounded riser
     // dropping down to it, rather than a raised dais
     const pitDepth = 0.22, pitRadius = 2.7;
-    const riser = new THREE.Mesh(buildRecessedRiserGeometry(pitRadius, pitDepth, 0.08, 48), stoneMat);
+    const riser = new THREE.Mesh(buildRecessedRiserGeometry(pitRadius, pitDepth, 0.08, 48), platformMat);
     riser.position.set(0, 0, -2.2);
     riser.receiveShadow = true;
     group.add(riser);
-    const pitFloor = new THREE.Mesh(new THREE.CircleGeometry(pitRadius - 0.08, 48), stoneMat);
+    const pitFloor = new THREE.Mesh(new THREE.CircleGeometry(pitRadius - 0.08, 48), platformMat);
     pitFloor.rotation.x = -Math.PI / 2;
     pitFloor.position.set(0, -pitDepth, -2.2);
     pitFloor.receiveShadow = true;
     group.add(pitFloor);
 
-    // smooth sculptural stone seat — lighter, textured natural stone,
-    // deliberately distinct from the platform's near-black polish.
-    // detail:3 (a heavily-subdivided icosahedron) reads as an eased,
-    // smoothed organic form rather than the low-poly faceted boulder
-    // this replaces
+    // smooth sculptural stone seat — light, porous natural limestone,
+    // no glossy finish, deliberately distinct from the platform's
+    // near-black polish. detail:3 (a heavily-subdivided icosahedron)
+    // reads as an eased, smoothed organic form rather than the
+    // low-poly faceted boulder this replaces
     const seatMat = new THREE.MeshStandardMaterial({
-      color: 0xa89880, roughness: 0.82, roughnessMap: stoneGrainMap, metalness: 0.02,
+      color: 0xa89880, roughness: 0.88, metalness: 0.01,
     });
-    const seat = new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 3), seatMat);
+    const seatGeo = new THREE.IcosahedronGeometry(1.15, 3);
+    seatGeo.setAttribute('uv2', seatGeo.attributes.uv); // aoMap needs a second UV channel
+    loadPBRSet(loader, 'seat', seatMat, 1, 1, anisotropy, true);
+    const seat = new THREE.Mesh(seatGeo, seatMat);
     seat.scale.set(1.3, 0.62, 1.05);
     seat.position.set(0.15, 0.5 - pitDepth, -2.4);
     seat.rotation.y = 0.6;
@@ -540,27 +525,38 @@ class ProcessRoom {
     led.position.y = 0.05;
     group.add(led);
 
-    // stepping-stone path from the entrance toward the platform — now
-    // a beveled disc (rounded rim) instead of a hard-edged cylinder
+    // rough natural stone, uneven texture — its own material,
+    // deliberately distinct from the platform's polished marble,
+    // for the stepping-stone path from the entrance toward the platform
+    // (a beveled disc for the rim's own chiseled-edge bevel)
+    const stepMat = new THREE.MeshStandardMaterial({ color: 0x6b6157, roughness: 0.92, metalness: 0.02 });
+    const stepGeo = buildBeveledDisc(0.55, 0.16, 0.05, 20);
+    stepGeo.setAttribute('uv2', stepGeo.attributes.uv); // aoMap needs a second UV channel
+    loadPBRSet(loader, 'stepping-stones', stepMat, 1, 1, anisotropy, true);
     const stonePath = [
       { x: 0.0, z: 7.4 }, { x: 0.55, z: 6.1 }, { x: -0.4, z: 4.8 },
       { x: 0.35, z: 3.5 }, { x: -0.15, z: 2.3 },
     ];
     stonePath.forEach((p) => {
-      const stone = new THREE.Mesh(buildBeveledDisc(0.55, 0.16, 0.05, 20), stoneMat);
+      const stone = new THREE.Mesh(stepGeo, stepMat);
       stone.position.set(p.x, 0.08, p.z);
       stone.receiveShadow = true;
       stone.castShadow = true;
       group.add(stone);
     });
 
+    // dark charcoal concrete, matte finish — its own material for the
+    // doorway surrounds, distinct from the wall's plaster
+    const doorwayMat = new THREE.MeshStandardMaterial({ color: 0x2b2822, roughness: 0.92, metalness: 0.02 });
+    loadPBRSet(loader, 'doorway', doorwayMat, 1, 1, anisotropy, false);
+
     // three doorway alcoves: two side (left/right), one center back —
     // each a real carved-through opening (see buildDoorwayPatchGeometry)
     const doorwayThetas = [-ROOM.doorTheta, ROOM.doorTheta, 0];
-    doorwayThetas.forEach((theta) => this._buildDoorway(group, theta, wallMat));
+    doorwayThetas.forEach((theta) => this._buildDoorway(group, theta, doorwayMat));
   }
 
-  _buildDoorway(group, theta, wallMat){
+  _buildDoorway(group, theta, doorwayMat){
     const R = ROOM.radius;
     // slightly inside the wall's own nominal radius so this patch's
     // outer face fully occludes the (still-present, unmodified) wall
@@ -573,7 +569,7 @@ class ProcessRoom {
     doorGroup.rotation.y = angle;
     group.add(doorGroup);
 
-    const patch = new THREE.Mesh(buildDoorwayPatchGeometry(), wallMat);
+    const patch = new THREE.Mesh(buildDoorwayPatchGeometry(), doorwayMat);
     patch.castShadow = true;
     patch.receiveShadow = true;
     doorGroup.add(patch);
