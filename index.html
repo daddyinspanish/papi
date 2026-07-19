@@ -86,7 +86,7 @@ window.scrollTo(0, 0);
   </a>
   <nav class="site-nav" aria-label="Primary">
     <a href="#showcase">Work</a>
-    <a href="#heroProcess">Process</a>
+    <a href="#processRoom">Process</a>
     <a href="#quoteSection">Pricing</a>
   </nav>
   <a href="#quoteSection" class="hero-cta hero-cta--nav">Start a Project<span class="hero-cta-plus">+</span></a>
@@ -184,45 +184,43 @@ window.scrollTo(0, 0);
     </div>
   </div>
 
-  <!-- "Process" nav link's actual scroll target — anchoring to #hero
-       itself would only scroll to the top of the two-column area.
-       Tall outer section + sticky inner viewport (same pattern as
-       .contrast-section/.contrast-sticky below) — scrolling through
-       400vh worth of distance pins the stage in place while
-       js/process-flow.js crossfades one step's copy into the next,
-       one quarter of that range each, with a continuous liquid stream
-       (same metaball technique as the rest of this page's glass)
-       flowing down through the centre the whole time. -->
-  <section class="process-section" id="heroProcess">
-    <div class="process-sticky">
-      <canvas id="processFlow" class="process-flow-canvas" aria-hidden="true"></canvas>
-      <div class="process-stage">
-        <div class="process-step-content" data-step="0">
-          <span class="hero-process-num">1</span>
+  <!-- "Process" nav link's actual scroll target. A real 3D room
+       (Three.js, js/process-room.js) the camera walks through as the
+       visitor scrolls, pausing at each of the 4 Papi process steps —
+       same tall-outer-section + sticky-inner-viewport pattern as
+       .contrast-section below: scrolling through the outer section's
+       own height keeps the canvas pinned in the viewport while the
+       camera travels a fixed path through the room. -->
+  <section class="process-room-section" id="processRoom">
+    <div class="process-room-sticky">
+      <canvas id="processRoomCanvas" aria-hidden="true"></canvas>
+      <div class="process-room-steps" id="processRoomSteps">
+        <div class="process-room-step" data-step="0">
+          <span class="process-room-num">01</span>
           <h3>Discover</h3>
           <p>We learn about your brand, goals, and audience.</p>
         </div>
-        <div class="process-step-content" data-step="1">
-          <span class="hero-process-num">2</span>
+        <div class="process-room-step" data-step="1">
+          <span class="process-room-num">02</span>
           <h3>Design</h3>
           <p>Strategic, modern designs that make an impact.</p>
         </div>
-        <div class="process-step-content" data-step="2">
-          <span class="hero-process-num">3</span>
+        <div class="process-room-step" data-step="2">
+          <span class="process-room-num">03</span>
           <h3>Develop</h3>
           <p>Fast, responsive, and built with clean code.</p>
         </div>
-        <div class="process-step-content" data-step="3">
-          <span class="hero-process-num">4</span>
+        <div class="process-room-step" data-step="3">
+          <span class="process-room-num">04</span>
           <h3>Launch</h3>
           <p>Tested, refined, and ready to perform from day one.</p>
         </div>
       </div>
-      <div class="process-progress" aria-hidden="true">
-        <span class="process-progress-dot" data-step="0"></span>
-        <span class="process-progress-dot" data-step="1"></span>
-        <span class="process-progress-dot" data-step="2"></span>
-        <span class="process-progress-dot" data-step="3"></span>
+      <div class="process-room-progress" aria-hidden="true">
+        <span class="process-room-dot" data-step="0"></span>
+        <span class="process-room-dot" data-step="1"></span>
+        <span class="process-room-dot" data-step="2"></span>
+        <span class="process-room-dot" data-step="3"></span>
       </div>
     </div>
   </section>
@@ -715,8 +713,7 @@ window.scrollTo(0, 0);
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
 <script type="module" src="js/hero-slime.js"></script>
-<script type="module" src="js/process-flow.js"></script>
-<script src="js/process-fog.js"></script>
+<script type="module" src="js/process-room.js"></script>
 <script src="js/headline-cursor.js"></script>
 <script src="js/title-dock.js"></script>
 <script src="js/contrast.js"></script>

@@ -584,147 +584,120 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
   100%{ transform:scale(1) rotate(0deg); opacity:1; }
 }
 
-/* ---- process steps — one step at a time, centred, revealed as the
-   visitor scrolls — same tall-outer-section + sticky-inner-viewport
-   pattern as .contrast-section/.contrast-sticky below: scrolling
-   through 400vh worth of distance pins .process-sticky in place while
-   js/process-flow.js crossfades one step's copy into the next (a
-   quarter of that range each) and drives a continuous liquid stream
-   through the centre the whole time. #heroProcess is still the
-   "Process" nav link's own scroll target. ---- */
-.process-section{
+/* ---- process room — a real 3D space (Three.js, js/process-room.js)
+   the camera walks through as the visitor scrolls, pausing at each of
+   the 4 Papi process steps — same tall-outer-section + sticky-inner-
+   viewport pattern as .contrast-section below: scrolling through the
+   outer section's own height keeps .process-room-sticky pinned in the
+   viewport while the camera travels a fixed path through the room.
+   #processRoom is still the "Process" nav link's own scroll target. ---- */
+.process-room-section{
   position:relative;
-  height:400vh;
+  height:500vh;
   /* svh + --stable-vh — see the long comment on .contrast-section
      below for why plain vh alone isn't enough on several in-app
      browsers */
-  height:400svh;
-  height:calc(400 * var(--stable-vh, 1vh));
+  height:500svh;
+  height:calc(500 * var(--stable-vh, 1vh));
+  background:#0e0b08;
 }
-.process-sticky{
+.process-room-sticky{
   position:sticky;
   top:0;
   height:100vh;
   height:100svh;
   height:calc(100 * var(--stable-vh, 1vh));
   overflow:hidden;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  /* a sandy tan rather than flat white — a tiled feTurbulence grain
-     (static SVG data-URI, no runtime filter cost) layered over a warm
-     gradient built from the site's own cream/gold tokens. All three
-     layers are the section's own background, so they paint behind
-     every positioned child (.hero-process-fog/.process-flow-canvas/
-     .process-stage) with no z-index bookkeeping needed. */
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
-    radial-gradient(130% 110% at 18% -8%, rgba(255,251,242,.85), rgba(255,251,242,0) 55%),
-    linear-gradient(160deg, var(--cream) 0%, var(--gold-soft) 55%, #d8bd85 100%);
-  background-repeat:repeat, no-repeat, no-repeat;
-  background-size:160px 160px, cover, cover;
+  background:#0e0b08;
 }
-/* js/process-flow.js renders a continuous WebGL metaball stream into
-   this — small "droplets" fall from the top, merging into (and back
-   out of) a bigger stationary mass sitting right behind the centred
-   text as they pass through it, the same smin-blend glass technique
-   as the rest of this page's liquid rather than a flat effect layered
-   on top of the copy. */
-.process-flow-canvas{
+#processRoomCanvas{
   position:absolute;
   inset:0;
   width:100%;
   height:100%;
-  z-index:1;
+  display:block;
+}
+/* the 4 step labels — all stacked exactly on top of each other,
+   js/process-room.js crossfades opacity/transform/blur between them as
+   the camera arrives at each stage, never more than one fully sharp at
+   a time (the others sit dimmed/blurred a little further back, the
+   "should animate forward while others remain visible in the
+   background" depth cue). */
+.process-room-steps{
+  position:absolute;
+  z-index:5;
+  left:0; right:0;
+  bottom:clamp(3.5rem, 10vw, 6rem);
+  width:100%;
+  padding:0 clamp(1.5rem, 6vw, 5rem);
   pointer-events:none;
 }
-/* js/process-fog.js's own soft ambient vapor layer, sitting further
-   back than the flow canvas above — ambient depth behind the main
-   liquid stream rather than another focal effect of its own. */
-.hero-process-fog{
+.process-room-step{
   position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  z-index:0;
-  pointer-events:none;
+  left:clamp(1.5rem, 6vw, 5rem);
+  right:clamp(1.5rem, 6vw, 5rem);
+  bottom:0;
   opacity:0;
+  filter:blur(6px);
+  transform:translateY(14px);
+  transition:opacity .9s var(--ease-out), filter .9s var(--ease-out), transform .9s var(--ease-out);
 }
-.process-stage{
-  position:relative;
-  z-index:2;
-  width:100%;
-  max-width:34rem;
-  height:clamp(14rem, 32vw, 18rem);
-  padding:0 1.5rem;
+.process-room-step.is-active{
+  opacity:1;
+  filter:blur(0);
+  transform:translateY(0);
 }
-/* all four stacked exactly on top of each other (inset:0 within the
-   stage above) — js/process-flow.js crossfades opacity/transform
-   between them as scroll progress crosses each step's own quarter of
-   the section's range, never more than one fully visible at a time. */
-.process-step-content{
-  position:absolute;
-  inset:0;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  opacity:0;
-  will-change:opacity, transform;
-}
-.process-step-content .hero-process-num{
+.process-room-num{
   display:block;
   font-size:.78rem;
-  letter-spacing:.32em;
+  letter-spacing:.36em;
   font-weight:600;
-  color:rgba(23,24,26,.4);
-  margin-bottom:.8rem;
+  color:rgba(228,205,154,.65);
+  margin-bottom:.7rem;
 }
-.process-step-content h3{
+.process-room-step h3{
   font-family:'Fraunces', serif;
   font-weight:500;
-  font-size:clamp(1.8rem, 4vw, 2.6rem);
-  color:var(--gold-deep);
-  margin-bottom:.85rem;
+  font-size:clamp(1.8rem, 4vw, 2.8rem);
+  color:var(--cream);
+  margin-bottom:.6rem;
 }
-.process-step-content p{
-  font-size:1.05rem;
+.process-room-step p{
+  font-size:1.02rem;
   line-height:1.6;
-  color:var(--paper-dim);
+  color:rgba(243,237,226,.6);
   max-width:32ch;
 }
-/* small fixed dots along the bottom marking which of the 4 steps is
-   currently active — a quiet progress affordance for a section that
-   otherwise gives no other visual cue how far through it you are. */
-.process-progress{
+/* small fixed dots marking which of the 4 steps is currently active —
+   a quiet progress affordance for a section that otherwise gives no
+   other visual cue how far through it you are. */
+.process-room-progress{
   position:absolute;
-  z-index:2;
+  z-index:5;
   bottom:clamp(2rem, 6vw, 3.5rem);
-  left:50%;
-  transform:translateX(-50%);
+  right:clamp(1.5rem, 6vw, 5rem);
   display:flex;
   gap:.6rem;
 }
-.process-progress-dot{
+.process-room-dot{
   width:7px;
   height:7px;
   border-radius:50%;
-  background:rgba(23,24,26,.18);
+  background:rgba(243,237,226,.22);
   transition:background .4s var(--ease-out), transform .4s var(--ease-out);
 }
-.process-progress-dot.is-active{
-  background:var(--gold-deep);
+.process-room-dot.is-active{
+  background:var(--gold-soft);
   transform:scale(1.5);
 }
 @media (max-width:560px){
-  .process-stage{ height:clamp(17rem, 68vw, 21rem); }
+  .process-room-step h3{ font-size:clamp(1.6rem, 7vw, 2.2rem); }
 }
 
 /* nav anchor targets — enough top clearance that the fixed header
    (see .site-header above) never overlaps whatever a Work/Process/
    Pricing link scrolls to. */
-#showcase, #heroProcess, #quoteSection{
+#showcase, #processRoom, #quoteSection{
   scroll-margin-top:clamp(4.5rem, 10vw, 6rem);
 }
 @media (prefers-reduced-motion:no-preference){
