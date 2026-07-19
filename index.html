@@ -92,108 +92,58 @@ window.scrollTo(0, 0);
   <a href="#quoteSection" class="hero-cta hero-cta--nav">Start a Project<span class="hero-cta-plus">+</span></a>
 </header>
 
-<!-- ============ HERO — a two-column intro (copy + CTA + trusted-by on
-     the left, the liquid glass mass on the right) followed by a 4-step
-     process row. The liquid mass starts as one bubble at the centre of
-     the hero, eases open, then wanders freely forever — see
-     js/hero-slime.js's own header for the material/physics/intro.
+<!-- ============ HERO — this used to be a two-column copy+liquid intro
+     followed by the process room; that intro section (headline, CTA,
+     trusted-by marquee, hero-slime liquid mass, social icons) has been
+     removed entirely and the process room promoted to be the hero
+     itself. #hero is kept as the outer id/wrapper only because
+     js/init.js's reveal sequence and js/title-dock.js's nav-light/-solid
+     scroll logic both key off it directly. Text/copy for this as an
+     actual hero is intentionally not added yet — building the visual
+     first.
      ============ -->
 <main id="hero" aria-hidden="true">
 
-  <div class="hero-top">
-    <div class="hero-water" id="heroWater">
-      <img src="img/hero/water-texture.jpg" alt="" id="heroWaterImg" loading="eager">
-      <canvas id="heroWaterCanvas" aria-hidden="true"></canvas>
-    </div>
-    <canvas id="heroSlime" aria-hidden="true"></canvas>
-    <div class="hero-inner">
-
-      <div class="hero-copy-col">
-        <h1 class="hero-headline" id="heroHeadline">Customer Focused Websites, Built with <em>Purpose</em></h1>
-        <p class="hero-sub">We design and build conversion-focused websites that build trust, communicate clearly, and guide visitors to their next step.</p>
-        <a href="#quoteSection" class="hero-cta">Start a Project<span class="hero-cta-plus">+</span></a>
-
-        <!-- looping logo marquee — the same 4 generic trade logos
-             repeated twice back to back (second copy aria-hidden so
-             screen readers don't hear it twice); see .hero-trusted-track
-             in style.css for how that repetition makes the loop seamless -->
-        <div class="hero-trusted">
-          <p class="hero-trusted-label">Trusted across industries</p>
-          <div class="hero-trusted-marquee">
-            <div class="hero-trusted-track">
-              <span class="hero-logo-chip">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/></svg>
-                Roofing Co.
-              </span>
-              <span class="hero-logo-chip">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4c-1.7 0-2.8 1-4 1-1.5 0-2.5-1.5-3.5 0C3.5 6.8 4 9 4.5 12c.4 3 1 7 2.5 7 1.2 0 1.3-3.2 1.8-5 .3-1.2.8-2 1.7-2h1c.9 0 1.4.8 1.7 2 .5 1.8.6 5 1.8 5 1.5 0 2.1-4 2.5-7 .5-3 1-5.2-.5-7-1-1.5-2 0-3.5 0-1.2 0-2.3-1-4-1z"/></svg>
-                Bright Dental
-              </span>
-              <span class="hero-logo-chip">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2z"/></svg>
-                Apex Plumbing
-              </span>
-              <span class="hero-logo-chip">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
-                Volt Electric
-              </span>
-              <span class="hero-logo-chip" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"/></svg>
-                Roofing Co.
-              </span>
-              <span class="hero-logo-chip" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4c-1.7 0-2.8 1-4 1-1.5 0-2.5-1.5-3.5 0C3.5 6.8 4 9 4.5 12c.4 3 1 7 2.5 7 1.2 0 1.3-3.2 1.8-5 .3-1.2.8-2 1.7-2h1c.9 0 1.4.8 1.7 2 .5 1.8.6 5 1.8 5 1.5 0 2.1-4 2.5-7 .5-3 1-5.2-.5-7-1-1.5-2 0-3.5 0-1.2 0-2.3-1-4-1z"/></svg>
-                Bright Dental
-              </span>
-              <span class="hero-logo-chip" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2z"/></svg>
-                Apex Plumbing
-              </span>
-              <span class="hero-logo-chip" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/></svg>
-                Volt Electric
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="hero-visual-col">
-        <div class="hero-social" id="heroSocial">
-          <a href="https://www.instagram.com/designedbypapi/" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on Instagram">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="3" width="18" height="18" rx="5"/>
-              <circle cx="12" cy="12" r="4.2"/>
-              <circle cx="17.3" cy="6.7" r="0.6" fill="currentColor" stroke="none"/>
-            </svg>
-          </a>
-          <a href="https://www.tiktok.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on TikTok">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z"/>
-            </svg>
-          </a>
-          <a href="https://www.youtube.com/@designedbypapi" target="_blank" rel="noopener" class="hero-social-link" aria-label="Papi on YouTube">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="6" width="18" height="12" rx="4"/>
-              <path d="M10.3 9.6v4.8l4.4-2.4-4.4-2.4z" fill="currentColor" stroke="none"/>
-            </svg>
-          </a>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- "Process" nav link's actual scroll target. A real 3D room
-       (Three.js, js/process-room.js) the camera walks through as the
-       visitor scrolls, pausing at each of the 4 Papi process steps —
-       same tall-outer-section + sticky-inner-viewport pattern as
-       .contrast-section below: scrolling through the outer section's
-       own height keeps the canvas pinned in the viewport while the
-       camera travels a fixed path through the room. -->
+  <!-- "Process" nav link's actual scroll target. A simple 3D alcove
+       (Three.js, js/process-room.js) — one arched opening, a
+       reflective floor, a glass hero object — lit almost entirely by
+       a real HDRI sky rather than hand-placed point lights, with a
+       small continuous camera push (not 4 discrete stops) behind the
+       4 Papi process steps below. Same tall-outer-section + sticky-
+       inner-viewport pattern as .contrast-section: scrolling through
+       the outer section's own height keeps the canvas pinned while
+       the step copy crossfades. -->
   <section class="process-room-section" id="processRoom">
     <div class="process-room-sticky">
       <canvas id="processRoomCanvas" aria-hidden="true"></canvas>
+      <div class="process-room-steps" id="processRoomSteps">
+        <div class="process-room-step" data-step="0">
+          <span class="process-room-num">01</span>
+          <h3>Discover</h3>
+          <p>We learn about your brand, goals, and audience.</p>
+        </div>
+        <div class="process-room-step" data-step="1">
+          <span class="process-room-num">02</span>
+          <h3>Design</h3>
+          <p>Strategic, modern designs that make an impact.</p>
+        </div>
+        <div class="process-room-step" data-step="2">
+          <span class="process-room-num">03</span>
+          <h3>Develop</h3>
+          <p>Fast, responsive, and built with clean code.</p>
+        </div>
+        <div class="process-room-step" data-step="3">
+          <span class="process-room-num">04</span>
+          <h3>Launch</h3>
+          <p>Tested, refined, and ready to perform from day one.</p>
+        </div>
+      </div>
+      <div class="process-room-progress" aria-hidden="true">
+        <span class="process-room-dot" data-step="0"></span>
+        <span class="process-room-dot" data-step="1"></span>
+        <span class="process-room-dot" data-step="2"></span>
+        <span class="process-room-dot" data-step="3"></span>
+      </div>
     </div>
   </section>
 
@@ -696,9 +646,7 @@ window.scrollTo(0, 0);
   }
 }
 </script>
-<script type="module" src="js/hero-slime.js"></script>
 <script type="module" src="js/process-room.js"></script>
-<script src="js/headline-cursor.js"></script>
 <script src="js/title-dock.js"></script>
 <script src="js/contrast.js"></script>
 <script src="js/showcase.js"></script>
@@ -709,7 +657,6 @@ window.scrollTo(0, 0);
 <script src="js/quote-form.js"></script>
 <script src="js/newsletter-popup.js"></script>
 <script src="js/cursor.js"></script>
-<script type="module" src="js/liquid-image-fluid.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>

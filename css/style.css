@@ -593,13 +593,17 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
    #processRoom is still the "Process" nav link's own scroll target. ---- */
 .process-room-section{
   position:relative;
-  height:500vh;
+  /* v1 scene is a single, mostly-static camera push (not 4 discrete
+     stage stops like the old rotunda) — 500vh was sized for that old
+     room and is now far more scroll than the scene needs; ~320vh gives
+     each of the 4 crossfading steps a comfortable, still-brisk dwell */
+  height:320vh;
   /* svh + --stable-vh — see the long comment on .contrast-section
      below for why plain vh alone isn't enough on several in-app
      browsers */
-  height:500svh;
-  height:calc(500 * var(--stable-vh, 1vh));
-  background:#0e0b08;
+  height:320svh;
+  height:calc(320 * var(--stable-vh, 1vh));
+  background:var(--paper);
 }
 .process-room-sticky{
   position:sticky;
@@ -608,7 +612,7 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
   height:100svh;
   height:calc(100 * var(--stable-vh, 1vh));
   overflow:hidden;
-  background:#0e0b08;
+  background:var(--paper);
 }
 #processRoomCanvas{
   position:absolute;
@@ -621,6 +625,66 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
 }
 #processRoomCanvas.is-ready{
   opacity:1;
+}
+.process-room-steps{
+  position:absolute;
+  left:clamp(1.5rem, 6vw, 5.5rem);
+  bottom:clamp(2rem, 8vh, 5rem);
+  max-width:26rem;
+  pointer-events:none;
+}
+.process-room-step{
+  position:absolute;
+  left:0;
+  bottom:0;
+  opacity:0;
+  transform:translateY(14px);
+  transition:opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+}
+.process-room-step.is-active{
+  position:relative;
+  opacity:1;
+  transform:translateY(0);
+}
+.process-room-num{
+  display:block;
+  font-size:.85rem;
+  font-weight:600;
+  letter-spacing:.12em;
+  color:var(--gold-deep);
+}
+.process-room-step h3{
+  margin:.35em 0 .3em;
+  font-size:clamp(1.6rem, 3.2vw, 2.3rem);
+  color:var(--ink);
+}
+.process-room-step p{
+  margin:0;
+  max-width:24rem;
+  color:var(--ink-soft);
+  opacity:.82;
+}
+.process-room-progress{
+  position:absolute;
+  right:clamp(1.5rem, 6vw, 5.5rem);
+  bottom:clamp(2rem, 8vh, 5rem);
+  display:flex;
+  flex-direction:column;
+  gap:.6rem;
+  pointer-events:none;
+}
+.process-room-dot{
+  width:.4rem;
+  height:.4rem;
+  border-radius:50%;
+  background:var(--ink);
+  opacity:.22;
+  transition:opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+}
+.process-room-dot.is-active{
+  opacity:1;
+  background:var(--gold-deep);
+  transform:scale(1.4);
 }
 /* nav anchor targets — enough top clearance that the fixed header
    (see .site-header above) never overlaps whatever a Work/Process/
