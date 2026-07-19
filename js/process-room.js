@@ -86,6 +86,7 @@ const ROOM = {
   radius: 9,
   height: 6.4,
   oculusRadius: 2.3,
+  oculusThroatHeight: 0.6, // real depth above the lip — see the throat mesh in _buildRoom
   domeRise: 2.1,
   // full 360 deg enclosure — an early version left a gap at the front
   // (no "entrance" is ever actually seen, the camera only ever looks
@@ -126,6 +127,34 @@ function wallPoint(theta, radius){
     x: radius * Math.sin(theta),
     z: -radius * Math.cos(theta),
   };
+}
+
+// bakes a directional brightness gradient into a ring/cylinder's own
+// per-vertex colour, brightest at brightAngle and darkest at the
+// opposite side — used on the oculus lip/throat for the reference
+// photo's "crescent" look. A real point light was tried there first,
+// but its falloff against the throat's own always-lit-bright lip
+// ring read as barely any asymmetry at all; vertex colour gives that
+// same look directly and predictably rather than depending on a
+// light position tuned by eye against an unreliable render
+function applyCrescentVertexColors(geometry, brightAngle, floorBrightness, axes){
+  const pos = geometry.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  for(let i = 0; i < pos.count; i++){
+    const x = pos.getX(i);
+    // RingGeometry lies flat in its own local XY plane (its "radius"
+    // axis pair) before this mesh's own rotation.x=90deg turns it
+    // horizontal; CylinderGeometry is already upright with X/Z as its
+    // radial plane — each needs its own pair of axes read here
+    const other = axes === 'xy' ? pos.getY(i) : pos.getZ(i);
+    let diff = Math.atan2(x, other) - brightAngle;
+    while(diff > Math.PI) diff -= Math.PI * 2;
+    while(diff < -Math.PI) diff += Math.PI * 2;
+    const t = 1 - Math.abs(diff) / Math.PI; // 1 at brightAngle, 0 at the opposite side
+    const b = floorBrightness + (1 - floorBrightness) * Math.pow(Math.max(0, t), 1.6);
+    colors[i * 3] = b; colors[i * 3 + 1] = b; colors[i * 3 + 2] = b;
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
 function buildWallGeometry(radius, height, thetaStart, thetaEnd, segments){
@@ -175,31 +204,32 @@ function buildDomeGeometry(outerRadius, wallTop, oculusRadius, rise, steps, segm
   return new THREE.LatheGeometry(pts, segments);
 }
 
-// the stepping stones' own rounded rim band ONLY — no flat centre
-// point in this profile, unlike an earlier version that revolved the
-// whole puck (flat top included) as one LatheGeometry. Lathe UVs
-// unwrap along the profile's own path, so including the flat top's
-// centre-to-edge line in that same revolve packed the entire radial
-// span of a flat disc face into a short stretch of the V coordinate —
-// on a real photographic rock texture that reads as the image being
-// wrung into a tight spiral toward the centre, an actual hole-like
-// vortex rather than a solid stone. Pairing this rim-only band with a
-// separate flat CircleGeometry cap (ordinary, non-pinched radial UV —
-// see where this is used) fixes that without losing the rounded edge.
-function buildStoneRimGeometry(radius, thickness, bevel, segments){
-  const b = Math.min(bevel, thickness / 2 - 0.001, radius * 0.4);
-  const half = thickness / 2;
-  const pts = [];
-  const steps = 6;
-  for(let i = 0; i <= steps; i++){
-    const phi = (i / steps) * (Math.PI / 2);
-    pts.push(new THREE.Vector2(radius - b + b * Math.sin(phi), half - b * (1 - Math.cos(phi))));
-  }
-  for(let i = steps; i >= 0; i--){
-    const phi = (i / steps) * (Math.PI / 2);
-    pts.push(new THREE.Vector2(radius - b + b * Math.sin(phi), -half + b * (1 - Math.cos(phi))));
-  }
-  return new THREE.LatheGeometry(pts, segments);
+// a flat, rounded-rectangle stepping-pad — plain ExtrudeGeometry (not
+// a Lathe revolve, so no risk of the UV-pinch/vortex look an earlier
+// circular-puck version had). rotateX(-90deg) maps the extrude's own
+// local Z (its 0..thickness depth) onto local Y, so the result already
+// rests with its bottom at y=0 and top at y=thickness — placed at
+// position.y=0, it sits flush on the floor with no further offset
+function tracePadShape(shape, width, depth, cornerRadius){
+  const hw = width / 2, hd = depth / 2, r = cornerRadius;
+  shape.moveTo(-hw + r, -hd);
+  shape.lineTo(hw - r, -hd);
+  shape.quadraticCurveTo(hw, -hd, hw, -hd + r);
+  shape.lineTo(hw, hd - r);
+  shape.quadraticCurveTo(hw, hd, hw - r, hd);
+  shape.lineTo(-hw + r, hd);
+  shape.quadraticCurveTo(-hw, hd, -hw, hd - r);
+  shape.lineTo(-hw, -hd + r);
+  shape.quadraticCurveTo(-hw, -hd, -hw + r, -hd);
+}
+function buildPadGeometry(width, depth, thickness, cornerRadius, bevelSize){
+  const shape = new THREE.Shape();
+  tracePadShape(shape, width, depth, cornerRadius);
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: thickness, bevelEnabled: true, bevelThickness: bevelSize, bevelSize, bevelSegments: 3, steps: 1,
+  });
+  geo.rotateX(-Math.PI / 2);
+  return geo;
 }
 
 // the recessed platform's own drop from floor level down to its sunken
@@ -485,9 +515,17 @@ function makeStepSignTexture(number, title, lines){
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
 
+  // a soft warm-umber panel — the same family as the doorway backdrop/
+  // void plane tones rather than a stark black card — so the sign
+  // reads as an integrated placard against the room's own palette
+  ctx.fillStyle = 'rgba(37,29,20,0.55)';
+  ctx.beginPath();
+  ctx.roundRect(30, 30, w - 60, h - 60, 26);
+  ctx.fill();
+
   const glow = ctx.createRadialGradient(w / 2, h * 0.4, 0, w / 2, h * 0.4, h * 0.55);
-  glow.addColorStop(0, 'rgba(255,231,189,0.16)');
-  glow.addColorStop(1, 'rgba(255,231,189,0)');
+  glow.addColorStop(0, 'rgba(255,222,175,0.14)');
+  glow.addColorStop(1, 'rgba(255,222,175,0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, w, h);
 
@@ -639,12 +677,31 @@ class ProcessRoom {
 
     // the oculus's own bright warm ivory stone interior, where the
     // dome meets the opening, at the dome's own apex height (wallTop +
-    // rise), not the wall's height
-    const lipMat = new THREE.MeshBasicMaterial({ color: 0xfdf3dc });
-    const lip = new THREE.Mesh(new THREE.RingGeometry(ROOM.oculusRadius - 0.06, ROOM.oculusRadius, 48), lipMat);
+    // rise), not the wall's height — a per-vertex crescent gradient
+    // (see applyCrescentVertexColors) rather than a flat unlit colour,
+    // for the reference photo's bright-one-side/shadowed-other-side
+    // look
+    const oculusBrightAngle = Math.atan2(1.2, -1.4); // matches oculusGraze's own direction in _buildLights
+    const lipGeo = new THREE.RingGeometry(ROOM.oculusRadius - 0.06, ROOM.oculusRadius, 64);
+    applyCrescentVertexColors(lipGeo, oculusBrightAngle, 0.35, 'xy');
+    const lipMat = new THREE.MeshBasicMaterial({ color: 0xfdf3dc, vertexColors: true });
+    const lip = new THREE.Mesh(lipGeo, lipMat);
     lip.rotation.x = Math.PI / 2;
     lip.position.y = H + ROOM.domeRise - 0.02;
     group.add(lip);
+
+    // a real light well standing up from the lip — before this the
+    // hole was a paper-thin ring with no surface behind it, giving the
+    // crescent gradient above no real depth to read against
+    const throatGeo = new THREE.CylinderGeometry(ROOM.oculusRadius - 0.02, ROOM.oculusRadius + 0.35, ROOM.oculusThroatHeight, 64, 1, true);
+    applyCrescentVertexColors(throatGeo, oculusBrightAngle, 0.2, 'xz');
+    const throatMat = new THREE.MeshStandardMaterial({
+      color: 0xe7dbc0, roughness: 0.92, metalness: 0, side: THREE.DoubleSide, vertexColors: true,
+    });
+    const throat = new THREE.Mesh(throatGeo, throatMat);
+    throat.position.y = H + ROOM.domeRise - 0.02 + ROOM.oculusThroatHeight / 2;
+    throat.receiveShadow = true;
+    group.add(throat);
 
     // a visible light-shaft mesh (a thin transparent cone) was tried
     // here for the "beam through the oculus" look and pulled back out
@@ -770,39 +827,35 @@ class ProcessRoom {
     led.position.y = 0.05;
     group.add(led);
 
-    // rough natural stone, uneven texture — its own material,
-    // deliberately distinct from the platform's polished marble, for
-    // the stepping-stone path from the entrance all the way to the
-    // platform's own edge. Each stone is a flat CircleGeometry cap
-    // (plain, non-pinched radial UV) plus a separate rounded-rim band
-    // (see buildStoneRimGeometry's own header for why those are two
-    // meshes instead of one Lathe revolve) sharing one material, built
-    // once here and reused across every stone position below.
-    const stepMat = new THREE.MeshStandardMaterial({ color: 0x6b6157, roughness: 0.92, metalness: 0.02 });
-    loadPBRSet(loader, 'stepping-stones', stepMat, 1, 1, anisotropy, true);
-    const stoneRadius = 0.55, stoneThickness = 0.16, stoneBevel = 0.05;
-    const stoneCapGeo = new THREE.CircleGeometry(stoneRadius - stoneBevel, 24);
-    stoneCapGeo.setAttribute('uv2', stoneCapGeo.attributes.uv);
-    const stoneRimGeo = buildStoneRimGeometry(stoneRadius, stoneThickness, stoneBevel, 24);
-    stoneRimGeo.setAttribute('uv2', stoneRimGeo.attributes.uv);
-    const stonePath = [
-      { x: 0.0, z: 8.4 }, { x: 0.5, z: 7.3 }, { x: -0.35, z: 6.2 },
-      { x: 0.4, z: 5.1 }, { x: -0.3, z: 4.0 }, { x: 0.35, z: 2.9 },
-      { x: -0.2, z: 1.9 }, { x: 0.15, z: 0.9 },
-    ];
-    stonePath.forEach((p) => {
-      const stoneCap = new THREE.Mesh(stoneCapGeo, stepMat);
-      stoneCap.rotation.x = -Math.PI / 2;
-      stoneCap.position.y = stoneThickness / 2;
-      stoneCap.receiveShadow = true;
-      const stoneRim = new THREE.Mesh(stoneRimGeo, stepMat);
-      stoneRim.receiveShadow = true;
-      stoneRim.castShadow = true;
-      const stone = new THREE.Group();
-      stone.add(stoneCap, stoneRim);
-      stone.position.set(p.x, 0.08, p.z);
-      group.add(stone);
-    });
+    // smooth, dark stone pavers — same family as the platform's polish
+    // but its own material (a much larger repeat spreads the source
+    // photo's own crack detail out into a subtle, sanded-looking
+    // variation instead of a densely-repeated jagged rock pattern),
+    // for two separate stepping paths: the long one from the entrance
+    // up to the platform's near edge, and a short one from the vase
+    // alcove behind the platform up to its far edge — matching the
+    // reference photo's two converging paths rather than just one.
+    const stepMat = new THREE.MeshStandardMaterial({ color: 0x2c2620, roughness: 0.45, metalness: 0.06 });
+    loadPBRSet(loader, 'stepping-stones', stepMat, 0.35, 0.5, anisotropy, true);
+    stepMat.normalScale = new THREE.Vector2(0.35, 0.35);
+    const padGeo = buildPadGeometry(0.85, 1.05, 0.14, 0.16, 0.03);
+    padGeo.setAttribute('uv2', padGeo.attributes.uv);
+    const placePad = (x, z) => {
+      const pad = new THREE.Mesh(padGeo, stepMat);
+      pad.position.set(x, 0, z);
+      pad.receiveShadow = true;
+      pad.castShadow = true;
+      group.add(pad);
+    };
+    // front path: entrance toward the platform's near edge (~z 0.5)
+    [
+      { x: 0.0, z: 7.9 }, { x: 0.35, z: 6.6 }, { x: -0.3, z: 5.3 },
+      { x: 0.3, z: 4.0 }, { x: -0.25, z: 2.7 }, { x: 0.15, z: 1.4 },
+    ].forEach((p) => placePad(p.x, p.z));
+    // back path: vase alcove (~z -8) toward the platform's far edge (~z -4.9)
+    [
+      { x: 0.1, z: -7.2 }, { x: -0.2, z: -6.0 }, { x: 0.15, z: -4.8 },
+    ].forEach((p) => placePad(p.x, p.z));
 
     // dark charcoal concrete, matte finish — its own material for the
     // doorway's interior reveal, distinct from the wall's plaster
@@ -905,8 +958,10 @@ class ProcessRoom {
 
     // dark plane at the back of the carved recess, beyond which the
     // fog/darkness reads as "leads somewhere", pushed back to match
-    // the reveal's own increased depth
-    const voidMat = new THREE.MeshBasicMaterial({ color: 0x050403 });
+    // the reveal's own increased depth — warm umber-black, not a flat
+    // near-pure-black, so it recedes into shadow without reading as a
+    // stark cutout against the wall's own warm plaster
+    const voidMat = new THREE.MeshBasicMaterial({ color: 0x120d08 });
     const voidPlane = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 3.5), voidMat);
     voidPlane.position.set(0, 1.9, 0.97);
     doorGroup.add(voidPlane);
@@ -944,9 +999,19 @@ class ProcessRoom {
     vaseLight.position.set(0.15, 1.1, 0.55);
     doorGroup.add(vaseLight);
 
+    // a low plinth under the vase — previously it sat straight on the
+    // floor, unlike the reference photo's own small raised base
+    const pedestalHeight = 0.16;
+    const pedestalMat = new THREE.MeshStandardMaterial({ color: 0x241d15, roughness: 0.7, metalness: 0.05 });
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.4, pedestalHeight, 28), pedestalMat);
+    pedestal.position.set(0, pedestalHeight / 2, 0.82);
+    pedestal.castShadow = true;
+    pedestal.receiveShadow = true;
+    doorGroup.add(pedestal);
+
     const vaseMat = new THREE.MeshStandardMaterial({ color: 0x3a2c1c, roughness: 0.5, metalness: 0.3 });
     const vase = new THREE.Mesh(buildVaseGeometry(), vaseMat);
-    vase.position.set(0, 0, 0.82);
+    vase.position.set(0, pedestalHeight, 0.82);
     vase.castShadow = true;
     vase.receiveShadow = true;
     doorGroup.add(vase);
@@ -963,7 +1028,7 @@ class ProcessRoom {
     ];
     branches.forEach((b, i) => {
       const branch = new THREE.Group();
-      branch.position.set(0, 0.58, 0.82);
+      branch.position.set(0, 0.58 + pedestalHeight, 0.82);
       branch.rotation.y = b.yaw;
       branch.rotation.z = b.tilt;
       doorGroup.add(branch);
@@ -1012,6 +1077,15 @@ class ProcessRoom {
     skylight.position.set(0, ROOM.height + ROOM.domeRise - 0.6, -1.4);
     this.scene.add(skylight);
 
+    // offset to one side of the oculus throat (see the throat mesh in
+    // _buildRoom) so it grazes one inner face brightly and leaves the
+    // opposite face in its own shadow — the reference photo's crescent-
+    // lit look, which a light sitting dead-centre above the hole can't
+    // produce no matter how the throat itself is shaped
+    const oculusGraze = new THREE.PointLight(0xfff4e0, 18, 5, 1.5);
+    oculusGraze.position.set(1.2, ROOM.height + ROOM.domeRise + ROOM.oculusThroatHeight - 0.1, -1.4);
+    this.scene.add(oculusGraze);
+
     // soft warm bounce off the floor, filling the underside of the
     // dome the way real light reflected up off a pale floor would —
     // warm cream, not orange
@@ -1052,9 +1126,14 @@ class ProcessRoom {
     const right = wallPoint(ROOM.doorTheta, ROOM.radius);
 
     this.keyframes = [
-      { // Discover — wide establishing view from the threshold
-        pos: new THREE.Vector3(0, 2.75, 8.6),
-        look: new THREE.Vector3(0, 1.85, -2.2),
+      { // Discover — wide establishing view from the threshold, pulled
+        // back and raised from the room's original eye-level framing so
+        // the full floor-to-ceiling height (including the oculus/dome)
+        // sits in frame, matching the reference photo's own wide,
+        // slightly-elevated architectural establishing shot rather than
+        // a walking-eye-level view that never showed the ceiling at all
+        pos: new THREE.Vector3(0, 4.6, 13),
+        look: new THREE.Vector3(0, 4.2, -2.2),
       },
       { // Design — angled toward the left doorway
         pos: new THREE.Vector3(-2.1, 2.25, 3.6),
