@@ -50,7 +50,7 @@ const DEFAULTS = {
   simResolution: 224,
   pressureIterations: 20,
   velocityDissipation: 1.1,   // per-second — how quickly the flow itself loses energy
-  splatRadius: 0.09,
+  splatRadius: 0.028,
   splatForce: 1800,
   strength: 0.00065,          // final image-UV displacement strength — the fluid's raw velocity is
                               // in the thousands (see splatForce), not a 0..1-per-second scale, so
@@ -316,23 +316,21 @@ class LiquidImageFluid {
   }
 
   _makeTarget(w, h){
-    // NearestFilter, not Linear — sampling a HalfFloat target with
-    // linear filtering needs the OES_texture_float_linear extension,
-    // and where it's unsupported (or behaves inconsistently) the GPU
-    // can return outright garbage wherever the data actually varies
-    // between texels, rather than failing loudly. That matched this
-    // exact bug precisely: a truly all-zero buffer looked fine under
-    // either filter mode (nothing to interpolate incorrectly), but the
-    // moment a real splat introduced real variation, sampling broke —
-    // confirmed by testing with a zero field first, then a real one.
-    // Nearest is a little blockier at this sim's 128px resolution, but
-    // that's an entirely acceptable tradeoff against silently-wrong
-    // output, and the effect is smoothed out again by the composite's
-    // own display-resolution sampling regardless.
+    // LinearFilter — an earlier version used Nearest here over a fear
+    // that linear-sampling a HalfFloat target needs the
+    // OES_texture_float_linear extension and could silently return
+    // garbage where it's missing. That was never actually the cause of
+    // this file's original black-texture bug (see _loadImageTexture's
+    // own comment — it was THREE.Texture vs TextureLoader), and Nearest
+    // otherwise costs real visual quality: once splatRadius shrank to
+    // match a smaller, more cursor-sized ripple, each splat spans far
+    // fewer texels and Nearest's texel edges became clearly visible as
+    // blockiness. Tested Linear directly at that smaller radius (no
+    // garbage, no black output) before switching.
     return new THREE.WebGLRenderTarget(w, h, {
       type: THREE.HalfFloatType,
-      minFilter: THREE.NearestFilter,
-      magFilter: THREE.NearestFilter,
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter,
       depthBuffer: false,
       stencilBuffer: false,
     });
