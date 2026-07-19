@@ -54,6 +54,7 @@
 import * as THREE from './vendor/three.module.min.js';
 import { RGBELoader } from './vendor/examples/jsm/loaders/RGBELoader.js';
 import { Reflector } from './vendor/examples/jsm/objects/Reflector.js';
+import { mergeVertices } from './vendor/examples/jsm/utils/BufferGeometryUtils.js';
 import { EffectComposer } from './vendor/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from './vendor/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from './vendor/examples/jsm/postprocessing/ShaderPass.js';
@@ -223,6 +224,30 @@ function buildDappledShadowMap(size){
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
+}
+
+// ExtrudeGeometry's default UV generator (WorldUVGenerator) maps each
+// cap-face vertex's UV straight to its RAW local x/y — not remapped
+// into 0..1 texture space. For a wall many units wide/tall (these are
+// 14-38 units), that means almost the entire surface's u/v falls
+// outside [0,1], and with the default ClampToEdgeWrapping every one of
+// those vertices samples the texture's outermost edge pixel instead of
+// its own dappled position. The wall's own local x=0 (and y=0) is
+// exactly where u/v crosses from "real, unclamped sample" to "clamped
+// to the edge" — a hard value jump right at that line, running the
+// wall's full height, independent of geometry or lighting (confirmed
+// directly: nulling the map removes it; so does this normalization,
+// with the map left in place). This rewrites UV to a simple planar x/y
+// projection normalized to the wall's own bounds, so every vertex
+// samples a real, continuous part of the texture — no clamp boundary
+// anywhere on the surface
+function normalizeWallUV(geometry, minX, width, height){
+  const posAttr = geometry.attributes.position;
+  const uvAttr = geometry.attributes.uv;
+  for (let i = 0; i < posAttr.count; i++){
+    uvAttr.setXY(i, (posAttr.getX(i) - minX) / width, posAttr.getY(i) / height);
+  }
+  uvAttr.needsUpdate = true;
 }
 
 // a soft, elongated wisp — a warm-white radial glow squeezed vertically
@@ -626,9 +651,16 @@ class ProcessRoom {
     slitHole.lineTo(slitCenterX - slitW / 2, slitBottom + slitH);
     slitHole.closePath();
     backShape.holes.push(slitHole);
-    const backGeo = new THREE.ExtrudeGeometry(backShape, {
+    // see normalizeWallUV's own comment — this wall's default UV would
+    // otherwise clamp-seam at local x=0/y=0. mergeVertices still runs
+    // afterward as ordinary geometry cleanup (it also welds the
+    // hole-bridge triangulation's coincident position duplicates)
+    let backGeo = new THREE.ExtrudeGeometry(backShape, {
       depth: wallThickness, bevelEnabled: false, curveSegments: 32, steps: 1,
     });
+    normalizeWallUV(backGeo, -roomWidth / 2, roomWidth, roomHeight);
+    backGeo = mergeVertices(backGeo);
+    backGeo.computeVertexNormals();
     const backWall = new THREE.Mesh(backGeo, wallMat);
     // the extrude's own front face (local z = wallThickness) is the one
     // that should sit at the room's actual back plane, so the mesh is
@@ -714,9 +746,16 @@ class ProcessRoom {
           winHole.closePath();
           sideShape.holes.push(winHole);
         });
-        const sideGeo = new THREE.ExtrudeGeometry(sideShape, {
+        // same UV clamp-seam risk as the back wall (see
+        // normalizeWallUV) — this shape spans local x -sideWallFront..
+        // sideWallBack, far past [0,1], so it gets normalized the same
+        // way
+        let sideGeo = new THREE.ExtrudeGeometry(sideShape, {
           depth: wallThickness, bevelEnabled: false, curveSegments: 32, steps: 1,
         });
+        normalizeWallUV(sideGeo, -sideWallFront, sideWallFront + sideWallBack, roomHeight);
+        sideGeo = mergeVertices(sideGeo);
+        sideGeo.computeVertexNormals();
         const sideWall = new THREE.Mesh(sideGeo, wallMat);
         sideWall.position.set(side * roomWidth / 2, 0, 0);
         sideWall.rotation.y = -side * (Math.PI / 2 - 0.18);
@@ -744,6 +783,10 @@ class ProcessRoom {
         const sideGeo = new THREE.ExtrudeGeometry(plainShape, {
           depth: wallThickness, bevelEnabled: false, curveSegments: 1, steps: 1,
         });
+        // same UV clamp-seam risk as the other two walls, even without
+        // any holes — this shape alone spans local x -sideWallBack..
+        // sideWallFront, still far past [0,1] (see normalizeWallUV)
+        normalizeWallUV(sideGeo, -sideWallBack, sideWallBack + sideWallFront, roomHeight);
         const sideWall = new THREE.Mesh(sideGeo, wallMat);
         sideWall.position.set(side * roomWidth / 2, 0, 0);
         sideWall.rotation.y = -side * (Math.PI / 2 - 0.18);
