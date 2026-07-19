@@ -1,8 +1,8 @@
 /* ===================================================================
    Papi — ProcessRoom (v1 foundation, rebuilt from scratch)
-   A simple, mostly-static 3D alcove (Three.js) behind the 4 Papi
-   process steps (Discover/Design/Develop/Launch), replacing an earlier
-   rotunda-with-oculus room that was lit by 8 separate hand-placed
+   A simple, mostly-static 3D alcove (Three.js) — the site's hero itself,
+   no overlaid step copy — replacing an earlier rotunda-with-oculus room
+   that was lit by 8 separate hand-placed
    point lights. That approach never converged on "soft, evenly lit,
    photoreal" no matter how much any single light was tuned, because a
    handful of point lights viewed from 4 very different close-up
@@ -22,14 +22,20 @@
    this pass. See /Users/carlossamayoa/.claude/plans/
    delightful-skipping-sunset.md for the full plan this implements.
 
-   Lighting model: scene.environment (+ scene.background, so the arch
-   opening itself shows real sky rather than void) from one HDRI
-   (Poly Haven, CC0 — img/hdri/bright_sky.hdr, downloaded once, nothing
-   fetches from polyhaven.com at runtime) does almost all the actual
-   lighting. The one DirectionalLight below exists only because an
-   environment map alone can't cast a real-time dynamic shadow — it
-   stands in for "the sun this sky belongs to," not a separate light
-   source of its own.
+   Lighting model (current): still no discrete lights (no point/spot/
+   directional of any kind) — one real HDRI (see _buildEnvironment)
+   lights the whole room purely through scene.environment (IBL/bounce).
+   Each material's own envMapIntensity controls how much of its true PBR
+   colour that bounce actually reveals (tuned moderate, not maxed —
+   enough to read as real material colour, not so much a rough surface
+   like the walls shows the HDRI's own prefiltered mip-chain seams as
+   banding, a real artifact hit and fixed earlier this session). Overall
+   darkness is a single separate dial: renderer.toneMappingExposure,
+   pulled down for a dark, cinematic mood. scene.background is now a
+   separate, purely cosmetic deep-space galaxy (see buildGalaxyTexture)
+   — the room reads as floating in space through the arch/slit, per
+   direct request — kept fully independent of scene.environment so it
+   never touches the actual lighting, only what's visible behind it.
 
    Camera: fixed wide framing, a small continuous push/tilt over the
    whole scroll range (not 4 discrete stops), plus the same mouse-
@@ -66,6 +72,12 @@ const CONFIG = {
   rotationYawMax: 0.46,
   rotationPitchMax: 0.18,
   parallaxPosMax: 0.3,
+  // how quickly the cursor-follow and scroll-driven camera catch up to
+  // their own targets each frame — lower is slower/smoother. Both were
+  // slowed down from an initial 0.06/instant-snap pass per direct
+  // feedback that the room's own motion felt too quick/abrupt
+  mouseLerp: 0.03,
+  progressLerp: 0.045,
 };
 
 // the sphere's resting spot — out in the open water rather than tucked
@@ -77,14 +89,6 @@ const CONFIG = {
 // floor mesh naturally occludes the lower half via normal depth
 // testing, no extra clipping trick needed
 const SPHERE_POS = { x: 0, y: 0, z: 2.0 };
-
-// one entry per process step — same copy the old room used
-const STEPS = [
-  { number: '01', title: 'Discover', lines: ['We learn about your brand, goals,', 'and audience.'] },
-  { number: '02', title: 'Design', lines: ['Strategic, modern designs that', 'make an impact.'] },
-  { number: '03', title: 'Develop', lines: ['Fast, responsive, and built with', 'clean code.'] },
-  { number: '04', title: 'Launch', lines: ['Tested, refined, and ready to', 'perform from day one.'] },
-];
 
 // traces a rounded-top rectangle into a Shape/Path — cornerRadius equal
 // to half the width gives a full arched top rather than a subtly
@@ -98,86 +102,6 @@ function traceArch(path, width, height, cornerRadius){
   path.quadraticCurveTo(hw, height, hw, height - cornerRadius);
   path.lineTo(hw, 0);
   path.lineTo(-hw, 0);
-}
-
-// a wide, thin plane whose TOP edge is displaced into an irregular
-// ridge line (a few sine octaves) while the bottom edge stays flat —
-// a cheap distant-hill silhouette. Real geometry, not a flat texture,
-// so it actually parallaxes as the camera moves and picks up the
-// scene's own fog/environment lighting, unlike the flat HDRI background
-// sphere the window openings showed before this pass — that's the
-// "depth" the openings were missing
-function buildHillRidgeGeometry(width, baseHeight, bumpiness, segments, seed, freqScale = 1){
-  const geo = new THREE.PlaneGeometry(width, baseHeight, segments, 1);
-  const pos = geo.attributes.position;
-  for(let i = 0; i < pos.count; i++){
-    const x = pos.getX(i);
-    const y = pos.getY(i);
-    if(y > 0){
-      const u = x / width + seed;
-      const f = freqScale;
-      const ridge = Math.sin(u * 6.0 * f) * 0.5 + Math.sin(u * 13.0 * f + 1.7) * 0.3 + Math.sin(u * 27.0 * f + 4.1) * 0.2;
-      pos.setY(i, baseHeight * 0.5 + ridge * bumpiness);
-    } else {
-      pos.setY(i, -baseHeight * 0.5 - bumpiness);
-    }
-  }
-  geo.computeVertexNormals();
-  return geo;
-}
-
-// shortest signed distance from (x,y) to the boundary of an axis-
-// aligned rectangle (cx±halfW, yMin..yMax) — positive outside, negative
-// inside. Used below as a cheap stand-in for true distance-to-the-
-// arch's-curved-boundary (the rounded top only affects a small area
-// right at the corners, not worth a full SDF for)
-function distToRectEdge(x, y, cx, halfW, yMin, yMax){
-  const lx = x - cx;
-  const dx = Math.max(Math.abs(lx) - halfW, 0);
-  const dyOut = Math.max(Math.max(y - yMax, 0), Math.max(yMin - y, 0));
-  if(dx > 0 || dyOut > 0) return Math.sqrt(dx * dx + dyOut * dyOut);
-  const insideDx = halfW - Math.abs(lx);
-  const insideDy = Math.min(y - yMin, yMax - y);
-  return -Math.min(insideDx, insideDy);
-}
-
-// bakes a static per-vertex darkening near a mesh's own contact point
-// with the floor (groundLocalY, in the geometry's own local space —
-// each mesh's local "floor height" differs depending on how its
-// geometry is centred/positioned, so this isn't always 0), fading back
-// to full brightness by fadeHeight above it. This is a real, if simple,
-// baked ambient-occlusion/contact-shadow: darker right where two
-// surfaces meet, exactly where a live AO pass would darken too, but
-// computed once up front rather than every frame — no screen-space
-// sampling, so no per-frame noise to flicker as the camera moves (the
-// reason real-time SSAO got pulled from this scene entirely earlier).
-// `openings` (optional) adds a second darkening band right at the edge
-// of one or more rectangular holes (the arch/slit) — real reveal depth
-// deserves a stronger contact shadow than the flat wall gets, and this
-// is what actually darkens right where the wall meets the opening,
-// rather than only near the floor. Requires the material to set
-// vertexColors:true
-function applyGroundAO(geometry, groundLocalY, fadeHeight, strength, openings, edgeBand, edgeStrength){
-  const pos = geometry.attributes.position;
-  const colors = new Float32Array(pos.count * 3);
-  for(let i = 0; i < pos.count; i++){
-    const x = pos.getX(i), y = pos.getY(i);
-    const t = Math.min(1, Math.max(0, (y - groundLocalY) / fadeHeight));
-    let shade = 1 - strength * (1 - t);
-    if(openings){
-      let minDist = Infinity;
-      for(const o of openings){
-        const d = Math.abs(distToRectEdge(x, y, o.cx, o.halfW, o.yMin, o.yMax));
-        if(d < minDist) minDist = d;
-      }
-      const tEdge = Math.min(1, minDist / edgeBand);
-      shade *= 1 - edgeStrength * (1 - tEdge);
-    }
-    colors[i * 3] = shade;
-    colors[i * 3 + 1] = shade;
-    colors[i * 3 + 2] = shade;
-  }
-  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
 // a small, stylized chair — box seat, box backrest, four cylinder legs —
@@ -252,53 +176,6 @@ function buildRippleNormalMap(size){
   return tex;
 }
 
-// a mostly-flat normal map with a handful of noisy patches baked in at
-// fixed spots — not a uniform texture over the whole surface. Most of
-// the map stays a perfectly neutral normal (128,128,255 — "point
-// straight out, no bump"), and only inside a few soft-edged circular
-// patches does fine plaster-like noise appear, fading back to neutral
-// at each patch's own edge. Applied once across a wall's full UV range,
-// this reads as a few weathered/textured patches on an otherwise clean
-// plaster wall, matching real plaster far better than an evenly
-// repeated texture would
-function buildWallPatchNormalMap(size){
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const img = ctx.createImageData(size, size);
-  const patches = [
-    { cx: 0.22, cy: 0.32, r: 0.16 },
-    { cx: 0.7, cy: 0.58, r: 0.14 },
-    { cx: 0.48, cy: 0.8, r: 0.11 },
-    { cx: 0.85, cy: 0.2, r: 0.1 },
-  ];
-  for(let y = 0; y < size; y++){
-    const v = y / size;
-    for(let x = 0; x < size; x++){
-      const u = x / size;
-      let strength = 0;
-      for(const p of patches){
-        const d = Math.hypot(u - p.cx, v - p.cy) / p.r;
-        if(d < 1) strength = Math.max(strength, 1 - d);
-      }
-      const idx = (y * size + x) * 4;
-      if(strength > 0){
-        const nx = (Math.sin(u * 90) + Math.sin(v * 77 + u * 40)) * 0.5;
-        const ny = (Math.sin(v * 85) + Math.sin(u * 63 + v * 50)) * 0.5;
-        img.data[idx] = 128 + nx * 60 * strength;
-        img.data[idx + 1] = 128 + ny * 60 * strength;
-      } else {
-        img.data[idx] = 128;
-        img.data[idx + 1] = 128;
-      }
-      img.data[idx + 2] = 255;
-      img.data[idx + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  return new THREE.CanvasTexture(canvas);
-}
-
 // unseen.co's own walls (checked directly) aren't evenly lit — a soft,
 // irregular dappled shadow breaks up the plaster, like sunlight through
 // unseen foliage or drifting cloud cover. This bakes that as the wall's
@@ -342,6 +219,272 @@ function buildDappledShadowMap(size){
   return tex;
 }
 
+// a soft, elongated wisp — a warm-white radial glow squeezed vertically
+// into an oval — standing in for a small drifting feather. Not a
+// literal feather illustration (a flat, always-camera-facing sprite has
+// nowhere to put real barbs/rachis detail that would actually read at
+// this size), just a soft, recognizably feather-ish silhouette
+function buildFeatherTexture(size){
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const cx = size / 2, cy = size / 2;
+  const g = ctx.createRadialGradient(cx, cy * 0.85, 0, cx, cy, size * 0.5);
+  g.addColorStop(0, 'rgba(255,252,240,0.95)');
+  g.addColorStop(0.5, 'rgba(255,250,235,0.35)');
+  g.addColorStop(1, 'rgba(255,250,235,0)');
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(0.5, 1);
+  ctx.translate(-cx, -cy);
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 0.48, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  return new THREE.CanvasTexture(canvas);
+}
+
+// a deep-space backdrop — scene.background only, entirely separate from
+// scene.environment (the neutral HDRI doing the actual PBR lighting/
+// bounce, see _buildEnvironment) so the room's own colours stay exactly
+// as tuned regardless of what's visually behind it. Rebuilt per direct
+// reference (a Hubble/Webb-style barred-spiral photo) from the earlier,
+// much subtler wisps-and-stars pass — this is now one real hero galaxy,
+// not ambient texture:
+//  1. dense background starfield, drawn first (so the galaxy's own glow
+//     sits on top of a real sky, not an empty one)
+//  2. a warm white-gold core with a soft halo
+//  3. two logarithmic-spiral arms swept out from the core, each built
+//     from many small soft-edged points along the spiral curve (colour
+//     warm near the core fading to cool blue-white further out, same
+//     as real stellar populations), with organic jitter off the exact
+//     curve and tiny bright speckles along it so it reads as a clumpy
+//     star field, not a drawn line
+//  4. dark dust-lane streaks threading across the disk, offset from the
+//     bright arms — what actually sells "spiral" over "blurry blob"
+//  5. a handful of bright cyan/teal HII-region knots along the arms —
+//     the turquoise star-forming clusters visible in the reference
+//  6. a second, brighter foreground star pass on top of everything,
+//     since real foreground (this galaxy's own) stars sit in front of
+//     any background galaxy
+// Placed off-centre (not mid-canvas) at roughly the room camera's own
+// forward viewing direction in equirectangular UV — u≈0.23 (worked out
+// from the camera's actual look direction, see _cameraForProgress) —
+// and sized generously (well over half the canvas width) so it stays in
+// frame across this room's small scroll/parallax range, the same
+// guaranteed-coverage lesson learned from this background's earlier
+// cloud/nebula layers, just solved by generous placement+size here
+// instead of a repeating grid, since there's only the one galaxy
+function buildGalaxyTexture(width, height){
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  let seed = 97;
+  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+
+  const drawStars = (count, sizeMin, sizeMax, aMin, aMax, brightFrac) => {
+    for(let i = 0; i < count; i++){
+      const x = rand() * width;
+      const y = rand() * height;
+      const isBright = rand() > 1 - brightFrac;
+      const r = isBright ? sizeMax * 1.6 + rand() * sizeMax : sizeMin + rand() * (sizeMax - sizeMin);
+      const a = isBright ? aMax : aMin + rand() * (aMax - aMin);
+      const warm = rand() > 0.5;
+      const tint = warm ? '255,246,235' : '225,235,255';
+      if(isBright){
+        const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 5);
+        glow.addColorStop(0, `rgba(${tint},${a})`);
+        glow.addColorStop(0.3, `rgba(${tint},${a * 0.35})`);
+        glow.addColorStop(1, `rgba(${tint},0)`);
+        ctx.fillStyle = glow;
+        ctx.fillRect(x - r * 5, y - r * 5, r * 10, r * 10);
+      }
+      ctx.fillStyle = `rgba(${tint},${a})`;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  };
+
+  // 1. base void + distant background starfield
+  const base = ctx.createLinearGradient(0, 0, 0, height);
+  base.addColorStop(0.0, '#04050b');
+  base.addColorStop(0.5, '#070810');
+  base.addColorStop(1.0, '#04050a');
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, width, height);
+  drawStars(Math.round(width * height * 0.0008), 0.3, 0.55, 0.25, 0.55, 0.01);
+
+  // the galaxy's own centre + orientation. R pulled back hard from an
+  // early pass that filled almost the entire arch's own field of view —
+  // at that size the room camera was effectively zoomed into just the
+  // bright core, cropping out the very structure (arms/dust/knots) that
+  // makes it read as a galaxy rather than a pale blown-out smudge
+  const gx = width * 0.24;
+  const gy = height * 0.5;
+  const tilt = -0.34;
+  const squash = 0.42; // flattens the face-on spiral into an oblique ellipse, like a galaxy seen at an angle
+  const R = width * 0.16;
+
+  // 2. core — a tight, near-white hotspot inside a wider warm halo,
+  // both squashed/rotated to match the disk's own tilt. Kept modest —
+  // too strong here is what washed the whole disk toward pale white/mint
+  // earlier (a warm core overlapping cyan knots blends toward green in
+  // plain alpha compositing), rather than reading as a genuinely warm
+  // centre against genuinely cool arms
+  ctx.save();
+  ctx.translate(gx, gy);
+  ctx.rotate(tilt);
+  ctx.scale(1, squash);
+  const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
+  halo.addColorStop(0, 'rgba(225,220,240,0.11)');
+  halo.addColorStop(0.35, 'rgba(190,195,225,0.055)');
+  halo.addColorStop(1, 'rgba(190,195,225,0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath();
+  ctx.arc(0, 0, R, 0, Math.PI * 2);
+  ctx.fill();
+  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.2);
+  core.addColorStop(0, 'rgba(255,244,215,0.9)');
+  core.addColorStop(0.2, 'rgba(255,222,170,0.5)');
+  core.addColorStop(0.55, 'rgba(225,180,135,0.14)');
+  core.addColorStop(1, 'rgba(225,180,135,0)');
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(0, 0, R * 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // shared spiral-geometry helper — maps (armIndex, t∈[0,1]) to a point
+  // in canvas space along a logarithmic spiral, already squashed/rotated
+  // to the disk's own orientation. rStart begins just OUTSIDE the core
+  // (R*0.2 above) rather than deep inside it — arms starting under the
+  // bright core was the other half of the washed-out-blob problem, all
+  // those semi-transparent layers stacking on the same few pixels
+  const thetaMax = Math.PI * 3.1;
+  const rStart = R * 0.26;
+  const rEnd = R * 0.98;
+  const bTight = Math.log(rEnd / rStart) / thetaMax;
+  const armPoint = (armOffset, t, jitter) => {
+    const theta = t * thetaMax;
+    const r = rStart * Math.exp(bTight * theta);
+    let lx = r * Math.cos(theta + armOffset);
+    let ly = r * Math.sin(theta + armOffset);
+    if(jitter){
+      lx += (rand() - 0.5) * r * 0.22;
+      ly += (rand() - 0.5) * r * 0.22;
+    }
+    const sy = ly * squash;
+    const rx = lx * Math.cos(tilt) - sy * Math.sin(tilt);
+    const ry = lx * Math.sin(tilt) + sy * Math.cos(tilt);
+    return { x: gx + rx, y: gy + ry, r };
+  };
+
+  // 3. two spiral arms, clumpy soft-glow points + bright speckles
+  const arms = [0, Math.PI + 0.25];
+  arms.forEach((armOffset) => {
+    const steps = 130;
+    for(let i = 0; i < steps; i++){
+      const t = i / steps;
+      const p = armPoint(armOffset, t, true);
+      if(p.r > R) break;
+      const fade = Math.max(0, 1 - t * 0.85);
+      const dotR = R * 0.05 * fade * (0.6 + rand() * 0.9);
+      const warmth = Math.max(0, 1 - t * 1.4);
+      const cr = Math.round(210 + warmth * 45);
+      const cg = Math.round(212 + warmth * 18 - t * 8);
+      const cb = Math.round(238 - warmth * 60);
+      const alpha = 0.11 * fade;
+      const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, dotR);
+      glow.addColorStop(0, `rgba(${cr},${cg},${cb},${alpha})`);
+      glow.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+      ctx.fillStyle = glow;
+      ctx.fillRect(p.x - dotR, p.y - dotR, dotR * 2, dotR * 2);
+
+      const speckles = 2 + Math.floor(rand() * 3);
+      for(let s = 0; s < speckles; s++){
+        const sx = p.x + (rand() - 0.5) * dotR * 2.4;
+        const sy2 = p.y + (rand() - 0.5) * dotR * 2.4;
+        const sr = 0.35 + rand() * 0.55;
+        ctx.fillStyle = `rgba(255,255,255,${(0.45 + rand() * 0.4) * fade})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy2, sr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  });
+
+  // 4. dust lanes — dark, broken strokes offset from the bright arms,
+  // confined to the inner/mid disk where they'd actually cross the glow
+  arms.forEach((armOffset) => {
+    const steps = 90;
+    let prev = null;
+    for(let i = 0; i < steps; i++){
+      const t = i / steps * 0.75;
+      const p = armPoint(armOffset + 0.42, t, false);
+      if(p.r > R * 0.75 || rand() < 0.14){ prev = null; continue; }
+      if(prev){
+        ctx.strokeStyle = `rgba(30,22,20,${0.18 + rand() * 0.14})`;
+        ctx.lineWidth = R * (0.006 + rand() * 0.006);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(prev.x, prev.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      }
+      prev = p;
+    }
+  });
+
+  // 5. bright cyan/teal HII star-forming knots scattered along the arms
+  // — kept to the outer 2/3 of each arm (t≥0.38), well clear of the
+  // core's own warm glow, since a cyan knot overlapping gold core light
+  // blends toward a muddy mint-green rather than either colour reading
+  // clean
+  for(let k = 0; k < 7; k++){
+    const armOffset = arms[k % 2];
+    const t = 0.38 + rand() * 0.55;
+    const p = armPoint(armOffset, t, true);
+    const kr = R * (0.014 + rand() * 0.016);
+    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, kr * 4);
+    glow.addColorStop(0, 'rgba(150,255,235,0.55)');
+    glow.addColorStop(0.4, 'rgba(90,220,210,0.24)');
+    glow.addColorStop(1, 'rgba(90,220,210,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(p.x - kr * 4, p.y - kr * 4, kr * 8, kr * 8);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, kr * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 6. foreground stars, brighter/sparser, layered on top of the whole
+  // galaxy — real stars in our own sky sit in front of any background one
+  drawStars(Math.round(width * height * 0.0004), 0.4, 0.7, 0.4, 0.75, 0.05);
+
+  // same dithering fix used for the room's earlier sky pass — a gradient
+  // this dark, this low-contrast, banded visibly once the browser scaled
+  // it to the canvas's own resolution until a small per-pixel noise term
+  // broke the flat steps up
+  const imgData = ctx.getImageData(0, 0, width, height);
+  const data = imgData.data;
+  for(let i = 0; i < data.length; i += 4){
+    const n = (rand() - 0.5) * 5;
+    data[i] = Math.min(255, Math.max(0, data[i] + n));
+    data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + n));
+    data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + n));
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 class ProcessRoom {
   constructor(section, container, canvas){
     this.section = section;
@@ -363,8 +506,15 @@ class ProcessRoom {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    // ACES specifically (not Reinhard/linear) because its highlight
+    // rolloff is what lets exposure run brighter without highlights
+    // blowing out to flat white. Exposure itself pulled back down to
+    // keep the overall mood dark/cinematic now that the HDRI environment
+    // (see _buildEnvironment) is doing the actual lighting again — this
+    // is the one global dial for "how dark," independent of how much any
+    // one material's own envMapIntensity reveals its true colour
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
+    renderer.toneMappingExposure = 0.8;
     this.enabled = true;
 
     this.scene = new THREE.Scene();
@@ -378,16 +528,20 @@ class ProcessRoom {
     this.mouseTarget = { x: 0, y: 0 };
 
     this._buildScene();
-    this._buildLandscape();
-    this._buildLeftHillside();
     this._buildChairPile();
     this._buildSpiralStairs();
-    this._buildLights();
+    this._buildFeathers();
+    this._buildFloatingRock();
     this._buildKeyframes();
     this._buildEnvironment();
     this._buildPostProcessing();
 
-    this._state = { progress: 0, pinnedLow: false, pinnedHigh: false, activeStage: -1, rafId: null };
+    // displayProgress trails progress (the raw scroll ratio) with its
+    // own slow lerp in _frame() — the camera moves through the room on
+    // this eased value rather than snapping straight to wherever the
+    // scrollbar currently is, per direct feedback that the room's
+    // motion felt too quick/abrupt
+    this._state = { progress: 0, displayProgress: 0, pinnedLow: false, pinnedHigh: false, rafId: null };
 
     this._resize();
     this._bindEvents();
@@ -404,28 +558,32 @@ class ProcessRoom {
 
     // tall, but a real, finite height — not stretched so far off-frame
     // that the top edge never reads. The walls are meant to visibly
-    // *end*, with real sky (scene.background) showing above them, not
-    // just avoid a ceiling line by outrunning the camera indefinitely
+    // *end*, with the galaxy backdrop (scene.background — see
+    // buildGalaxyTexture) showing above them, not just avoid a ceiling
+    // line by outrunning the camera indefinitely
     const roomWidth = 14, roomHeight = 6.5, roomDepth = 11;
     const archWidth = 3.6, archHeight = 5.4;
 
-    // warm cream plaster — Papi's own palette (css --cream/--gold-soft),
-    // not a literal copy of any reference's colour, matching the rest
-    // of this site's warm neutral/gold tone. The patch normal map adds
-    // a handful of weathered-looking spots rather than texturing the
-    // whole wall uniformly — real plaster reads as mostly smooth with
-    // occasional imperfections, not an evenly repeated texture
-    // vertexColors:true lets each wall mesh bake its own static ground-
-    // contact darkening (see applyGroundAO below) into this one shared
-    // material, even though the back wall and side walls are different
-    // geometries with different local "floor" heights
+    // light sky-blue plaster — a deliberate departure from the old warm
+    // cream, per direct request. No normal map here any more — the
+    // patch normal map that used to sit here (a few sine-wave bump
+    // patches meant to read as weathered plaster) instead read as small
+    // dark "blister" circles under this scene's raking light, which is
+    // what prompted removing it rather than retuning it again
     const wallMat = new THREE.MeshStandardMaterial({
-      color: 0xece0c4, roughness: 0.92, metalness: 0.02, vertexColors: true,
-      normalMap: buildWallPatchNormalMap(512), normalScale: new THREE.Vector2(0.7, 0.7),
+      color: 0xbfdce6, roughness: 0.92, metalness: 0.02,
       // the diffuse/colour map — a soft dappled-light pattern (see
       // buildDappledShadowMap) rather than a flat colour, so the wall
       // reads as unevenly lit like unseen.co's own plaster does
       map: buildDappledShadowMap(512),
+      // moderate, not the 1.0 default — a large, rough, undecorated
+      // surface like this one sampling a blurry low mip of the HDRI's
+      // prefiltered (PMREM) chain is what exposed that chain's own mip
+      // seams as visible soft banding earlier this session (confirmed by
+      // zeroing this value and watching the bands vanish). Enough here
+      // to genuinely tint the wall with the environment's true bounce
+      // colour, not so much that the banding comes back
+      envMapIntensity: 0.45,
     });
 
     // back wall with the main arched opening plus a second, smaller
@@ -433,17 +591,14 @@ class ProcessRoom {
     // narrower, taller, not reaching the floor, set higher on the wall —
     // is the "layered openings" detail unseen.co's own reference
     // composition uses (their smaller window sits beside the main arch
-    // at a different height). Tried this first on the side walls at
-    // their true (near-edge-on) angle, but at this camera's ~45° FOV
-    // the side walls are only ever a razor-thin sliver in frame — not
-    // enough room for a readable window — so it lives on the back wall
-    // instead, where it's actually visible across the whole scroll range.
-    // The wall itself is now a real ExtrudeGeometry, not a flat
-    // Shape+hole: extruding a shape with holes automatically builds the
-    // connecting side faces around BOTH the outer boundary and each
-    // hole, giving the arch and slit real carved-looking reveals (the
-    // 3D edge unseen.co's own openings have) rather than a paper-thin cutout
-    const wallThickness = 0.55;
+    // at a different height).
+    // A real extruded thickness — thin enough not to reintroduce the
+    // stray-panel bug (that turned out to be the side walls' own
+    // coordinate mapping flipping sign between the two, not this wall's
+    // reveal face — see the side-wall shape below), thick enough that
+    // the arch/slit read as real carved openings with visible depth
+    // rather than paper-thin cutouts as the camera scrolls closer
+    const wallThickness = 0.45;
     const backShape = new THREE.Shape();
     backShape.moveTo(-roomWidth / 2, 0);
     backShape.lineTo(roomWidth / 2, 0);
@@ -461,82 +616,130 @@ class ProcessRoom {
     slitHole.lineTo(slitCenterX - slitW / 2, slitBottom + slitH);
     slitHole.closePath();
     backShape.holes.push(slitHole);
-    // a third opening, mirrored onto the LEFT side — unlike the arch
-    // and right slit (both open air), this one actually gets a glass
-    // pane (see glassMat/glassPane below): see-through, but visibly
-    // there, rather than just another hole
-    const glassW = 0.9, glassH = 2.6, glassBottom = 3.0, glassCenterX = -3.3;
-    const glassHolePath = new THREE.Path();
-    glassHolePath.moveTo(glassCenterX - glassW / 2, glassBottom);
-    glassHolePath.lineTo(glassCenterX + glassW / 2, glassBottom);
-    glassHolePath.lineTo(glassCenterX + glassW / 2, glassBottom + glassH);
-    glassHolePath.lineTo(glassCenterX - glassW / 2, glassBottom + glassH);
-    glassHolePath.closePath();
-    backShape.holes.push(glassHolePath);
     const backGeo = new THREE.ExtrudeGeometry(backShape, {
       depth: wallThickness, bevelEnabled: false, curveSegments: 32, steps: 1,
     });
-    // baked ground-contact AO — the back wall's shape was built from
-    // y=0 upward, so its own local floor height IS 0 — plus a second,
-    // slightly stronger darkening band right at each opening's edge: a
-    // real reveal deserves a touch more contact shadow than the flat
-    // wall gets. Real AO is subtle (soft, low-strength, built up in
-    // layers, per how it's actually done in game/vertex-colour art) —
-    // both strengths dialled back hard from the first pass, which read
-    // as a flat, too-strong darkening rather than a soft occlusion cue
-    applyGroundAO(backGeo, 0, 1.4, 0.14, [
-      { cx: 0, halfW: archWidth / 2, yMin: 0, yMax: archHeight },
-      { cx: slitCenterX, halfW: slitW / 2, yMin: slitBottom, yMax: slitBottom + slitH },
-      { cx: glassCenterX, halfW: glassW / 2, yMin: glassBottom, yMax: glassBottom + glassH },
-    ], 0.5, 0.22);
     const backWall = new THREE.Mesh(backGeo, wallMat);
-    // the shape's own z=0 plane becomes the FAR face once extruded;
-    // shifting back by the full thickness keeps the NEAR face (the one
-    // the camera actually sees, and where the reveals open toward the
-    // room) exactly where the flat wall used to sit, so nothing else
-    // in the room needs to move
+    // the extrude's own front face (local z = wallThickness) is the one
+    // that should sit at the room's actual back plane, so the mesh is
+    // pushed back by the extra thickness rather than sitting flush at it
     backWall.position.set(0, 0, -roomDepth / 2 - wallThickness);
     backWall.castShadow = true;
-    backWall.receiveShadow = true;
+    // NOT receiveShadow — the slit window's own reveal, right where its
+    // thin extruded side face meets the wall's front face at a hard
+    // near-90° corner, is exactly the kind of geometry self-shadowing
+    // struggles with: the shadow map's own depth comparison at a sharp
+    // seam like that is what read as a flickering black line as the
+    // camera's mouse-parallax subtly shifted frame to frame, and it
+    // survived even after adding a fill light because that only raises
+    // the floor brightness, it doesn't stop the acne itself. This wall
+    // doesn't have anything else casting a meaningfully detailed shadow
+    // onto it worth keeping that risk for
     group.add(backWall);
 
-    // the actual glass pane filling that third opening — real
-    // transmission (see-through, like the sphere's own material) rather
-    // than a solid or fully mirrored surface, so the hillside behind it
-    // (see _buildLeftHillside) stays clearly visible, just glazed
-    const glassMat = new THREE.MeshPhysicalMaterial({
-      color: 0xf3f6f2, roughness: 0.05, metalness: 0, transmission: 0.94,
-      thickness: 0.15, ior: 1.5, envMapIntensity: 1.1,
-    });
-    const glassPane = new THREE.Mesh(
-      new THREE.BoxGeometry(glassW * 0.94, glassH * 0.94, 0.04),
-      glassMat
-    );
-    glassPane.position.set(
-      glassCenterX, glassBottom + glassH / 2,
-      -roomDepth / 2 - wallThickness / 2
-    );
-    group.add(glassPane);
-
     // two side walls, angled slightly inward — enough to read as a
-    // real alcove/niche rather than a flat backdrop
+    // real alcove/niche rather than a flat backdrop. Extended toward
+    // the camera (well past the widest camera position) so a wide/
+    // ultra-wide viewport's larger horizontal field of view never runs
+    // past the wall's own front edge into empty space.
+    //
+    // The BACK edge is the one that actually has to seal against the
+    // back wall, and naively matching it to roomDepth/2+wallThickness
+    // (the back wall's own depth) left a real gap: because this wall is
+    // ROTATED (π/2-0.18, not a flat 90°), its local length axis doesn't
+    // map 1:1 onto world depth — walking back along it drifts INWARD in
+    // x at the same time (a sin/cos split), so a length chosen to match
+    // the back wall's z-depth actually lands short of the back wall's
+    // face in world space, floating in front of it with open background
+    // visible through the resulting wedge-shaped gap at the corner. The
+    // fix is to walk back far enough that this wall's own end is
+    // actually embedded inside the back wall's solid slab (past its far
+    // face, not just touching its near face) — solving
+    // wallDepth*sin(π/2-0.18) for the local length needed to reach past
+    // -(roomDepth/2 + wallThickness*2), with a further margin on top so
+    // this holds even as the exact angle/thickness get tuned later
+    const sideWallBack = (roomDepth / 2 + wallThickness * 2 + 1) / Math.sin(Math.PI / 2 - 0.18);
+    const sideWallFront = 30;
     [-1, 1].forEach((side) => {
-      // extra height segments purely so applyGroundAO has vertices to
-      // interpolate between near the floor — a bare 1-segment plane
-      // only has two rows of vertices (top and bottom edge), which
-      // would spread the "near-floor" darkening across the ENTIRE wall
-      // height instead of staying confined near the ground
-      const sideGeo = new THREE.PlaneGeometry(roomDepth, roomHeight, 1, 28);
-      // this geometry is centred (local y spans ±roomHeight/2), and the
-      // mesh sits at position.y = roomHeight/2, so local y=-roomHeight/2
-      // is what maps to the actual floor (world y=0) — unlike the back
-      // wall's own geometry, which was already built floor-up from 0
-      applyGroundAO(sideGeo, -roomHeight / 2, 1.4, 0.14);
-      const sideWall = new THREE.Mesh(sideGeo, wallMat);
-      sideWall.position.set(side * roomWidth / 2, roomHeight / 2, 0);
-      sideWall.rotation.y = -side * (Math.PI / 2 - 0.18);
-      sideWall.receiveShadow = true;
-      group.add(sideWall);
+      if(side === -1){
+        // the actual left wall — the one perpendicular to the back
+        // wall the visitor faces on arrival — gets two real glass
+        // windows side by side (replacing the single smaller one that
+        // used to sit on the back wall itself). Built the same
+        // Shape+hole+extrude way as the back wall so each opening gets
+        // a real carved reveal. Bottom sits right at the wall's own
+        // base (y=0, almost exactly the floor's own height) rather than
+        // stopping partway up, so the glass genuinely continues down to
+        // meet the water instead of leaving a strip of wall showing
+        // underneath — a hole below y=0 would fall outside the wall
+        // shape's own bounds entirely (it only exists from y=0 up),
+        // which silently breaks the extrude triangulation rather than
+        // just clipping, so 0 is the real floor for this, not -0.6.
+        // Widened considerably (1.9→2.6) and raised (5.0→5.3) per direct
+        // request to see more of the outside landscape through them
+        const winW = 2.6, winBottom = 0.05, winTop = 5.3;
+        const winCenters = [-1.5, 1.5];
+        // this wall's rotation.y sign is the mirror of the plain wall's
+        // (-side flips between the two), which also mirrors which end
+        // of this same local shape lands in front of vs. behind the
+        // back wall in world space — so the large "reach toward camera"
+        // extent and the small "seal the back corner" extent have to
+        // swap ends here to land in the same world-space places they do
+        // on the plain wall below. Getting this backwards was exactly
+        // the bug: the 30-unit reach was landing at world z ≈ -29 (deep
+        // behind the back wall) instead of ≈ +29 (toward the camera),
+        // visible as a stray diagonal panel through the archway
+        const sideShape = new THREE.Shape();
+        sideShape.moveTo(-sideWallFront, 0);
+        sideShape.lineTo(sideWallBack, 0);
+        sideShape.lineTo(sideWallBack, roomHeight);
+        sideShape.lineTo(-sideWallFront, roomHeight);
+        sideShape.closePath();
+        winCenters.forEach((winCenterX) => {
+          const winHole = new THREE.Path();
+          winHole.moveTo(winCenterX - winW / 2, winBottom);
+          winHole.lineTo(winCenterX + winW / 2, winBottom);
+          winHole.lineTo(winCenterX + winW / 2, winTop);
+          winHole.lineTo(winCenterX - winW / 2, winTop);
+          winHole.closePath();
+          sideShape.holes.push(winHole);
+        });
+        const sideGeo = new THREE.ExtrudeGeometry(sideShape, {
+          depth: wallThickness, bevelEnabled: false, curveSegments: 32, steps: 1,
+        });
+        const sideWall = new THREE.Mesh(sideGeo, wallMat);
+        sideWall.position.set(side * roomWidth / 2, 0, 0);
+        sideWall.rotation.y = -side * (Math.PI / 2 - 0.18);
+        sideWall.castShadow = true;
+        // NOT receiveShadow — this wall's own local shape reaches from
+        // sideWallBack to sideWallFront (30 units), far outside the key
+        // light's own shadow-camera frustum (only ±7). Past that bound,
+        // the shadow map has no real data for this surface, and the
+        // frustum's own edge — which world position it falls across
+        // depends on the light's tilt, not a clean axis-aligned line —
+        // showed up as a visible diagonal shadow streak straight across
+        // the wall, on both side walls, independent of any real caster
+        group.add(sideWall);
+      } else {
+        // plain wall, no windows — built with the same asymmetric
+        // Shape+extrude bounds as the left wall (rather than a
+        // symmetric PlaneGeometry) so its back edge lines up exactly
+        // with the back wall's own outer face too
+        const plainShape = new THREE.Shape();
+        plainShape.moveTo(-sideWallBack, 0);
+        plainShape.lineTo(sideWallFront, 0);
+        plainShape.lineTo(sideWallFront, roomHeight);
+        plainShape.lineTo(-sideWallBack, roomHeight);
+        plainShape.closePath();
+        const sideGeo = new THREE.ExtrudeGeometry(plainShape, {
+          depth: wallThickness, bevelEnabled: false, curveSegments: 1, steps: 1,
+        });
+        const sideWall = new THREE.Mesh(sideGeo, wallMat);
+        sideWall.position.set(side * roomWidth / 2, 0, 0);
+        sideWall.rotation.y = -side * (Math.PI / 2 - 0.18);
+        // see the windowed wall's own comment above — same reasoning
+        group.add(sideWall);
+      }
     });
 
     // floor — real (if simple) water rather than a dry mirror-finish
@@ -546,14 +749,15 @@ class ProcessRoom {
     // colour is a deep, near-black warm umber rather than a bright
     // gold-brown — real water's *own* colour is almost always dark
     // (it's mostly transparent/reflective), so a bright flat colour
-    // read as solid metal. Keeping the colour dark and leaning on a
-    // strong envMapIntensity lets the reflected sky/gold walls/hills
-    // supply almost all the visible colour, the same way unseen.co's
-    // floor doubles their scene rather than being a flat painted plane
+    // read as solid metal. Low roughness + a real envMapIntensity is
+    // what lets it actually double the room via the HDRI's own bounce,
+    // the same way unseen.co's own floor doubles their scene rather than
+    // being a flat painted plane — trimmed down from the old 1.9 now
+    // that the goal is a dark, moody reflection, not a bright one
     const rippleMap = buildRippleNormalMap(256);
     this.floorNormalMap = rippleMap;
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x241a10, roughness: 0.1, metalness: 0.05, envMapIntensity: 1.9,
+      color: 0x241a10, roughness: 0.1, metalness: 0.05, envMapIntensity: 1.2,
       normalMap: rippleMap, normalScale: new THREE.Vector2(0.18, 0.18),
     });
     // onBeforeCompile patches concentric rings expanding outward from
@@ -570,12 +774,19 @@ class ProcessRoom {
     floorMat.onBeforeCompile = (shader) => {
       shader.uniforms.uRippleCenter = { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) };
       shader.uniforms.uTime = { value: 0 };
+      // the cursor's own ripple centre, updated every frame in _frame()
+      // from a raycast of the cursor against this same floor mesh, plus
+      // its current world-space velocity (how fast/which direction it's
+      // actually moving) — real flow, not just a mark sitting still
+      // under wherever the cursor happens to be
+      shader.uniforms.uCursorRippleCenter = { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) };
+      shader.uniforms.uCursorVelocity = { value: new THREE.Vector2(0, 0) };
       this.floorRippleUniforms = shader.uniforms;
       shader.vertexShader = 'varying vec3 vWorldPos;\n' + shader.vertexShader.replace(
         '#include <begin_vertex>',
         '#include <begin_vertex>\nvWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;'
       );
-      shader.fragmentShader = 'varying vec3 vWorldPos;\nuniform vec2 uRippleCenter;\nuniform float uTime;\n' + shader.fragmentShader.replace(
+      shader.fragmentShader = 'varying vec3 vWorldPos;\nuniform vec2 uRippleCenter;\nuniform vec2 uCursorRippleCenter;\nuniform vec2 uCursorVelocity;\nuniform float uTime;\n' + shader.fragmentShader.replace(
         '#include <dithering_fragment>',
         `
         {
@@ -587,6 +798,26 @@ class ProcessRoom {
           float dist = length(vWorldPos.xz - uRippleCenter);
           float ring = sin(dist * 5.5 - uTime * 2.0) * exp(-dist * 0.65) * smoothstep(0.0, 0.7, dist);
           gl_FragColor.rgb += ring * 0.045 * vec3(1.05, 1.0, 0.85);
+
+          // the cursor's own wake — a single soft directional smear
+          // trailing the cursor's current travel direction, NOT another
+          // sin()-based ring (a second ring pattern just read as "more
+          // rings", not flow). Compressed ahead of the cursor, stretched
+          // into a trailing comet-tail behind it, with no oscillation at
+          // all — a real dragged wake is one smooth push, not a series
+          // of concentric bands
+          vec2 toCursor = vWorldPos.xz - uCursorRippleCenter;
+          float speed = length(uCursorVelocity);
+          vec2 dir = speed > 0.0001 ? uCursorVelocity / speed : vec2(1.0, 0.0);
+          vec2 perp = vec2(-dir.y, dir.x);
+          float along = dot(toCursor, dir);
+          float across = dot(toCursor, perp);
+          float stretch = along > 0.0 ? 1.0 : 3.2;
+          vec2 warped = vec2(along / stretch, across * 1.6);
+          float distCur = length(warped);
+          float speedBoost = clamp(speed * 14.0, 0.0, 1.0);
+          float wake = exp(-distCur * 1.3) * speedBoost;
+          gl_FragColor.rgb += wake * 0.06 * vec3(1.05, 1.0, 0.9);
         }
         #include <dithering_fragment>`
       );
@@ -615,6 +846,7 @@ class ProcessRoom {
     floor.position.set(0, 0.1, roomDepth * 0.05);
     floor.receiveShadow = true;
     group.add(floor);
+    this.floorMesh = floor;
 
     // hero object — a glass/iridescent sphere (MeshPhysicalMaterial's
     // transmission/iridescence, built into Three.js core, no extra
@@ -625,18 +857,18 @@ class ProcessRoom {
     // is why the dark pedestal that used to sit under it is gone
     // attenuationColor/-Distance (real MeshPhysicalMaterial properties
     // for transmissive materials) tint the light passing *through* the
-    // glass gold — the physically-correct way to brand a transmissive
-    // hero object, rather than fighting it with a tinted base colour.
-    // Iridescence is dialled back from the neutral v1 pass so the gold
-    // reads as the dominant colour, with just a hint of oil-slick shift
+    // glass a cool blue, per direct request — the physically-correct way
+    // to brand a transmissive hero object, rather than fighting it with a
+    // tinted base colour. Iridescence stays subtle so the blue reads as
+    // the dominant colour, with just a hint of oil-slick shift
     const sphereMat = new THREE.MeshPhysicalMaterial({
-      color: 0xfaf1de,
+      color: 0xd8f0fa,
       roughness: 0.05,
       metalness: 0,
       transmission: 0.92,
       thickness: 1.2,
       ior: 1.35,
-      attenuationColor: 0xd9b872,
+      attenuationColor: 0x1f7fbf,
       attenuationDistance: 1.4,
       iridescence: 0.4,
       iridescenceIOR: 1.28,
@@ -654,63 +886,13 @@ class ProcessRoom {
     this.sphere = sphere;
   }
 
-  // real geometry beyond the back wall's openings — visible only
-  // through the arch/slits (the opaque wall naturally occludes it
-  // everywhere else, no masking needed). Pared back to unseen.co's own
-  // hill style after their first version read as "too much": unseen's
-  // own distant hills (checked directly) are gentle, soft-edged rolling
-  // shapes in a close, muted colour family — not a jagged, sharply
-  // colour-banded mountain range. Down to two soft layers from five,
-  // bumpiness cut way down, and the two colours kept close in hue
-  // (a soft warm-to-slightly-paler shift, not a full warm→cool swing)
-  _buildLandscape(){
-    const layers = [
-      { z: -9, width: 32, height: 3.2, bumpiness: 1.1, color: 0xceb488, seed: 0.4, freq: 0.5 },
-      { z: -14, width: 40, height: 4.0, bumpiness: 1.5, color: 0xe0d2ae, seed: 2.0, freq: 0.38 },
-    ];
-    const landscape = new THREE.Group();
-    layers.forEach(({ z, width, height, bumpiness, color, seed, freq }) => {
-      const geo = buildHillRidgeGeometry(width, height, bumpiness, 48, seed, freq);
-      const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.96, metalness: 0 });
-      const hill = new THREE.Mesh(geo, mat);
-      hill.position.set(0, 0.4, z);
-      landscape.add(hill);
-    });
-    this.roomGroup.add(landscape);
-  }
-
-  // the new glass window sits on the LEFT of the back wall — behind it,
-  // one gentle hillside (down from two, same "too much" pass as the
-  // main landscape), offset along the same diagonal the left side wall
-  // itself recedes on rather than sitting flat-on like the main
-  // landscape. The left wall's own rotation carries it inward as it
-  // goes back (world x = -roomWidth/2 - 0.1825*worldZ, derived from its
-  // own rotation.y = +(π/2-0.18)) — continuing that exact line outward
-  // past the room is what makes this hillside read as sharing the same
-  // angle/direction as the wall, rather than just placed arbitrarily
-  _buildLeftHillside(){
-    const hillside = new THREE.Group();
-    // the left window sits fairly high on the wall (y 3.0-5.6, same as
-    // the right slit), so this still needs to be tall/positioned to
-    // reach into that band — but softened (low bumpiness) to match
-    // unseen.co's own gentler hill style rather than a jagged peak
-    const z = -10, width = 30, height = 6.5, bumpiness = 1.2, y = 1.3, color = 0xd7c19a, seed = 1.6, freq = 0.42;
-    const geo = buildHillRidgeGeometry(width, height, bumpiness, 40, seed, freq);
-    const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.96, metalness: 0 });
-    const hill = new THREE.Mesh(geo, mat);
-    const x = -7 - 0.1825 * z;
-    hill.position.set(x, y, z);
-    hillside.add(hill);
-    this.roomGroup.add(hillside);
-  }
-
   // a small spiral staircase in the room's right-back corner, near the
   // second (right) slit window — simple stacked/rotated box treads
   // winding up around a central post, the same low-poly primitive
   // vocabulary as the chairs/pedestal rather than a modelled staircase
   _buildSpiralStairs(){
     const group = new THREE.Group();
-    const stepMat = new THREE.MeshStandardMaterial({ color: 0xd6cab0, roughness: 0.8, metalness: 0.04, vertexColors: true });
+    const stepMat = new THREE.MeshStandardMaterial({ color: 0xd6cab0, roughness: 0.8, metalness: 0.04, envMapIntensity: 0.5 });
     const steps = 16;
     const riseStep = 0.24;
     const innerR = 0.28, outerR = 1.3;
@@ -719,10 +901,6 @@ class ProcessRoom {
       const angle = (i / steps) * totalAngle;
       const y = i * riseStep;
       const treadGeo = new THREE.BoxGeometry(outerR - innerR, 0.1, 0.6, 1, 1, 1);
-      // darken each tread's underside slightly — a cheap stand-in for
-      // the contact shadow a real cantilevered stair would cast on the
-      // step below it
-      applyGroundAO(treadGeo, -0.05, 0.1, 0.18);
       const tread = new THREE.Mesh(treadGeo, stepMat);
       const midR = (innerR + outerR) / 2;
       tread.position.set(Math.cos(angle) * midR, y, Math.sin(angle) * midR);
@@ -732,9 +910,13 @@ class ProcessRoom {
       group.add(tread);
     }
     const postH = steps * riseStep + 0.4;
+    // its own material (not stepMat) — the traffic light's pole should
+    // read as the same colour as the walls, per direct request, without
+    // recolouring the stair treads it also happens to double as
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0xbfdce6, roughness: 0.9, metalness: 0.02, envMapIntensity: 0.45 });
     const post = new THREE.Mesh(
       new THREE.CylinderGeometry(innerR * 0.65, innerR * 0.65, postH, 16),
-      stepMat
+      poleMat
     );
     post.position.set(0, postH / 2, 0);
     post.castShadow = true;
@@ -808,12 +990,8 @@ class ProcessRoom {
   // or a stray prop rather than leaving every surface empty
   _buildChairPile(){
     const platformW = 2.8, platformH = 0.36, platformD = 2.8;
-    const platformMat = new THREE.MeshStandardMaterial({ color: 0xd8cdb2, roughness: 0.85, metalness: 0.03, vertexColors: true });
+    const platformMat = new THREE.MeshStandardMaterial({ color: 0xbfdce6, roughness: 0.9, metalness: 0.02, envMapIntensity: 0.45 });
     const platformGeo = new THREE.BoxGeometry(platformW, platformH, platformD, 1, 10, 1);
-    // BoxGeometry is centred, so local y=-platformH/2 is its own base —
-    // the same baked ground-contact darkening as the walls, right where
-    // the platform actually meets the floor
-    applyGroundAO(platformGeo, -platformH / 2, platformH * 0.9, 0.2);
     const platform = new THREE.Mesh(platformGeo, platformMat);
     // near the camera's tightest (scroll-end) framing, this ~45° FOV
     // only keeps roughly the centre third of the floor in frame — an
@@ -839,6 +1017,23 @@ class ProcessRoom {
       { color: 0xd8b978, pos: [0.05, 0.7, 0.5], rot: [2.9, 0.5, -0.6] },
       { color: 0x4a3c26, pos: [-0.65, 0.6, -0.5], rot: [1.9, -0.3, 1.1] },
     ];
+    // ten more, continuing to climb higher up the same pile — a tiny
+    // deterministic pseudo-random walk (not Math.random, so the pile
+    // looks the same on every reload) rather than 10 hand-tuned tuples,
+    // with the horizontal spread tapering in as the stack gets taller
+    // (a real tossed pile narrows toward its own top)
+    const moreColors = [0x8a6a1f, 0x3c3226, 0xb89a5e, 0x241f18, 0x6e5a38, 0x2d2a22, 0x9c7f45, 0x1a1712, 0x54452c, 0xc9ad72];
+    let seed = 7;
+    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    for(let i = 0; i < 10; i++){
+      const h = 0.95 + i * 0.34;
+      const spread = Math.max(0.15, 0.75 - i * 0.06);
+      chairs.push({
+        color: moreColors[i],
+        pos: [(rand() - 0.5) * spread * 2, h, (rand() - 0.5) * spread * 2],
+        rot: [rand() * Math.PI * 2, rand() * Math.PI * 2, rand() * Math.PI * 2],
+      });
+    }
     chairs.forEach(({ color, pos, rot }) => {
       const chair = buildChairGroup(color);
       chair.position.set(px + pos[0], platformH + pos[1], pz + pos[2]);
@@ -847,63 +1042,134 @@ class ProcessRoom {
     });
   }
 
-  // real image-based lighting from an actual sky (Poly Haven, CC0),
-  // assigned to both scene.environment (every material's own ambient/
-  // reflection source) and scene.background (visible through the
-  // arch, where nothing else is rendered)
+  // a handful of small, very faint wisps drifting down through the room
+  // from above — sprites (always face the camera, cheap, unlit) rather
+  // than real cloth-sim geometry, since the brief is "very subtle, a
+  // few," not a hero effect. Each one falls slowly and sways side to
+  // side at its own speed/phase, looping back to the top once it drops
+  // past the floor rather than disappearing for good
+  _buildFeathers(){
+    const count = 14;
+    const tex = buildFeatherTexture(64);
+    const group = new THREE.Group();
+    this.feathers = [];
+    let seed = 41;
+    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+    for(let i = 0; i < count; i++){
+      const mat = new THREE.SpriteMaterial({
+        map: tex, color: 0xfff3d9, transparent: true, depthWrite: false,
+        opacity: 0.1 + rand() * 0.12,
+      });
+      const sprite = new THREE.Sprite(mat);
+      const scale = 0.14 + rand() * 0.1;
+      sprite.scale.set(scale, scale * 1.7, 1);
+      const baseX = (rand() - 0.5) * 11;
+      const baseZ = -5 + rand() * 8.5;
+      sprite.position.set(baseX, rand() * 6.5, baseZ);
+      group.add(sprite);
+      this.feathers.push({
+        sprite, baseX, baseZ,
+        // slowed to roughly 40% of the original speed per direct request
+        fallSpeed: 0.0009 + rand() * 0.001,
+        swayAmp: 0.35 + rand() * 0.55,
+        swayFreq: 0.15 + rand() * 0.2,
+        phase: rand() * Math.PI * 2,
+        spinSpeed: (rand() - 0.5) * 0.008,
+      });
+    }
+    this.roomGroup.add(group);
+  }
+
+  // a floating rock boulder near the hero sphere, offset to its right —
+  // real PBR maps (color/normal/ao/roughness), not a flat material: the
+  // stepping-stones texture set already downloaded for the old rotunda
+  // room (img/textures/stepping-stones) is a genuinely rocky, cracked
+  // stone surface, still sitting unused on disk, so it's reused here
+  // rather than sourcing anything new. The geometry itself is a plain
+  // IcosahedronGeometry with each vertex pushed out/in by a small
+  // deterministic amount along its own normal — enough to break the
+  // perfect-icosahedron facets into an irregular, rock-like lump without
+  // needing sculpted geometry. aoMap requires its own second UV channel
+  // in three.js, hence the uv2 copy. Bobs and slowly tumbles in _frame()
+  // so "floating" actually reads as floating, not just suspended
+  _buildFloatingRock(){
+    const geo = new THREE.IcosahedronGeometry(0.55, 2);
+    const pos = geo.attributes.position;
+    // IcosahedronGeometry is non-indexed — each triangle owns its own 3
+    // position entries, so a shared corner between faces exists as
+    // several separate buffer entries that all start at the identical
+    // coordinate. A per-entry random bump (a plain incrementing PRNG)
+    // gave each of those duplicates a DIFFERENT displacement, tearing
+    // the mesh open at every shared edge — the "spiky/shattered/black"
+    // result seen in testing. Hashing the bump off the vertex's own
+    // (x,y,z) instead makes every duplicate at the same original point
+    // resolve to the exact same bump, so the surface stays continuous
+    const hash3 = (x, y, z) => {
+      const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
+      return s - Math.floor(s);
+    };
+    const v = new THREE.Vector3();
+    for(let i = 0; i < pos.count; i++){
+      v.set(pos.getX(i), pos.getY(i), pos.getZ(i));
+      const n = v.clone().normalize();
+      const bump = 1 + (hash3(n.x, n.y, n.z) - 0.5) * 0.36;
+      v.copy(n.multiplyScalar(v.length() * bump));
+      pos.setXYZ(i, v.x, v.y, v.z);
+    }
+    geo.computeVertexNormals();
+    geo.setAttribute('uv2', new THREE.BufferAttribute(geo.attributes.uv.array, 2));
+
+    const loader = new THREE.TextureLoader();
+    const colorMap = loader.load('img/textures/stepping-stones/color.jpg');
+    colorMap.colorSpace = THREE.SRGBColorSpace;
+    const normalMap = loader.load('img/textures/stepping-stones/normal.jpg');
+    const aoMap = loader.load('img/textures/stepping-stones/ao.jpg');
+    const roughnessMap = loader.load('img/textures/stepping-stones/roughness.jpg');
+    const rockMat = new THREE.MeshStandardMaterial({
+      map: colorMap, normalMap, aoMap, roughnessMap,
+      roughness: 1, metalness: 0, envMapIntensity: 0.6,
+    });
+
+    const rock = new THREE.Mesh(geo, rockMat);
+    // front-right of the sphere (SPHERE_POS.z = 2.0) — closer to the
+    // viewer (larger z, since the camera sits at positive z looking
+    // toward -z) and only slightly right, per direct request, rather
+    // than the first pass's further-right/further-back placement
+    rock.position.set(1.5, 1.25, 3.0);
+    rock.rotation.set(0.4, 0.8, 0.2);
+    rock.castShadow = true;
+    rock.receiveShadow = true;
+    this.roomGroup.add(rock);
+    this.floatingRock = rock;
+    this._rockBaseY = rock.position.y;
+  }
+
+  // no discrete lights at all — the whole room is lit by one real HDRI
+  // (Poly Haven, CC0 — img/hdri/overcast_skylight.hdr, downloaded once
+  // this session, nothing fetches from polyhaven.com at runtime) via
+  // scene.environment only — that part's unchanged. What IS visible
+  // through the arch/slit now is a separate, purely cosmetic deep-space
+  // backdrop (see buildGalaxyTexture) on scene.background, per direct
+  // request for the room to read as floating in space — kept fully
+  // independent of scene.environment on purpose, the same separation
+  // this file has used since the very first sky pass, so the galaxy
+  // never touches the room's own lighting/reflections, only what's
+  // visible behind it. Overall darkness is controlled globally by
+  // renderer.toneMappingExposure (see the constructor); each material's
+  // own envMapIntensity (wallMat, floorMat, sphereMat, rockMat,
+  // platformMat, poleMat) controls how much of its true colour the
+  // HDRI's own bounce reveals
   _buildEnvironment(){
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     pmrem.compileEquirectangularShader();
-    new RGBELoader().load('img/hdri/bright_sky.hdr', (hdrTex) => {
+    new RGBELoader().load('img/hdri/overcast_skylight.hdr', (hdrTex) => {
       const envMap = pmrem.fromEquirectangular(hdrTex).texture;
       this.scene.environment = envMap;
-      this.scene.background = envMap;
+      this.scene.background = buildGalaxyTexture(2560, 1280);
       hdrTex.dispose();
       pmrem.dispose();
       this._frame();
     });
-  }
-
-  _buildLights(){
-    // stands in for "the sun this sky belongs to" — an environment map
-    // alone can't cast a real-time dynamic shadow, so this is the only
-    // discrete light in the scene, a soft, wide, gently-angled source
-    // rather than a tight spot, tuned once rather than escalated
-    const key = new THREE.DirectionalLight(0xffdca8, 2.4);
-    key.position.set(3, 9, 5);
-    key.target.position.set(SPHERE_POS.x, 0.5, SPHERE_POS.z);
-    key.castShadow = true;
-    const shadowSize = this.isMobile ? CONFIG.shadowSizeMobile : CONFIG.shadowSize;
-    key.shadow.mapSize.set(shadowSize, shadowSize);
-    key.shadow.camera.near = 1;
-    key.shadow.camera.far = 20;
-    key.shadow.camera.left = -7;
-    key.shadow.camera.right = 7;
-    key.shadow.camera.top = 7;
-    key.shadow.camera.bottom = -7;
-    key.shadow.radius = 3;
-    key.shadow.bias = -0.0008;
-    // normalBias (offsetting the shadow sample along the surface normal,
-    // not just toward the light) is what actually stops shadow acne on a
-    // curved surface like the sphere from shimmering as the camera moves
-    // — bias alone was tuned for the flat floor/walls and wasn't enough
-    // once the camera started moving this much
-    key.shadow.normalBias = 0.025;
-    this.scene.add(key, key.target);
-
-    // the key light + baked AO alone only account for one direction —
-    // a surface facing away from the key light (the underside of the
-    // stair treads, the walls' own inward-angled faces, the platform's
-    // shaded side) had no sky contribution at all beyond scene.environment's
-    // reflections. A HemisphereLight is the standard fix: real ambient
-    // light from the sky hits every surface regardless of its facing,
-    // tinted by direction — skyColor from directly above (matching the
-    // HDRI's own pale tone), groundColor from below (matching the warm
-    // gold the floor/walls bounce back up), blended in between by each
-    // surface's own normal. This is what actually makes the shading
-    // read as coming from "the sky all around," not just one sun angle
-    const hemi = new THREE.HemisphereLight(0xd7dde0, 0xb8976a, 0.65);
-    this.scene.add(hemi);
   }
 
   // -----------------------------------------------------------------
@@ -912,7 +1178,19 @@ class ProcessRoom {
   _buildPostProcessing(){
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
-    this.composer = new EffectComposer(this.renderer);
+    // EffectComposer's OWN default render target has no multisampling
+    // at all — the renderer's own antialias:true only ever applies to
+    // the default framebuffer, and every pass here instead renders into
+    // this offscreen target first, so every edge in the whole scene was
+    // silently aliased regardless of that renderer flag. Barely visible
+    // while the camera was still moving (motion hides it), but plainly
+    // jagged/"pixelated" the instant it stopped — a real multisampled
+    // target (not a blur/sharpen trick) is the actual fix
+    const renderTarget = new THREE.WebGLRenderTarget(w, h, {
+      type: THREE.HalfFloatType,
+      samples: 4,
+    });
+    this.composer = new EffectComposer(this.renderer, renderTarget);
     this.composer.setSize(w, h);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
 
@@ -937,11 +1215,25 @@ class ProcessRoom {
     // tonemapping) inverts per-channel above ~1.5 and reads as a
     // rainbow-banded halo around bright surfaces, a real bug hit and
     // fixed in the old room.
-    this.composer.addPass(new ShaderPass({
+    // grain — the same technique unseen.co's own combined post pass uses
+    // (checked directly: fetched their bundled theme.js and read the
+    // actual fragment shader source off their screenFxPass). It's not a
+    // texture at all — a per-pixel hash fed by gl_FragCoord (so it's
+    // free, no sampler/tiling-seam concerns) plus a uTime term so a new
+    // random value lands every frame, which is what makes it read as
+    // fine animated film grain rather than a static overlay. Their own
+    // version only ever brightens (adds a positive-only hash value);
+    // grainStrength here is deliberately far below their 0.07 magnitude
+    // — this room's HDR/tonemapped pipeline already has more overall
+    // contrast than their flat dusty-pink scene, so their exact strength
+    // read as visible static rather than a soft grain
+    const grainPass = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
         vignetteStrength: { value: 0.3 },
         contrastStrength: { value: 0.26 },
+        grainStrength: { value: 0.035 },
+        grainTime: { value: 0 },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -954,7 +1246,16 @@ class ProcessRoom {
         uniform sampler2D tDiffuse;
         uniform float vignetteStrength;
         uniform float contrastStrength;
+        uniform float grainStrength;
+        uniform float grainTime;
         varying vec2 vUv;
+
+        float hash12(vec2 p){
+          vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+          p3 += dot(p3, p3.yzx + 33.33);
+          return fract((p3.x + p3.y) * p3.z);
+        }
+
         void main(){
           vec4 texel = texture2D(tDiffuse, vUv);
           vec3 c = texel.rgb;
@@ -968,10 +1269,14 @@ class ProcessRoom {
           vec2 centered = vUv - 0.5;
           float vig = 1.0 - dot(centered, centered) * vignetteStrength;
           c *= vig;
+          float f = hash12(gl_FragCoord.xy + grainTime);
+          c += (f - 0.5) * grainStrength;
           gl_FragColor = vec4(c, texel.a);
         }
       `,
-    }));
+    });
+    this.grainUniforms = grainPass.uniforms;
+    this.composer.addPass(grainPass);
 
     this.composer.addPass(new OutputPass());
   }
@@ -1017,7 +1322,6 @@ class ProcessRoom {
     this.camera.position.copy(pos);
     this.camera.lookAt(look);
     this._renderFrame();
-    this._updateSteps(0);
     this._updateTrafficLight(0);
     this.canvas.classList.add('is-ready');
   }
@@ -1117,10 +1421,11 @@ class ProcessRoom {
     this._state.rafId = null;
 
     if(!this.prefersReducedMotion){
-      this.mouse.x += (this.mouseTarget.x - this.mouse.x) * 0.06;
-      this.mouse.y += (this.mouseTarget.y - this.mouse.y) * 0.06;
+      this.mouse.x += (this.mouseTarget.x - this.mouse.x) * CONFIG.mouseLerp;
+      this.mouse.y += (this.mouseTarget.y - this.mouse.y) * CONFIG.mouseLerp;
+      this._state.displayProgress += (this._state.progress - this._state.displayProgress) * CONFIG.progressLerp;
 
-      const { pos, look } = this._cameraForProgress(this._state.progress);
+      const { pos, look } = this._cameraForProgress(this._state.displayProgress);
       // a small position shift for depth-parallax, plus — the actual
       // unseen.co effect, confirmed by hovering their own corners
       // directly — a real camera ROTATION on top, not another lookAt
@@ -1144,13 +1449,59 @@ class ProcessRoom {
     }
 
     if(this.sphere) this.sphere.rotation.y += 0.0018;
+    if(this.floatingRock){
+      this._rockTime = (this._rockTime || 0) + 0.016;
+      this.floatingRock.position.y = this._rockBaseY + Math.sin(this._rockTime * 0.6) * 0.08;
+      this.floatingRock.rotation.y += 0.0011;
+      this.floatingRock.rotation.x += 0.0006;
+    }
     if(this.floorNormalMap){
       this.floorNormalMap.offset.x += 0.00035;
       this.floorNormalMap.offset.y += 0.00022;
     }
     if(this.floorRippleUniforms) this.floorRippleUniforms.uTime.value += 0.016;
+    if(this.grainUniforms) this.grainUniforms.grainTime.value += 1.0;
 
-    this._updateSteps(this._state.progress);
+    if(this.feathers){
+      this._featherTime = (this._featherTime || 0) + 0.016;
+      this.feathers.forEach((f) => {
+        f.sprite.position.y -= f.fallSpeed;
+        f.sprite.position.x = f.baseX + Math.sin(this._featherTime * f.swayFreq + f.phase) * f.swayAmp;
+        f.sprite.material.rotation += f.spinSpeed;
+        if(f.sprite.position.y < -0.5){
+          f.sprite.position.y = 6.2 + (f.phase % 1) * 1.3;
+          f.baseX = ((f.baseX + 5.5) % 11) - 5.5;
+        }
+      });
+    }
+
+    // the water's cursor-follow ripple — raycasts the (already-smoothed)
+    // cursor position against the floor mesh itself each frame, so the
+    // ripple centre tracks wherever the visitor's cursor actually lands
+    // on the water rather than a fixed spot. Skipped on touch (no real
+    // cursor to track) and under reduced motion, same guard as the
+    // mousemove listener that feeds this.mouse in the first place
+    if(!this.isCoarsePointer && !this.prefersReducedMotion && this.floorMesh && this.floorRippleUniforms){
+      if(!this._raycaster) this._raycaster = new THREE.Raycaster();
+      this._raycaster.setFromCamera({ x: this.mouse.x, y: -this.mouse.y }, this.camera);
+      const hit = this._raycaster.intersectObject(this.floorMesh)[0];
+      if(hit){
+        // velocity is just this frame's movement of the hit point
+        // itself — real direction/speed the cursor is actually
+        // dragging across the water, feeding the shader's wake warp
+        if(this._prevCursorHit){
+          this.floorRippleUniforms.uCursorVelocity.value.set(
+            hit.point.x - this._prevCursorHit.x,
+            hit.point.z - this._prevCursorHit.z
+          );
+        }
+        this._prevCursorHit = this._prevCursorHit || { x: 0, z: 0 };
+        this._prevCursorHit.x = hit.point.x;
+        this._prevCursorHit.z = hit.point.z;
+        this.floorRippleUniforms.uCursorRippleCenter.value.set(hit.point.x, hit.point.z);
+      }
+    }
+
     this._updateTrafficLight(this._state.progress);
     this._renderFrame();
 
@@ -1161,30 +1512,15 @@ class ProcessRoom {
       this._state.rafId = requestAnimationFrame(this._frame.bind(this));
     }
   }
-
-  _updateSteps(progress){
-    const count = this.stepEls ? this.stepEls.length : STEPS.length;
-    const stage = Math.min(count - 1, Math.floor(progress * count));
-    if(stage === this._state.activeStage) return;
-    this._state.activeStage = stage;
-    if(!this.stepEls) return;
-    this.stepEls.forEach((el, i) => el.classList.toggle('is-active', i === stage));
-    this.dotEls.forEach((el, i) => el.classList.toggle('is-active', i === stage));
-  }
 }
 
 (function(){
   const section = document.getElementById('processRoom');
   const container = section ? section.querySelector('.process-room-sticky') : null;
   const canvas = document.getElementById('processRoomCanvas');
-  const stepsWrap = document.getElementById('processRoomSteps');
   if(!section || !container || !canvas) return;
 
   window.Papi = window.Papi || {};
   const room = new ProcessRoom(section, container, canvas);
-  if(stepsWrap){
-    room.stepEls = Array.from(stepsWrap.querySelectorAll('.process-room-step'));
-    room.dotEls = Array.from(section.querySelectorAll('.process-room-dot'));
-  }
   window.Papi.processRoom = room;
 })();

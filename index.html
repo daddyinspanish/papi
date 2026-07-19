@@ -76,22 +76,6 @@ window.scrollTo(0, 0);
 </head>
 <body>
 
-<!-- persistent full-width nav — brand mark, Work/Process/Pricing
-     (anchor-scroll to existing sections), and a "Start a Project" CTA.
-     Transparent over the hero, gains a solid background past it (see
-     .site-header.is-solid in style.css, toggled by js/title-dock.js). -->
-<header class="site-header" id="siteHeader">
-  <a href="#hero" class="brand-mark" id="brandMark" aria-label="Papi — back to top">
-    <span>P</span><span>A</span><span>P</span><span>I</span>
-  </a>
-  <nav class="site-nav" aria-label="Primary">
-    <a href="#showcase">Work</a>
-    <a href="#processRoom">Process</a>
-    <a href="#quoteSection">Pricing</a>
-  </nav>
-  <a href="#quoteSection" class="hero-cta hero-cta--nav">Start a Project<span class="hero-cta-plus">+</span></a>
-</header>
-
 <!-- ============ HERO — this used to be a two-column copy+liquid intro
      followed by the process room; that intro section (headline, CTA,
      trusted-by marquee, hero-slime liquid mass, social icons) has been
@@ -104,46 +88,16 @@ window.scrollTo(0, 0);
      ============ -->
 <main id="hero" aria-hidden="true">
 
-  <!-- "Process" nav link's actual scroll target. A simple 3D alcove
-       (Three.js, js/process-room.js) — one arched opening, a
-       reflective floor, a glass hero object — lit almost entirely by
-       a real HDRI sky rather than hand-placed point lights, with a
-       small continuous camera push (not 4 discrete stops) behind the
-       4 Papi process steps below. Same tall-outer-section + sticky-
-       inner-viewport pattern as .contrast-section: scrolling through
-       the outer section's own height keeps the canvas pinned while
-       the step copy crossfades. -->
+  <!-- a simple 3D alcove (Three.js, js/process-room.js) — one arched
+       opening, a reflective floor, a glass hero object — lit almost
+       entirely by a real HDRI sky rather than hand-placed point
+       lights, with a small continuous camera push driven by scroll.
+       Same tall-outer-section + sticky-inner-viewport pattern as
+       .contrast-section: scrolling through the outer section's own
+       height keeps the canvas pinned. -->
   <section class="process-room-section" id="processRoom">
     <div class="process-room-sticky">
       <canvas id="processRoomCanvas" aria-hidden="true"></canvas>
-      <div class="process-room-steps" id="processRoomSteps">
-        <div class="process-room-step" data-step="0">
-          <span class="process-room-num">01</span>
-          <h3>Discover</h3>
-          <p>We learn about your brand, goals, and audience.</p>
-        </div>
-        <div class="process-room-step" data-step="1">
-          <span class="process-room-num">02</span>
-          <h3>Design</h3>
-          <p>Strategic, modern designs that make an impact.</p>
-        </div>
-        <div class="process-room-step" data-step="2">
-          <span class="process-room-num">03</span>
-          <h3>Develop</h3>
-          <p>Fast, responsive, and built with clean code.</p>
-        </div>
-        <div class="process-room-step" data-step="3">
-          <span class="process-room-num">04</span>
-          <h3>Launch</h3>
-          <p>Tested, refined, and ready to perform from day one.</p>
-        </div>
-      </div>
-      <div class="process-room-progress" aria-hidden="true">
-        <span class="process-room-dot" data-step="0"></span>
-        <span class="process-room-dot" data-step="1"></span>
-        <span class="process-room-dot" data-step="2"></span>
-        <span class="process-room-dot" data-step="3"></span>
-      </div>
     </div>
   </section>
 

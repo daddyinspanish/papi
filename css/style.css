@@ -249,44 +249,6 @@ body, a{ cursor:none; }
   color:var(--paper-dim);
 }
 
-.hero-cta{
-  display:inline-flex;
-  align-items:center;
-  gap:.6rem;
-  margin-top:1.9rem;
-  padding:.95rem 1.6rem;
-  border-radius:999px;
-  background:var(--ink);
-  color:var(--cream);
-  font-size:.92rem;
-  font-weight:600;
-  letter-spacing:.01em;
-  text-decoration:none;
-  transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
-  box-shadow:0 16px 34px -18px rgba(11,11,12,.55);
-}
-.hero-cta:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -18px rgba(11,11,12,.65); }
-.hero-cta:active{ transform:translateY(0) scale(.98); }
-.hero-cta-plus{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:1.1em;
-  height:1.1em;
-  border-radius:50%;
-  background:rgba(243,237,226,.16);
-  font-size:.9em;
-  line-height:1;
-}
-/* smaller variant used inside the persistent nav header — same look,
-   scaled down, no top margin (the header lays it out via flex, not
-   the copy column's own vertical rhythm) */
-.hero-cta--nav{
-  margin-top:0;
-  padding:.55rem 1.05rem;
-  font-size:.78rem;
-}
-
 .hero-trusted{ margin-top:2.25rem; }
 .hero-trusted-label{
   font-size:.72rem;
@@ -399,81 +361,6 @@ body, a{ cursor:none; }
   .hero-visual-col{ height:min(88vw, 420px); margin-top:1rem; }
 }
 
-/* ---- header / persistent nav — fixed, full-width, always visible
-   (previously just a small top-right brand mark, hidden for the whole
-   hero and only shown once scrolled past — replaced by a real nav bar
-   with real links now that the hero has real destinations to point
-   to). Transparent while still over the hero (matching the reference
-   this redesign is built around, and reusing the existing on-light-
-   section flip below for legibility over that white background) —
-   once scrolled past the hero (see .is-solid, toggled by
-   js/title-dock.js's update()) it gets a plain solid background
-   instead, deliberately NOT backdrop-filter (a real, documented perf
-   regression on this site — see the fan-card/testimonial/hero-CTA
-   history) — a solid background is what lets it sit cleanly on top of
-   .contrast-sticky/.showcase-sticky once those sections pin to the
-   viewport's own top edge further down the page, rather than
-   colliding with their own pinned content. */
-.site-header{
-  position:fixed;
-  top:0; left:0; right:0;
-  z-index:200;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:clamp(1rem, 3vw, 2rem);
-  padding:clamp(1.1rem, 3vw, 1.5rem) clamp(1.5rem, 4vw, 3rem);
-  background:transparent;
-  transition:background .4s var(--ease-out), box-shadow .4s var(--ease-out);
-}
-.site-header.is-solid{
-  background:rgba(11,11,12,.94);
-  box-shadow:0 12px 30px -22px rgba(0,0,0,.7);
-}
-
-.brand-mark{
-  font-family:'Fraunces', serif;
-  font-weight:500;
-  font-size:clamp(1.1rem, 2vw, 1.5rem);
-  letter-spacing:.28em;
-  display:flex;
-  color:var(--gold-soft);
-  text-shadow:0 2px 20px rgba(0,0,0,.5);
-  text-decoration:none;
-  transition:color .8s var(--ease-out), text-shadow .5s var(--ease-out);
-}
-/* dark-on-light while over the hero's own white background AND the
-   header is still transparent — scoped to :not(.is-solid) because
-   the header also passes back through a light section (the contrast
-   section) later in the scroll, by which point it already has its own
-   solid dark background and needs to keep its light, constant text
-   color rather than flipping to dark-on-dark and disappearing */
-body.on-light-section .site-header:not(.is-solid) .brand-mark{ color:rgb(var(--style-contrast)); }
-.brand-mark span{ display:inline-block; opacity:0; transition:opacity .9s var(--ease-out); }
-
-.site-nav{
-  display:flex;
-  align-items:center;
-  gap:clamp(1.3rem, 3vw, 2.2rem);
-}
-.site-nav a{
-  font-family:'Inter', sans-serif;
-  font-size:.82rem;
-  font-weight:500;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-  color:var(--cream);
-  opacity:.8;
-  text-decoration:none;
-  transition:opacity .25s var(--ease-out), color .5s var(--ease-out);
-}
-.site-nav a:hover{ opacity:1; }
-body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--style-contrast)); }
-
-@media (max-width:640px){
-  .site-nav{ display:none; }
-}
-
 /* closing brand signature — bottom-center, fades in only once the
    quote section is reached, as a closing echo of the top-right brand
    mark/tagline rather than just ending on the form. Opacity/transform
@@ -584,19 +471,15 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
   100%{ transform:scale(1) rotate(0deg); opacity:1; }
 }
 
-/* ---- process room — a real 3D space (Three.js, js/process-room.js)
-   the camera walks through as the visitor scrolls, pausing at each of
-   the 4 Papi process steps — same tall-outer-section + sticky-inner-
+/* ---- process room — a real 3D space (Three.js, js/process-room.js),
+   the site's hero itself — same tall-outer-section + sticky-inner-
    viewport pattern as .contrast-section below: scrolling through the
    outer section's own height keeps .process-room-sticky pinned in the
-   viewport while the camera travels a fixed path through the room.
-   #processRoom is still the "Process" nav link's own scroll target. ---- */
+   viewport while the camera travels a fixed path through the room. ---- */
 .process-room-section{
   position:relative;
-  /* v1 scene is a single, mostly-static camera push (not 4 discrete
-     stage stops like the old rotunda) — 500vh was sized for that old
-     room and is now far more scroll than the scene needs; ~320vh gives
-     each of the 4 crossfading steps a comfortable, still-brisk dwell */
+  /* a single, mostly-static camera push — 320vh gives that push a
+     comfortable, still-brisk scroll distance to play out over */
   height:320vh;
   /* svh + --stable-vh — see the long comment on .contrast-section
      below for why plain vh alone isn't enough on several in-app
@@ -613,6 +496,13 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
   height:calc(100 * var(--stable-vh, 1vh));
   overflow:hidden;
   background:var(--paper);
+  /* explicit rather than left to the browser's own default guess for
+     a full-bleed WebGL canvas: a single-finger vertical drag must
+     always be free to scroll the page (this section has no left/right
+     swipe gesture of its own to reserve), which is what actually
+     mattered on mobile once this became the very first thing a visitor
+     touches on page load */
+  touch-action:pan-y;
 }
 #processRoomCanvas{
   position:absolute;
@@ -622,75 +512,10 @@ body.on-light-section .site-header:not(.is-solid) .site-nav a{ color:rgb(var(--s
   display:block;
   opacity:0;
   transition:opacity 0.6s ease;
+  touch-action:pan-y;
 }
 #processRoomCanvas.is-ready{
   opacity:1;
-}
-.process-room-steps{
-  position:absolute;
-  left:clamp(1.5rem, 6vw, 5.5rem);
-  bottom:clamp(2rem, 8vh, 5rem);
-  max-width:26rem;
-  pointer-events:none;
-}
-.process-room-step{
-  position:absolute;
-  left:0;
-  bottom:0;
-  opacity:0;
-  transform:translateY(14px);
-  transition:opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
-}
-.process-room-step.is-active{
-  position:relative;
-  opacity:1;
-  transform:translateY(0);
-}
-.process-room-num{
-  display:block;
-  font-size:.85rem;
-  font-weight:600;
-  letter-spacing:.12em;
-  color:var(--gold-deep);
-}
-.process-room-step h3{
-  margin:.35em 0 .3em;
-  font-size:clamp(1.6rem, 3.2vw, 2.3rem);
-  color:var(--ink);
-}
-.process-room-step p{
-  margin:0;
-  max-width:24rem;
-  color:var(--ink-soft);
-  opacity:.82;
-}
-.process-room-progress{
-  position:absolute;
-  right:clamp(1.5rem, 6vw, 5.5rem);
-  bottom:clamp(2rem, 8vh, 5rem);
-  display:flex;
-  flex-direction:column;
-  gap:.6rem;
-  pointer-events:none;
-}
-.process-room-dot{
-  width:.4rem;
-  height:.4rem;
-  border-radius:50%;
-  background:var(--ink);
-  opacity:.22;
-  transition:opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
-}
-.process-room-dot.is-active{
-  opacity:1;
-  background:var(--gold-deep);
-  transform:scale(1.4);
-}
-/* nav anchor targets — enough top clearance that the fixed header
-   (see .site-header above) never overlaps whatever a Work/Process/
-   Pricing link scrolls to. */
-#showcase, #processRoom, #quoteSection{
-  scroll-margin-top:clamp(4.5rem, 10vw, 6rem);
 }
 @media (prefers-reduced-motion:no-preference){
   html{ scroll-behavior:smooth; }
