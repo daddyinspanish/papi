@@ -458,13 +458,71 @@ function makeScratchesTexture(seed){
   return tex;
 }
 
+// draws left-to-right with manual per-glyph spacing (canvas 2D has no
+// letter-spacing property in every browser this needs to run in) —
+// used for the wall signage's tracked-out small-caps title, matching
+// the site's own .process-room-num/.process-room-step h3 look
+function drawTrackedText(ctx, text, cx, y, spacing){
+  ctx.save();
+  ctx.textAlign = 'left';
+  const widths = [...text].map((ch) => ctx.measureText(ch).width);
+  const total = widths.reduce((a, b) => a + b, 0) + spacing * (text.length - 1);
+  let x = cx - total / 2;
+  [...text].forEach((ch, i) => {
+    ctx.fillText(ch, x, y);
+    x += widths[i] + spacing;
+  });
+  ctx.restore();
+}
+
+// the 4 process-step placards mounted on the room's own wall segments
+// (see _buildStepSignage) — cream/gold on transparent, with a soft
+// warm backlight glow baked in, echoing the room's existing LED-strip
+// glow language rather than reading as a flat printed card
+function makeStepSignTexture(number, title, lines){
+  const w = 620, h = 820;
+  const canvas = document.createElement('canvas');
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext('2d');
+
+  const glow = ctx.createRadialGradient(w / 2, h * 0.4, 0, w / 2, h * 0.4, h * 0.55);
+  glow.addColorStop(0, 'rgba(255,231,189,0.16)');
+  glow.addColorStop(1, 'rgba(255,231,189,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(228,205,154,0.85)';
+  ctx.font = '600 60px Fraunces, serif';
+  ctx.fillText(number, w / 2, 150);
+
+  ctx.fillStyle = 'rgba(243,237,226,0.95)';
+  ctx.font = '500 38px Fraunces, serif';
+  drawTrackedText(ctx, title.toUpperCase(), w / 2, 240, 7);
+
+  ctx.font = '300 27px Inter, sans-serif';
+  ctx.fillStyle = 'rgba(243,237,226,0.6)';
+  lines.forEach((line, i) => ctx.fillText(line, w / 2, 305 + i * 40));
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// one entry per camera keyframe/stage — see _buildStepSignage for how
+// each becomes a placard positioned along that stage's own camera path
+const STEP_SIGNS = [
+  { number: '01', title: 'Discover', lines: ['We learn about your brand, goals,', 'and audience.'] },
+  { number: '02', title: 'Design', lines: ['Strategic, modern designs that', 'make an impact.'] },
+  { number: '03', title: 'Develop', lines: ['Fast, responsive, and built with', 'clean code.'] },
+  { number: '04', title: 'Launch', lines: ['Tested, refined, and ready to', 'perform from day one.'] },
+];
+
 class ProcessRoom {
-  constructor(section, container, canvas, stepEls, dotEls){
+  constructor(section, container, canvas){
     this.section = section;
     this.container = container;
     this.canvas = canvas;
-    this.stepEls = stepEls;
-    this.dotEls = dotEls;
     this.enabled = false;
 
     this.prefersReducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -495,6 +553,7 @@ class ProcessRoom {
     this._buildRoom();
     this._buildLights();
     this._buildKeyframes();
+    this._buildStepSignage();
 
     this._state = {
       progress: 0,
@@ -516,6 +575,7 @@ class ProcessRoom {
     const R = ROOM.radius, H = ROOM.height;
     const group = new THREE.Group();
     this.scene.add(group);
+    this.roomGroup = group;
 
     // every material's maps load async and attach the instant each one
     // finishes, independent of the others — on a cold cache that meant
@@ -758,6 +818,53 @@ class ProcessRoom {
     // the darker concrete once you're actually inside the reveal
     const doorwayThetas = [-ROOM.doorTheta, ROOM.doorTheta, 0];
     doorwayThetas.forEach((theta) => this._buildDoorway(group, theta, doorwayMat, wallMat));
+  }
+
+  // one floating placard per stage, replacing the old bottom-of-screen
+  // DOM step copy — rather than mounting these on the wall (the side
+  // doorways already reach almost to the edge of the Discover-stage
+  // frame, leaving no visible wall outside them to anchor to), each
+  // sign sits along its own stage's camera-to-look line, so it's
+  // already roughly centred in frame the moment that stage arrives,
+  // and _updateSteps below fades/scales it in and out as the camera
+  // nears then leaves that point in the path — needs this.keyframes,
+  // so this runs after _buildKeyframes, not from inside _buildRoom
+  _buildStepSignage(){
+    this._signs = STEP_SIGNS.map((step, i) => {
+      const kf = this.keyframes[i];
+      const anchor = kf.pos.clone().lerp(kf.look, 0.55);
+
+      const tex = makeStepSignTexture(step.number, step.title, step.lines);
+      const aspect = tex.image.height / tex.image.width;
+      // narrower on mobile's tighter/taller aspect so the description
+      // text doesn't run past the edge of the frame
+      const width = this.isMobile ? 1.5 : 2.3;
+      const geo = new THREE.PlaneGeometry(width, width * aspect);
+      const mat = new THREE.MeshBasicMaterial({
+        map: tex, transparent: true, opacity: 0, depthWrite: false,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(anchor);
+      const dir = kf.pos.clone().sub(anchor);
+      mesh.rotation.y = Math.atan2(dir.x, dir.z);
+      this.roomGroup.add(mesh);
+      return { mesh, mat };
+    });
+
+    // canvas text drawn before the 'Fraunces'/'Inter' webfonts finish
+    // loading bakes in the fallback font permanently (unlike DOM text,
+    // a canvas texture never reflows on its own) — redraw once fonts
+    // are actually ready, in case that race is lost
+    if(document.fonts && document.fonts.ready){
+      document.fonts.ready.then(() => {
+        this._signs.forEach(({ mat }, i) => {
+          const step = STEP_SIGNS[i];
+          mat.map = makeStepSignTexture(step.number, step.title, step.lines);
+          mat.needsUpdate = true;
+        });
+        this._frame();
+      });
+    }
   }
 
   _buildDoorway(group, theta, doorwayMat, wallMat){
@@ -1093,16 +1200,34 @@ class ProcessRoom {
       this.camera.lookAt(look);
     }
 
-    this.renderer.render(this.scene, this.camera);
+    // must run before render() now that it drives real scene state
+    // (sign opacity/scale) rather than just DOM class toggles — doing
+    // it after left every sign's reveal one frame behind
     this._updateSteps(this._state.progress);
+    this.renderer.render(this.scene, this.camera);
   }
 
   _updateSteps(progress){
-    const stage = Math.min(this.stepEls.length - 1, Math.floor(progress * this.stepEls.length));
-    if(stage === this._state.activeStage) return;
-    this._state.activeStage = stage;
-    this.stepEls.forEach((el, i) => el.classList.toggle('is-active', i === stage));
-    this.dotEls.forEach((el, i) => el.classList.toggle('is-active', i === stage));
+    const count = this._signs ? this._signs.length : STEP_SIGNS.length;
+    this._state.activeStage = Math.min(count - 1, Math.floor(progress * count));
+    if(!this._signs) return;
+
+    // continuous per-frame reveal, not a discrete on/off switch — each
+    // sign fades/grows in as its own stage's dwell range is entered and
+    // fades back out leaving it, so it reads as "coming out" toward the
+    // camera as the room arrives there rather than just appearing
+    this._signs.forEach(({ mesh, mat }, i) => {
+      const localT = progress * count - i;
+      let amt = 0;
+      if(localT > -0.15 && localT < 1.15){
+        const t = Math.max(0, Math.min(1, localT));
+        if(t < 0.25) amt = t / 0.25;
+        else if(t > 0.75) amt = (1 - t) / 0.25;
+        else amt = 1;
+      }
+      mat.opacity = amt * 0.95;
+      mesh.scale.setScalar(0.88 + 0.12 * amt);
+    });
   }
 }
 
@@ -1110,11 +1235,8 @@ class ProcessRoom {
   const section = document.getElementById('processRoom');
   const container = section ? section.querySelector('.process-room-sticky') : null;
   const canvas = document.getElementById('processRoomCanvas');
-  const stepsWrap = document.getElementById('processRoomSteps');
-  if(!section || !container || !canvas || !stepsWrap) return;
-  const stepEls = Array.from(stepsWrap.querySelectorAll('.process-room-step'));
-  const dotEls = Array.from(section.querySelectorAll('.process-room-dot'));
+  if(!section || !container || !canvas) return;
 
   window.Papi = window.Papi || {};
-  window.Papi.processRoom = new ProcessRoom(section, container, canvas, stepEls, dotEls);
+  window.Papi.processRoom = new ProcessRoom(section, container, canvas);
 })();
