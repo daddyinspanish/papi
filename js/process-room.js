@@ -258,15 +258,57 @@ function makeFloorEnvTexture(){
   canvas.width = 128; canvas.height = 64;
   const ctx = canvas.getContext('2d');
   const grad = ctx.createLinearGradient(0, 0, 0, 64);
-  grad.addColorStop(0, '#fff3df');
-  grad.addColorStop(0.3, '#6b5f4e');
-  grad.addColorStop(0.65, '#2c2620');
-  grad.addColorStop(1, '#0d0a08');
+  grad.addColorStop(0, '#f2e6cc');
+  grad.addColorStop(0.3, '#7d7264');
+  grad.addColorStop(0.65, '#332e28');
+  grad.addColorStop(1, '#0c0a08');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 128, 64);
   const tex = new THREE.CanvasTexture(canvas);
   tex.mapping = THREE.EquirectangularReflectionMapping;
   tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// a soft tint gradient for the dome — darker where it meets the wall,
+// brighter (warm ivory) near the oculus opening. LatheGeometry's own
+// V coordinate runs 0 (first profile point, the wall junction) to 1
+// (last profile point, the oculus edge) exactly once per revolution —
+// unlike the wall's own repeated UV scale, this can carry a single
+// smooth positional gradient with no tiling conflict. Used as the
+// dome's own colour map (multiplied against its base colour) rather
+// than a second light, so this is a fixed cost paid once, not a
+// render-order/light-count concern
+function makeDomeGradientTexture(){
+  const canvas = document.createElement('canvas');
+  canvas.width = 8; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 64, 0, 0);
+  grad.addColorStop(0, '#79705f');
+  grad.addColorStop(0.55, '#a89a80');
+  grad.addColorStop(1, '#f2e6cc');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 8, 64);
+  return new THREE.CanvasTexture(canvas);
+}
+
+// a coarser, higher-contrast blotch pattern than the plaster texture
+// above — used as a roughness map on the platform/seat's natural
+// stone, reading as visible grain rather than a smooth painted surface
+function makeStoneGrainTexture(){
+  const size = 48;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(size, size);
+  for(let i = 0; i < img.data.length; i += 4){
+    const v = 110 + Math.random() * 140;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   return tex;
 }
 
@@ -333,11 +375,11 @@ class ProcessRoom {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    renderer.toneMappingExposure = 1.55;
     this.enabled = true;
 
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x0d0a08, 0.052);
+    this.scene.fog = new THREE.FogExp2(0x100d0a, 0.05);
 
     this.camera = new THREE.PerspectiveCamera(52, 1, 0.1, 40);
     this.mouse = { x: 0, y: 0 };
@@ -369,39 +411,52 @@ class ProcessRoom {
     this.scene.add(group);
 
     const plasterRoughMap = makePlasterRoughnessTexture();
+    // warm gray-brown lime plaster, not chocolate brown — sampled off
+    // the reference photo's own wall tone
     const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x4a4136, roughness: 0.95, roughnessMap: plasterRoughMap, metalness: 0.02,
+      color: 0x8c8170, roughness: 0.95, roughnessMap: plasterRoughMap, metalness: 0.02,
     });
     const wallGeo = buildWallGeometry(R, H, -ROOM.wallTheta, ROOM.wallTheta, ROOM.wallSegments);
     const wall = new THREE.Mesh(wallGeo, wallMat);
     wall.receiveShadow = true;
     group.add(wall);
 
-    // polished floor — MeshPhysicalMaterial + a fixed gradient envMap
-    // for a soft, subtle sheen (see this file's header for why that's
-    // a static texture rather than a live planar-reflection pass)
+    // dark polished charcoal floor, warm (not orange) reflections —
+    // MeshPhysicalMaterial + a fixed gradient envMap for a soft,
+    // subtle sheen (see this file's header for why that's a static
+    // texture rather than a live planar-reflection pass)
     const floorMat = new THREE.MeshPhysicalMaterial({
-      color: 0x171310, roughness: 0.22, metalness: 0.1,
-      clearcoat: 0.35, clearcoatRoughness: 0.3,
-      envMap: makeFloorEnvTexture(), envMapIntensity: 0.55,
+      color: 0x18140f, roughness: 0.18, metalness: 0.08,
+      clearcoat: 0.5, clearcoatRoughness: 0.22,
+      envMap: makeFloorEnvTexture(), envMapIntensity: 0.85,
     });
     const floor = new THREE.Mesh(new THREE.CircleGeometry(R, 64), floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     group.add(floor);
 
-    // a real dome, not a flat ring — see buildDomeGeometry's own header
+    // darker charcoal plaster than the walls, real dome (not a flat
+    // ring) — see buildDomeGeometry's own header. LatheGeometry's own
+    // UV.x only spans 0..1 once per revolution (unlike the wall's own
+    // t*6 scale) — scaled up here so the shared plaster texture tiles
+    // at roughly the same physical size on the dome as it does on the
+    // wall, rather than stretching into one huge soft smear.
     const domeGeo = buildDomeGeometry(R, H, ROOM.oculusRadius, ROOM.domeRise, 14, 96);
+    const domeUv = domeGeo.attributes.uv;
+    for(let i = 0; i < domeUv.count; i++) domeUv.setX(i, domeUv.getX(i) * 8);
+    domeUv.needsUpdate = true;
     const domeMat = new THREE.MeshStandardMaterial({
-      color: 0x2c2620, roughness: 0.95, roughnessMap: plasterRoughMap, metalness: 0, side: THREE.DoubleSide,
+      color: 0x8f8370, map: makeDomeGradientTexture(), roughness: 0.95,
+      roughnessMap: plasterRoughMap, metalness: 0, side: THREE.DoubleSide,
     });
     const dome = new THREE.Mesh(domeGeo, domeMat);
     dome.receiveShadow = true;
     group.add(dome);
 
-    // glowing lip where the dome meets the oculus opening, at the
-    // dome's own apex height (wallTop + rise), not the wall's height
-    const lipMat = new THREE.MeshBasicMaterial({ color: 0xffd9a0 });
+    // the oculus's own bright warm ivory stone interior, where the
+    // dome meets the opening, at the dome's own apex height (wallTop +
+    // rise), not the wall's height
+    const lipMat = new THREE.MeshBasicMaterial({ color: 0xfdf3dc });
     const lip = new THREE.Mesh(new THREE.RingGeometry(ROOM.oculusRadius - 0.06, ROOM.oculusRadius, 48), lipMat);
     lip.rotation.x = Math.PI / 2;
     lip.position.y = H + ROOM.domeRise - 0.02;
@@ -418,7 +473,11 @@ class ProcessRoom {
     // The spotlight + glowing oculus lip + fog already read as "light
     // spilling from the hole" without needing a literal visible beam.
 
-    const stoneMat = new THREE.MeshStandardMaterial({ color: 0x141110, roughness: 0.28, metalness: 0.12 });
+    // near-black polished stone, distinct from the lighter seat
+    const stoneGrainMap = makeStoneGrainTexture();
+    const stoneMat = new THREE.MeshStandardMaterial({
+      color: 0x0e0c0a, roughness: 0.2, roughnessMap: stoneGrainMap, metalness: 0.14,
+    });
 
     // recessed circular platform: a sunken floor disc + a rounded riser
     // dropping down to it, rather than a raised dais
@@ -433,10 +492,14 @@ class ProcessRoom {
     pitFloor.receiveShadow = true;
     group.add(pitFloor);
 
-    // smooth sculptural stone seat — detail:3 (a heavily-subdivided
-    // icosahedron) reads as an eased, smoothed organic form rather
-    // than the low-poly faceted boulder this replaces
-    const seatMat = new THREE.MeshStandardMaterial({ color: 0x5c5148, roughness: 0.75, metalness: 0.04 });
+    // smooth sculptural stone seat — lighter, textured natural stone,
+    // deliberately distinct from the platform's near-black polish.
+    // detail:3 (a heavily-subdivided icosahedron) reads as an eased,
+    // smoothed organic form rather than the low-poly faceted boulder
+    // this replaces
+    const seatMat = new THREE.MeshStandardMaterial({
+      color: 0xa89880, roughness: 0.82, roughnessMap: stoneGrainMap, metalness: 0.02,
+    });
     const seat = new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 3), seatMat);
     seat.scale.set(1.3, 0.62, 1.05);
     seat.position.set(0.15, 0.5 - pitDepth, -2.4);
@@ -467,10 +530,11 @@ class ProcessRoom {
     wallContact.position.y = 0.012;
     group.add(wallContact);
 
-    // hidden LED strip at the base of the wall — a thin continuous
-    // emissive ring, unlit (MeshBasicMaterial, no lighting cost) so it
-    // reads as a light source rather than a lit surface
-    const ledMat = new THREE.MeshBasicMaterial({ color: 0xffb37a });
+    // hidden LED strip at the base of the wall — thin warm-white, not
+    // orange — a continuous emissive ring, unlit (MeshBasicMaterial,
+    // no lighting cost) so it reads as a light source rather than a
+    // lit surface
+    const ledMat = new THREE.MeshBasicMaterial({ color: 0xfff0da });
     const led = new THREE.Mesh(new THREE.TorusGeometry(R - 0.05, 0.025, 8, 128), ledMat);
     led.rotation.x = Math.PI / 2;
     led.position.y = 0.05;
@@ -523,32 +587,34 @@ class ProcessRoom {
     voidPlane.position.set(0, 1.9, 0.72);
     doorGroup.add(voidPlane);
 
-    // hidden LED strip recessed into the door reveal — now sitting
-    // inside the opening's real depth rather than floating flush
-    // against a flat plane
-    const rimMat = new THREE.MeshBasicMaterial({ color: 0xffb37a });
+    // hidden LED strip recessed into the door reveal, warm-white — now
+    // sitting inside the opening's real depth rather than floating
+    // flush against a flat plane
+    const rimMat = new THREE.MeshBasicMaterial({ color: 0xfff0da });
     [-1.05, 1.05].forEach((x) => {
       const strip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 3.4, 0.05), rimMat);
       strip.position.set(x, 1.9, 0.3);
       doorGroup.add(strip);
     });
 
-    const rimLight = new THREE.PointLight(0xffb37a, 3, 5, 2);
+    const rimLight = new THREE.PointLight(0xffe9c8, 3, 5, 2);
     rimLight.position.set(0, 2.1, 0.5);
     doorGroup.add(rimLight);
   }
 
   _buildLights(){
-    // brighter ambient fill than before + several soft, non-shadow-
+    // soft ivory daylight from the oculus + several soft, non-shadow-
     // casting point lights standing in for bounced light (floor-ward,
     // doorway-ward) so the room reads as softly, indirectly lit rather
     // than lit by one dominant spotlight — real bounce lighting would
     // need baked lightmaps or a voxel-GI pass this project has no
-    // pipeline for (see this file's header)
-    const hemi = new THREE.HemisphereLight(0xfff2df, 0x1c150f, 0.62);
+    // pipeline for (see this file's header). Ground colour lifted off
+    // near-black so contact shadows read as soft and deep rather than
+    // crushed to pure black.
+    const hemi = new THREE.HemisphereLight(0xfff4e2, 0x3d3120, 0.95);
     this.scene.add(hemi);
 
-    const spot = new THREE.SpotLight(0xfff2df, 5.5, 22, 0.68, 0.75, 1.2);
+    const spot = new THREE.SpotLight(0xfff6e8, 10.5, 27, 0.74, 0.68, 1.05);
     spot.position.set(0, ROOM.height + ROOM.domeRise - 0.3, -1.4);
     spot.target.position.set(0, 0, -2.0);
     spot.castShadow = true;
@@ -560,20 +626,30 @@ class ProcessRoom {
     this.scene.add(spot, spot.target);
 
     // soft warm bounce off the floor, filling the underside of the
-    // dome the way real light reflected up off a pale floor would
-    const floorBounce = new THREE.PointLight(0xffdfb0, 1.1, 14, 2);
+    // dome the way real light reflected up off a pale floor would —
+    // warm cream, not orange
+    const floorBounce = new THREE.PointLight(0xf5e6cc, 1.3, 15, 2);
     floorBounce.position.set(0, 0.6, 2.5);
     this.scene.add(floorBounce);
 
+    // dedicated dome fill — a real light aimed up into the dome's own
+    // underside, since HemisphereLight alone lights a downward-facing
+    // interior surface with mostly its (darker) ground term rather
+    // than its sky term, which otherwise left the dome reading nearly
+    // black regardless of the dome material's own base colour
+    const domeFill = new THREE.PointLight(0xf7e8cc, 2.2, 22, 1.5);
+    domeFill.position.set(0, ROOM.height * 0.7, 1.5);
+    this.scene.add(domeFill);
+
     // soft fill toward the entrance side, away from the spotlight's
     // own throw, so that half of the room doesn't read as flat-dark
-    const entranceFill = new THREE.PointLight(0xfff6ea, 1.1, 16, 2);
+    const entranceFill = new THREE.PointLight(0xfff8ee, 1.3, 17, 2);
     entranceFill.position.set(0, 2.6, 6.5);
     this.scene.add(entranceFill);
 
     // soft fill low near the platform/seat, reads as light bounced off
     // the recessed pit's own pale stone back up onto the seat
-    const seatFill = new THREE.PointLight(0xffe6c2, 0.9, 8, 2);
+    const seatFill = new THREE.PointLight(0xfff2dc, 1.05, 8, 2);
     seatFill.position.set(0.3, 0.3, -1.6);
     this.scene.add(seatFill);
   }
