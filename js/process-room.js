@@ -517,7 +517,21 @@ class ProcessRoom {
     const group = new THREE.Group();
     this.scene.add(group);
 
-    const loader = new THREE.TextureLoader();
+    // every material's maps load async and attach the instant each one
+    // finishes, independent of the others — on a cold cache that meant
+    // walls/floor/platform/etc each popped from flat colour to fully
+    // textured at a different moment, and since a render only happens
+    // on the next scroll/mouse tick, several of those pops could land
+    // in the same rapid burst of frames while scrolling in, reading as
+    // the room "strobing". A shared LoadingManager lets the canvas stay
+    // hidden (see the .is-ready CSS transition) until every texture for
+    // every material has arrived, so it only ever appears fully dressed.
+    const manager = new THREE.LoadingManager();
+    manager.onLoad = () => {
+      this.canvas.classList.add('is-ready');
+      this._frame();
+    };
+    const loader = new THREE.TextureLoader(manager);
     const anisotropy = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
 
     // warm gray-brown lime plaster, not chocolate brown — real PBR set
