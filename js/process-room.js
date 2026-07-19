@@ -920,16 +920,29 @@ class ProcessRoom {
     // glass a cool blue, per direct request — the physically-correct way
     // to brand a transmissive hero object, rather than fighting it with a
     // tinted base colour. Iridescence stays subtle so the blue reads as
-    // the dominant colour, with just a hint of oil-slick shift
+    // the dominant colour, with just a hint of oil-slick shift.
+    // roughness/transmission both pulled back from an original 0.05/0.92
+    // — near-zero roughness meant three.js's own automatic transmission
+    // pass (any material with transmission>0 samples the ALREADY-DRAWN
+    // scene as its "what's behind the glass" source, with no way to
+    // exclude specific objects from that capture) rendered the water's
+    // own new real-time reflection through the ball perfectly sharp,
+    // showing a distracting, legible ghost of the stairs/floor right on
+    // its surface. Three.js's transmission blur already scales with
+    // roughness by design, so raising it softens that same capture into
+    // a soft glassy haze instead of a sharp, distracting pattern — colour
+    // and attenuationDistance both strengthened afterward to keep the
+    // ball reading as clearly blue now that less of it is crisp
+    // transmission carrying the attenuation tint
     const sphereMat = new THREE.MeshPhysicalMaterial({
-      color: 0xd8f0fa,
-      roughness: 0.05,
+      color: 0x8fd0e8,
+      roughness: 0.5,
       metalness: 0,
-      transmission: 0.92,
+      transmission: 0.7,
       thickness: 1.2,
       ior: 1.35,
       attenuationColor: 0x1f7fbf,
-      attenuationDistance: 1.4,
+      attenuationDistance: 0.9,
       iridescence: 0.4,
       iridescenceIOR: 1.28,
       envMapIntensity: 1.2,
