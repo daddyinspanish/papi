@@ -175,13 +175,21 @@ function buildDomeGeometry(outerRadius, wallTop, oculusRadius, rise, steps, segm
   return new THREE.LatheGeometry(pts, segments);
 }
 
-// a flat-top disc with a rounded rim bevel top and bottom — reused for
-// the stepping stones and the seat's own base, so every hard 90deg
-// puck edge in the room becomes a soft one
-function buildBeveledDisc(radius, thickness, bevel, segments){
+// the stepping stones' own rounded rim band ONLY — no flat centre
+// point in this profile, unlike an earlier version that revolved the
+// whole puck (flat top included) as one LatheGeometry. Lathe UVs
+// unwrap along the profile's own path, so including the flat top's
+// centre-to-edge line in that same revolve packed the entire radial
+// span of a flat disc face into a short stretch of the V coordinate —
+// on a real photographic rock texture that reads as the image being
+// wrung into a tight spiral toward the centre, an actual hole-like
+// vortex rather than a solid stone. Pairing this rim-only band with a
+// separate flat CircleGeometry cap (ordinary, non-pinched radial UV —
+// see where this is used) fixes that without losing the rounded edge.
+function buildStoneRimGeometry(radius, thickness, bevel, segments){
   const b = Math.min(bevel, thickness / 2 - 0.001, radius * 0.4);
   const half = thickness / 2;
-  const pts = [new THREE.Vector2(0, half)];
+  const pts = [];
   const steps = 6;
   for(let i = 0; i <= steps; i++){
     const phi = (i / steps) * (Math.PI / 2);
@@ -191,7 +199,6 @@ function buildBeveledDisc(radius, thickness, bevel, segments){
     const phi = (i / steps) * (Math.PI / 2);
     pts.push(new THREE.Vector2(radius - b + b * Math.sin(phi), -half + b * (1 - Math.cos(phi))));
   }
-  pts.push(new THREE.Vector2(0, -half));
   return new THREE.LatheGeometry(pts, segments);
 }
 
@@ -690,22 +697,36 @@ class ProcessRoom {
     group.add(led);
 
     // rough natural stone, uneven texture — its own material,
-    // deliberately distinct from the platform's polished marble,
-    // for the stepping-stone path from the entrance toward the platform
-    // (a beveled disc for the rim's own chiseled-edge bevel)
+    // deliberately distinct from the platform's polished marble, for
+    // the stepping-stone path from the entrance all the way to the
+    // platform's own edge. Each stone is a flat CircleGeometry cap
+    // (plain, non-pinched radial UV) plus a separate rounded-rim band
+    // (see buildStoneRimGeometry's own header for why those are two
+    // meshes instead of one Lathe revolve) sharing one material, built
+    // once here and reused across every stone position below.
     const stepMat = new THREE.MeshStandardMaterial({ color: 0x6b6157, roughness: 0.92, metalness: 0.02 });
-    const stepGeo = buildBeveledDisc(0.55, 0.16, 0.05, 20);
-    stepGeo.setAttribute('uv2', stepGeo.attributes.uv); // aoMap needs a second UV channel
     loadPBRSet(loader, 'stepping-stones', stepMat, 1, 1, anisotropy, true);
+    const stoneRadius = 0.55, stoneThickness = 0.16, stoneBevel = 0.05;
+    const stoneCapGeo = new THREE.CircleGeometry(stoneRadius - stoneBevel, 24);
+    stoneCapGeo.setAttribute('uv2', stoneCapGeo.attributes.uv);
+    const stoneRimGeo = buildStoneRimGeometry(stoneRadius, stoneThickness, stoneBevel, 24);
+    stoneRimGeo.setAttribute('uv2', stoneRimGeo.attributes.uv);
     const stonePath = [
-      { x: 0.0, z: 7.4 }, { x: 0.55, z: 6.1 }, { x: -0.4, z: 4.8 },
-      { x: 0.35, z: 3.5 }, { x: -0.15, z: 2.3 },
+      { x: 0.0, z: 8.4 }, { x: 0.5, z: 7.3 }, { x: -0.35, z: 6.2 },
+      { x: 0.4, z: 5.1 }, { x: -0.3, z: 4.0 }, { x: 0.35, z: 2.9 },
+      { x: -0.2, z: 1.9 }, { x: 0.15, z: 0.9 },
     ];
     stonePath.forEach((p) => {
-      const stone = new THREE.Mesh(stepGeo, stepMat);
+      const stoneCap = new THREE.Mesh(stoneCapGeo, stepMat);
+      stoneCap.rotation.x = -Math.PI / 2;
+      stoneCap.position.y = stoneThickness / 2;
+      stoneCap.receiveShadow = true;
+      const stoneRim = new THREE.Mesh(stoneRimGeo, stepMat);
+      stoneRim.receiveShadow = true;
+      stoneRim.castShadow = true;
+      const stone = new THREE.Group();
+      stone.add(stoneCap, stoneRim);
       stone.position.set(p.x, 0.08, p.z);
-      stone.receiveShadow = true;
-      stone.castShadow = true;
       group.add(stone);
     });
 
