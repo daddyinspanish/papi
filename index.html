@@ -684,6 +684,18 @@ window.scrollTo(0, 0);
 
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
+<!-- js/process-room.js's postprocessing/loader modules are vendored
+     straight from Three.js's own examples/jsm (unmodified, so they stay
+     easy to diff against upstream) — they all import from the bare
+     "three" specifier, which this import map resolves to our single
+     local core build rather than needing a bundler -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "./js/vendor/three.module.min.js"
+  }
+}
+</script>
 <script type="module" src="js/hero-slime.js"></script>
 <script type="module" src="js/process-room.js"></script>
 <script src="js/headline-cursor.js"></script>

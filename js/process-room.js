@@ -11,15 +11,12 @@
    of the reference photo, not an attempt at a photoreal render of it —
    that would need authored PBR texture maps this project doesn't have.
 
-   Depth of field: rather than a true post-processing bokeh pass
-   (EffectComposer + BokehPass — a real per-pixel cost every frame,
-   worse on mobile, and another vendored addon on top of three.module.
-   min.js), distance is cued with exponential fog (THREE.FogExp2) plus
-   a CSS blur on the two inactive step labels' own DOM text. Same "the
-   falloff/blur lives in a cheap static layer, not a per-frame filter"
-   approach as js/process-fog.js's own header explains for its ambient
-   vapor, and js/liquid-image-fluid.js's whole reason for never using
-   backdrop-filter.
+   Distance/depth is still cued with exponential fog (THREE.FogExp2)
+   plus a CSS blur on the two inactive step labels' own DOM text, same
+   "the falloff/blur lives in a cheap static layer" approach as
+   js/process-fog.js's own header explains for its ambient vapor — that
+   part predates and still complements the real BokehPass below, rather
+   than being replaced by it.
 
    Scroll drives a single continuous camera path (a CatmullRomCurve3
    through one keyframe per step) — arc-length sampled so the four
@@ -50,11 +47,12 @@
      actually land (floor-ward, doorway-ward) instead of one dominant
      spotlight — real bounce lighting would mean baked lightmaps or a
      voxel-GI pass, neither of which this project has a pipeline for.
-   - AO/contact shadows are soft canvas-gradient decals (a dark ring
-     where the wall meets the floor, a soft blob under the stone seat)
-     — the same "the falloff IS the blur, not a per-frame filter"
-     technique documented above and in js/process-fog.js's own header,
-     rather than a real SSAO pass.
+   - AO/contact shadows started as soft canvas-gradient decals (a dark
+     ring where the wall meets the floor, a soft blob under the stone
+     seat) — those decals are still there, layered underneath the real
+     SSAOPass added below for the finer contact shadows a screen-space
+     pass catches that a handful of fixed decals never could (stone
+     chips, stepping-pad bevels, the doorway reveal corners).
 
    Materials pass — real PBR texture sets, not solid colours:
    every wall/ceiling/floor/platform/seat/doorway/stepping-stone
@@ -79,8 +77,53 @@
    first paint — the material already has its own solid base colour
    as an interim look) and falls back to that same solid colour if the
    file 404s, rather than leaving a broken/blank map reference.
+
+   Rendering-quality pass — real post-processing, not just a direct
+   renderer.render() call. This project has no bundler/npm, so the
+   handful of Three.js example modules this needs (postprocessing core,
+   SSAOPass, UnrealBloomPass, BokehPass, RGBELoader) are vendored
+   unmodified into js/vendor/examples/jsm/, matching this project's
+   r160 core build exactly — see index.html's <script type="importmap">
+   for how their own bare "three" imports resolve without a bundler.
+   - _buildEnvironment loads a real HDRI (Poly Haven, CC0 — an overcast
+     sky, standing in for daylight through the oculus) via RGBELoader +
+     PMREMGenerator, assigned to scene.environment — a global fallback
+     envMap every material already picks up automatically, so no
+     material definition needed to change to get real image-based
+     reflections/ambient light.
+   - _buildPostProcessing assembles the composer chain: SSAO (desktop
+     only — contact shadows in the stone chips/bevels/reveal corners a
+     few fixed decals can't reach), selective bloom (LED strips only —
+     the standard two-composer "swap everything else to black, blur,
+     composite back" technique, not a scene-wide threshold bloom that
+     would just as happily catch the platform's own gloss), a combined
+     vignette/filmic-contrast/colour-grade ShaderPass, a velocity-driven
+     BokehPass (desktop only — aperture/maxblur ramp up from zero based
+     on camera speed each frame, in _renderFrame, so the blur is only
+     ever present while actually moving between stages), then OutputPass
+     last (ACES/sRGB conversion has to happen there once anything sits
+     in a composer chain — every pass before it works in linear HDR).
+   - Screen-space reflections were deliberately left out: Three.js's own
+     SSRPass is expensive and fragile against curved/organic geometry
+     like this room's wobbly walls and sculpted seat, for a look the
+     floor's existing envMap + clearcoat already gets most of the way
+     to. Real HDRI reflections via scene.environment (above) cover the
+     rest without the extra render pass.
+   - SSAO/bloom/Bokeh are all gated to desktop (`!this.isMobile`) — each
+     is a real extra full-scene render every frame, the same budget
+     line CONFIG.dprCapMobile/shadowSizeMobile already draws elsewhere
+     in this file. Mobile still gets the composer, HDRI, and colour
+     grade — just not the three heaviest passes.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
+import { RGBELoader } from './vendor/examples/jsm/loaders/RGBELoader.js';
+import { EffectComposer } from './vendor/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from './vendor/examples/jsm/postprocessing/RenderPass.js';
+import { ShaderPass } from './vendor/examples/jsm/postprocessing/ShaderPass.js';
+import { OutputPass } from './vendor/examples/jsm/postprocessing/OutputPass.js';
+import { UnrealBloomPass } from './vendor/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { SSAOPass } from './vendor/examples/jsm/postprocessing/SSAOPass.js';
+import { BokehPass } from './vendor/examples/jsm/postprocessing/BokehPass.js';
 
 const ROOM = {
   radius: 9,
@@ -99,6 +142,16 @@ const ROOM = {
   doorTheta: 0.62,      // angle of each side doorway, either side of straight back
   wallSegments: 96,
 };
+
+// the LED strips (base ring + doorway reveals) live on this layer in
+// addition to the default layer 0, so the selective-bloom composer in
+// _buildPostProcessing can isolate just them for blooming
+const BLOOM_LAYER = 1;
+
+// the depth-of-field subject — roughly the platform/seat, since that's
+// the room's own visual centre at every stage; see the velocity-driven
+// BokehPass wiring in _renderFrame
+const DOF_FOCUS_POINT = new THREE.Vector3(0, 1.2, -2.2);
 
 const CONFIG = {
   dprCap: 1.5,
@@ -579,6 +632,11 @@ class ProcessRoom {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.55;
+    // "physically correct lighting": the old physicallyCorrectLights
+    // toggle, and its r155+ replacement renderer.useLegacyLights, are
+    // both deprecated no-ops on this Three.js build — physically-based
+    // light falloff is just how lighting works now, unconditionally,
+    // nothing left to actually enable
     this.enabled = true;
 
     this.scene = new THREE.Scene();
@@ -592,6 +650,8 @@ class ProcessRoom {
     this._buildLights();
     this._buildKeyframes();
     this._buildStepSignage();
+    this._buildEnvironment();
+    this._buildPostProcessing();
 
     this._state = {
       progress: 0,
@@ -825,6 +885,7 @@ class ProcessRoom {
     const led = new THREE.Mesh(new THREE.TorusGeometry(R - 0.05, 0.025, 8, 128), ledMat);
     led.rotation.x = Math.PI / 2;
     led.position.y = 0.05;
+    led.layers.enable(BLOOM_LAYER); // bloom-only render also picks this up — see _buildPostProcessing
     group.add(led);
 
     // smooth, dark stone pavers — same family as the platform's polish
@@ -920,6 +981,217 @@ class ProcessRoom {
     }
   }
 
+  // real image-based lighting/reflections from an actual overcast sky
+  // (Poly Haven, CC0 — img/hdri/overcast_skylight.hdr, downloaded once,
+  // nothing fetches from polyhaven.com at runtime), not the static
+  // gradient texture used elsewhere in this file. Assigned to
+  // scene.environment — a global fallback envMap every material in the
+  // room already picks up automatically — rather than any individual
+  // material's own .envMap, so no material definition has to change
+  _buildEnvironment(){
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    pmrem.compileEquirectangularShader();
+    new RGBELoader().load('img/hdri/overcast_skylight.hdr', (hdrTex) => {
+      this.scene.environment = pmrem.fromEquirectangular(hdrTex).texture;
+      hdrTex.dispose();
+      pmrem.dispose();
+      this._frame();
+    });
+  }
+
+  // baseline composer — just the normal beauty render plus the output
+  // pass that now does the tone-mapping/colour-space conversion
+  // (previously the renderer did that conversion itself on a direct
+  // renderer.render() call; once anything sits in a composer chain,
+  // that conversion has to happen in an explicit OutputPass instead,
+  // as the LAST pass, or colours come out already-clipped for every
+  // pass before it). SSAO/bloom/colour-grade/DoF passes get inserted
+  // between these two as each is wired in.
+  _buildPostProcessing(){
+    const w = this.canvas.clientWidth || window.innerWidth;
+    const h = this.canvas.clientHeight || window.innerHeight;
+
+    // selective bloom (LED strips only) — desktop only: it costs a full
+    // extra scene traversal + render + multi-pass blur every frame, the
+    // same "heavy effect, real GPU cost" bar SSAO below is gated on.
+    // The standard Three.js selective-bloom pattern: everything NOT on
+    // BLOOM_LAYER gets its material swapped for flat black for one
+    // render into its own composer (so only the LEDs contribute), then
+    // that blurred result is additively composited back onto the
+    // normal beauty render — rather than a single scene-wide threshold
+    // bloom, which would just as happily bloom the platform's own
+    // gloss highlights or the oculus lip as the LEDs themselves.
+    if(!this.isMobile){
+      this.bloomLayer = new THREE.Layers();
+      this.bloomLayer.set(BLOOM_LAYER);
+      this._bloomDarkMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      this._bloomMaterialCache = new Map();
+
+      this.bloomComposer = new EffectComposer(this.renderer);
+      this.bloomComposer.renderToScreen = false;
+      this.bloomComposer.setSize(w, h);
+      this.bloomComposer.addPass(new RenderPass(this.scene, this.camera));
+      const bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.65, 0.4, 0.1);
+      bloomPass.threshold = 0.1;
+      bloomPass.strength = 1.15;
+      bloomPass.radius = 0.5;
+      this.bloomComposer.addPass(bloomPass);
+    }
+
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.setSize(w, h);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+
+    // contact shadows in crevices (stone chips, wall/floor seams, the
+    // stepping-pad bevels) — a real screen-space AO pass rather than
+    // the canvas-decal approximation the header above describes, now
+    // that there's render budget for it. kernelRadius/min/maxDistance
+    // are tuned down hard from SSAOPass's own defaults (built around
+    // room-scale metres): this room's own detail sits at roughly
+    // 0.05–1 unit scale, and the library defaults (kernelRadius 8,
+    // maxDistance 0.1) either wash the whole room in one flat AO tone
+    // or miss the detail entirely at this scale. Desktop-only — a full
+    // second depth/normal scene pass every frame is real GPU cost this
+    // file's own mobile budget (CONFIG.dprCapMobile, halved shadow
+    // maps) has avoided everywhere else.
+    if(!this.isMobile){
+      const ssaoPass = new SSAOPass(this.scene, this.camera, w, h);
+      ssaoPass.kernelRadius = 0.4;
+      ssaoPass.minDistance = 0.0008;
+      ssaoPass.maxDistance = 0.15;
+      ssaoPass.output = SSAOPass.OUTPUT.Default;
+      this.ssaoPass = ssaoPass;
+      this.composer.addPass(ssaoPass);
+    }
+
+    if(this.bloomComposer){
+      const bloomCompositePass = new ShaderPass({
+        uniforms: {
+          baseTexture: { value: null },
+          bloomTexture: { value: this.bloomComposer.renderTarget2.texture },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main(){
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D baseTexture;
+          uniform sampler2D bloomTexture;
+          varying vec2 vUv;
+          void main(){
+            gl_FragColor = texture2D(baseTexture, vUv) + texture2D(bloomTexture, vUv);
+          }
+        `,
+      }, 'baseTexture');
+      this.composer.addPass(bloomCompositePass);
+    }
+
+    // subtle depth of field, but only while the camera is actually
+    // moving — see _renderFrame, which ramps aperture/maxblur up from
+    // zero based on camera speed each frame rather than leaving a
+    // constant blur on screen. Desktop only: BokehPass renders its own
+    // full extra depth pass every frame, the same cost bar SSAO/bloom
+    // above are already gated on. Focus follows DOF_FOCUS_POINT (the
+    // platform) rather than a fixed distance, since the camera's own
+    // distance from it changes a lot across the four stages.
+    if(!this.isMobile){
+      this.bokehPass = new BokehPass(this.scene, this.camera, {
+        focus: this.camera.position.distanceTo(DOF_FOCUS_POINT),
+        aperture: 0,
+        maxblur: 0,
+      });
+      this.composer.addPass(this.bokehPass);
+    }
+
+    // one combined grade pass rather than three separate ones (vignette
+    // + filmic contrast + colour grade are all just per-pixel colour
+    // math on the same single input texture — three ShaderPasses would
+    // mean three extra full-screen texture reads/writes for no benefit
+    // over folding them into one fragment shader). Ordered before
+    // OutputPass so this operates on the same linear working colour
+    // space as the rest of the composer chain, with ACES/sRGB only
+    // applied once, right at the very end.
+    this.composer.addPass(new ShaderPass({
+      uniforms: {
+        tDiffuse: { value: null },
+        vignetteStrength: { value: 0.35 },
+        contrastStrength: { value: 0.35 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float vignetteStrength;
+        uniform float contrastStrength;
+        varying vec2 vUv;
+        void main(){
+          vec4 texel = texture2D(tDiffuse, vUv);
+          vec3 c = texel.rgb;
+
+          // filmic S-curve: gentle lift in shadows, gentle roll-off in
+          // highlights, rather than a linear multiply that just clips.
+          // This runs on linear HDR values before OutputPass's own
+          // ACES/sRGB step, so bright emissive surfaces (the LED
+          // strips, the oculus lip) can legitimately be >1.0 here —
+          // the curve itself is only well-behaved on [0,1], so it's
+          // computed on a clamped copy and blended back against the
+          // real (possibly HDR) colour rather than applied directly,
+          // which previously inverted per-channel above ~1.5 and read
+          // as a rainbow-banded halo around the brightest surfaces
+          vec3 clamped = clamp(c, 0.0, 1.0);
+          vec3 graded = clamped * clamped * (3.0 - 2.0 * clamped);
+          c = mix(c, graded, contrastStrength);
+
+          // slight warm-highlight / cool-shadow split tone, matching
+          // the reference photo's warm practicals against a cooler
+          // overcast ambient rather than one flat white balance
+          float lum = dot(c, vec3(0.299, 0.587, 0.114));
+          vec3 shadowTint = vec3(0.965, 0.975, 1.01);
+          vec3 highlightTint = vec3(1.035, 1.005, 0.95);
+          c *= mix(shadowTint, highlightTint, smoothstep(0.12, 0.7, lum));
+
+          // soft radial vignette
+          vec2 centered = vUv - 0.5;
+          float vig = 1.0 - dot(centered, centered) * vignetteStrength;
+          c *= vig;
+
+          gl_FragColor = vec4(c, texel.a);
+        }
+      `,
+    }));
+
+    this.composer.addPass(new OutputPass());
+  }
+
+  // the two halves of the selective-bloom trick: swap every mesh not
+  // on BLOOM_LAYER (i.e. everything except the LED strips) to flat
+  // black right before the bloom-only render, then put its real
+  // material back right after — so that render sees only the LEDs
+  _darkenNonBloomed(){
+    this.scene.traverse((obj) => {
+      if(obj.isMesh && this.bloomLayer.test(obj.layers) === false){
+        this._bloomMaterialCache.set(obj.uuid, obj.material);
+        obj.material = this._bloomDarkMaterial;
+      }
+    });
+  }
+  _restoreMaterial(){
+    this.scene.traverse((obj) => {
+      if(this._bloomMaterialCache.has(obj.uuid)){
+        obj.material = this._bloomMaterialCache.get(obj.uuid);
+        this._bloomMaterialCache.delete(obj.uuid);
+      }
+    });
+  }
+
   _buildDoorway(group, theta, doorwayMat, wallMat){
     const R = ROOM.radius;
     // slightly inside the wall's own nominal radius so this patch's
@@ -972,10 +1244,14 @@ class ProcessRoom {
     [-1.05, 1.05].forEach((x) => {
       const strip = new THREE.Mesh(new THREE.BoxGeometry(0.05, 3.4, 0.05), rimMat);
       strip.position.set(x, 1.9, 0.45);
+      strip.layers.enable(BLOOM_LAYER);
       doorGroup.add(strip);
     });
 
-    const rimLight = new THREE.PointLight(0xffe9c8, 3, 5, 2);
+    // reduced from an earlier 3 — the oculus (spot/skylight below) is
+    // meant to read as the room's primary light source, with this and
+    // vaseLight as subtle fill only, not a competing light of their own
+    const rimLight = new THREE.PointLight(0xffe9c8, 1.3, 5, 2);
     rimLight.position.set(0, 2.1, 0.65);
     doorGroup.add(rimLight);
 
@@ -995,7 +1271,9 @@ class ProcessRoom {
     backdrop.position.set(0, 1.9, 0.93);
     doorGroup.add(backdrop);
 
-    const vaseLight = new THREE.PointLight(0xffe6c0, 2.2, 3.5, 2);
+    // reduced from an earlier 2.2 — subtle fill on the vase, not a
+    // second light source competing with the oculus (see rimLight above)
+    const vaseLight = new THREE.PointLight(0xffe6c0, 1.2, 3.5, 2);
     vaseLight.position.set(0.15, 1.1, 0.55);
     doorGroup.add(vaseLight);
 
@@ -1072,8 +1350,10 @@ class ProcessRoom {
     // distinct from the spotlight's own tight focused cone, this reads
     // as diffuse skylight spilling through the whole opening rather
     // than a single beam, the way real daylight through a real oculus
-    // would fill the room broadly, not just where the beam lands
-    const skylight = new THREE.PointLight(0xf3ecdb, 3.2, 26, 1.4);
+    // would fill the room broadly, not just where the beam lands.
+    // Raised from an earlier 3.2 so it (plus spot above) reads clearly
+    // as the room's primary light, with the LED strips as fill only.
+    const skylight = new THREE.PointLight(0xf3ecdb, 4.2, 26, 1.4);
     skylight.position.set(0, ROOM.height + ROOM.domeRise - 0.6, -1.4);
     this.scene.add(skylight);
 
@@ -1179,18 +1459,62 @@ class ProcessRoom {
     const w = Math.max(1, this.container.clientWidth);
     const h = Math.max(1, this.container.clientHeight);
     const cap = this.isMobile ? CONFIG.dprCapMobile : CONFIG.dprCap;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cap));
+    const dpr = Math.min(window.devicePixelRatio || 1, cap);
+    this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    if(this.composer){
+      this.composer.setPixelRatio(dpr);
+      this.composer.setSize(w, h);
+    }
+    if(this.bloomComposer){
+      this.bloomComposer.setPixelRatio(dpr);
+      this.bloomComposer.setSize(w, h);
+    }
+    if(this.bokehPass){
+      this.bokehPass.uniforms.aspect.value = this.camera.aspect;
+    }
   }
 
   _renderStatic(){
     const { pos, look } = this._cameraForProgress(0);
     this.camera.position.copy(pos);
     this.camera.lookAt(look);
-    this.renderer.render(this.scene, this.camera);
+    this._renderFrame();
     this._updateSteps(0);
+  }
+
+  // the actual draw call every frame funnels through — swapped from a
+  // bare renderer.render() to the composer once real post-processing
+  // (SSAO/bloom/colour-grade/DoF) needed a multi-pass pipeline; kept as
+  // its own method so both _renderStatic and _frame call one thing
+  _renderFrame(){
+    if(!this.composer){
+      this.renderer.render(this.scene, this.camera);
+      return;
+    }
+    if(this.bokehPass){
+      // camera speed this frame, in world units — smoothed rather than
+      // read raw so it ramps in/out instead of popping the instant
+      // movement starts/stops. this._lastCamPos/_camSpeed persist
+      // across frames on the instance, not reset each call.
+      if(!this._lastCamPos) this._lastCamPos = this.camera.position.clone();
+      const moved = this.camera.position.distanceTo(this._lastCamPos);
+      this._lastCamPos.copy(this.camera.position);
+      this._camSpeed = this._camSpeed === undefined ? 0 : this._camSpeed;
+      this._camSpeed += (moved * 30 - this._camSpeed) * 0.25;
+      const movingAmount = Math.min(1, this._camSpeed);
+      this.bokehPass.uniforms['aperture'].value = movingAmount * 0.0012;
+      this.bokehPass.uniforms['maxblur'].value = movingAmount * 0.006;
+      this.bokehPass.uniforms['focus'].value = this.camera.position.distanceTo(DOF_FOCUS_POINT);
+    }
+    if(this.bloomComposer){
+      this._darkenNonBloomed();
+      this.bloomComposer.render();
+      this._restoreMaterial();
+    }
+    this.composer.render();
   }
 
   _bindEvents(){
@@ -1283,7 +1607,7 @@ class ProcessRoom {
     // (sign opacity/scale) rather than just DOM class toggles — doing
     // it after left every sign's reveal one frame behind
     this._updateSteps(this._state.progress);
-    this.renderer.render(this.scene, this.camera);
+    this._renderFrame();
   }
 
   _updateSteps(progress){
