@@ -53,6 +53,7 @@
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
 import { RGBELoader } from './vendor/examples/jsm/loaders/RGBELoader.js';
+import { Reflector } from './vendor/examples/jsm/objects/Reflector.js';
 import { EffectComposer } from './vendor/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from './vendor/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from './vendor/examples/jsm/postprocessing/ShaderPass.js';
@@ -69,15 +70,20 @@ const CONFIG = {
   // shift — these are camera.rotateY/rotateX angles (radians), applied
   // on top of the base lookAt orientation each frame, not a lookAt-
   // target offset like the old parallaxMax/parallaxPosMax pair this replaces
-  rotationYawMax: 0.46,
-  rotationPitchMax: 0.18,
-  parallaxPosMax: 0.3,
+  // pulled back further still (from 0.46/0.18/0.3) per direct feedback
+  // that both the look-around swing and the scroll-driven camera push
+  // still read as too quick/large — this is the magnitude half of that;
+  // mouseLerp/progressLerp just below are the speed half
+  rotationYawMax: 0.26,
+  rotationPitchMax: 0.1,
+  parallaxPosMax: 0.16,
   // how quickly the cursor-follow and scroll-driven camera catch up to
-  // their own targets each frame — lower is slower/smoother. Both were
-  // slowed down from an initial 0.06/instant-snap pass per direct
-  // feedback that the room's own motion felt too quick/abrupt
-  mouseLerp: 0.03,
-  progressLerp: 0.045,
+  // their own targets each frame — lower is slower/smoother. Slowed
+  // down twice now: an initial 0.06/instant-snap pass, then 0.03/0.045,
+  // now this — same direct feedback each time, that the room's motion
+  // felt too quick/abrupt
+  mouseLerp: 0.02,
+  progressLerp: 0.03,
 };
 
 // the sphere's resting spot — out in the open water rather than tucked
@@ -556,12 +562,16 @@ class ProcessRoom {
     this.scene.add(group);
     this.roomGroup = group;
 
-    // tall, but a real, finite height — not stretched so far off-frame
-    // that the top edge never reads. The walls are meant to visibly
-    // *end*, with the galaxy backdrop (scene.background — see
-    // buildGalaxyTexture) showing above them, not just avoid a ceiling
-    // line by outrunning the camera indefinitely
-    const roomWidth = 14, roomHeight = 6.5, roomDepth = 11;
+    // raised well past the earlier 6.5 per direct request — that height
+    // put the wall-top/galaxy-backdrop transition right at the edge of
+    // the camera's own vertical FOV (worked out from the camera's actual
+    // distance/pitch range: camStart is ~16 units back with a 45° FOV,
+    // which alone shows nearly 7 units of vertical extent above camera
+    // height, before the mouse/touch look-around's own upward pitch
+    // range adds more on top of that), so the ceiling line was reachable
+    // with only a little scroll or look-up. This clears that with real
+    // margin at every combination of scroll position and look-around
+    const roomWidth = 14, roomHeight = 14, roomDepth = 11;
     const archWidth = 3.6, archHeight = 5.4;
 
     // light sky-blue plaster — a deliberate departure from the old warm
@@ -742,70 +752,107 @@ class ProcessRoom {
       }
     });
 
-    // floor — real (if simple) water rather than a dry mirror-finish
-    // material: a procedurally-baked ripple normal map (see
-    // buildRippleNormalMap above) perturbs the reflection, scrolled
-    // slowly in _frame() for a gentle flowing-water read. The base
-    // colour is a deep, near-black warm umber rather than a bright
-    // gold-brown — real water's *own* colour is almost always dark
-    // (it's mostly transparent/reflective), so a bright flat colour
-    // read as solid metal. Low roughness + a real envMapIntensity is
-    // what lets it actually double the room via the HDRI's own bounce,
-    // the same way unseen.co's own floor doubles their scene rather than
-    // being a flat painted plane — trimmed down from the old 1.9 now
-    // that the goal is a dark, moody reflection, not a bright one
+    // floor — a REAL reflection now (js/vendor/examples/jsm/objects/
+    // Reflector.js, vendored this pass), not just PBR env-map sampling
+    // standing in for one. Reflector renders the actual scene from a
+    // mirrored virtual camera into its own render target every frame —
+    // the sphere, the rock, the walls/arch, the galaxy through the
+    // opening all genuinely show in the water, the way real water
+    // reflects its surroundings rather than a material guessing at it
+    // via a prefiltered environment map. Built on Reflector's own
+    // options.shader hook (rather than its flat default mirror shader)
+    // so the existing ripple normal-map distortion, the sphere's
+    // reactive ripple ring, and the cursor's directional wake all carry
+    // over unchanged, just layered on top of a genuine reflection
+    // instead of a flat dark colour
     const rippleMap = buildRippleNormalMap(256);
-    this.floorNormalMap = rippleMap;
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x241a10, roughness: 0.1, metalness: 0.05, envMapIntensity: 1.2,
-      normalMap: rippleMap, normalScale: new THREE.Vector2(0.18, 0.18),
-    });
-    // onBeforeCompile patches concentric rings expanding outward from
-    // the sphere's own xz position into the compiled shader — real
-    // reactive ripples, not just the ambient scrolling ripple map above
-    // (which is a uniform texture with no sense of *where* the sphere
-    // is). Injected as a brightness modulation right at the end of the
-    // fragment shader (after lighting is already resolved) rather than
-    // perturbing the lit normal, so it doesn't require getting the
-    // view-space/world-space transform of the perturbation exactly
-    // right — a bright/dark banded ring reads clearly as "water moving"
-    // regardless. smoothstep(...) fades the ring out at dist≈0 so there's
-    // no seam directly under the sphere, which sits over it anyway
-    floorMat.onBeforeCompile = (shader) => {
-      shader.uniforms.uRippleCenter = { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) };
-      shader.uniforms.uTime = { value: 0 };
-      // the cursor's own ripple centre, updated every frame in _frame()
-      // from a raycast of the cursor against this same floor mesh, plus
-      // its current world-space velocity (how fast/which direction it's
-      // actually moving) — real flow, not just a mark sitting still
-      // under wherever the cursor happens to be
-      shader.uniforms.uCursorRippleCenter = { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) };
-      shader.uniforms.uCursorVelocity = { value: new THREE.Vector2(0, 0) };
-      this.floorRippleUniforms = shader.uniforms;
-      shader.vertexShader = 'varying vec3 vWorldPos;\n' + shader.vertexShader.replace(
-        '#include <begin_vertex>',
-        '#include <begin_vertex>\nvWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;'
-      );
-      shader.fragmentShader = 'varying vec3 vWorldPos;\nuniform vec2 uRippleCenter;\nuniform vec2 uCursorRippleCenter;\nuniform vec2 uCursorVelocity;\nuniform float uTime;\n' + shader.fragmentShader.replace(
-        '#include <dithering_fragment>',
-        `
-        {
-          // faster decay (0.3 → 0.65) so the rings fade out within a
-          // couple of wavelengths of the ball instead of sweeping
-          // visibly across the whole floor, and a much lower amplitude
-          // (0.14 → 0.045) — a subtle hint that the water is reacting,
-          // not a bold, clearly-circular ripple pattern
+    const waterShader = {
+      uniforms: {
+        color: { value: null },
+        tDiffuse: { value: null },
+        textureMatrix: { value: null },
+        rippleMap: { value: rippleMap },
+        uRippleOffset: { value: new THREE.Vector2(0, 0) },
+        uRippleCenter: { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) },
+        uTime: { value: 0 },
+        // the cursor's own ripple centre, updated every frame in
+        // _frame() from a raycast of the cursor against this same floor
+        // mesh, plus its current world-space velocity — real flow, not
+        // just a mark sitting still under wherever the cursor happens
+        // to be
+        uCursorRippleCenter: { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) },
+        uCursorVelocity: { value: new THREE.Vector2(0, 0) },
+      },
+      vertexShader: `
+        uniform mat4 textureMatrix;
+        varying vec4 vUv;
+        varying vec2 vUv2;
+        varying vec3 vWorldPos;
+        void main() {
+          vUv = textureMatrix * vec4(position, 1.0);
+          vUv2 = uv;
+          vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform sampler2D rippleMap;
+        uniform vec3 color;
+        uniform vec2 uRippleOffset;
+        uniform vec2 uRippleCenter;
+        uniform vec2 uCursorRippleCenter;
+        uniform vec2 uCursorVelocity;
+        uniform float uTime;
+        varying vec4 vUv;
+        varying vec2 vUv2;
+        varying vec3 vWorldPos;
+
+        void main() {
+          // the same procedural ripple normal map as before (see
+          // buildRippleNormalMap), sampled by hand here rather than
+          // through a material's own normalMap slot, since this is a
+          // fully custom shader now. repeat(3,4) matches what that
+          // texture tiles for; uRippleOffset (animated in _frame())
+          // replaces the old texture.offset animation, which only
+          // auto-applied inside a standard material's own shader chunks
+          vec2 rippleUV = vUv2 * vec2(3.0, 4.0) + uRippleOffset;
+          vec3 n = texture2D(rippleMap, rippleUV).xyz * 2.0 - 1.0;
+
+          // distort the reflection's own projective UV by that normal —
+          // the standard wavy-mirror technique (the same one three.js's
+          // own Water.js addon uses): offset scaled by vUv.w since
+          // texture2DProj expects un-divided homogeneous coordinates
+          vec4 uv = vUv;
+          uv.xy += n.xy * 0.028 * uv.w;
+          vec3 reflection = texture2DProj(tDiffuse, uv).rgb;
+
+          // fresnel — more reflective at grazing angles, more
+          // transparent (showing the dark water colour) looking
+          // straight down, the way real water actually behaves.
+          // cameraPosition is one of three.js's own automatic shader
+          // uniforms, nothing to wire up by hand
+          vec3 viewDir = normalize(cameraPosition - vWorldPos);
+          float fresnel = pow(1.0 - max(dot(viewDir, vec3(0.0, 1.0, 0.0)), 0.0), 3.0);
+          float reflectivity = mix(0.35, 0.85, fresnel);
+          vec3 col = mix(color, reflection, reflectivity);
+
+          // the sphere's own reactive ripple ring — ported unchanged
+          // from the previous version. Faster decay so it fades out
+          // within a couple of wavelengths instead of sweeping visibly
+          // across the whole floor, low amplitude so it's a hint the
+          // water is reacting, not a bold, clearly-circular pattern
           float dist = length(vWorldPos.xz - uRippleCenter);
           float ring = sin(dist * 5.5 - uTime * 2.0) * exp(-dist * 0.65) * smoothstep(0.0, 0.7, dist);
-          gl_FragColor.rgb += ring * 0.045 * vec3(1.05, 1.0, 0.85);
+          col += ring * 0.045 * vec3(1.05, 1.0, 0.85);
 
-          // the cursor's own wake — a single soft directional smear
-          // trailing the cursor's current travel direction, NOT another
-          // sin()-based ring (a second ring pattern just read as "more
-          // rings", not flow). Compressed ahead of the cursor, stretched
-          // into a trailing comet-tail behind it, with no oscillation at
-          // all — a real dragged wake is one smooth push, not a series
-          // of concentric bands
+          // the cursor's own wake — also ported unchanged: a single
+          // soft directional smear trailing the cursor's current travel
+          // direction, not another sin()-based ring (a second ring just
+          // reads as "more rings," not flow). Compressed ahead of the
+          // cursor, stretched into a trailing comet-tail behind it,
+          // with no oscillation — a real dragged wake is one smooth
+          // push, not a series of concentric bands
           vec2 toCursor = vWorldPos.xz - uCursorRippleCenter;
           float speed = length(uCursorVelocity);
           vec2 dir = speed > 0.0001 ? uCursorVelocity / speed : vec2(1.0, 0.0);
@@ -817,13 +864,15 @@ class ProcessRoom {
           float distCur = length(warped);
           float speedBoost = clamp(speed * 14.0, 0.0, 1.0);
           float wake = exp(-distCur * 1.3) * speedBoost;
-          gl_FragColor.rgb += wake * 0.06 * vec3(1.05, 1.0, 0.9);
+          col += wake * 0.06 * vec3(1.05, 1.0, 0.9);
+
+          gl_FragColor = vec4(col, 1.0);
+
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
         }
-        #include <dithering_fragment>`
-      );
+      `,
     };
-    floorMat.customProgramCacheKey = () => 'processRoomFloorRipple';
-    this.floorMat = floorMat;
     // the side walls angle slightly inward toward the BACK (see below),
     // which means they angle slightly outward toward the camera —
     // wider than roomWidth at their own front edge. A floor sized to
@@ -832,8 +881,19 @@ class ProcessRoom {
     // between the water's edge and the actual (further out) wall —
     // read as the water cutting off early. Sized generously wider than
     // the room itself so it always reaches past the walls regardless
-    // of the angle, with plenty of margin to spare
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth * 1.3, roomDepth * 1.6), floorMat);
+    // of the angle, with plenty of margin to spare. Reflection render-
+    // target resolution kept modest (and lower again on mobile) since
+    // Reflector renders the whole scene a second time every frame to
+    // produce it — real cost, not worth paying for more sharpness than
+    // a background water surface actually needs
+    const floor = new Reflector(new THREE.PlaneGeometry(roomWidth * 1.3, roomDepth * 1.6), {
+      textureWidth: this.isMobile ? 384 : 768,
+      textureHeight: this.isMobile ? 256 : 512,
+      multisample: this.isMobile ? 0 : 4,
+      color: 0x241a10,
+      shader: waterShader,
+    });
+    this.floorRippleUniforms = floor.material.uniforms;
     floor.rotation.x = -Math.PI / 2;
     // the floor plane extends past the back wall's near face (it needs
     // to keep going to be visible through the arch/slit openings), which
@@ -1478,11 +1538,11 @@ class ProcessRoom {
       this.floatingRock.rotation.y += 0.0011;
       this.floatingRock.rotation.x += 0.0006;
     }
-    if(this.floorNormalMap){
-      this.floorNormalMap.offset.x += 0.00035;
-      this.floorNormalMap.offset.y += 0.00022;
+    if(this.floorRippleUniforms){
+      this.floorRippleUniforms.uRippleOffset.value.x += 0.00035;
+      this.floorRippleUniforms.uRippleOffset.value.y += 0.00022;
+      this.floorRippleUniforms.uTime.value += 0.016;
     }
-    if(this.floorRippleUniforms) this.floorRippleUniforms.uTime.value += 0.016;
     if(this.grainUniforms) this.grainUniforms.grainTime.value += 1.0;
 
     if(this.feathers){
