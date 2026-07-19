@@ -255,21 +255,56 @@ function tracePath(path, width, height, cornerRadius){
   path.lineTo(-hw, 0);
 }
 
+// a rounded ceramic urn profile — narrow foot, full belly, narrowing
+// neck, small flared lip — revolved into a real vessel rather than a
+// generic cylinder, for the centrepiece sitting past the back doorway
+function buildVaseGeometry(){
+  const pts = [
+    new THREE.Vector2(0, 0), new THREE.Vector2(0.2, 0), new THREE.Vector2(0.25, 0.04),
+    new THREE.Vector2(0.22, 0.13), new THREE.Vector2(0.29, 0.22), new THREE.Vector2(0.32, 0.35),
+    new THREE.Vector2(0.27, 0.47), new THREE.Vector2(0.15, 0.55), new THREE.Vector2(0.12, 0.59),
+    new THREE.Vector2(0.16, 0.61),
+  ];
+  return new THREE.LatheGeometry(pts, 28);
+}
+
 // a solid wall-plaster patch with a real through-hole for the doorway
 // opening — ExtrudeGeometry computes the hole's inner tunnel walls and
 // (with bevelEnabled) its rounded rim automatically, which is far more
 // reliable than hand-rolling a tube mesh's per-vertex normals. Depth
 // and bevel both sized up from an earlier pass for a genuinely thick,
 // chamfered opening rather than a thin plate with a soft edge.
-function buildDoorwayPatchGeometry(){
+//
+// Built flat (in local X/Y/Z) and then bent onto the wall's own
+// cylindrical curvature: local X (arc-length across the doorway)
+// becomes an angular offset from the doorway's own centre theta, and
+// local Z (extrusion depth) reduces the radius — receding straight
+// into the wall — instead of moving in a straight world-space line.
+// An earlier flat version sat as a flat rectangular slab in front of
+// the curved wall, which at any oblique angle read as a block
+// protruding out of the wall (looking like a pillar) rather than an
+// opening actually carved into it. Returned already positioned in
+// room space, not doorway-local space — see _buildDoorway for why.
+function buildDoorwayPatchGeometry(centerTheta, radius){
   const shape = new THREE.Shape();
   tracePath(shape, 3.6, 5.6, 0.5);
   const hole = new THREE.Path();
   tracePath(hole, 2.3, 3.6, 0.42);
   shape.holes.push(hole);
-  return new THREE.ExtrudeGeometry(shape, {
+  const geo = new THREE.ExtrudeGeometry(shape, {
     depth: 0.85, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 4, steps: 1,
   });
+  const pos = geo.attributes.position;
+  const v = new THREE.Vector3();
+  for(let i = 0; i < pos.count; i++){
+    v.fromBufferAttribute(pos, i);
+    const theta = centerTheta + v.x / radius;
+    const p = wallPoint(theta, radius - v.z);
+    pos.setXYZ(i, p.x, v.y, p.z);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  return geo;
 }
 
 // a small canvas-generated blotch pattern used as a roughness map on
@@ -594,14 +629,43 @@ class ProcessRoom {
     group.add(seat);
 
     // soft contact shadow under the seat — a decal, not a real shadow
-    // map for a second light (see makeShadowDecalTexture's own header)
+    // map for a second light (see makeShadowDecalTexture's own header).
+    // Every flat decal sharing the floor/pit-floor's own plane below
+    // is deliberately spaced several centimetres apart in Y (not the
+    // sub-millimetre gaps an earlier pass used) — those were close
+    // enough for the depth buffer to flicker between them as the
+    // camera moved during scroll, reading as a glitching floor rather
+    // than a still, layered surface. depthWrite:false alone doesn't
+    // prevent that; real separation does.
     const seatShadowMat = new THREE.MeshBasicMaterial({
       map: makeShadowDecalTexture(0.5), transparent: true, depthWrite: false,
     });
     const seatShadow = new THREE.Mesh(new THREE.CircleGeometry(1.9, 32), seatShadowMat);
     seatShadow.rotation.x = -Math.PI / 2;
-    seatShadow.position.set(0.15, -pitDepth + 0.01, -2.4);
+    seatShadow.position.set(0.15, -pitDepth + 0.03, -2.4);
     group.add(seatShadow);
+
+    // faint scratches across the floor, standing in for the years of
+    // foot traffic a real polished-stone floor this scale would show
+    const scratchesMat = new THREE.MeshBasicMaterial({
+      map: makeScratchesTexture(5), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    scratchesMat.map.repeat.set(5, 5);
+    const scratches = new THREE.Mesh(new THREE.CircleGeometry(R, 64), scratchesMat);
+    scratches.rotation.x = -Math.PI / 2;
+    scratches.position.y = 0.03;
+    group.add(scratches);
+
+    // contact dirt around the platform's own rim, the same decal
+    // technique at a smaller radius so it lands right at the pit's
+    // edge rather than the far wall
+    const platformContactMat = new THREE.MeshBasicMaterial({
+      map: makeEdgeVignetteTexture(0.4, 29), transparent: true, depthWrite: false,
+    });
+    const platformContact = new THREE.Mesh(new THREE.CircleGeometry(pitRadius + 0.6, 48), platformContactMat);
+    platformContact.rotation.x = -Math.PI / 2;
+    platformContact.position.set(0, 0.06, -2.2);
+    group.add(platformContact);
 
     // contact dirt/grime where the wall meets the floor, all the way
     // around — a full floor-sized disc with an edge-darkening decal
@@ -612,30 +676,8 @@ class ProcessRoom {
     });
     const wallContact = new THREE.Mesh(new THREE.CircleGeometry(R, 64), wallContactMat);
     wallContact.rotation.x = -Math.PI / 2;
-    wallContact.position.y = 0.012;
+    wallContact.position.y = 0.09;
     group.add(wallContact);
-
-    // contact dirt around the platform's own rim, the same decal
-    // technique at a smaller radius so it lands right at the pit's
-    // edge rather than the far wall
-    const platformContactMat = new THREE.MeshBasicMaterial({
-      map: makeEdgeVignetteTexture(0.4, 29), transparent: true, depthWrite: false,
-    });
-    const platformContact = new THREE.Mesh(new THREE.CircleGeometry(pitRadius + 0.6, 48), platformContactMat);
-    platformContact.rotation.x = -Math.PI / 2;
-    platformContact.position.set(0, 0.013, -2.2);
-    group.add(platformContact);
-
-    // faint scratches across the floor, standing in for the years of
-    // foot traffic a real polished-stone floor this scale would show
-    const scratchesMat = new THREE.MeshBasicMaterial({
-      map: makeScratchesTexture(5), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-    });
-    scratchesMat.map.repeat.set(5, 5);
-    const scratches = new THREE.Mesh(new THREE.CircleGeometry(R, 64), scratchesMat);
-    scratches.rotation.x = -Math.PI / 2;
-    scratches.position.y = 0.008;
-    group.add(scratches);
 
     // hidden LED strip at the base of the wall — thin warm-white, not
     // orange — a continuous emissive ring, unlit (MeshBasicMaterial,
@@ -691,12 +733,13 @@ class ProcessRoom {
     const p = wallPoint(theta, R - 0.08);
     const angle = Math.atan2(p.x, -p.z); // face inward, matches wallPoint's own convention
 
-    const doorGroup = new THREE.Group();
-    doorGroup.position.set(p.x, 0, p.z);
-    doorGroup.rotation.y = angle;
-    group.add(doorGroup);
-
-    const patchGeo = buildDoorwayPatchGeometry();
+    // the patch itself is built already-curved in room space (see
+    // buildDoorwayPatchGeometry's own header) and added directly to
+    // the room group, not this doorway's own local group below — a
+    // flat patch sitting in a rotated local space still reads as a
+    // flat slab proud of the curved wall around it, which is exactly
+    // the "looks like a pillar sticking out" problem this replaces
+    const patchGeo = buildDoorwayPatchGeometry(theta, R - 0.08);
     patchGeo.setAttribute('uv2', patchGeo.attributes.uv);
     // ExtrudeGeometry-with-a-hole's default material groups: index 0
     // is the extruded "sides" (both the hole's inner tunnel walls AND
@@ -707,7 +750,16 @@ class ProcessRoom {
     const patch = new THREE.Mesh(patchGeo, [doorwayMat, wallMat]);
     patch.castShadow = true;
     patch.receiveShadow = true;
-    doorGroup.add(patch);
+    group.add(patch);
+
+    // everything else in the reveal (void plane, LED strips, rim
+    // light, vase) is small/deep enough relative to the wall's own
+    // radius that a flat local space for them is visually fine — only
+    // the wide flat frame patch above needed real curving
+    const doorGroup = new THREE.Group();
+    doorGroup.position.set(p.x, 0, p.z);
+    doorGroup.rotation.y = angle;
+    group.add(doorGroup);
 
     // dark plane at the back of the carved recess, beyond which the
     // fog/darkness reads as "leads somewhere", pushed back to match
@@ -729,6 +781,60 @@ class ProcessRoom {
     const rimLight = new THREE.PointLight(0xffe9c8, 3, 5, 2);
     rimLight.position.set(0, 2.1, 0.65);
     doorGroup.add(rimLight);
+
+    // the centre doorway only gets the vase+branch centrepiece sitting
+    // at the back of its own reveal, matching the reference photo —
+    // the two side doorways stay empty
+    if(theta === 0) this._buildVase(doorGroup);
+  }
+
+  _buildVase(doorGroup){
+    // a warm, dimly-lit backdrop just in front of the reveal's own
+    // near-black void plane, and a dedicated soft light on the vase
+    // itself — without these it sat as a flat dark silhouette against
+    // pure black, unlike the reference photo's own clearly-lit urn
+    const backdropMat = new THREE.MeshStandardMaterial({ color: 0x2b2216, roughness: 0.95, metalness: 0 });
+    const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 3.3), backdropMat);
+    backdrop.position.set(0, 1.9, 0.93);
+    doorGroup.add(backdrop);
+
+    const vaseLight = new THREE.PointLight(0xffe6c0, 2.2, 3.5, 2);
+    vaseLight.position.set(0.15, 1.1, 0.55);
+    doorGroup.add(vaseLight);
+
+    const vaseMat = new THREE.MeshStandardMaterial({ color: 0x3a2c1c, roughness: 0.5, metalness: 0.3 });
+    const vase = new THREE.Mesh(buildVaseGeometry(), vaseMat);
+    vase.position.set(0, 0, 0.82);
+    vase.castShadow = true;
+    vase.receiveShadow = true;
+    doorGroup.add(vase);
+
+    // a handful of thin angled branches with small bud clusters at
+    // their tips — deterministic angles, not random, so the silhouette
+    // is stable across reloads
+    const branchMat = new THREE.MeshStandardMaterial({ color: 0x3a2f22, roughness: 0.8, metalness: 0 });
+    const budMat = new THREE.MeshStandardMaterial({ color: 0x565034, roughness: 0.75, metalness: 0 });
+    const branches = [
+      { len: 0.62, tilt: 0.12, yaw: 0.3 }, { len: 0.5, tilt: 0.22, yaw: -0.5 },
+      { len: 0.7, tilt: 0.05, yaw: 1.4 }, { len: 0.45, tilt: 0.3, yaw: -1.7 },
+      { len: 0.58, tilt: 0.15, yaw: 2.6 }, { len: 0.4, tilt: 0.35, yaw: -2.9 },
+    ];
+    branches.forEach((b, i) => {
+      const branch = new THREE.Group();
+      branch.position.set(0, 0.58, 0.82);
+      branch.rotation.y = b.yaw;
+      branch.rotation.z = b.tilt;
+      doorGroup.add(branch);
+
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.02, b.len, 6), branchMat);
+      stem.position.y = b.len / 2;
+      stem.rotation.z = -0.08;
+      branch.add(stem);
+
+      const bud = new THREE.Mesh(new THREE.IcosahedronGeometry(0.05 + (i % 3) * 0.012, 0), budMat);
+      bud.position.y = b.len;
+      branch.add(bud);
+    });
   }
 
   _buildLights(){
