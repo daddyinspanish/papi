@@ -31,11 +31,11 @@
    like the walls shows the HDRI's own prefiltered mip-chain seams as
    banding, a real artifact hit and fixed earlier this session). Overall
    darkness is a single separate dial: renderer.toneMappingExposure,
-   pulled down for a dark, cinematic mood. scene.background is now a
-   separate, purely cosmetic deep-space galaxy (see buildGalaxyTexture)
-   — the room reads as floating in space through the arch/slit, per
-   direct request — kept fully independent of scene.environment so it
-   never touches the actual lighting, only what's visible behind it.
+   pulled down for a dark, cinematic mood. scene.background is a plain
+   flat deep-space colour (a procedural galaxy graphic sat here for a
+   while — removed per direct request) — kept fully independent of
+   scene.environment so it never touches the actual lighting, only
+   what's visible behind it.
 
    Camera: fixed wide framing, a small continuous push/tilt over the
    whole scroll range (not 4 discrete stops), plus the same mouse-
@@ -45,11 +45,14 @@
 
    Post-processing: reuses the EffectComposer pipeline already vendored
    this session (js/vendor/examples/jsm/postprocessing/) — RenderPass →
-   UnrealBloomPass (selective, high-threshold glow on the galaxy's own
-   bright points and the traffic light) → a custom crepuscular-ray
-   ("god ray") ShaderPass radiating from the arch opening → BokehPass
-   (subtle depth-of-field, focus locked to the glass sphere) → the
-   combined vignette/filmic-contrast/colour-grade ShaderPass → OutputPass.
+   UnrealBloomPass (selective, high-threshold glow — the traffic light
+   is the only thing actually bright enough to trigger it now that
+   scene.background is a flat colour rather than a bright starfield) →
+   a custom crepuscular-ray ("god ray") ShaderPass radiating from the
+   arch opening → BokehPass (subtle depth-of-field, focus locked to the
+   glass sphere) → the combined vignette/filmic-contrast/colour-grade
+   ShaderPass → OutputPass. Desktop only — see _renderFrame's own
+   comment for why bloom is skipped entirely on mobile.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
 import { RGBELoader } from './vendor/examples/jsm/loaders/RGBELoader.js';
@@ -85,9 +88,13 @@ const CONFIG = {
   // visual benefit (nothing here moves fast enough to need more than
   // 60, let alone 30, updates a second) — far and away the single
   // biggest lever on the reported "phone gets hot" issue. Desktop is
-  // capped too (120Hz monitors are common now), just less aggressively
+  // capped too (120Hz monitors are common now), just less aggressively.
+  // Mobile raised from an original 30 after that read as visibly
+  // choppy — 45 is still a real cut from uncapped (up to 120 on
+  // ProMotion) while reading as smooth; the dt-corrected lerp above is
+  // what actually fixed the choppiness itself, this is just extra margin
   renderFPS: 60,
-  renderFPSMobile: 30,
+  renderFPSMobile: 45,
   // unseen.co's own cursor interaction (checked directly: hovering each
   // corner visibly swings the whole room, mirrored left/right) is a
   // real camera ROTATION driven by cursor position, not a position
@@ -280,238 +287,6 @@ function normalizeWallUV(geometry, minX, width, height){
   uvAttr.needsUpdate = true;
 }
 
-// a deep-space backdrop — scene.background only, entirely separate from
-// scene.environment (the neutral HDRI doing the actual PBR lighting/
-// bounce, see _buildEnvironment) so the room's own colours stay exactly
-// as tuned regardless of what's visually behind it. Rebuilt per direct
-// reference (a Hubble/Webb-style barred-spiral photo) from the earlier,
-// much subtler wisps-and-stars pass — this is now one real hero galaxy,
-// not ambient texture:
-//  1. dense background starfield, drawn first (so the galaxy's own glow
-//     sits on top of a real sky, not an empty one)
-//  2. a warm white-gold core with a soft halo
-//  3. two logarithmic-spiral arms swept out from the core, each built
-//     from many small soft-edged points along the spiral curve (colour
-//     warm near the core fading to cool blue-white further out, same
-//     as real stellar populations), with organic jitter off the exact
-//     curve and tiny bright speckles along it so it reads as a clumpy
-//     star field, not a drawn line
-//  4. dark dust-lane streaks threading across the disk, offset from the
-//     bright arms — what actually sells "spiral" over "blurry blob"
-//  5. a handful of bright cyan/teal HII-region knots along the arms —
-//     the turquoise star-forming clusters visible in the reference
-//  6. a second, brighter foreground star pass on top of everything,
-//     since real foreground (this galaxy's own) stars sit in front of
-//     any background galaxy
-// Placed off-centre (not mid-canvas) at roughly the room camera's own
-// forward viewing direction in equirectangular UV — u≈0.23 (worked out
-// from the camera's actual look direction, see _cameraForProgress) —
-// and sized generously (well over half the canvas width) so it stays in
-// frame across this room's small scroll/parallax range, the same
-// guaranteed-coverage lesson learned from this background's earlier
-// cloud/nebula layers, just solved by generous placement+size here
-// instead of a repeating grid, since there's only the one galaxy
-function buildGalaxyTexture(width, height){
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-
-  let seed = 97;
-  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-
-  const drawStars = (count, sizeMin, sizeMax, aMin, aMax, brightFrac) => {
-    for(let i = 0; i < count; i++){
-      const x = rand() * width;
-      const y = rand() * height;
-      const isBright = rand() > 1 - brightFrac;
-      const r = isBright ? sizeMax * 1.6 + rand() * sizeMax : sizeMin + rand() * (sizeMax - sizeMin);
-      const a = isBright ? aMax : aMin + rand() * (aMax - aMin);
-      const warm = rand() > 0.5;
-      const tint = warm ? '255,246,235' : '225,235,255';
-      if(isBright){
-        const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 5);
-        glow.addColorStop(0, `rgba(${tint},${a})`);
-        glow.addColorStop(0.3, `rgba(${tint},${a * 0.35})`);
-        glow.addColorStop(1, `rgba(${tint},0)`);
-        ctx.fillStyle = glow;
-        ctx.fillRect(x - r * 5, y - r * 5, r * 10, r * 10);
-      }
-      ctx.fillStyle = `rgba(${tint},${a})`;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  };
-
-  // 1. base void + distant background starfield
-  const base = ctx.createLinearGradient(0, 0, 0, height);
-  base.addColorStop(0.0, '#04050b');
-  base.addColorStop(0.5, '#070810');
-  base.addColorStop(1.0, '#04050a');
-  ctx.fillStyle = base;
-  ctx.fillRect(0, 0, width, height);
-  drawStars(Math.round(width * height * 0.0008), 0.3, 0.55, 0.25, 0.55, 0.01);
-
-  // the galaxy's own centre + orientation. R pulled back hard from an
-  // early pass that filled almost the entire arch's own field of view —
-  // at that size the room camera was effectively zoomed into just the
-  // bright core, cropping out the very structure (arms/dust/knots) that
-  // makes it read as a galaxy rather than a pale blown-out smudge
-  const gx = width * 0.24;
-  const gy = height * 0.5;
-  const tilt = -0.34;
-  const squash = 0.42; // flattens the face-on spiral into an oblique ellipse, like a galaxy seen at an angle
-  const R = width * 0.16;
-
-  // 2. NO dedicated core/halo hotspot here any more — that gradient,
-  // at ANY radius/alpha tried, is what kept reading as "a light source
-  // in the middle of the arch": proven directly by disabling BOTH the
-  // selective bloom pass and the god-ray pass at once and watching the
-  // glow stay put unchanged (it was baked into this canvas texture
-  // itself, not a post-processing artifact), then cutting its alpha
-  // hard and finding it still read as a glow, not just a dim one — a
-  // smooth 100-200px soft radial gradient simply LOOKS like glow/bloom
-  // by its shape alone, no matter how low its peak alpha goes, because
-  // nothing else in the frame has that kind of soft falloff at that
-  // scale. This opening is meant to be open sky/space with a distant
-  // galaxy in it, not a lit doorway, so rather than keep chasing a
-  // smaller version of the same shape, the arms' own natural density
-  // of small bright-star points near rStart (just below) now carries
-  // the entire "this is the galaxy's centre" read on its own
-
-  // shared spiral-geometry helper — maps (armIndex, t∈[0,1]) to a point
-  // in canvas space along a logarithmic spiral, already squashed/rotated
-  // to the disk's own orientation. rStart begins just OUTSIDE the core
-  // (R*0.2 above) rather than deep inside it — arms starting under the
-  // bright core was the other half of the washed-out-blob problem, all
-  // those semi-transparent layers stacking on the same few pixels
-  const thetaMax = Math.PI * 3.1;
-  const rStart = R * 0.26;
-  const rEnd = R * 0.98;
-  const bTight = Math.log(rEnd / rStart) / thetaMax;
-  const armPoint = (armOffset, t, jitter) => {
-    const theta = t * thetaMax;
-    const r = rStart * Math.exp(bTight * theta);
-    let lx = r * Math.cos(theta + armOffset);
-    let ly = r * Math.sin(theta + armOffset);
-    if(jitter){
-      lx += (rand() - 0.5) * r * 0.22;
-      ly += (rand() - 0.5) * r * 0.22;
-    }
-    const sy = ly * squash;
-    const rx = lx * Math.cos(tilt) - sy * Math.sin(tilt);
-    const ry = lx * Math.sin(tilt) + sy * Math.cos(tilt);
-    return { x: gx + rx, y: gy + ry, r };
-  };
-
-  // 3. two spiral arms, clumpy soft-glow points + bright speckles
-  const arms = [0, Math.PI + 0.25];
-  arms.forEach((armOffset) => {
-    const steps = 130;
-    for(let i = 0; i < steps; i++){
-      const t = i / steps;
-      const p = armPoint(armOffset, t, true);
-      if(p.r > R) break;
-      const fade = Math.max(0, 1 - t * 0.85);
-      const dotR = R * 0.05 * fade * (0.6 + rand() * 0.9);
-      const warmth = Math.max(0, 1 - t * 1.4);
-      const cr = Math.round(210 + warmth * 45);
-      const cg = Math.round(212 + warmth * 18 - t * 8);
-      const cb = Math.round(238 - warmth * 60);
-      const alpha = 0.11 * fade;
-      const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, dotR);
-      glow.addColorStop(0, `rgba(${cr},${cg},${cb},${alpha})`);
-      glow.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-      ctx.fillStyle = glow;
-      ctx.fillRect(p.x - dotR, p.y - dotR, dotR * 2, dotR * 2);
-
-      const speckles = 2 + Math.floor(rand() * 3);
-      for(let s = 0; s < speckles; s++){
-        const sx = p.x + (rand() - 0.5) * dotR * 2.4;
-        const sy2 = p.y + (rand() - 0.5) * dotR * 2.4;
-        const sr = 0.35 + rand() * 0.55;
-        ctx.fillStyle = `rgba(255,255,255,${(0.45 + rand() * 0.4) * fade})`;
-        ctx.beginPath();
-        ctx.arc(sx, sy2, sr, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  });
-
-  // 4. dust lanes — dark, broken strokes offset from the bright arms,
-  // confined to the inner/mid disk where they'd actually cross the glow
-  arms.forEach((armOffset) => {
-    const steps = 90;
-    let prev = null;
-    for(let i = 0; i < steps; i++){
-      const t = i / steps * 0.75;
-      const p = armPoint(armOffset + 0.42, t, false);
-      if(p.r > R * 0.75 || rand() < 0.14){ prev = null; continue; }
-      if(prev){
-        ctx.strokeStyle = `rgba(30,22,20,${0.18 + rand() * 0.14})`;
-        ctx.lineWidth = R * (0.006 + rand() * 0.006);
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(prev.x, prev.y);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-      }
-      prev = p;
-    }
-  });
-
-  // 5. bright cyan/teal HII star-forming knots scattered along the arms
-  // — kept to the outer 2/3 of each arm (t≥0.38), well clear of the
-  // core's own warm glow, since a cyan knot overlapping gold core light
-  // blends toward a muddy mint-green rather than either colour reading
-  // clean
-  for(let k = 0; k < 7; k++){
-    const armOffset = arms[k % 2];
-    const t = 0.38 + rand() * 0.55;
-    const p = armPoint(armOffset, t, true);
-    const kr = R * (0.014 + rand() * 0.016);
-    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, kr * 4);
-    glow.addColorStop(0, 'rgba(150,255,235,0.55)');
-    glow.addColorStop(0.4, 'rgba(90,220,210,0.24)');
-    glow.addColorStop(1, 'rgba(90,220,210,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(p.x - kr * 4, p.y - kr * 4, kr * 8, kr * 8);
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, kr * 0.5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // 6. foreground stars, brighter/sparser, layered on top of the whole
-  // galaxy — real stars in our own sky sit in front of any background one
-  drawStars(Math.round(width * height * 0.0004), 0.4, 0.7, 0.4, 0.75, 0.05);
-
-  // same dithering fix used for the room's earlier sky pass — a gradient
-  // this dark, this low-contrast, banded visibly once the browser scaled
-  // it to the canvas's own resolution until a small per-pixel noise term
-  // broke the flat steps up. Also caps the ceiling at 235 rather than
-  // 255 — the brightest star centres hitting pure white is exactly the
-  // few-pixel-wide hot spot that made UnrealBloomPass (added once this
-  // texture already existed) throw a long directional streak instead of
-  // a soft glow; a small dimming of just the hottest points here fixes
-  // that at the source rather than fighting it with bloom's own tuning
-  const imgData = ctx.getImageData(0, 0, width, height);
-  const data = imgData.data;
-  for(let i = 0; i < data.length; i += 4){
-    const n = (rand() - 0.5) * 5;
-    data[i] = Math.min(200, Math.max(0, data[i] + n));
-    data[i + 1] = Math.min(200, Math.max(0, data[i + 1] + n));
-    data[i + 2] = Math.min(200, Math.max(0, data[i + 2] + n));
-  }
-  ctx.putImageData(imgData, 0, 0);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.mapping = THREE.EquirectangularReflectionMapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 class ProcessRoom {
   constructor(section, container, canvas){
     this.section = section;
@@ -556,7 +331,6 @@ class ProcessRoom {
 
     this._buildScene();
     this._buildChairPile();
-    this._buildWallShadowLight();
     this._buildSpiralStairs();
     this._buildFloatingRock();
     this._buildKeyframes();
@@ -584,7 +358,7 @@ class ProcessRoom {
     this.roomGroup = group;
 
     // raised well past the earlier 6.5 per direct request — that height
-    // put the wall-top/galaxy-backdrop transition right at the edge of
+    // put the wall-top/sky-backdrop transition right at the edge of
     // the camera's own vertical FOV (worked out from the camera's actual
     // distance/pitch range: camStart is ~16 units back with a 45° FOV,
     // which alone shows nearly 7 units of vertical extent above camera
@@ -756,16 +530,16 @@ class ProcessRoom {
         sideWall.position.set(side * roomWidth / 2, 0, 0);
         sideWall.rotation.y = -side * (Math.PI / 2 - 0.18);
         sideWall.castShadow = true;
-        // receiveShadow IS on here now (it wasn't previously — see the
-        // old comment this replaced, about a since-removed key light's
-        // shadow-camera frustum streaking across this wall's own huge
-        // 30-unit reach). _buildWallShadowLight's shadow.camera.far is
-        // deliberately kept tight (14) rather than reaching anywhere
-        // near this wall's own far edges, so that old streak can't
-        // reappear — the new light only ever illuminates the small
-        // region right around the chair pile and the wall behind it
-        sideWall.receiveShadow = true;
-        this.leftWallMesh = sideWall;
+        // NOT receiveShadow — this wall's own local shape reaches from
+        // sideWallBack to sideWallFront (30 units), far outside a real
+        // shadow-casting light's own shadow-camera frustum. Past that
+        // bound, the shadow map has no real data for this surface, and
+        // the frustum's own edge — which world position it falls
+        // across depends on the light's tilt, not a clean axis-aligned
+        // line — showed up as a visible diagonal shadow streak straight
+        // across the wall on both side walls, independent of any real
+        // caster, the one time a discrete shadow-casting light sat in
+        // this room (since removed per direct request)
         group.add(sideWall);
       } else {
         // plain wall, no windows — built with the same asymmetric
@@ -797,7 +571,7 @@ class ProcessRoom {
     // Reflector.js, vendored this pass), not just PBR env-map sampling
     // standing in for one. Reflector renders the actual scene from a
     // mirrored virtual camera into its own render target every frame —
-    // the sphere, the rock, the walls/arch, the galaxy through the
+    // the sphere, the rock, the walls/arch, the sky through the
     // opening all genuinely show in the water, the way real water
     // reflects its surroundings rather than a material guessing at it
     // via a prefiltered environment map. Built on Reflector's own
@@ -1189,9 +963,6 @@ class ProcessRoom {
     // the corner without exiting the frustum at the tightest zoom
     const px = -3.8, pz = -4.8;
     platform.position.set(px, platformH / 2, pz);
-    // kept for _buildWallShadowLight — that light aims itself at this
-    // same pile so the two stay in sync if this position ever moves
-    this._chairPilePos = new THREE.Vector3(px, platformH, pz);
     platform.castShadow = true;
     platform.receiveShadow = true;
     this.roomGroup.add(platform);
@@ -1230,50 +1001,6 @@ class ProcessRoom {
       chair.rotation.set(rot[0], rot[1], rot[2]);
       this.roomGroup.add(chair);
     });
-  }
-
-  // the one real, discrete light in the room (everything else is pure
-  // HDRI bounce — see the file-header comment on that choice). Added
-  // per direct request after noticing unseen.co's own left wall shows a
-  // genuine cast shadow — an object catching real light and throwing
-  // its own silhouette onto the wall behind it, which a flat IBL-only
-  // room can never produce on its own. The chair pile already sits
-  // right in front of the left wall for exactly this reason, so it's
-  // the obvious caster: this spotlight sits up and toward the camera
-  // side of the pile, aimed past it at the wall, so the pile's own
-  // jumble of legs/backrests blocks part of the light and prints a
-  // real shadow onto the plaster behind it.
-  // Deliberately scoped tight so it stays a one-wall detail rather than
-  // a second room-wide light fighting the HDRI's own soft, even mood:
-  // low intensity, a narrow cone, and — the actual containment — only
-  // the left wall itself has receiveShadow on (see that wall's own
-  // construction above); the back/right walls and the reflective floor
-  // structurally can't show this shadow no matter how far the light's
-  // own falloff reaches
-  _buildWallShadowLight(){
-    const pile = this._chairPilePos;
-
-    const target = new THREE.Object3D();
-    target.position.set(-6.6, 2.6, pile.z + 0.5);
-    this.roomGroup.add(target);
-
-    const light = new THREE.SpotLight(0xfff2df, 55, 13, 0.5, 0.6, 2);
-    light.position.set(-0.4, 7.0, pile.z + 2.8);
-    light.target = target;
-    // the shadow map itself (not just its resolution) is skipped on
-    // mobile — a real-time PCF soft-shadow render is a genuine extra
-    // pass over the shadow-casting geometry every frame. The light
-    // still lights the wall/pile normally, just without the cast
-    // shadow detail — a reasonable trade on a phone GPU
-    light.castShadow = !this.isMobile;
-    if(light.castShadow){
-      light.shadow.mapSize.set(1024, 1024);
-      light.shadow.camera.near = 2;
-      light.shadow.camera.far = 14;
-      light.shadow.bias = -0.0015;
-      light.shadow.radius = 3;
-    }
-    this.roomGroup.add(light);
   }
 
   // a floating rock boulder near the hero sphere, offset to its right —
@@ -1343,25 +1070,25 @@ class ProcessRoom {
   // no discrete lights at all — the whole room is lit by one real HDRI
   // (Poly Haven, CC0 — img/hdri/overcast_skylight.hdr, downloaded once
   // this session, nothing fetches from polyhaven.com at runtime) via
-  // scene.environment only — that part's unchanged. What IS visible
-  // through the arch/slit now is a separate, purely cosmetic deep-space
-  // backdrop (see buildGalaxyTexture) on scene.background, per direct
-  // request for the room to read as floating in space — kept fully
-  // independent of scene.environment on purpose, the same separation
-  // this file has used since the very first sky pass, so the galaxy
-  // never touches the room's own lighting/reflections, only what's
-  // visible behind it. Overall darkness is controlled globally by
-  // renderer.toneMappingExposure (see the constructor); each material's
-  // own envMapIntensity (wallMat, floorMat, sphereMat, rockMat,
-  // platformMat, poleMat) controls how much of its true colour the
-  // HDRI's own bounce reveals
+  // scene.environment only. scene.background is a plain flat colour —
+  // the procedural galaxy graphic that used to sit here (a whole
+  // separate canvas-texture generator, well over 100 lines) is removed
+  // per direct request; what's visible through the arch/slit is now
+  // just a solid deep-space colour rather than a drawn spiral/starfield.
+  // Kept independent of scene.environment on purpose, same as before,
+  // so this plain colour never touches the room's own lighting/
+  // reflections, only what's visible behind it. Overall darkness is
+  // controlled globally by renderer.toneMappingExposure (see the
+  // constructor); each material's own envMapIntensity (wallMat,
+  // floorMat, sphereMat, rockMat, platformMat, poleMat) controls how
+  // much of its true colour the HDRI's own bounce reveals
   _buildEnvironment(){
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     pmrem.compileEquirectangularShader();
     new RGBELoader().load('img/hdri/overcast_skylight.hdr', (hdrTex) => {
       const envMap = pmrem.fromEquirectangular(hdrTex).texture;
       this.scene.environment = envMap;
-      this.scene.background = buildGalaxyTexture(2560, 1280);
+      this.scene.background = new THREE.Color(0x05060b);
       hdrTex.dispose();
       pmrem.dispose();
       this._frame();
@@ -1553,28 +1280,23 @@ class ProcessRoom {
     this.godrayUniforms = godrayPass.uniforms;
     this.composer.addPass(godrayPass);
 
-    // a small, stubborn bright spot sits at this exact screen position
-    // (the arch's own projected centre) independent of literally every
-    // light source this scene has: confirmed by individually disabling
-    // the god-ray pass, the selective bloom pass, the DoF pass, the
-    // vignette/grain pass, nulling scene.background, nulling
-    // scene.environment (killing all IBL/reflections — the rest of the
-    // room correctly went dark), and nulling scene.fog, one at a time,
-    // with the room's own rAF loop frozen so nothing could silently
-    // reset a uniform mid-test — the spot stayed exactly as bright
-    // through every single one of those. Raycasting straight through
-    // its own screen position (and a grid of nearby points) hits no
-    // geometry at all. Setting renderer.toneMappingExposure to 0 DOES
-    // crush it to black same as everything else, so it's genuinely
-    // going through normal tonemapping, not a DOM overlay or a
-    // browser-level artifact — it just isn't traceable to any single
-    // scene property or pass in isolation. Rather than keep chasing an
-    // elusive root cause, this reuses godray's own already-live
-    // lightPositionScreen (same Vector2 instance, updated every frame
-    // in _frame() — see below) to directly darken that one small screen
-    // region, whatever is actually producing it. Not a full black-out
-    // (0.15 floor, not 0.0) so it still reads as a plain dim patch of
-    // sky rather than an obviously-masked hole
+    // a small, stubborn bright spot used to sit at this exact screen
+    // position (the arch's own projected centre) that survived
+    // disabling every individual light/pass this scene has — the real
+    // explanation turned out to be much simpler than that whole
+    // investigation suggested: this pass's own suppression was silently
+    // aimed at a fixed, never-updated (0.5, 0.5) instead of the arch's
+    // true live position the entire time (see _frame()'s own comment,
+    // right where this pass's lightPositionScreen gets copied each
+    // frame, for why), so any actual bright thing at the arch's real
+    // projected position was never being darkened correctly, just
+    // coincidentally close enough most of the time to look fixed. Left
+    // this pass in place regardless now that it's genuinely tracking —
+    // a small direct darken at the arch's own screen position is a
+    // reasonable safety net even now that the galaxy graphic that was
+    // the original suspect is gone. Not a full black-out (0.15 floor,
+    // not 0.0) so it still reads as a plain dim patch of sky rather
+    // than an obviously-masked hole
     const archSuppressPass = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
@@ -1611,7 +1333,13 @@ class ProcessRoom {
           // to full brightness just past it. This falls off continuously
           // from the centre outward instead, so there's no boundary to see
           float falloff = exp(-(d * d) / (suppressRadius * suppressRadius));
-          float darken = mix(1.0, 0.25, falloff);
+          // was mix(1.0, 0.25, falloff) — a 75% cut that turned out to
+          // still leave a visible glow once this pass was actually
+          // tracking the right spot (see this pass's own build-time
+          // comment) rather than a stale fixed point. Full black at the
+          // very centre now, still a smooth fade back to untouched
+          // just outside suppressRadius
+          float darken = mix(1.0, 0.0, falloff);
           col *= mix(1.0, darken, strength);
           gl_FragColor = vec4(col, 1.0);
         }
@@ -1963,7 +1691,16 @@ class ProcessRoom {
     }
   }
 
-  _frame(ts){
+  _frame(ts = performance.now()){
+    // defaulted — this is also called manually with no argument at all
+    // (see _buildEnvironment's own callback, to force an immediate
+    // render the moment the HDRI finishes loading rather than waiting
+    // for the next rAF tick). Without a real number here, ts was
+    // `undefined`, `ts - this._lastRenderTs` came out NaN, and NaN
+    // poisoned this.mouse.x/y on the very first such call — every
+    // frame after that computed the camera's position from a NaN
+    // input, which is a genuinely blank/broken render, not just a
+    // wrong one (confirmed by reading camera.position back as NaN)
     this._state.rafId = null;
 
     // FPS cap — see CONFIG.renderFPS's own comment for why this exists.
@@ -1977,12 +1714,31 @@ class ProcessRoom {
       }
       return;
     }
+    // dt in ms since the last frame that actually did work — needed to
+    // correct the lerp factors below for frame rate. Clamped so a long
+    // gap (tab backgrounded, section scrolled out and back) doesn't
+    // produce one huge catch-up jump
+    const dt = this._lastRenderTs ? Math.min(ts - this._lastRenderTs, 100) : 16.6667;
     this._lastRenderTs = ts;
 
     if(!this.prefersReducedMotion){
-      this.mouse.x += (this.mouseTarget.x - this.mouse.x) * CONFIG.mouseLerp;
-      this.mouse.y += (this.mouseTarget.y - this.mouse.y) * CONFIG.mouseLerp;
-      this._state.displayProgress += (this._state.progress - this._state.displayProgress) * CONFIG.progressLerp;
+      // CONFIG.mouseLerp/progressLerp are "fraction of the remaining
+      // distance to close per frame" — tuned back when this loop ran
+      // essentially every vsync (~16.7ms). Once the FPS cap above
+      // started actually skipping frames (30fps mobile especially),
+      // the SAME fixed fraction applied only half (or a third) as often
+      // per second, so the camera took proportionally longer to catch
+      // up to the cursor/scroll AND covered more distance in fewer,
+      // larger jumps between the frames that did render — that's what
+      // actually read as "choppy," not the lower frame rate by itself.
+      // Rescaling the factor by elapsed time keeps the real-world
+      // catch-up speed (and the smoothness of the steps getting there)
+      // the same no matter how often a frame actually renders
+      const mouseFactor = 1 - Math.pow(1 - CONFIG.mouseLerp, dt / 16.6667);
+      const progressFactor = 1 - Math.pow(1 - CONFIG.progressLerp, dt / 16.6667);
+      this.mouse.x += (this.mouseTarget.x - this.mouse.x) * mouseFactor;
+      this.mouse.y += (this.mouseTarget.y - this.mouse.y) * mouseFactor;
+      this._state.displayProgress += (this._state.progress - this._state.displayProgress) * progressFactor;
 
       const { pos, look } = this._cameraForProgress(this._state.displayProgress);
       // a small position shift for depth-parallax, plus — the actual
@@ -2075,7 +1831,22 @@ class ProcessRoom {
         active = (1 - THREE.MathUtils.clamp((edge - 0.6) / 0.4, 0, 1)) * 0.55;
       }
       this.godrayUniforms.uActive.value = active;
-      if(this._archSuppressUniforms) this._archSuppressUniforms.strength.value = inFront ? 1 : 0;
+      if(this._archSuppressUniforms){
+        this._archSuppressUniforms.strength.value = inFront ? 1 : 0;
+        // NOT the same Vector2 object as godrayUniforms's, despite both
+        // being constructed from `{ value: this.godrayUniforms...value }`
+        // — ShaderPass's own constructor deep-clones whatever uniforms
+        // object it's given (UniformsUtils.clone()) when built from a
+        // plain {uniforms,vertexShader,fragmentShader} definition rather
+        // than an existing Material, which silently breaks reference-
+        // sharing tricks like that one. archSuppress had been stuck
+        // suppressing a fixed default (0.5, 0.5) since the pass was
+        // built, not actually tracking the arch's live screen position,
+        // confirmed by reading the two uniforms back and finding they'd
+        // diverged. Explicit copy every frame instead of relying on
+        // aliasing
+        this._archSuppressUniforms.lightPositionScreen.value.copy(this.godrayUniforms.lightPositionScreen.value);
+      }
     }
     if(this.bokehPass){
       this.bokehPass.uniforms.focus.value = this.camera.position.distanceTo(this._spherePosVec);
