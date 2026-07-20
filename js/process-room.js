@@ -78,28 +78,39 @@ const CONFIG = {
   // REAL current viewport, so there's no separate CSS height to keep in
   // sync with it (the old --stable-vh/sticky-release-timing class of
   // bugs this used to have is gone along with that whole mechanism).
-  // Raised from 4.4 to fit the dissolve phase (see dollyEnd below) IN
-  // the same pin as the journey+dolly, rather than handing off to a
-  // second, unpinned trigger the way this used to work — matching
-  // unseen.co's own technique (confirmed by inspecting their site
-  // directly) of one persistent, never-moving canvas that dissolves to
-  // reveal the next page underneath it, rather than a canvas that
-  // itself scrolls away. journeyEnd/dollyEnd are rescaled so the
-  // journey+dolly's own real scroll DISTANCE stays exactly what it was
-  // at 4.4 — only the dissolve's own 1.0-viewport-height budget is new
-  scrollMultiplier: 5.4,
+  // Back down close to the original 4.4 (before either the old scroll-
+  // driven dissolve, or this session's own dwell-buffer attempt, ever
+  // ate extra scroll distance) — per direct request, the Section 1 →
+  // Section 2 transition is click-triggered now (see _bindEnterButton),
+  // matching unseen.co's own click/route-driven transition rather than
+  // a scroll-scrubbed one. A first attempt at this reserved an extra
+  // 0.6 viewport-heights of scrollABLE dwell room after the dolly parks,
+  // so the pin wouldn't release before the button could be clicked — but
+  // that only made the WINDOW to click wider, it never actually stopped
+  // scrolling itself, so a visitor who kept scrolling could still blow
+  // straight through the button and release the pin without ever
+  // clicking it (confirmed directly). The real fix is a hard JS-level
+  // scroll lock (see _updateScrollLock, engaged the instant dollyT
+  // reaches 1 — see _frame's own dollyT check) that actually
+  // prevents wheel/touch/key scroll from moving the page at all once
+  // parked, not just more scroll room to buy time. This 0.1 extra here
+  // is only a small safety margin against that lock engaging a frame or
+  // two late, not a real dwell budget
+  scrollMultiplier: 4.5,
   // fraction of the pin's own scrub spent on the 5-stop camera journey
   // (wide shot + 4 process steps) before the forward-dolly hold takes
-  // over (see _cameraForProgress's own dollyT)
-  journeyEnd: 0.603,
-  // fraction where the forward dolly finishes and the dissolve itself
-  // begins — camera holds still from here on (already parked at
-  // revealCameraPos/Look via dollyT reaching 1); everything from here
-  // to progress 1.0 is _frame's own differential material fade
-  // (structure slow, props fast — see each mesh's own userData.fadeGroup)
-  // plus the Section 2 ghost preview fading in underneath (see
-  // _buildSection2Ghost)
-  dollyEnd: 0.815,
+  // over (see _cameraForProgress's own dollyT) — rescaled so the
+  // journey's own real scroll DISTANCE stays what it's been all along
+  // (0.74 × 4.4 ÷ 4.5)
+  journeyEnd: 0.7236,
+  // fraction where the forward dolly finishes, the camera parks at
+  // revealCameraPos/Look, and the scroll lock engages (see _frame's own
+  // dollyT check) — same absolute distance as before (0.26 × 4.4 ÷ 4.5
+  // past journeyEnd). The "View Our Work" button fades in and becomes
+  // clickable over this same instant; the small stretch from here to
+  // 1.0 is just the safety margin described above, not meant to be
+  // reachable by real scrolling once the lock is engaged
+  dollyEnd: 0.9778,
   // raised back up after direct feedback that the room read as visibly
   // pixelated/blocky while scrolling or moving — that sluggishness the
   // original 1.15/1.0 cut was chasing turned out to actually be the
@@ -382,7 +393,15 @@ class ProcessRoom {
     this.stepNumberEl = document.getElementById('processStepNumber');
     this.stepLabelEl = document.getElementById('processStepLabel');
     this.neonMenuEl = document.getElementById('processNeonMenu');
+    this.enterBtnEl = document.getElementById('processEnterBtn');
+    this.backBtnEl = document.getElementById('processBackBtn');
+    this.arrivalEl = document.getElementById('processArrival');
     this._lastStageIndex = -1;
+    // true only while the click-triggered dissolve tween (see
+    // _bindEnterButton) is actually running or has finished — used to
+    // keep the button hidden/disabled once clicked, and to stop
+    // _updateEnterButton from fading it back in afterward
+    this._dissolveStarted = false;
 
     this._buildScene();
     this._buildChairPile();
@@ -402,6 +421,19 @@ class ProcessRoom {
     // released — see _applyDissolve's own comment for exactly why this
     // exists and what bug it fixes
     this._pinReleased = false;
+    // true once the forward dolly has parked the camera and scroll/
+    // camera-movement lock has engaged (see _updateScrollLock) — stays
+    // true through the click-triggered dissolve and, later, through the
+    // reverse animation too, only ever cleared explicitly at the very
+    // end of each of those (_completeDissolveHandoff / _playReverse)
+    this._locked = false;
+    // once set (see _completeDissolveHandoff), the lowest scrollY a
+    // visitor is allowed to reach via real scroll input — see
+    // _bindEvents' own wheel/touchmove gate for what actually enforces
+    // this. null means the gate isn't active at all (before the first
+    // forward trip through the room, and again after _playReverse
+    // clears it back to null)
+    this._minScrollY = null;
 
     this._resize();
     this._bindEvents();
@@ -1027,9 +1059,15 @@ class ProcessRoom {
         if(this.stepNumberEl) this.stepNumberEl.textContent = 'Welcome';
         if(this.stepLabelEl) this.stepLabelEl.textContent = 'Scroll to proceed';
       } else {
-        if(this.stepNumberEl) this.stepNumberEl.textContent = String(nearest).padStart(2, '0');
+        // single digit (1-4), not zero-padded — per direct request
+        if(this.stepNumberEl) this.stepNumberEl.textContent = String(nearest);
         if(this.stepLabelEl) this.stepLabelEl.textContent = stage.label;
       }
+      // ONLY the Delivery step (stage 4, nearest === last) moves — per
+      // direct request, the other three stay exactly where they were.
+      // .process-step--raised (style.css) moves it above the rocket,
+      // which centred text otherwise sat right on top of
+      this.stepEl.classList.toggle('process-step--raised', nearest === last);
     }
     const dist = Math.abs(seg - nearest);
     // fully opaque within a small window right at the stage itself,
@@ -1039,7 +1077,14 @@ class ProcessRoom {
     const raw = Math.max(0, Math.min(1, (dist - fadeStart) / (fadeEnd - fadeStart)));
     const opacity = 1 - raw * raw * (3 - 2 * raw);
     this.stepEl.style.opacity = opacity.toFixed(3);
-    this.stepEl.style.transform = `translateX(-50%) translateY(${((1 - opacity) * 12).toFixed(1)}px)`;
+    // the raised (stage 4) state anchors from its own top edge (see
+    // .process-step--raised), so its own fade-in offset is a plain
+    // translateY; every other stage still centres via translate(-50%,
+    // -50%) same as always, with the offset folded into that same Y
+    const offsetPx = ((1 - opacity) * 12).toFixed(1);
+    this.stepEl.style.transform = nearest === last
+      ? `translateX(-50%) translateY(${offsetPx}px)`
+      : `translate(-50%, calc(-50% + ${offsetPx}px))`;
 
     // the neon menu shares stage 0's own fade, but only ever fades OUT
     // as seg leaves 0 — it has no "neighbouring stage" of its own to
@@ -1051,6 +1096,87 @@ class ProcessRoom {
       const menuOpacity = 1 - menuRaw * menuRaw * (3 - 2 * menuRaw);
       this.neonMenuEl.style.opacity = menuOpacity.toFixed(3);
       this.neonMenuEl.style.pointerEvents = menuOpacity > 0.5 ? 'auto' : 'none';
+    }
+
+    // suppressed for the WHOLE click-triggered Section 1 <-> Section 2
+    // transition — a real, confirmed bug: this.stepEl/neonMenuEl are
+    // plain DOM overlays, not part of the WebGL scene, so they never
+    // dissolve with the room at all. seg sits frozen at whichever stage
+    // the camera was parked at (the last stage going forward, stage 0/
+    // Welcome coming back), but _frame() calls this function every
+    // single frame regardless (same as always) — without this guard,
+    // that per-frame recompute kept popping the text straight back to
+    // full opacity every tick: "4 / Delivery" sitting crisply over
+    // Section 2 for the whole forward wipe, and "Welcome" sitting
+    // crisply over the room before it had actually finished rippling
+    // back in on the way back. Only ever suppressed while
+    // this._dissolveStarted is true — set the instant the forward
+    // click happens, only cleared again once the reverse wipe fully
+    // completes (see _completeReverseHandoff) — so it covers the
+    // forward wipe, the whole Section 2 visit, AND the reverse wipe
+    if(this._dissolveStarted){
+      this.stepEl.style.opacity = '0';
+      if(this.neonMenuEl){
+        this.neonMenuEl.style.opacity = '0';
+        this.neonMenuEl.style.pointerEvents = 'none';
+      }
+    }
+  }
+
+  // the "View Our Work" click-trigger — fades in only over the last
+  // sliver of the forward-dolly hold (dollyT 0.92→1), once the camera is
+  // essentially already parked at revealCameraPos/Look, rather than the
+  // instant the dolly starts. Never re-shown once the dissolve itself
+  // has actually started (_dissolveStarted), even if dollyT is still 1 —
+  // otherwise it'd still be sitting there fully visible UNDER the room
+  // as it dissolves away, which reads as broken rather than intentional
+  _updateEnterButton(dollyT){
+    if(!this.enterBtnEl) return;
+    // also stays hidden through the whole reverse animation (_playReverse)
+    // — dollyT sits at exactly 1 for the first moment of that rewind
+    // (progress hasn't started easing back down yet), which without this
+    // guard would fade the button straight back in the instant the room
+    // reappears, well before the visitor has actually scrolled forward
+    // through the journey again themselves
+    if(this._dissolveStarted || this._reversing){
+      this.enterBtnEl.style.opacity = '0';
+      this.enterBtnEl.style.pointerEvents = 'none';
+      this.enterBtnEl.tabIndex = -1;
+      return;
+    }
+    const raw = Math.max(0, Math.min(1, (dollyT - 0.92) / (1 - 0.92)));
+    const opacity = raw * raw * (3 - 2 * raw);
+    this.enterBtnEl.style.opacity = opacity.toFixed(3);
+    this.enterBtnEl.style.transform = `translate(-50%, ${(8 - opacity * 8).toFixed(1)}px)`;
+    const interactive = opacity > 0.6;
+    this.enterBtnEl.style.pointerEvents = interactive ? 'auto' : 'none';
+    this.enterBtnEl.tabIndex = interactive ? 0 : -1;
+  }
+
+  // engages this._locked the instant the forward dolly finishes parking
+  // the camera (dollyT reaches 1) — see _bindEvents' own keydown listener
+  // plus window.Papi.lockScroll (js/accent.js) for what actually blocks
+  // scroll once this is true, and _frame's own camera-freeze branch for
+  // why the camera itself stops moving at the same instant. Deliberately
+  // one-directional: this method only ever turns the lock ON. Turning it
+  // back OFF is a meaningful state transition of its own (the forward
+  // handoff finishing, or the reverse rewind finishing) handled
+  // explicitly at each of those call sites instead — if this method also
+  // cleared it the instant dollyT dropped back below 1, the reverse
+  // rewind's own camera move (which necessarily passes back through
+  // dollyT<1 on its way to the wide shot) would silently unlock
+  // scrolling partway through that animation, before it's actually done.
+  // Also gated on !this._pinReleased — this._state.displayProgress (and
+  // so dollyT) just sits at 1 forever once the forward handoff is done
+  // (nothing after that point ever moves it back down on its own), so
+  // without this guard this method would immediately re-lock the very
+  // next frame after _completeDissolveHandoff's own unlock, every single
+  // time — confirmed directly as scroll staying stuck locked on the real
+  // Section 2 page after a completed dissolve
+  _updateScrollLock(dollyT){
+    if(dollyT >= 1 && !this._locked && !this._pinReleased){
+      this._locked = true;
+      if(window.Papi && window.Papi.lockScroll) window.Papi.lockScroll();
     }
   }
 
@@ -1493,7 +1619,257 @@ class ProcessRoom {
     });
     this.composer.addPass(gradePass);
 
+    // the actual noise-dissolve — the missing piece identified from
+    // decompiling unseen.co's own live shader bundle directly: a flat
+    // per-material opacity fade reads as a plain crossfade because every
+    // pixel fades at the same rate at the same time. This instead
+    // thresholds a NOISE FIELD against uProgress per-pixel (see the
+    // noise()/edge/q math below, ported close to unseen's own decompiled
+    // source), so different pixels "burn away" at different moments
+    // depending on where they land in that field — an organic, irregular
+    // edge instead of a uniform fade. Directional per direct request
+    // (bottom-to-top revealing Section 2, top-to-bottom revealing the
+    // room again) rather than unseen's own radial-from-corner sweep —
+    // see uDirection below, which just flips which edge of the screen
+    // "dist" is measured from; the noise/fluid-warp texture on top of
+    // that is what gives the moving edge its ripple/distortion, not a
+    // straight line. Runs on the FINAL composited alpha only (RGB
+    // untouched) — materials themselves stay fully opaque; this pass
+    // alone (reading the ENTIRE composited frame's alpha, geometry and
+    // empty space alike) is what reveals/conceals Section 2 underneath.
+    // uFluidTexture is _buildFluidSim's own cursor-reactive splat sim —
+    // see that method's own comment for why a lightweight splat+decay
+    // texture stands in for unseen's real fluid simulation here
+    this.dissolvePass = new ShaderPass({
+      uniforms: {
+        tDiffuse: { value: null },
+        uFluidTexture: { value: null },
+        uProgress: { value: 0 },
+        // 0 = forward (the room dissolves away starting at the BOTTOM of
+        // the screen, sweeping up); 1 = reverse (the room re-solidifies
+        // starting at the TOP, sweeping down) — see _runWipe
+        uDirection: { value: 0 },
+        uAspect: { value: w / h },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform sampler2D uFluidTexture;
+        uniform float uProgress;
+        uniform float uDirection;
+        uniform float uAspect;
+        varying vec2 vUv;
+
+        float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453123); }
+        float noise(vec2 p){
+          vec2 i = floor(p), f = fract(p);
+          float a = hash(i), b = hash(i + vec2(1.0, 0.0));
+          float c = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+        }
+        // two octaves (not one) — a single value-noise layer at any one
+        // scale reads as soft, evenly-sized blobs; layering a finer,
+        // lower-weight second pass on top breaks that regularity up into
+        // the kind of irregular, torn-edge texture unseen.co's own
+        // reveal actually has
+        float fbm(vec2 p){
+          return noise(p) * 0.65 + noise(p * 2.3 + 11.0) * 0.35;
+        }
+
+        const float scale = 7.0;
+        const float smoothness = 0.09;
+
+        void main(){
+          vec4 base = texture2D(tDiffuse, vUv);
+          // symmetric guard at the OTHER end too (the reverse tween's
+          // own tail, easing back down toward 0) — the same degenerate-
+          // smoothstep risk described below applies just as much down
+          // here: as uProgress→0, "edge" approaches 1 for virtually
+          // every pixel, which pushes q's own edges toward each other
+          // from the other side. Treating anything this close to 0 as
+          // "not dissolving yet at all" avoids relying on that formula
+          // ever being well-behaved in either degenerate limit
+          if(uProgress <= 0.01){
+            gl_FragColor = base;
+            return;
+          }
+          // a real, confirmed edge case: as uProgress approaches 1.0,
+          // "edge" (below) approaches 0 for virtually every pixel — the
+          // noise threshold band shifts entirely above the noise field's
+          // own range — which collapses the q calculation below into
+          // smoothstep(uProgress, uProgress, dist): identical lower/
+          // upper edges, which GLSL leaves undefined (some GPUs resolve
+          // it to 0, i.e. NOT fully dissolved, rather than the intended
+          // 1). Confirmed directly as the cause of the room staying
+          // faintly/inconsistently visible even once the dissolve tween
+          // had numerically finished. Forcing full transparency directly
+          // above this threshold sidesteps the degenerate math entirely
+          // rather than trying to rebalance the formula around it
+          if(uProgress >= 0.99){
+            base.a = 0.0;
+            gl_FragColor = base;
+            return;
+          }
+          // the cursor-reactive fluid warp — pushed further than a
+          // first pass (0.05) since at that strength it was too subtle
+          // to actually read against the noise field itself. Clamped
+          // here too (see _stepFluidSim's own velocity clamp for the
+          // main fix) — a second, cheap defensive layer against this
+          // ever sampling the noise field so far from vUv that it reads
+          // as an incoherent floating patch unrelated to the real pixel,
+          // regardless of what the accumulator upstream is doing
+          vec2 fluid = texture2D(uFluidTexture, vUv).xy;
+          float fluidLen = length(fluid);
+          if(fluidLen > 1.5) fluid *= 1.5 / fluidLen;
+          vec2 uv = vUv + fluid * 0.09;
+
+          float n = fbm(uv * scale);
+          // directional sweep (see uDirection's own declaration above):
+          // uDirection 0 measures dist from the BOTTOM edge (vUv.y=0),
+          // so the bottom is what dissolves away first as uProgress
+          // climbs — a bottom-to-top reveal. uDirection 1 flips that to
+          // measure from the TOP instead, so the top is what re-solidifies
+          // first as uProgress falls back toward 0 — a top-to-bottom
+          // reveal. Purely a vertical sweep now (no more radial/aspect
+          // term) — the noise field + fluid warp above are what still
+          // give the moving edge its organic, rippled distortion rather
+          // than a straight horizontal line
+          float dist = mix(vUv.y, 1.0 - vUv.y, uDirection);
+
+          float p = mix(-smoothness, 1.0 + smoothness, uProgress);
+          float edge = smoothstep(p - smoothness, p + smoothness, n);
+          float q = smoothstep(uProgress - edge, uProgress, dist);
+
+          base.a *= 1.0 - q;
+          gl_FragColor = base;
+        }
+      `,
+    });
+    this.composer.addPass(this.dissolvePass);
+
     this.composer.addPass(new OutputPass());
+
+    this._buildFluidSim();
+  }
+
+  // a lightweight stand-in for unseen.co's own cursor-reactive fluid
+  // simulation (their uFluidTexture, confirmed in their decompiled
+  // shader bundle) — a full Navier-Stokes solve (advection + pressure
+  // projection, several ping-ponged passes every frame) is real
+  // complexity this single reveal effect doesn't need. This is a
+  // "splat and decay" velocity field instead: every frame, the current
+  // pointer's velocity is stamped ("splatted") into a small offscreen
+  // texture at the pointer's own position, and the previous frame's
+  // whole texture is multiplied down first (uDecay) so old splats fade
+  // and drift away rather than accumulating forever. Sampled by
+  // dissolvePass above as a per-pixel UV offset, the same way unseen's
+  // own fluidPos warps their reveal's texture sampling. Deliberately
+  // tiny (128x128) and cheap — one extra full-screen pass a frame — and
+  // kept running continuously whenever the room is in view (not just
+  // during the dissolve) so the field already has some natural motion
+  // history the instant a visitor actually clicks, rather than starting
+  // from a dead stop
+  _buildFluidSim(){
+    const size = 128;
+    const rtOptions = { type: THREE.HalfFloatType, depthBuffer: false, stencilBuffer: false };
+    this._fluidRTA = new THREE.WebGLRenderTarget(size, size, rtOptions);
+    this._fluidRTB = new THREE.WebGLRenderTarget(size, size, rtOptions);
+    this._fluidScene = new THREE.Scene();
+    this._fluidCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    this._fluidSplatMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        tPrev: { value: null },
+        uMouseUV: { value: new THREE.Vector2(0.5, 0.5) },
+        uMouseVel: { value: new THREE.Vector2(0, 0) },
+        uAspect: { value: 1 },
+        uDecay: { value: 0.98 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          gl_Position = vec4(position.xy, 0.0, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tPrev;
+        uniform vec2 uMouseUV;
+        uniform vec2 uMouseVel;
+        uniform float uAspect;
+        uniform float uDecay;
+        varying vec2 vUv;
+        void main(){
+          vec2 prev = texture2D(tPrev, vUv).xy * uDecay;
+          vec2 d = vUv - uMouseUV;
+          d.x *= uAspect;
+          float falloff = exp(-dot(d, d) / 0.0025);
+          gl_FragColor = vec4(prev + uMouseVel * falloff, 0.0, 1.0);
+        }
+      `,
+    });
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this._fluidSplatMaterial);
+    this._fluidScene.add(quad);
+    if(this.dissolvePass) this.dissolvePass.uniforms.uFluidTexture.value = this._fluidRTA.texture;
+  }
+
+  // advances the fluid-splat sim by one frame — called every _frame()
+  // tick while in view (see _frame's own call site), independent of
+  // whether the dissolve is actually running, so it's already "warm"
+  // the instant a visitor clicks
+  _stepFluidSim(){
+    if(!this._fluidRTA || !this.renderer) return;
+    const uv = this._fluidMouseUV || { x: 0.5, y: 0.5 };
+    const last = this._fluidLastUV || uv;
+    let velX = (uv.x - last.x) * 14, velY = (uv.y - last.y) * 14;
+    // clamped — a real, confirmed bug: _fluidMouseUV updates on every raw
+    // mousemove event, but this sim only steps once per RENDERED frame
+    // (capped by CONFIG.renderFPS), so a fast, completely ordinary flick
+    // of the mouse/trackpad — e.g. moving toward the "View Our Work"/
+    // "Back to top" button, exactly what a real visitor does right
+    // before triggering this wipe — can cover a large fraction of the
+    // screen between two consecutive steps. With delta up to ~1.0 and no
+    // clamp, that produced velocity spikes many times larger than this
+    // sim (or the dissolve shader's own fluid warp, which assumes small,
+    // ripple-scale offsets) was ever designed for. That oversized value
+    // got splatted into the accumulator every time, then read back in
+    // the dissolve shader as a per-pixel UV offset (fluid * 0.09) large
+    // enough to sample the noise field somewhere essentially unrelated
+    // to the actual pixel — an isolated, incoherent "hole" in the
+    // dissolve, disconnected from the real wipe edge, at wherever the
+    // cursor happened to be. Capping the speed here keeps every splat
+    // within the range the shader's own small warp offset was tuned for
+    const velLen = Math.sqrt(velX * velX + velY * velY);
+    const maxVel = 2.5;
+    if(velLen > maxVel){
+      const scale = maxVel / velLen;
+      velX *= scale;
+      velY *= scale;
+    }
+    const vel = { x: velX, y: velY };
+    this._fluidLastUV = { x: uv.x, y: uv.y };
+
+    const mat = this._fluidSplatMaterial;
+    mat.uniforms.tPrev.value = this._fluidRTA.texture;
+    mat.uniforms.uMouseUV.value.set(uv.x, uv.y);
+    mat.uniforms.uMouseVel.value.set(vel.x, vel.y);
+    mat.uniforms.uAspect.value = this.canvas.clientWidth / Math.max(1, this.canvas.clientHeight);
+
+    const prevTarget = this.renderer.getRenderTarget();
+    this.renderer.setRenderTarget(this._fluidRTB);
+    this.renderer.render(this._fluidScene, this._fluidCamera);
+    this.renderer.setRenderTarget(prevTarget);
+
+    const tmp = this._fluidRTA;
+    this._fluidRTA = this._fluidRTB;
+    this._fluidRTB = tmp;
+    if(this.dissolvePass) this.dissolvePass.uniforms.uFluidTexture.value = this._fluidRTA.texture;
   }
 
   // -----------------------------------------------------------------
@@ -1585,15 +1961,10 @@ class ProcessRoom {
       pos = pos.lerp(this.revealCameraPos, de);
       look = look.lerp(this.revealCameraLook, de);
     }
-    // dissolveT (0→1, dollyEnd → 1) — the camera itself holds still
-    // through this whole range (dollyT is already pinned at 1); see
-    // _frame's own dissolve block for what this actually drives
-    // (material opacity, renderer clear alpha, the grain overlay, the
-    // Section 2 ghost preview)
-    const dissolveT = clampedP <= CONFIG.dollyEnd
-      ? 0
-      : Math.min(1, (clampedP - CONFIG.dollyEnd) / (1 - CONFIG.dollyEnd));
-    return { pos, look, seg, dissolveT };
+    // no scroll-driven reveal any more — the Section 1 → Section 2
+    // transition is a click-triggered wipe now (see _bindEnterButton/
+    // _runWipe), entirely independent of scroll position
+    return { pos, look, seg, dollyT };
   }
 
   _resize(){
@@ -1613,6 +1984,7 @@ class ProcessRoom {
       this.bloomComposer.setPixelRatio(dpr);
       this.bloomComposer.setSize(w, h);
     }
+    if(this.dissolvePass) this.dissolvePass.uniforms.uAspect.value = w / h;
   }
 
   _renderStatic(){
@@ -1694,6 +2066,97 @@ class ProcessRoom {
     };
     window.addEventListener('resize', this._onResize);
 
+    // three distinct things block scroll input here, all checked
+    // directly against GSAP's own LIVE, unlagged scroll-trigger progress
+    // (this._scrollTrigger.progress) rather than this._locked or
+    // this._state.displayProgress — both of those only update once a
+    // frame via the render loop's own polling, which can't react fast
+    // enough to stop a single large/fast scroll gesture (a hard trackpad
+    // flick, or a held-down scroll wheel) from overshooting well past a
+    // boundary before that reactive flag ever catches up. Confirmed
+    // directly: checking this._locked alone let a fast real scroll blow
+    // straight through the entire remaining pin distance and release it
+    // without the lock ever actually engaging.
+    //   1. forward lock — once real progress reaches CONFIG.dollyEnd
+    //      (camera about to park), no further downward scroll at all
+    //      until the "View Our Work" button is clicked
+    //   2. this._locked — fully locked, both directions (awaiting that
+    //      click, or mid-reverse-animation) — this one CAN stay reactive
+    //      (see _updateScrollLock/_playReverse), since nothing needs to
+    //      react faster than a frame once already fully stopped
+    //   3. the one-way gate — once this._minScrollY is set (see
+    //      _completeDissolveHandoff), Section 2 can scroll further down
+    //      freely but never back up past that point; only the "back to
+    //      top" button (_playReverse) can undo it
+    const rawProgress = () => this._scrollTrigger ? this._scrollTrigger.progress : 0;
+    const blockedDown = () => !this._pinReleased && rawProgress() >= CONFIG.dollyEnd;
+    const blockedUp = () => this._minScrollY != null && window.scrollY <= this._minScrollY + 1;
+
+    const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', ' ', 'Spacebar', 'Home', 'End']);
+    const UP_SCROLL_KEYS = new Set(['ArrowUp', 'PageUp', 'Home']);
+    this._onKeyDownLock = (e) => {
+      if(this._locked && SCROLL_KEYS.has(e.key)){ e.preventDefault(); return; }
+      if(!UP_SCROLL_KEYS.has(e.key) && blockedDown()){ e.preventDefault(); return; }
+      if(UP_SCROLL_KEYS.has(e.key) && blockedUp()) e.preventDefault();
+    };
+    window.addEventListener('keydown', this._onKeyDownLock);
+
+    this._onWheelLock = (e) => {
+      if(e.deltaY > 0 && blockedDown()){ e.preventDefault(); return; }
+      if(this._locked){ e.preventDefault(); return; }
+      if(e.deltaY < 0 && blockedUp()) e.preventDefault();
+    };
+    window.addEventListener('wheel', this._onWheelLock, { passive: false });
+
+    let touchStartY = 0;
+    this._onTouchStartLock = (e) => { touchStartY = e.touches[0] ? e.touches[0].clientY : 0; };
+    this._onTouchMoveLock = (e) => {
+      const t = e.touches[0];
+      if(!t) return;
+      // dragging a finger UP the screen scrolls the page DOWN, and vice
+      // versa — the touch equivalent of wheel's own deltaY sign above
+      const draggingUp = t.clientY - touchStartY < 0;
+      if(draggingUp && blockedDown()){ e.preventDefault(); return; }
+      if(this._locked){ e.preventDefault(); return; }
+      if(!draggingUp && blockedUp()) e.preventDefault();
+    };
+    window.addEventListener('touchstart', this._onTouchStartLock, { passive: true });
+    window.addEventListener('touchmove', this._onTouchMoveLock, { passive: false });
+
+    // a corrective backstop, on top of the preventDefault-based blocks
+    // above — confirmed directly that some scroll input (this browser's
+    // own automated-testing scroll gesture, and momentum/compositor-
+    // driven scrolling in general is a known real-world case) can still
+    // move the page even after a wheel/touchmove handler calls
+    // preventDefault, since a fling already handed off to the compositor
+    // thread doesn't necessarily respect a main-thread cancellation.
+    // Rather than trust preventDefault alone to hold either boundary,
+    // this snaps scrollY back the instant it's actually detected past
+    // one, via the real 'scroll' event itself (which reports the true,
+    // already-applied position, so this catches every path regardless
+    // of what caused it — wheel, touch, keyboard, scrollbar drag, or a
+    // compositor fling preventDefault didn't stop)
+    this._onScrollSnap = () => {
+      if(this._minScrollY != null && window.scrollY < this._minScrollY - 1){
+        window.scrollTo(0, this._minScrollY);
+        return;
+      }
+      // !this._reversing matters here, not just !this._pinReleased: for
+      // the WHOLE reverse animation (_playReverse through
+      // _rewindJourney), this._pinReleased is already false (set back
+      // that way deliberately, to resume rendering) while the real
+      // scrollY still sits wherever it was in Section 2 — without this
+      // guard, the instant "back to top" was clicked this would have
+      // immediately yanked the real page scroll back toward dollyEndY
+      // on its own, well before the reverse animation itself was ready
+      // to move it there
+      if(!this._pinReleased && !this._reversing && this._scrollTrigger){
+        const dollyEndY = this._scrollTrigger.start + CONFIG.dollyEnd * (this._scrollTrigger.end - this._scrollTrigger.start);
+        if(window.scrollY > dollyEndY + 1) window.scrollTo(0, Math.round(dollyEndY));
+      }
+    };
+    window.addEventListener('scroll', this._onScrollSnap, { passive: true });
+
     // touch used to feed the same look-around parallax as desktop's
     // mouse move, driven by finger position — removed per direct
     // request ("scroll lock, no moving around on mobile"): dragging a
@@ -1703,15 +2166,42 @@ class ProcessRoom {
     // only ever moves through the scroll-driven camera path itself;
     // desktop's mouse-driven swing is unaffected
     if(!this.prefersReducedMotion && !this.isCoarsePointer){
+      this._lastMouseMoveTs = performance.now();
       this._onMouseMove = (e) => {
         this.mouseTarget.x = (e.clientX / window.innerWidth) * 2 - 1;
         this.mouseTarget.y = (e.clientY / window.innerHeight) * 2 - 1;
+        this._lastMouseMoveTs = performance.now();
+        // raw (unlerped) pointer position in texture UV space (y-flipped
+        // — WebGL textures are bottom-left origin, screen coords are
+        // top-left) for the fluid-splat sim (see _stepFluidSim) — kept
+        // completely separate from mouseTarget above, which is the
+        // heavily-smoothed camera-parallax value; the fluid sim wants
+        // the real, immediate pointer position instead
+        this._fluidMouseUV = { x: e.clientX / window.innerWidth, y: 1 - e.clientY / window.innerHeight };
         this._wake();
       };
       window.addEventListener('mousemove', this._onMouseMove, { passive: true });
+      // per direct request: the camera used to just sit wherever the
+      // cursor last was if a visitor moved their mouse off toward a
+      // link/another tab and never moved it again — recentering
+      // mouseTarget back to (0,0) here is enough on its own; the normal
+      // per-frame mouseLerp in _frame() already eases this.mouse toward
+      // whatever mouseTarget currently is every frame, so setting the
+      // TARGET back to centre is all that's needed for the camera to
+      // smoothly ease itself back on its own, no separate tween. Fires
+      // the instant the pointer actually leaves the viewport (rather
+      // than waiting for the idle timeout below), which is the more
+      // common real case ("leaves the website") this was reported for
+      this._onMouseLeaveWindow = () => {
+        this.mouseTarget.x = 0;
+        this.mouseTarget.y = 0;
+      };
+      document.documentElement.addEventListener('mouseleave', this._onMouseLeaveWindow);
     }
 
     this._bindScrollTrigger();
+    this._bindEnterButton();
+    this._bindBackButton();
 
     // used to be handled sitewide by html{scroll-behavior:smooth} — that
     // CSS property is gone now (see its own removal comment in
@@ -1772,84 +2262,39 @@ class ProcessRoom {
   // position:fixed, sitting on top of the viewport itself, and nothing
   // else shares that space with it while it's pinned.
   //
-  // Going back to a single, fully-pinned dissolve on purpose this time,
+  // Going back to a single, fully-pinned reveal on purpose this time,
   // per direct request to match unseen.co's own technique (confirmed by
   // inspecting their site directly): their canvas never moves — it's
   // pinned for the whole experience, and their NEXT page's content is
   // already sitting in the exact same viewport space underneath it,
-  // revealed as the canvas's own rendered content dissolves away. Two
-  // things make that same trick work here without the old bug:
+  // revealed as the canvas wipes away. What actually makes that work
+  // here, after two earlier approaches (a per-material opacity fade,
+  // then a noise-dissolve shader blended against a cloned "ghost"
+  // preview of #liveDemoSection) each shipped their own real, confirmed
+  // bugs: the ghost clone never had the real section's own loaded
+  // iframe content, so it read as a blank/loading placeholder that then
+  // hard-swapped to the real, already-loaded page; and reusing dissolveT
+  // for BOTH directions meant the ghost logic ran (and showed) during
+  // the reverse trip too, when there's no Section 2 to preview at all.
   //
-  //  1. Real WebGL transparency, not a DOM opacity fade. The renderer
-  //     now has alpha:true (see the constructor), and _frame's own
-  //     dissolve block fades actual mesh materials — "structure" (walls,
-  //     floor, platform, tagged via userData.fadeGroup) slowly, "props"
-  //     (sphere, chairs, stairs, rocket, traffic light) fast — plus
-  //     renderer.setClearAlpha for the empty space around them. The
-  //     canvas itself stays fully opaque as a DOM element throughout;
-  //     what's "underneath" only ever shows through genuine per-pixel
-  //     transparency in what's actually rendered.
-  //  2. _buildSection2Ghost's own fixed-position CLONE of #liveDemoSection
-  //     is what's actually sitting underneath to be revealed — the REAL
-  //     #liveDemoSection is untouched and never repositioned (so nothing
-  //     else on the page shifts/jumps), it's still exactly where normal
-  //     document flow puts it, still off-screen below until the pin
-  //     genuinely releases. The ghost is a separate, non-interactive,
-  //     always-position:fixed preview that only ever fades in during the
-  //     dissolve and is hidden entirely the instant the real pin
-  //     releases (see this trigger's own onLeave/onEnterBack below) — by
-  //     then the REAL section has scrolled into that exact same spot
-  //     naturally, so the handoff is seamless.
+  // The fix is to stop faking "what's underneath" entirely. _runWipe
+  // (below _bindEnterButton) drives the SAME noise-dissolve shader pass
+  // this file already had (this.dissolvePass, see _buildPostProcessing) —
+  // a per-pixel, directional, organically-edged reveal, not a flat fade
+  // — while the REAL destination page is already sitting in the exact
+  // right scroll position behind this container (the jump happens
+  // instantly, hidden, before the wipe starts; see _bindEnterButton/
+  // _playReverse). Whatever the dissolve uncovers IS the real thing,
+  // already loaded, because there's no clone standing in for it —
+  // nothing to ever look different from what it's revealing.
   //
   // Skipped entirely under reduced motion, same as the mouse-parallax
   // listener above — a pinned/scrubbed scene is itself a motion effect,
   // and the room already just holds its first resting frame for these
   // visitors (see _frame's own reduced-motion branch), so there's
   // nothing here worth pinning/scrubbing scroll for either
-  // a non-interactive, always position:fixed CLONE of the real
-  // #liveDemoSection, used as the "what's underneath" preview during the
-  // dissolve (see _bindScrollTrigger's own comment for why this exists
-  // rather than repositioning the real section). Built once, appended to
-  // <body>, opacity/display driven entirely from _frame's own dissolve
-  // block + this trigger's onLeave/onEnterBack — the REAL section is
-  // never touched, so nothing about the rest of the page's layout or
-  // scroll length changes because this exists
-  _buildSection2Ghost(){
-    const real = document.getElementById('liveDemoSection');
-    if(!real) return;
-    const ghost = real.cloneNode(true);
-    ghost.removeAttribute('id');
-    ghost.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
-    // iframes reload their own src from scratch on cloneNode (a real
-    // browser behaviour, not a bug here) — stripped outright rather than
-    // paying for a second network request, to sites this project doesn't
-    // control, every time this brief, non-interactive preview appears
-    ghost.querySelectorAll('iframe').forEach((el) => el.removeAttribute('src'));
-    // .live-demo-inner starts at opacity:0 in CSS — its own real
-    // scroll-driven entrance fade (js/live-demo.js's updateEntrance)
-    // only ever finds/updates the FIRST .live-demo-inner in the
-    // document, i.e. the real section's own, never this clone's copy of
-    // it. Left alone, the ghost's actual content stays invisible at
-    // opacity:0 forever regardless of the ghost wrapper's own opacity —
-    // confirmed directly as the dissolve fading to solid black instead
-    // of ever revealing the preview underneath. Forced to 1 here since
-    // the ghost doesn't participate in that scroll-driven reveal at all
-    // — it's either fully shown or fully hidden via the outer wrapper
-    const ghostInner = ghost.querySelector('.live-demo-inner');
-    if(ghostInner){
-      ghostInner.style.opacity = '1';
-      ghostInner.style.transform = 'none';
-    }
-    ghost.classList.add('process-room-section2-ghost');
-    ghost.setAttribute('aria-hidden', 'true');
-    ghost.style.display = 'none';
-    document.body.appendChild(ghost);
-    this.section2Ghost = ghost;
-  }
-
   _bindScrollTrigger(){
     if(this.prefersReducedMotion || !window.gsap || !window.ScrollTrigger) return;
-    this._buildSection2Ghost();
     window.gsap.registerPlugin(window.ScrollTrigger);
     this._scrollTrigger = window.ScrollTrigger.create({
       trigger: this.section,
@@ -1862,26 +2307,261 @@ class ProcessRoom {
         this._state.progress = self.progress;
         this._wake();
       },
-      // the ghost preview (see _buildSection2Ghost) is only ever
-      // meaningful while genuinely pinned — hide it outright the instant
-      // the pin releases (scrolling on past) so it can't linger as a
-      // permanent fixed overlay sitting on top of the rest of the page,
-      // and restore it if the visitor scrolls back up into the pin's
-      // own range from below. this._pinReleased is what actually makes
-      // that stick — see _applyDissolve's own comment for why setting
-      // display:none here alone isn't enough
       onLeave: () => {
         this._pinReleased = true;
-        if(this.section2Ghost) this.section2Ghost.style.display = 'none';
       },
-      onEnterBack: () => {
-        this._pinReleased = false;
-        if(this.section2Ghost) this.section2Ghost.style.display = '';
-      },
+      // onEnterBack (GSAP re-pinning because the visitor scrolled back
+      // UP into this range from below) should never actually fire in
+      // practice any more: real scroll can't reach this trigger's own
+      // end at all while locked (see _updateScrollLock), and the one
+      // place scroll DOES cross it — _completeDissolveHandoff's own
+      // programmatic jump — immediately disables this whole trigger in
+      // the same breath. Scrolling back into the room is _playReverse's
+      // job now (see its own "back to top" button), not plain scrolling;
+      // kept here only as a defensive no-op in case some other scroll
+      // path this file doesn't yet know about ever reaches it
+      onEnterBack: () => { this._pinReleased = false; },
     });
     // synced immediately — otherwise the room sits at progress 0 until
     // the very first scroll/refresh event actually fires
     this._state.progress = this._scrollTrigger.progress;
+    this._wake();
+  }
+
+  // primes this.dissolvePass's own uniforms for a given point (t, 0..1)
+  // through a directional wipe — see _runWipe below for the tween that
+  // drives t, and the shader itself (_buildPostProcessing) for how
+  // uDirection/uProgress combine with the noise field + fluid warp to
+  // turn this into an organically-edged, rippled reveal rather than a
+  // straight line. Split out from _runWipe so _playReverse can prime the
+  // very first (fully-hidden) frame BEFORE its own synchronous render,
+  // rather than rendering one frame too early at the wrong progress
+  _setWipeUniforms(direction, t){
+    if(this.dissolvePass){
+      this.dissolvePass.uniforms.uDirection.value = direction === 'forward' ? 0 : 1;
+      this.dissolvePass.uniforms.uProgress.value = direction === 'forward' ? t : (1 - t);
+    }
+    this._applyWipeGrain(t);
+  }
+
+  // drives the directional noise-dissolve wipe (see _setWipeUniforms) —
+  // 'forward' reveals whatever's behind the room from the BOTTOM of the
+  // screen up (the room itself dissolving away there first), 'reverse'
+  // reveals the room again from the TOP down. See _bindEnterButton/
+  // _playReverse for what's already sitting behind the container by the
+  // time this runs
+  _runWipe(direction, onDone){
+    let done = false;
+    let tween = null;
+    const finish = () => {
+      if(done) return;
+      done = true;
+      if(tween) tween.kill();
+      this._setWipeUniforms(direction, 1);
+      onDone();
+    };
+    this._setWipeUniforms(direction, 0);
+    this._wake();
+    if(!window.gsap){
+      finish();
+      return;
+    }
+    const state = { t: 0 };
+    // linear ('none'), not eased — a real, confirmed issue with
+    // power2.inOut here: the shader's dist runs the FULL screen height
+    // (bottom edge to top edge), so the wipe needs uProgress to travel
+    // nearly its whole 0→1 range just to sweep top-to-bottom once. With
+    // an inOut ease decelerating hard at BOTH ends, the recognizable,
+    // central content (the "Welcome" text sitting roughly mid-screen)
+    // didn't even start dissolving until well past halfway through the
+    // tween's own DURATION — read exactly as "it just shows the whole
+    // first section" for what felt like most of the transition, then a
+    // late rush to finish. A constant rate means the wipe is visibly
+    // moving from the very first frame, at every point along its travel
+    tween = window.gsap.to(state, {
+      t: 1,
+      duration: 1.1,
+      ease: 'none',
+      onUpdate: () => {
+        this._setWipeUniforms(direction, state.t);
+        this._wake();
+        if(state.t >= 0.99) finish();
+      },
+      onComplete: finish,
+    });
+  }
+
+  // the click-trigger itself — per direct request, the Section 1 →
+  // Section 2 transition happens when the "View Our Work" button is
+  // clicked (see _updateEnterButton for when it's actually visible/
+  // interactive), not by continuing to scroll, matching unseen.co's own
+  // click/route-driven transition.
+  _bindEnterButton(){
+    if(!this.enterBtnEl) return;
+    this.enterBtnEl.addEventListener('click', () => {
+      if(this._dissolveStarted) return;
+      this._dissolveStarted = true;
+
+      // Freezes GSAP's own pin exactly as it currently looks (fixed,
+      // full-viewport) without reverting any of that styling — the same
+      // disable(false) technique _playReverse already used on the way
+      // back. Done BEFORE the scroll jump below on purpose: scrolling
+      // past scrollTrigger.end while the trigger is still enabled would
+      // have GSAP notice and start un-pinning the container mid-jump,
+      // which is exactly the kind of one-frame flash this is trying to
+      // avoid
+      if(this._scrollTrigger) this._scrollTrigger.disable(false);
+      this.container.classList.add('process-room-sticky--manual-pin');
+
+      // Jumps the REAL page straight to where #liveDemoSection actually
+      // starts, all the way past GSAP's own pin-release point (see the
+      // older comment history here for why scrollTrigger.end alone isn't
+      // enough — .process-room-sticky reserves a further real 100vh in
+      // document flow after the pin spacer). This happens NOW, instantly,
+      // while the room is still fully opaque and clipped to nothing —
+      // the jump itself is invisible. The wipe below then uncovers the
+      // REAL section directly, already sitting exactly where it needs to
+      // be and already fully loaded, because there's no stand-in for it
+      // (see _bindScrollTrigger's own comment for why the old ghost
+      // preview is gone)
+      const target = Math.ceil(this._scrollTrigger.end + window.innerHeight);
+      window.scrollTo({ top: target, left: window.scrollX, behavior: 'auto' });
+      // per direct request: Section 2 should never be scrollable back UP
+      // into Section 1 at all, only down — see _bindEvents' own wheel/
+      // touchmove gate for the actual enforcement
+      this._minScrollY = target;
+
+      // same real bug this pre-empted before: js/live-demo.js's own
+      // scroll-driven entrance fade is debounced through its own
+      // requestAnimationFrame, one tick behind this synchronous jump.
+      // Setting it directly here removes that gap; its own scroll
+      // listener runs right after anyway and computes the identical
+      // fully-revealed values for this scroll position regardless
+      const realInner = document.querySelector('#liveDemoSection .live-demo-inner');
+      if(realInner){
+        realInner.style.opacity = '1';
+        realInner.style.transform = 'translateY(0px)';
+      }
+
+      this._runWipe('forward', () => this._completeDissolveHandoff());
+    });
+  }
+
+  _completeDissolveHandoff(){
+    // hides the room outright once fully wiped away — nothing left on
+    // screen for it to show differently, and it only ever needs to
+    // reappear via _playReverse, which restores this itself
+    this.container.style.visibility = 'hidden';
+    this.container.classList.remove('process-room-sticky--manual-pin');
+    this._pinReleased = true;
+    this._locked = false;
+    if(window.Papi && window.Papi.unlockScroll) window.Papi.unlockScroll();
+    // reveals the rocket + "back to top" row together (see
+    // .process-arrival's own comment in index.html) — the rocket's own
+    // "landing" in Section 2 and the only way back into the room both
+    // arrive at the same moment. display and the is-visible class (the
+    // opacity/transform fade-and-drop-in — see that class in style.css)
+    // are set a frame apart on purpose: flipping both in the same tick
+    // gives the browser no "before" state to transition from, so the
+    // reveal would just snap instead of animating
+    if(this.arrivalEl){
+      this.arrivalEl.style.display = 'flex';
+      requestAnimationFrame(() => this.arrivalEl.classList.add('is-visible'));
+    }
+    if(this.backBtnEl) this.backBtnEl.tabIndex = 0;
+  }
+
+  _bindBackButton(){
+    if(!this.backBtnEl) return;
+    this.backBtnEl.addEventListener('click', () => this._playReverse());
+  }
+
+  // the reverse of the whole forward sequence — per direct request,
+  // scrolling back up into the room no longer works at all (see
+  // _completeDissolveHandoff's own this._scrollTrigger.disable(false)),
+  // so this button is the ONLY way back in, and it plays the real
+  // dissolve-in + camera rewind rather than just snapping back
+  _playReverse(){
+    if(!this.container || this._reversing || !this._pinReleased) return;
+    this._reversing = true;
+    this._locked = true;
+    this._minScrollY = null;
+    if(window.Papi && window.Papi.lockScroll) window.Papi.lockScroll();
+
+    if(this.arrivalEl){
+      this.arrivalEl.style.display = 'none';
+      this.arrivalEl.classList.remove('is-visible');
+    }
+    if(this.backBtnEl) this.backBtnEl.tabIndex = -1;
+
+    // re-shows the room as a manually fixed overlay, independent of
+    // real scroll position (GSAP's own pin is still disabled, and won't
+    // naturally cover wherever the visitor actually scrolled down to) —
+    // .process-room-sticky--manual-pin (style.css) applies the same
+    // position:fixed;inset:0 GSAP's own pin would, just driven by this
+    // class instead of GSAP while its trigger is disabled.
+    //
+    // Per direct request, this no longer plays back through stages
+    // 4→3→2→1 on the way out — it jumps straight to the wide "Welcome"
+    // shot instead. Snapping progress/displayProgress to 0 HERE, before
+    // the container is even visible again, is what makes that jump
+    // invisible: dissolveT is still 1 (fully transparent) at this exact
+    // moment, so the camera silently lands on the Welcome framing with
+    // nothing on screen to show it happening. _reverseDissolve below is
+    // the only thing the visitor actually sees — the room fading back
+    // in, already sitting at Welcome the whole time.
+    this._state.progress = 0;
+    this._state.displayProgress = 0;
+    this.container.style.visibility = '';
+    this.container.classList.add('process-room-sticky--manual-pin');
+    this._pinReleased = false;
+    // the camera itself is only ever actually moved inside _frame()'s
+    // own per-frame computation, on whatever tick _wake() schedules next
+    // — snapping progress/displayProgress above doesn't move the real
+    // THREE.Camera object by itself. Setting it here too, synchronously,
+    // is what makes the render two lines down actually show Welcome
+    // instead of wherever the camera was last left (the forward dolly's
+    // own reveal position, still looking at the rocket)
+    const { pos, look, seg } = this._cameraForProgress(0);
+    this.camera.position.copy(pos);
+    this.camera.lookAt(look);
+    this._updateProcessStep(seg);
+    // primed BEFORE the synchronous render below, not after — this sets
+    // this.dissolvePass's own uProgress to fully-dissolved (room
+    // invisible) so the freshly-rendered Welcome frame that follows is
+    // never actually shown at full opacity even for one frame. Priming
+    // first, rendering second is what makes that guarantee hold; doing
+    // it in the other order (as a previous version of this did with a
+    // CSS clip-path) left a one-frame gap between "render the correct
+    // scene" and "hide it again" for whatever should have hidden it to
+    // catch up
+    this._setWipeUniforms('reverse', 0);
+    // a synchronous render right here, rather than only via the rAF
+    // _wake() schedules — the canvas's own backing buffer still holds
+    // whatever it last drew, from well before this moment; rendering
+    // immediately guarantees the very first visible frame already
+    // reflects Welcome (fully dissolved per the priming above), not a
+    // stale one
+    this._renderFrame();
+    this._wake();
+    this._runWipe('reverse', () => this._completeReverseHandoff());
+  }
+
+  // the only thing the visitor actually watches during the whole
+  // reverse trip — the room wiping back in top-to-bottom, already
+  // parked at the Welcome framing (see _playReverse's own snap above)
+  _completeReverseHandoff(){
+    this._dissolveStarted = false;
+    // drops the manual pin and hands scroll position back to GSAP —
+    // scrollY lands at 0 (top of the pin's own range), so its next
+    // native scroll-driven update re-establishes the real pin exactly
+    // where this manual one leaves off, no visible seam
+    this.container.classList.remove('process-room-sticky--manual-pin');
+    window.scrollTo({ top: 0, left: window.scrollX, behavior: 'auto' });
+    if(this._scrollTrigger) this._scrollTrigger.enable();
+    this._reversing = false;
+    this._locked = false;
+    if(window.Papi && window.Papi.unlockScroll) window.Papi.unlockScroll();
     this._wake();
   }
 
@@ -1891,95 +2571,14 @@ class ProcessRoom {
     }
   }
 
-  // the Section 1 → Section 2 dissolve itself — called every frame from
-  // _frame() with dissolveT (0..1, see _cameraForProgress). Early-exits
-  // once there's nothing left to do (dissolveT at rest AND it was
-  // already at rest last frame too) so this costs nothing for the vast
-  // majority of the experience; runs exactly one extra time on the way
-  // BACK to 0 (scrolling back up out of the dissolve) to reset
-  // everything cleanly rather than leaving it stuck mid-fade.
-  //
-  // Also bails immediately whenever this._pinReleased is true — this is
-  // the fix for a real bug reported directly ("lag when the next section
-  // appears" / "scroll doesn't work right after"): once the real
-  // ScrollTrigger pin releases, GSAP stops sending onUpdate events, so
-  // this._dissolveT stays frozen at whatever it last was (1, fully
-  // dissolved) — but the render loop itself keeps running for another
-  // ~300px past the section (see the IntersectionObserver's own
-  // rootMargin, for idle animations like the rocket's bob/flicker).
-  // Every one of those extra frames used to call this function again
-  // with that same stale dissolveT===1, and its own ghost-opacity logic
-  // below would set the ghost back to display:'' — undoing the pin's
-  // own onLeave handler (which sets display:'none' exactly once, right
-  // when the pin releases) on the very next frame. The visitor would
-  // scroll past the room straight into a full-viewport, frozen,
-  // non-interactive ghost preview sitting on top of the real Section 2
-  // for that whole stretch, which reads exactly like "the scroll isn't
-  // working" even though it genuinely is — nothing was visibly updating
-  // because a stale, disconnected overlay was stuck covering it
-  _applyDissolve(dissolveT){
-    if(this._pinReleased) return;
-    const wasDissolving = this._wasDissolving || false;
-    if(dissolveT <= 0 && !wasDissolving) return;
-    this._wasDissolving = dissolveT > 0;
-
-    // "structure" (walls, floor, platform — this room's own architecture,
-    // the closest equivalent here to unseen.co's own arches) fades
-    // slowly, over the dissolve's second half, so it lingers and ghosts
-    // through the longest. "props" (sphere, chairs, stairs, rocket,
-    // traffic light) fade fast, over the first half, gone well before
-    // the structure even starts to go
-    const structureFade = 1 - THREE.MathUtils.smoothstep(dissolveT, 0.4, 1.0);
-    const propsFade = 1 - THREE.MathUtils.smoothstep(dissolveT, 0.0, 0.55);
-    this.roomGroup.traverse((obj) => {
-      if(!obj.isMesh || !obj.material || !obj.userData.fadeGroup) return;
-      const fade = obj.userData.fadeGroup === 'structure' ? structureFade : propsFade;
-      // the floor (Reflector, a raw ShaderMaterial running OUR OWN
-      // waterShader — see its own opacity-uniform comment in _buildScene)
-      // doesn't read the standard Material.opacity property at all; only
-      // its own explicit uniforms.opacity does anything. Every other
-      // material tagged with a fadeGroup is a normal MeshStandardMaterial/
-      // MeshPhysicalMaterial/MeshBasicMaterial, which DOES respect
-      // .opacity directly — confirmed directly that setting only
-      // .opacity left the floor fully opaque throughout the whole
-      // dissolve regardless of what fade value was computed for it
-      if(obj.material.uniforms && obj.material.uniforms.opacity){
-        obj.material.uniforms.opacity.value = fade;
-        obj.material.transparent = true;
-        return;
-      }
-      if(!obj.material.transparent) obj.material.transparent = true;
-      obj.material.opacity = fade;
-    });
-
-    // the "empty" space — through the arch, wherever nothing is drawn —
-    // on the same slow curve as the rest of the structure. scene.
-    // background is permanently null (see _buildEnvironment) specifically
-    // so this actually has something to control
-    if(this.renderer) this.renderer.setClearAlpha(structureFade);
-
-    // film-grain dissolve (see .process-room-grain's own comment in
-    // style.css) — a parabola peaking at dissolveT 0.5 rather than
-    // following the room's own fade curve: it should read as part of the
-    // ACT of dissolving, visible only while the crossfade is actually
-    // happening, silent at both ends
-    if(this.grainEl){
-      this.grainEl.style.opacity = String(4 * dissolveT * (1 - dissolveT) * 0.5);
-    }
-
-    // the Section 2 ghost preview (see _buildSection2Ghost) — fades IN
-    // as the room fades out, tracking dissolveT directly (no easing of
-    // its own needed; it's arriving as the room leaves, not moving
-    // anywhere itself)
-    if(this.section2Ghost){
-      if(dissolveT > 0){
-        this.section2Ghost.style.display = '';
-        this.section2Ghost.style.opacity = String(dissolveT);
-      } else {
-        this.section2Ghost.style.display = 'none';
-        this.section2Ghost.style.opacity = '0';
-      }
-    }
+  // film grain, shown briefly while the wipe itself is in flight — a
+  // parabola peaking at the wipe's own midpoint, silent at both ends.
+  // Kept as a small nod to the old noise-dissolve's texture now that the
+  // reveal itself is a clean directional wipe (see _runWipe); driven
+  // from wipeT (0..1) rather than a dissolve amount
+  _applyWipeGrain(wipeT){
+    if(!this.grainEl) return;
+    this.grainEl.style.opacity = String(4 * wipeT * (1 - wipeT) * 0.5);
   }
 
   _frame(ts = performance.now()){
@@ -2025,43 +2624,69 @@ class ProcessRoom {
       // Rescaling the factor by elapsed time keeps the real-world
       // catch-up speed (and the smoothness of the steps getting there)
       // the same no matter how often a frame actually renders
+      // covers the OTHER real case ("leaves the website") — a visitor
+      // whose cursor just stops moving without ever actually leaving the
+      // viewport (tabbing away via keyboard, or just walking away) never
+      // fires the mouseleave listener above at all, so the camera would
+      // otherwise sit frozen wherever the cursor last was indefinitely.
+      // Re-centres the same mouseTarget the mouseleave handler does,
+      // just gated on elapsed idle time instead of a leave event
+      if(this._lastMouseMoveTs !== undefined && ts - this._lastMouseMoveTs > 3000){
+        this.mouseTarget.x = 0;
+        this.mouseTarget.y = 0;
+      }
       const mouseFactor = 1 - Math.pow(1 - CONFIG.mouseLerp, dt / 16.6667);
       const progressFactor = 1 - Math.pow(1 - CONFIG.progressLerp, dt / 16.6667);
       this.mouse.x += (this.mouseTarget.x - this.mouse.x) * mouseFactor;
       this.mouse.y += (this.mouseTarget.y - this.mouse.y) * mouseFactor;
       this._state.displayProgress += (this._state.progress - this._state.displayProgress) * progressFactor;
 
-      const { pos, look, seg, dissolveT } = this._cameraForProgress(this._state.displayProgress);
+      const { pos, look, seg, dollyT } = this._cameraForProgress(this._state.displayProgress);
       this._updateProcessStep(seg);
-      this._dissolveT = dissolveT;
-      // a small position shift for depth-parallax, plus — the actual
-      // unseen.co effect, confirmed by hovering their own corners
-      // directly — a real camera ROTATION on top, not another lookAt
-      // re-aim. lookAt first establishes the base orientation toward
-      // `look`, then rotateY/rotateX turn the camera further from
-      // there, exactly the way turning your head to follow the cursor
-      // would, which is why it reads as the room swinging around you
-      // rather than a subtle drift
-      this.camera.position.set(
-        pos.x + this.mouse.x * CONFIG.parallaxPosMax,
-        pos.y - this.mouse.y * CONFIG.parallaxPosMax * 0.5,
-        pos.z
-      );
-      this.camera.lookAt(look);
-      this.camera.rotateY(-this.mouse.x * CONFIG.rotationYawMax);
-      this.camera.rotateX(this.mouse.y * CONFIG.rotationPitchMax);
+      this._updateEnterButton(dollyT);
+      this._updateScrollLock(dollyT);
+      // dollyT reaching 1 means the forward dolly has fully parked the
+      // camera at revealCameraPos/Look — per direct request, nothing
+      // should move from here (no mouse-parallax drift/rotation either)
+      // until the visitor actually clicks the button: a visitor sizing
+      // up a static "View Our Work" button while the room underneath it
+      // keeps subtly swaying read as broken/distracting, not cinematic.
+      // The mouse lerp itself still keeps advancing in the background
+      // (see below) even while frozen, purely so there's no sudden catch
+      // -up jump the moment this unfreezes again (see _playReverse,
+      // which un-parks the camera by easing dollyT back down)
+      if(dollyT >= 1){
+        this.camera.position.copy(pos);
+        this.camera.lookAt(look);
+      } else {
+        // a small position shift for depth-parallax, plus — the actual
+        // unseen.co effect, confirmed by hovering their own corners
+        // directly — a real camera ROTATION on top, not another lookAt
+        // re-aim. lookAt first establishes the base orientation toward
+        // `look`, then rotateY/rotateX turn the camera further from
+        // there, exactly the way turning your head to follow the cursor
+        // would, which is why it reads as the room swinging around you
+        // rather than a subtle drift
+        this.camera.position.set(
+          pos.x + this.mouse.x * CONFIG.parallaxPosMax,
+          pos.y - this.mouse.y * CONFIG.parallaxPosMax * 0.5,
+          pos.z
+        );
+        this.camera.lookAt(look);
+        this.camera.rotateY(-this.mouse.x * CONFIG.rotationYawMax);
+        this.camera.rotateX(this.mouse.y * CONFIG.rotationPitchMax);
+      }
     } else {
       const { pos, look, seg } = this._cameraForProgress(0);
       this.camera.position.copy(pos);
       this.camera.lookAt(look);
       this._updateProcessStep(seg);
       // reduced motion holds the room at its very first resting frame
-      // (progress locked to 0 above) — the dolly/dissolve is itself a
+      // (progress locked to 0 above) — the dolly/wipe is itself a
       // motion effect, so it stays off here the same way every other
       // animation in this file already does under this preference (see
       // _bindScrollTrigger, which never even creates the pin for these
       // visitors in the first place)
-      this._dissolveT = 0;
     }
     if(this.sphere) this.sphere.rotation.y += 0.0018;
     if(this.rocket){
@@ -2097,6 +2722,10 @@ class ProcessRoom {
       this.bokehPass.uniforms.focus.value = this.camera.position.distanceTo(this._spherePosVec);
     }
 
+    // kept running continuously (not just during the dissolve) — see
+    // _buildFluidSim's own comment for why
+    this._stepFluidSim();
+
     this._updateTrafficLight(this._state.progress);
 
     // the title used to fade out early in the scroll (see the git
@@ -2110,30 +2739,18 @@ class ProcessRoom {
     // gone. The title now simply stays on screen at full opacity for
     // the whole scroll once its own entrance fade-in finishes.
 
-    // called LAST, deliberately — after every other per-object update
-    // above (the rocket's own idle bob/flicker chief among them, which
-    // unconditionally overwrites its flame materials' own .opacity every
-    // frame for the flicker effect). Applying the dissolve fade before
-    // that let the flicker silently stomp right back over it — confirmed
-    // directly as the flame staying at full brightness through the whole
-    // dissolve, the one thing on screen that never faded. Running this
-    // last means the dissolve always has final say over every material's
-    // opacity, whatever any other per-frame animation set moments earlier
-    this._applyDissolve(this._dissolveT || 0);
-
-    // skipped once genuinely released (see _applyDissolve's own comment)
-    // — camera is frozen, every material is faded to 0, the ghost is
-    // hidden, so there's nothing left that a render could show
-    // differently. The render loop itself still keeps running for the
-    // IntersectionObserver's own ~300px bleed (idle animations like the
-    // rocket's bob/flicker still update their own position/rotation
-    // underneath, harmlessly, in case the visitor scrolls back up), but
-    // actually compositing that into a full render — RenderPass, the
-    // separate bloom pass, the DoF pass, the colour-grade pass, OutputPass,
-    // all of it — for a frame that's invisible either way was real,
-    // pointless GPU cost sitting right at the exact moment the visitor
-    // is trying to scroll through into Section 2, which is exactly where
-    // it would read as "lag"
+    // skipped once genuinely released — the container is hidden/clipped
+    // to nothing at that point (see _completeDissolveHandoff), so there's
+    // nothing left that a render could show differently. The render loop
+    // itself still keeps running for the IntersectionObserver's own
+    // ~300px bleed (idle animations like the rocket's bob/flicker still
+    // update their own position/rotation underneath, harmlessly, in case
+    // the visitor scrolls back up), but actually compositing that into a
+    // full render — RenderPass, the separate bloom pass, the DoF pass,
+    // the colour-grade pass, OutputPass, all of it — for a frame that's
+    // invisible either way was real, pointless GPU cost sitting right at
+    // the exact moment the visitor is trying to scroll through into
+    // Section 2, which is exactly where it would read as "lag"
     if(!this._pinReleased) this._renderFrame();
 
     // keep the water/sphere animating on their own every frame while

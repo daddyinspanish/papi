@@ -52,6 +52,16 @@ html,body{
   background:var(--ink);
   color:var(--cream);
   font-family:'Inter', system-ui, sans-serif;
+  /* mobile Safari's own rubber-band/momentum overscroll can visibly
+     wobble a position:fixed element pinned right at the very top of the
+     page (this section's own room is pinned starting the instant
+     scrolling begins, per _bindScrollTrigger's start:'top top') — a
+     documented WebKit interaction, not anything this site's own JS is
+     doing. Reported as the water/floor looking "jello"-like on first
+     scroll on mobile specifically, which is exactly this class of
+     symptom (the water's own moving reflection makes any such wobble
+     the most visible thing on screen). This is the standard, safe fix */
+  overscroll-behavior-y: none;
 }
 
 /* overflow-x:hidden on body only (not on html, and not on both) —
@@ -528,6 +538,18 @@ body, a{ cursor:none; }
      _revealTrigger, which drives that phase's actual fade) */
   z-index:5;
 }
+/* applied manually by process-room.js's own _playReverse while GSAP's
+   pin is disabled (see _completeDissolveHandoff's own scrollTrigger.
+   disable(false)) — the "back to top" reverse animation needs the room
+   to reappear as a fixed, full-viewport overlay regardless of wherever
+   the visitor actually scrolled down to, the same way GSAP's own pin
+   would look, just driven by this class instead while GSAP itself isn't
+   watching scroll for this trigger any more */
+.process-room-sticky--manual-pin{
+  position:fixed;
+  inset:0;
+  height:auto;
+}
 /* the fade/scale target for the reveal phase — deliberately a separate
    element from .process-room-sticky itself (see its own <div> comment
    in index.html): GSAP ScrollTrigger applies its own position/transform
@@ -579,26 +601,6 @@ body, a{ cursor:none; }
   50%{ background-position:6% -12%; }
   75%{ background-position:-8% -6%; }
   100%{ background-position:0 0; }
-}
-/* the Section 2 "what's underneath" preview during the dissolve — a
-   cloned #liveDemoSection (see process-room.js's own _buildSection2Ghost),
-   not the real one, so nothing about the real section's own layout/
-   scroll length ever changes because this exists. Combined selector
-   (.live-demo-section.process-room-section2-ghost) rather than relying
-   on this rule simply appearing later in the file — .live-demo-section
-   itself already sets position/z-index, and two class selectors always
-   out-specificity one regardless of source order, so this stays correct
-   even if these rules get reshuffled later. z-index:4 — below
-   .process-room-sticky's own 5 (so the dissolving room stays on top of
-   it, revealing it, not the other way around), above ordinary page
-   content */
-.live-demo-section.process-room-section2-ghost{
-  position:fixed;
-  inset:0;
-  z-index:4;
-  overflow:hidden;
-  pointer-events:none;
-  opacity:0;
 }
 #processRoomCanvas{
   position:absolute;
@@ -693,12 +695,24 @@ body, a{ cursor:none; }
 .process-step{
   position:absolute;
   left:50%;
-  bottom:9%;
-  transform:translateX(-50%);
+  top:50%;
+  transform:translate(-50%, -50%);
   z-index:4;
   text-align:center;
   pointer-events:none;
   opacity:0;
+}
+/* stage 4 (Delivery) only — per direct request, ONLY this step's text
+   moves, not the other three: centred text sat right on top of the
+   rocket for this one stage specifically, the two reading as one
+   illegible jumble. process-room.js's own _updateProcessStep toggles
+   this class on/off exactly when the Delivery stage is the nearest one.
+   Anchored from its own TOP edge (not translateY(-50%)) so it grows
+   downward from a fixed point above the rocket's own tip rather than
+   growing from centre and potentially still dipping into it */
+.process-step--raised{
+  top:20%;
+  transform:translateX(-50%);
 }
 .process-step-number{
   display:block;
@@ -720,10 +734,144 @@ body, a{ cursor:none; }
   text-transform:uppercase;
   color:rgba(243,237,226,.85);
 }
+
+/* the click-trigger for the Section 1 → Section 2 dissolve (see
+   process-room.js's own _updateEnterButton/_bindEnterButton) — sits
+   just below .process-step's own centred text so the two read as one
+   composed "label + call to action" group once both are visible
+   together (only true right at the very end of the room's journey,
+   holding on the Delivery step). opacity/transform driven from JS every
+   frame exactly like .process-step, not a CSS transition — see that
+   element's own comment for why */
+/* top:68% — per direct request, below the rocket (whose flame tip sits
+   around 64% of the frame in this framing) rather than between the
+   step text and the rocket */
+.process-enter-btn{
+  position:absolute;
+  left:50%;
+  top:68%;
+  transform:translate(-50%, 8px);
+  z-index:4;
+  opacity:0;
+  pointer-events:none;
+  font-family:'Inter', sans-serif;
+  font-size:.82rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:#05060b;
+  background:#f3ede2;
+  border:none;
+  border-radius:999px;
+  padding:.95rem 2.1rem;
+  cursor:pointer;
+  box-shadow:0 8px 30px rgba(243,237,226,.25);
+  transition:transform .2s ease, box-shadow .2s ease;
+}
+.process-enter-btn:hover{
+  transform:translate(-50%, 4px) scale(1.03);
+  box-shadow:0 10px 36px rgba(243,237,226,.35);
+}
+.process-enter-btn:active{ transform:translate(-50%, 8px) scale(0.98); }
 @media (max-width:860px){
-  .process-step{ bottom:7%; }
+  .process-enter-btn{
+    top:66%;
+    font-size:.72rem;
+    padding:.8rem 1.7rem;
+  }
+}
+@media (max-width:860px){
   .process-step-number{ font-size:clamp(1.9rem, 8vw, 2.6rem); }
   .process-step-label{ font-size:.66rem; letter-spacing:.28em; }
+}
+
+/* the rocket's own "landing" + the "back to top" control (see
+   index.html's own comment for why this is a sibling of #liveDemoSection,
+   not inside it) — a normal in-flow row sitting right above that
+   section's own title, not fixed: it should only ever be part of
+   Section 2's own arrival moment, not a permanent floating corner badge.
+   display:none by default (toggled to flex from JS) so it takes no
+   layout space until process-room.js actually reveals it */
+/* display flips from JS immediately (see _completeDissolveHandoff), but
+   the actual reveal is the opacity/transform pair below, toggled a tick
+   later via the .is-visible class (see that same method) — flipping
+   display and the transitioned properties in the same tick wouldn't
+   animate at all, since the element goes straight from not-rendered to
+   its own final state with nothing in between for the browser to
+   transition from */
+.process-arrival{
+  display:none;
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  align-items:center;
+  justify-content:center;
+  gap:1rem;
+  padding:1.6rem 0;
+  z-index:2;
+  opacity:0;
+  transform:translateY(-14px);
+  transition:opacity .7s ease, transform .7s ease;
+}
+.process-arrival.is-visible{
+  opacity:1;
+  transform:translateY(0);
+}
+@media (prefers-reduced-motion:reduce){
+  .process-arrival{ transition:none; }
+}
+.process-arrival-rocket{
+  width:2.6rem;
+  height:auto;
+  flex-shrink:0;
+  filter:drop-shadow(0 0 10px rgba(122,221,255,.35));
+}
+.process-arrival-flame{
+  transform-origin:30px 66px;
+  animation:processArrivalFlicker 1.4s ease-in-out infinite;
+}
+@keyframes processArrivalFlicker{
+  0%, 100%{ transform:scaleY(1); opacity:.95; }
+  50%{ transform:scaleY(.82); opacity:.75; }
+}
+.process-back-btn{
+  display:flex;
+  align-items:center;
+  gap:.5rem;
+  font-family:'Inter', sans-serif;
+  font-size:.78rem;
+  font-weight:600;
+  letter-spacing:.04em;
+  color:#f3ede2;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(243,237,226,.22);
+  border-radius:999px;
+  padding:.6rem 1.1rem .6rem .85rem;
+  cursor:pointer;
+  transition:background .2s ease;
+}
+.process-back-btn:hover{ background:rgba(255,255,255,.14); }
+.process-back-btn svg{ flex-shrink:0; }
+@media (prefers-reduced-motion:reduce){
+  .process-arrival-flame{ animation:none; }
+}
+@media (max-width:860px){
+  /* stacked, not side-by-side — at this width the row was crowding
+     right into .live-demo-eyebrow's own "See It Live" text just below.
+     Stays position:absolute (see the base rule) rather than switching
+     to relative/in-flow: flipping to in-flow adds real document height
+     the instant JS reveals this row, which (confirmed directly) retro-
+     actively shifts everything below it down by that same height —
+     since _completeDissolveHandoff computes its own scroll landing
+     spot and only THEN reveals this row, the page would land short by
+     however tall this row turned out to be. margin-top below reserves
+     the same visual room a different way, on .live-demo-eyebrow itself,
+     which doesn't have that side effect */
+  .process-arrival{ flex-direction:column; gap:.4rem; padding:1.4rem 0 0; }
+  .process-arrival-rocket{ width:1.9rem; }
+  .process-back-btn{ font-size:.7rem; padding:.55rem 1rem .55rem .75rem; }
+  .live-demo-eyebrow{ margin-top:5.6rem; }
 }
 
 /* html{scroll-behavior:smooth} used to live here, easing every plain
@@ -1450,7 +1598,13 @@ body, a{ cursor:none; }
   /* the blue stop stays muted/deep rather than bright — the white
      copy text sitting directly on top needs to stay legible through
      the whole sweep, not just the darker parts of it */
-  background:linear-gradient(120deg, #0a0908, #2a1f08, #1f6a8a, #2a1f08, #0a0908);
+  /* was #2a1f08 (a leftover dark gold/bronze stop) either side of the
+     blue peak — the comment above already said "black and light blue
+     only," but this literal gradient never actually got updated to
+     match when the rest of the palette moved off gold. Replaced with a
+     darker blue instead, so the whole sweep stays strictly black→blue,
+     no gold tint anywhere in it */
+  background:linear-gradient(120deg, #0a0908, #123344, #1f6a8a, #123344, #0a0908);
   background-size:400% 400%;
   animation:quoteBgSweep 18s ease-in-out infinite;
   padding:clamp(4rem, 10vw, 8rem) clamp(1.5rem, 5vw, 4rem);

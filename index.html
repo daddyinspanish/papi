@@ -140,6 +140,18 @@ window.scrollTo(0, 0);
         <span class="process-step-number" id="processStepNumber">Welcome</span>
         <span class="process-step-label" id="processStepLabel">Scroll to proceed</span>
       </div>
+      <!-- shown only once the room's own scroll journey + forward dolly
+           finish (camera parked at revealCameraPos/Look — see
+           process-room.js's own _updateEnterButton), replacing the old
+           "keep scrolling to dissolve" mechanic per direct request: the
+           Section 1 → Section 2 transition is click-triggered now, like
+           unseen.co's own click/route-driven transition, rather than
+           something you scroll past. process-room.js's own
+           _bindEnterButton adds the click listener that actually starts
+           the dissolve tween -->
+      <button type="button" class="process-enter-btn" id="processEnterBtn" tabindex="-1">
+        <span>View Our Work</span>
+      </button>
      </div>
      <!-- film-grain overlay for the Section 1 → Section 2 reveal —
           per direct request, matching the textured/paper-grain dissolve
@@ -164,6 +176,37 @@ window.scrollTo(0, 0);
      by js/live-demo.js from a small data array, so adding another
      demo later is just appending to it. ============ -->
 <section class="live-demo-section" id="liveDemoSection">
+  <!-- the rocket's own "landing" + the "back to top" control — both
+       only ever shown once the forward click-triggered dissolve has
+       actually completed (see process-room.js's own
+       _completeDissolveHandoff, which reveals this, and _playReverse/
+       _bindBackButton for the reverse trip back). Absolutely positioned
+       (see .process-arrival's own position:absolute) so it overlays the
+       top of this section without pushing .live-demo-inner's own content
+       down — it's a CHILD of #liveDemoSection (so _buildSection2Ghost's
+       cloneNode(true) does duplicate it into the ghost), but stays
+       display:none in that clone forever since nothing ever targets the
+       ghost's own (id-stripped) copy to show it; only the real DOM
+       element ever gets shown, and only after the ghost is already torn
+       down. display:none (not just opacity) by default so it's inert for
+       anyone who reaches this section a different way (e.g. the neon
+       quick-nav links, which skip the room's own journey entirely). Per
+       direct request, scrolling back UP into the room no longer works at
+       all once you've arrived here — the button is the only way back,
+       playing the whole dissolve/dolly/journey in reverse. -->
+  <div class="process-arrival" id="processArrival">
+    <svg class="process-arrival-rocket" id="processRocketIcon" viewBox="0 0 60 100" aria-hidden="true">
+      <path d="M30 4 C40 16 45 34 45 52 L45 66 L15 66 L15 52 C15 34 20 16 30 4 Z" fill="#eef2f7"/>
+      <rect x="15" y="47" width="30" height="8" fill="#7addff"/>
+      <path d="M15 58 L4 74 L15 74 Z" fill="#eef2f7"/>
+      <path d="M45 58 L56 74 L45 74 Z" fill="#eef2f7"/>
+      <path class="process-arrival-flame" d="M22 66 L30 92 L38 66 Z" fill="#ff9a3c"/>
+    </svg>
+    <button type="button" class="process-back-btn" id="processBackBtn" aria-label="Back to top">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+      <span>Back to top</span>
+    </button>
+  </div>
   <div class="live-demo-inner">
     <p class="live-demo-eyebrow">See It Live</p>
     <h2 class="live-demo-title">Not a screenshot. <em>The real site.</em></h2>
