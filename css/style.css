@@ -573,16 +573,15 @@ body, a{ cursor:none; }
      Picked from the room's own existing cool palette (the glass sphere/
      wall tones already sit in this same family) so the title reads as
      part of the scene rather than a foreign accent colour dropped on
-     top of it. A dark rgba(11,11,12,...) contact shadow used to sit
-     underneath the glow here for legibility over the pale walls —
-     removed per direct request: at this size/blur it read as a plain
-     dark smudge behind the text everywhere it appeared, not a subtle
-     contact shadow. The two light-blue glow layers on their own are
-     what carry legibility now */
+     top of it. No text-shadow at all now — both the earlier dark
+     contact shadow AND the light-blue glow that replaced it are gone,
+     per direct request: at this text size a 42px-radius glow spans
+     wide enough that neighbouring letters' own shadows overlap and
+     merge into one continuous soft shape behind the whole line, which
+     reads as a big rectangular smudge/halo sitting behind the title —
+     not a bug, just what a large-radius text-shadow across a full
+     word does, but not the look wanted here. Plain flat colour only */
   color:#a9def0;
-  text-shadow:
-    0 0 18px rgba(169,222,240,.85),
-    0 0 42px rgba(120,200,235,.55);
 }
 /* the entrance reveal — each letter (js/hero-title.js wraps them into
    these spans on load) settles in on its own staggered delay, wobbling
