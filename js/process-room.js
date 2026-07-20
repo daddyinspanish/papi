@@ -48,11 +48,12 @@
    UnrealBloomPass (selective, high-threshold glow — the traffic light
    is the only thing actually bright enough to trigger it now that
    scene.background is a flat colour rather than a bright starfield) →
-   a custom crepuscular-ray ("god ray") ShaderPass radiating from the
-   arch opening → BokehPass (subtle depth-of-field, focus locked to the
-   glass sphere) → the combined vignette/filmic-contrast/colour-grade
-   ShaderPass → OutputPass. Desktop only — see _renderFrame's own
-   comment for why bloom is skipped entirely on mobile.
+   BokehPass (subtle depth-of-field, focus locked to the glass sphere) →
+   the combined vignette/filmic-contrast/colour-grade ShaderPass →
+   OutputPass. Bloom is desktop only — see _renderFrame's own comment
+   for why it's skipped entirely on mobile. The arch's own god-ray +
+   suppression passes that used to sit here, and this pass's own film
+   grain, are both gone — removed per direct request.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
 import { RGBELoader } from './vendor/examples/jsm/loaders/RGBELoader.js';
@@ -87,7 +88,7 @@ const CONFIG = {
   // this scene's own _frame() ran completely uncapped — every native
   // vsync, unthrottled — which on a 120Hz ProMotion iPhone means the
   // ENTIRE pipeline below (bloom's own full second scene render, the
-  // god-ray accumulation loop, real-time water reflection, shadow map,
+  // DoF depth pre-pass, real-time water reflection, shadow map,
   // 4x MSAA) runs twice as often as on a plain 60Hz display for zero
   // visual benefit (nothing here moves fast enough to need more than
   // 60, let alone 30, updates a second) — far and away the single
@@ -130,13 +131,6 @@ const CONFIG = {
 // floor mesh naturally occludes the lower half via normal depth
 // testing, no extra clipping trick needed
 const SPHERE_POS = { x: 0, y: 0, z: 2.0 };
-
-// the back wall's arch opening, world-space — roomDepth/2 for its front
-// face, archHeight/2 for its vertical centre (see _buildRoom's own
-// roomDepth/roomHeight/archHeight locals). Kept as a standalone
-// constant since the god-ray pass needs this same point projected to
-// screen space every frame, independent of the geometry-building code
-const ARCH_WORLD_CENTER = new THREE.Vector3(0, 2.7, -5.5);
 
 // traces a rounded-top rectangle into a Shape/Path — cornerRadius equal
 // to half the width gives a full arched top rather than a subtly
@@ -1189,161 +1183,13 @@ class ProcessRoom {
     );
     this.composer.addPass(bloomMixPass);
 
-    // crepuscular ("god") rays radiating from the arch opening — NOT
-    // sampling the rendered scene at all (a first version walked toward
-    // lightPositionScreen accumulating whatever scene colour it passed
-    // over, which meant any OTHER bright thing on that same line —
-    // the traffic light lit up red/yellow, the galaxy texture's own
-    // small cyan star-forming knots — created its own secondary beam,
-    // since the shader has no real notion of "this pixel is the actual
-    // light source" vs. "this pixel just happens to be bright"). This
-    // version is purely synthetic: at each radial step it computes a
-    // plain distance-based falloff from lightPositionScreen itself, a
-    // single soft warm point light with no scene dependency whatsoever
-    // — structurally incapable of ever picking up a second source
-    const godraySamples = this.isMobile ? 14 : 24;
-    const godrayPass = new ShaderPass({
-      uniforms: {
-        tDiffuse: { value: null },
-        lightPositionScreen: { value: new THREE.Vector2(0.5, 0.5) },
-        uActive: { value: 0 },
-        // this — not the galaxy texture itself — turned out to be the
-        // "huge ball of light" reported sitting behind the hero title:
-        // confirmed directly by nulling scene.background entirely and
-        // watching the glow stay put unchanged (this pass is a pure
-        // distance falloff from lightPositionScreen, see its own
-        // comment above — it never actually samples the scene, so nulling
-        // the background could never have removed it). sourceRadius/
-        // exposure/weight all cut down hard from the original pass —
-        // the arch's own light source needs to read as a soft accent,
-        // not a second hero element competing with the title sitting
-        // right in front of it
-        exposure: { value: 0.3 },
-        decay: { value: 0.96 },
-        density: { value: 0.85 },
-        weight: { value: 0.25 },
-        sourceRadius: { value: 0.018 },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main(){
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D tDiffuse;
-        uniform vec2 lightPositionScreen;
-        uniform float uActive;
-        uniform float exposure;
-        uniform float decay;
-        uniform float density;
-        uniform float weight;
-        uniform float sourceRadius;
-        varying vec2 vUv;
-
-        void main(){
-          vec3 base = texture2D(tDiffuse, vUv).rgb;
-          if (uActive > 0.001) {
-            vec2 deltaTexCoord = (vUv - lightPositionScreen) * (density / float(${godraySamples}));
-            vec2 coord = vUv;
-            float illumination = 1.0;
-            float accum = 0.0;
-            for (int i = 0; i < ${godraySamples}; i++){
-              coord -= deltaTexCoord;
-              float d = distance(coord, lightPositionScreen);
-              accum += smoothstep(sourceRadius, 0.0, d) * illumination * weight;
-              illumination *= decay;
-            }
-            base += vec3(1.0, 0.93, 0.8) * accum * exposure * uActive;
-          }
-          gl_FragColor = vec4(base, 1.0);
-        }
-      `,
-    });
-    this.godrayUniforms = godrayPass.uniforms;
-    this.composer.addPass(godrayPass);
-
-    // a small, stubborn bright spot used to sit at this exact screen
-    // position (the arch's own projected centre) that survived
-    // disabling every individual light/pass this scene has — the real
-    // explanation turned out to be much simpler than that whole
-    // investigation suggested: this pass's own suppression was silently
-    // aimed at a fixed, never-updated (0.5, 0.5) instead of the arch's
-    // true live position the entire time (see _frame()'s own comment,
-    // right where this pass's lightPositionScreen gets copied each
-    // frame, for why), so any actual bright thing at the arch's real
-    // projected position was never being darkened correctly, just
-    // coincidentally close enough most of the time to look fixed. Left
-    // this pass in place regardless now that it's genuinely tracking —
-    // a small direct darken at the arch's own screen position is a
-    // reasonable safety net even now that the galaxy graphic that was
-    // the original suspect is gone. Not a full black-out (0.15 floor,
-    // not 0.0) so it still reads as a plain dim patch of sky rather
-    // than an obviously-masked hole
-    const archSuppressPass = new ShaderPass({
-      uniforms: {
-        tDiffuse: { value: null },
-        lightPositionScreen: { value: this.godrayUniforms.lightPositionScreen.value },
-        suppressRadius: { value: 0.09 },
-        // gates the whole effect off (rather than zeroing suppressRadius
-        // itself) whenever the arch isn't in front of the camera —
-        // lightPositionScreen only gets recomputed while it IS in front
-        // (see _frame()), so without this gate the suppression would
-        // keep darkening whatever screen position it was last pointed
-        // at once the camera turned away from the arch entirely
-        strength: { value: 1 },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main(){
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform sampler2D tDiffuse;
-        uniform vec2 lightPositionScreen;
-        uniform float suppressRadius;
-        uniform float strength;
-        varying vec2 vUv;
-        void main(){
-          vec3 col = texture2D(tDiffuse, vUv).rgb;
-          float d = distance(vUv, lightPositionScreen);
-          // a smooth gaussian-ish falloff rather than a smoothstep ring —
-          // smoothstep's own hard 0..1 transition band left a visible
-          // dark halo with the untouched, still-bright original peeking
-          // back through at its very centre once the ring closed back up
-          // to full brightness just past it. This falls off continuously
-          // from the centre outward instead, so there's no boundary to see
-          float falloff = exp(-(d * d) / (suppressRadius * suppressRadius));
-          // was mix(1.0, 0.25, falloff) — a 75% cut that turned out to
-          // still leave a visible glow once this pass was actually
-          // tracking the right spot (see this pass's own build-time
-          // comment) rather than a stale fixed point. Full black at the
-          // very centre now, still a smooth fade back to untouched
-          // just outside suppressRadius
-          float darken = mix(1.0, 0.0, falloff);
-          col *= mix(1.0, darken, strength);
-          gl_FragColor = vec4(col, 1.0);
-        }
-      `,
-    });
-    this.composer.addPass(archSuppressPass);
-    this._archSuppressUniforms = archSuppressPass.uniforms;
-
-    // subtle depth-of-field — focus locked to the glass sphere (the
-    // scene's one hero object) so it always reads crisp while the arch/
-    // background and any close foreground soften slightly, the way a
-    // real product-shot lens would. Aperture kept small deliberately —
-    // per the original plan this was meant to stay "subtle", not a
-    // heavy tilt-shift effect. Focus distance itself is updated per
-    // frame in _frame() from the live camera-to-sphere distance
-    // reusable scratch vectors for the per-frame god-ray/DoF updates in
-    // _frame() — avoids allocating a new Vector3 every frame
+    // the arch's own god-ray + suppression passes that used to sit here
+    // — both screen-space effects tracking the arch's live projected
+    // position as the camera moved — removed entirely per direct
+    // request: the suppression pass in particular darkened a patch of
+    // the room following the camera, which read as an unwanted moving
+    // shadow rather than a lighting accent
     this._spherePosVec = new THREE.Vector3(SPHERE_POS.x, SPHERE_POS.y, SPHERE_POS.z);
-    this._archNdcVec = new THREE.Vector3();
-    this._camForwardVec = new THREE.Vector3();
 
     this.bokehPass = new BokehPass(this.scene, this.camera, {
       focus: this.camera.position.distanceTo(this._spherePosVec),
@@ -1388,34 +1234,13 @@ class ProcessRoom {
     // tonemapping) inverts per-channel above ~1.5 and reads as a
     // rainbow-banded halo around bright surfaces, a real bug hit and
     // fixed in the old room.
-    // grain — the same technique unseen.co's own combined post pass uses
-    // (checked directly: fetched their bundled theme.js and read the
-    // actual fragment shader source off their screenFxPass). It's not a
-    // texture at all — a per-pixel hash fed by gl_FragCoord, free, no
-    // sampler/tiling-seam concerns. Their own version only ever
-    // brightens (adds a positive-only hash value); grainStrength here
-    // is deliberately far below their 0.07 magnitude — this room's HDR/
-    // tonemapped pipeline already has more overall contrast than their
-    // flat dusty-pink scene, so their exact strength read as visible
-    // static rather than a soft grain.
-    // grainTime feeding straight into BOTH x and y of a 2D hash (the
-    // original version here) doesn't actually re-randomize the pattern
-    // each frame — it just TRANSLATES the same 2D noise field diagonally
-    // by a fixed step every frame, which is exactly what read as "a
-    // layer being swiped/scrolled continuously" rather than flicker.
-    // hash13 below treats time as its own third, independent dimension
-    // instead, so the pattern genuinely re-randomizes in place with no
-    // directional drift. grainStrength also pulled back further (0.035
-    // -> 0.02) and grainTime itself now only advances once every few
-    // real frames (see _frame()'s own comment) — both per direct
-    // feedback that this needed to be calmer, softer, more subtle
-    const grainPass = new ShaderPass({
+    // film grain removed entirely per direct request — this pass now
+    // only ever does vignette + contrast/colour-grade
+    const gradePass = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
         vignetteStrength: { value: 0.3 },
         contrastStrength: { value: 0.26 },
-        grainStrength: { value: 0.02 },
-        grainTime: { value: 0 },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -1428,15 +1253,7 @@ class ProcessRoom {
         uniform sampler2D tDiffuse;
         uniform float vignetteStrength;
         uniform float contrastStrength;
-        uniform float grainStrength;
-        uniform float grainTime;
         varying vec2 vUv;
-
-        float hash13(vec3 p3){
-          p3 = fract(p3 * 0.1031);
-          p3 += dot(p3, p3.zyx + 31.32);
-          return fract((p3.x + p3.y) * p3.z);
-        }
 
         void main(){
           vec4 texel = texture2D(tDiffuse, vUv);
@@ -1451,14 +1268,11 @@ class ProcessRoom {
           vec2 centered = vUv - 0.5;
           float vig = 1.0 - dot(centered, centered) * vignetteStrength;
           c *= vig;
-          float f = hash13(vec3(gl_FragCoord.xy, grainTime));
-          c += (f - 0.5) * grainStrength;
           gl_FragColor = vec4(c, texel.a);
         }
       `,
     });
-    this.grainUniforms = grainPass.uniforms;
-    this.composer.addPass(grainPass);
+    this.composer.addPass(gradePass);
 
     this.composer.addPass(new OutputPass());
   }
@@ -1742,52 +1556,9 @@ class ProcessRoom {
       this.floorRippleUniforms.uRippleOffset.value.y += 0.00022;
       this.floorRippleUniforms.uTime.value += 0.016;
     }
-    // held for a few real frames at a time (roughly a 15fps grain
-    // refresh at 60fps) rather than advancing every single frame — the
-    // hash re-randomizes completely on any change to its input
-    // regardless of step size, so updating it at 60fps read as a fast,
-    // busy flicker no matter how small the increment was. This is what
-    // actually reads as "slower," not a smaller strength value alone
-    if(this.grainUniforms){
-      this._grainFrameCount = (this._grainFrameCount || 0) + 1;
-      if(this._grainFrameCount % 4 === 0) this.grainUniforms.grainTime.value += 1.0;
-    }
 
-    // god-ray screen position + DoF focus, recomputed every frame since
-    // both depend on the live (parallax-shifted) camera, not just the
-    // scroll progress
-    if(this.godrayUniforms){
-      this.camera.getWorldDirection(this._camForwardVec);
-      const toArch = this._archNdcVec.subVectors(ARCH_WORLD_CENTER, this.camera.position);
-      const inFront = toArch.dot(this._camForwardVec) > 0;
-      let active = 0;
-      if(inFront){
-        this._archNdcVec.copy(ARCH_WORLD_CENTER).project(this.camera);
-        this.godrayUniforms.lightPositionScreen.value.set(
-          (this._archNdcVec.x + 1) / 2,
-          (this._archNdcVec.y + 1) / 2
-        );
-        const edge = Math.max(Math.abs(this._archNdcVec.x), Math.abs(this._archNdcVec.y));
-        active = (1 - THREE.MathUtils.clamp((edge - 0.6) / 0.4, 0, 1)) * 0.55;
-      }
-      this.godrayUniforms.uActive.value = active;
-      if(this._archSuppressUniforms){
-        this._archSuppressUniforms.strength.value = inFront ? 1 : 0;
-        // NOT the same Vector2 object as godrayUniforms's, despite both
-        // being constructed from `{ value: this.godrayUniforms...value }`
-        // — ShaderPass's own constructor deep-clones whatever uniforms
-        // object it's given (UniformsUtils.clone()) when built from a
-        // plain {uniforms,vertexShader,fragmentShader} definition rather
-        // than an existing Material, which silently breaks reference-
-        // sharing tricks like that one. archSuppress had been stuck
-        // suppressing a fixed default (0.5, 0.5) since the pass was
-        // built, not actually tracking the arch's live screen position,
-        // confirmed by reading the two uniforms back and finding they'd
-        // diverged. Explicit copy every frame instead of relying on
-        // aliasing
-        this._archSuppressUniforms.lightPositionScreen.value.copy(this.godrayUniforms.lightPositionScreen.value);
-      }
-    }
+    // DoF focus, recomputed every frame since it depends on the live
+    // (parallax-shifted) camera, not just the scroll progress
     if(this.bokehPass){
       this.bokehPass.uniforms.focus.value = this.camera.position.distanceTo(this._spherePosVec);
     }
