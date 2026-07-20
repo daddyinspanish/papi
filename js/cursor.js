@@ -36,7 +36,7 @@
   window.addEventListener('mousedown', ()=> cursor.classList.add('is-active'));
   window.addEventListener('mouseup', ()=> cursor.classList.remove('is-active'));
 
-  document.querySelectorAll('a, button, .fan-card, .showcase-item').forEach(el=>{
+  document.querySelectorAll('a, button').forEach(el=>{
     el.addEventListener('mouseenter', ()=> cursor.classList.add('is-active'));
     el.addEventListener('mouseleave', ()=> cursor.classList.remove('is-active'));
   });

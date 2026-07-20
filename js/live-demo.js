@@ -8,15 +8,15 @@
    no dots/arrows since there's nothing to browse between yet.
 
    Each iframe's src is assigned shortly after the *page's own* load
-   event, not gated by scroll proximity — this section sits the 4th
-   one down (past Hero, Contrast, Showcase, Comparison), so even a
-   fast scroller takes a real beat to reach it, which is normally
-   plenty of lead time for someone else's whole website to finish
-   loading in the background. Waiting until the card was already
-   nearly in view instead meant the "Loading live site…" placeholder
-   was often still showing right as it scrolled in. The small delay
-   after 'load' keeps this from competing with the main page's own
-   critical first paint.
+   event, not gated by scroll proximity — even moved up to sit right
+   after Contrast (per direct request, so a visitor reaches real work
+   sooner), a fast scroller still takes a real beat to get here, which
+   is normally plenty of lead time for someone else's whole website to
+   finish loading in the background. Waiting until the card was
+   already nearly in view instead meant the "Loading live site…"
+   placeholder was often still showing right as it scrolled in. The
+   small delay after 'load' keeps this from competing with the main
+   page's own critical first paint.
 =================================================================== */
 (function(){
   const section = document.getElementById('liveDemoSection');

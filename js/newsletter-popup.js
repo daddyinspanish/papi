@@ -1,12 +1,16 @@
 /* ===================================================================
    Papi — newsletter popup
-   Shown once, the first time the visitor scrolls past the before/after
-   section — not tied to a fixed timer or an IntersectionObserver alone
-   (an observer can miss a fast scroll/flick that jumps straight past
-   the threshold without the browser ever rendering the in-between
-   frame; see the same class of bug already fixed in
-   comparison-chart.js). A plain scroll-position check against the
-   section's own bounding rect catches that reliably instead.
+   Shown once, the first time the visitor scrolls past the live-demo
+   section (was the before/after comparison section, before that was
+   removed entirely per direct request — live-demo is now the first
+   real section after the hero, so it's the same "seen enough to be
+   engaged" landmark the before/after section used to be) — not tied
+   to a fixed timer or an IntersectionObserver alone (an observer can
+   miss a fast scroll/flick that jumps straight past the threshold
+   without the browser ever rendering the in-between frame; see the
+   same class of bug already fixed in comparison-chart.js). A plain
+   scroll-position check against the section's own bounding rect
+   catches that reliably instead.
 
    Persisted via localStorage so a visitor who's already seen it (closed
    it, or already subscribed) never gets it again on a later visit —
@@ -19,8 +23,8 @@
   const closeBtn = document.getElementById('newsletterClose');
   const form = document.getElementById('newsletterForm');
   const successEl = document.getElementById('newsletterSuccess');
-  const contrastSection = document.getElementById('contrastSection');
-  if(!popup || !contrastSection) return;
+  const triggerSection = document.getElementById('liveDemoSection');
+  if(!popup || !triggerSection) return;
 
   const STORAGE_KEY = 'papi_newsletter_seen';
   let shown = false;
@@ -50,9 +54,9 @@
       ticking = false;
       if(shown) return;
       // fully scrolled past the section (not just "reached" — this
-      // should surface once the before/after story has actually been
-      // seen, not the moment it first comes into view)
-      if(contrastSection.getBoundingClientRect().bottom <= 0) open();
+      // should surface once the live demos have actually been seen,
+      // not the moment they first come into view)
+      if(triggerSection.getBoundingClientRect().bottom <= 0) open();
     }
     function onScroll(){
       if(ticking) return;

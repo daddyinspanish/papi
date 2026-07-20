@@ -37,11 +37,15 @@
    scene.environment so it never touches the actual lighting, only
    what's visible behind it.
 
-   Camera: fixed wide framing, a small continuous push/tilt over the
-   whole scroll range (not 4 discrete stops), plus the same mouse-
-   parallax lerp used elsewhere on this site. One lighting setup only
-   ever has to look right from roughly one angle this way, which is
-   what actually makes "soft and even" achievable at all.
+   Camera: a real 4-stop journey now (per direct request) — one stop
+   per process step, each framing the object that step is tied to (see
+   _buildKeyframes) — eased between stops with smoothstep rather than
+   snapping, plus the same mouse-parallax lerp used elsewhere on this
+   site. Originally a single continuous push between two points, kept
+   deliberately simple so one lighting setup only had to look right
+   from roughly one angle; four stops asks more of the lighting, but
+   the same HDRI-only setup still holds up reasonably well across all
+   four since none of them stray far from the room's own centre.
 
    Post-processing: reuses the EffectComposer pipeline already vendored
    this session (js/vendor/examples/jsm/postprocessing/) — RenderPass →
@@ -67,6 +71,16 @@ import { UnrealBloomPass } from './vendor/examples/jsm/postprocessing/UnrealBloo
 import { BokehPass } from './vendor/examples/jsm/postprocessing/BokehPass.js';
 
 const CONFIG = {
+  // fraction of the section's own total scroll range spent on the
+  // 5-stop camera journey (wide shot + 4 process steps) before the
+  // final exit phase takes over — the camera holds frozen at stage 4's
+  // own framing for the remaining (1 - throwStart) while the crystal
+  // is thrown at it instead (see _cameraForProgress's own throwT and
+  // _frame's own rock-throw block). .process-room-section's own CSS
+  // height (480vh) is sized so this split gives the throw genuine
+  // scroll distance of its own, not a sliver carved out of the
+  // existing steps' pacing
+  throwStart: 420 / 480,
   // raised back up after direct feedback that the room read as visibly
   // pixelated/blocky while scrolling or moving — that sluggishness the
   // original 1.15/1.0 cut was chasing turned out to actually be the
@@ -326,6 +340,23 @@ class ProcessRoom {
     this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 60);
     this.mouse = { x: 0, y: 0 };
     this.mouseTarget = { x: 0, y: 0 };
+
+    // the process-step popup text (see _updateProcessStep) and the
+    // neon-sign quick nav (visible only during stage 0 — see the same
+    // method) — queried once here rather than every frame; missing
+    // gracefully no-ops everywhere either is read below
+    this.stepEl = document.getElementById('processStep');
+    this.stepNumberEl = document.getElementById('processStepNumber');
+    this.stepLabelEl = document.getElementById('processStepLabel');
+    this.neonMenuEl = document.getElementById('processNeonMenu');
+    this._lastStageIndex = -1;
+    // the exit-transition veil (see _updateVeil) — body-level, not
+    // inside this room's own sticky, so it's queried here the same way
+    // but updated from its own always-on scroll listener in
+    // _bindEvents rather than the 3D render loop, since it needs to
+    // keep working after this section itself has scrolled past and
+    // un-pinned (see that listener's own comment for why)
+    this.veilEl = document.getElementById('heroVeil');
 
     this._buildScene();
     this._buildChairPile();
@@ -880,6 +911,15 @@ class ProcessRoom {
     yellow.position.set(0, 0.475, 0.125);
     const green = new THREE.Mesh(lensGeo, greenMat);
     green.position.set(0, 0.16, 0.125);
+    // layer 1 is what actually feeds the selective-bloom pass (see
+    // _buildPostProcessing's own _bloomLayer/_darkenNonBloomed) — never
+    // called here despite the bloom pass's own build-time comment
+    // describing these lenses as "the only thing bright enough to
+    // trigger it," a real gap only found while wiring the same bloom
+    // layer onto the crystal for its own new emissive glow
+    red.layers.enable(1);
+    yellow.layers.enable(1);
+    green.layers.enable(1);
     group.add(red, yellow, green);
 
     group.position.set(x, y, z);
@@ -891,7 +931,7 @@ class ProcessRoom {
   // middle, green for the last third, each fading in/out (not a hard
   // cut) so there's a brief moment where two lenses are both lit,
   // easing between colours the way this whole scene eases everything
-  // else — called every frame from _frame(), same as _updateSteps
+  // else — called every frame from _frame(), same as _updateProcessStep
   _updateTrafficLight(progress){
     if(!this.trafficLightMats) return;
     const bump = (p, center, width) => Math.max(0, 1 - Math.abs(p - center) / width);
@@ -901,6 +941,107 @@ class ProcessRoom {
     this.trafficLightMats.red.emissiveIntensity = 0.15 + redA * 2.6;
     this.trafficLightMats.yellow.emissiveIntensity = 0.15 + yellowA * 2.6;
     this.trafficLightMats.green.emissiveIntensity = 0.15 + greenA * 2.6;
+  }
+
+  // the step-number/label popup, synced to the same `seg` (0..3
+  // continuous) the camera's own _cameraForProgress interpolates over
+  // — "nearest" is whichever of the 4 stages seg is currently closest
+  // to, and opacity falls off the further seg drifts from that whole
+  // number, reaching zero exactly at the midpoint to the next stage.
+  // That's deliberate: the text content only ever gets swapped at the
+  // one moment its own opacity is already at its lowest (see below),
+  // so the "pop" reads as one label fading out and the next popping
+  // back in, never a visible jump-cut mid-fade
+  _updateProcessStep(seg){
+    if(!this.stepEl || !this.stages) return;
+    const last = this.stages.length - 1;
+    const nearest = Math.max(0, Math.min(last, Math.round(seg)));
+    if(nearest !== this._lastStageIndex){
+      this._lastStageIndex = nearest;
+      const stage = this.stages[nearest];
+      // stage 0's own label is null — it's the wide establishing shot,
+      // not a numbered process step, so it gets a welcome line instead
+      // of "00"/a step name, reusing the exact same two elements (and
+      // the same crossfade below) rather than a separate DOM structure
+      if(stage.label === null){
+        if(this.stepNumberEl) this.stepNumberEl.textContent = 'Welcome';
+        if(this.stepLabelEl) this.stepLabelEl.textContent = 'Scroll to proceed';
+      } else {
+        if(this.stepNumberEl) this.stepNumberEl.textContent = String(nearest).padStart(2, '0');
+        if(this.stepLabelEl) this.stepLabelEl.textContent = stage.label;
+      }
+    }
+    const dist = Math.abs(seg - nearest);
+    // fully opaque within a small window right at the stage itself,
+    // smoothstep-fading to 0 by dist===0.5 (the exact midpoint to the
+    // neighbouring stage, where the text swap above happens)
+    const fadeStart = 0.12, fadeEnd = 0.5;
+    const raw = Math.max(0, Math.min(1, (dist - fadeStart) / (fadeEnd - fadeStart)));
+    const opacity = 1 - raw * raw * (3 - 2 * raw);
+    this.stepEl.style.opacity = opacity.toFixed(3);
+    this.stepEl.style.transform = `translateX(-50%) translateY(${((1 - opacity) * 12).toFixed(1)}px)`;
+
+    // the neon menu shares stage 0's own fade, but only ever fades OUT
+    // as seg leaves 0 — it has no "neighbouring stage" of its own to
+    // fade back in for, unlike the step text above, so this uses seg
+    // itself (distance from the wide shot specifically) rather than
+    // `dist` (distance from whichever stage is nearest right now)
+    if(this.neonMenuEl){
+      const menuRaw = Math.max(0, Math.min(1, (seg - fadeStart) / (fadeEnd - fadeStart)));
+      const menuOpacity = 1 - menuRaw * menuRaw * (3 - 2 * menuRaw);
+      this.neonMenuEl.style.opacity = menuOpacity.toFixed(3);
+      this.neonMenuEl.style.pointerEvents = menuOpacity > 0.5 ? 'auto' : 'none';
+    }
+  }
+
+  // the exit-transition veil's own opacity — deliberately NOT part of
+  // the render loop above (see this.veilEl's own query-time comment):
+  // computed purely from window.scrollY against two fixed page-space
+  // boundaries, so it keeps working via its own scroll listener (see
+  // _bindEvents) even once this section has scrolled past and its
+  // sticky has un-pinned, which is exactly when the second half of
+  // this needs to keep running. smoothstep both legs for the same
+  // "ease into/out of" feel as everything else in this file
+  _updateVeil(){
+    if(!this.veilEl) return;
+    const scrollable = Math.max(1, this.sectionHeight - this.viewportH);
+    const throwStartY = this.sectionTop + scrollable * CONFIG.throwStart;
+    // .process-room-sticky physically un-pins at this exact scrollY —
+    // live-demo-section only ever starts scrolling up into the actual
+    // viewport past this point, not before, regardless of the veil's
+    // own opacity (position:sticky, not a z-index trick — there's
+    // nothing "behind" the veil to bleed through until the page has
+    // genuinely scrolled the sticky out of the way)
+    const releaseY = this.sectionTop + scrollable;
+    // the veil's own peak sits PAST releaseY on purpose — not right at
+    // it — per direct request: the transition should already show the
+    // next section bleeding through as the blue builds, rather than
+    // hitting a fully solid wall first and only revealing live-demo
+    // afterward. Peaking here instead means live-demo has already
+    // scrolled a real distance up into view (the sticky's released by
+    // this point) while the veil is still near its own peak, so the
+    // two genuinely cross-dissolve rather than a hard cut through a
+    // solid colour
+    const peakY = releaseY + this.viewportH * 0.35;
+    const clearY = peakY + this.viewportH * 0.55;
+    // capped well under 1 — even at its own peak the veil never goes
+    // fully solid, so whatever's behind it (the crystal, already
+    // filling the frame with its own blue by the time this ramps up —
+    // see _frame's own throw block — during fade-in; live-demo during
+    // fade-out) always still bleeds through at least a little, start
+    // to finish
+    const maxOpacity = 0.72;
+    const smoothstep = (edge0, edge1, x) => {
+      const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+      return t * t * (3 - 2 * t);
+    };
+    const y = window.scrollY;
+    const shape = y <= throwStartY
+      ? 0
+      : y <= peakY
+        ? smoothstep(throwStartY, peakY, y)
+        : 1 - smoothstep(peakY, clearY, y);
+    this.veilEl.style.opacity = (shape * maxOpacity).toFixed(3);
   }
 
   // a square plinth in the front-left corner with a whole tossed-
@@ -962,20 +1103,26 @@ class ProcessRoom {
     });
   }
 
-  // a floating rock boulder near the hero sphere, offset to its right —
-  // real PBR maps (color/normal/ao/roughness), not a flat material: the
-  // stepping-stones texture set already downloaded for the old rotunda
-  // room (img/textures/stepping-stones) is a genuinely rocky, cracked
-  // stone surface, still sitting unused on disk, so it's reused here
-  // rather than sourcing anything new. The geometry itself is a plain
-  // IcosahedronGeometry with each vertex pushed out/in by a small
+  // a floating crystal, suspended in the arch doorway (see its own
+  // material comment below for why it's a crystal now rather than the
+  // rough-stone PBR surface this used to be). The geometry itself is a
+  // plain IcosahedronGeometry with each vertex pushed out/in by a small
   // deterministic amount along its own normal — enough to break the
-  // perfect-icosahedron facets into an irregular, rock-like lump without
-  // needing sculpted geometry. aoMap requires its own second UV channel
-  // in three.js, hence the uv2 copy. Bobs and slowly tumbles in _frame()
+  // perfect-icosahedron facets into an irregular, gem-cut-like lump
+  // without needing sculpted geometry; that same faceting is what a
+  // transmissive material actually wants to catch distinct highlights
+  // on (see the material comment). Bobs and slowly tumbles in _frame()
   // so "floating" actually reads as floating, not just suspended
   _buildFloatingRock(){
-    const geo = new THREE.IcosahedronGeometry(0.55, 2);
+    // detail bumped 2→4 per direct feedback that it read as pixelated/
+    // blocky — at detail 2 each facet was large enough to show as an
+    // obviously flat, low-poly plane; 4 gives roughly 4x the triangle
+    // count, small enough facets that the silhouette reads as a real
+    // cut crystal rather than a chunky low-poly rock, while each facet
+    // is still large enough to catch its own distinct sparkle (going
+    // much higher than this would start smoothing back toward the
+    // sphere's own curved look, losing the facets entirely)
+    const geo = new THREE.IcosahedronGeometry(0.55, 4);
     const pos = geo.attributes.position;
     // IcosahedronGeometry is non-indexed — each triangle owns its own 3
     // position entries, so a shared corner between faces exists as
@@ -999,31 +1146,71 @@ class ProcessRoom {
       pos.setXYZ(i, v.x, v.y, v.z);
     }
     geo.computeVertexNormals();
-    geo.setAttribute('uv2', new THREE.BufferAttribute(geo.attributes.uv.array, 2));
 
-    const loader = new THREE.TextureLoader();
-    const colorMap = loader.load('img/textures/stepping-stones/color.jpg');
-    colorMap.colorSpace = THREE.SRGBColorSpace;
-    const normalMap = loader.load('img/textures/stepping-stones/normal.jpg');
-    const aoMap = loader.load('img/textures/stepping-stones/ao.jpg');
-    const roughnessMap = loader.load('img/textures/stepping-stones/roughness.jpg');
-    const rockMat = new THREE.MeshStandardMaterial({
-      map: colorMap, normalMap, aoMap, roughnessMap,
-      roughness: 1, metalness: 0, envMapIntensity: 0.6,
+    // a crystal now, not a stone — per direct request, matching the
+    // sphere's own colour family (same MeshPhysicalMaterial technique:
+    // transmission + attenuationColor is what actually makes something
+    // read as coloured glass/crystal rather than a tinted opaque
+    // surface, the same reason the sphere itself uses it). The old
+    // stepping-stone PBR maps (color/normal/ao/roughness) are gone
+    // entirely — a transmissive material doesn't want a rock-surface
+    // colour map fighting it underneath. Roughness pulled down well
+    // below the sphere's own 0.5: this geometry is faceted (flat-ish
+    // triangles meeting at hard angles, from the icosahedron bump above)
+    // rather than smoothly curved, and a lower roughness is what lets
+    // each individual facet catch the HDRI as its own distinct bright
+    // highlight — a real cut-gemstone sparkle — instead of one soft
+    // blurred highlight smeared across the whole shape the way the
+    // sphere's own higher roughness reads on a curved surface.
+    // emissive (new) is what actually pushes it toward "neon" rather
+    // than just "blue glass" — a real light-emitting glow rather than
+    // one that only ever reflects/transmits whatever's around it, and
+    // paired with rock.layers.enable(1) below it now genuinely feeds
+    // the selective-bloom pass (see _buildPostProcessing), the same
+    // system the traffic light's own lenses use for their glow — those
+    // never actually had layers.enable(1) called on them either, a
+    // real gap only found while wiring this up, fixed alongside it
+    const rockMat = new THREE.MeshPhysicalMaterial({
+      color: 0x8fd0e8,
+      roughness: 0.2,
+      metalness: 0,
+      transmission: 0.75,
+      thickness: 1.1,
+      ior: 1.5,
+      attenuationColor: 0x1f7fbf,
+      attenuationDistance: 0.9,
+      iridescence: 0,
+      envMapIntensity: 1.3,
+      emissive: 0x2f9dff,
+      emissiveIntensity: 0.55,
     });
+    this.rockMat = rockMat;
 
     const rock = new THREE.Mesh(geo, rockMat);
-    // front-right of the sphere (SPHERE_POS.z = 2.0) — closer to the
-    // viewer (larger z, since the camera sits at positive z looking
-    // toward -z) and only slightly right, per direct request, rather
-    // than the first pass's further-right/further-back placement
-    rock.position.set(1.5, 1.25, 3.0);
+    rock.layers.enable(1);
+    // floating centred in the arch doorway itself, per direct request
+    // — was near the sphere (1.5, 1.25, 3.0), which also put it almost
+    // exactly on the straight-line camera path between the Discover
+    // and Plan stages (see _cameraForProgress's own history), causing
+    // the camera to clip straight through it mid-transition. archWidth/
+    // archHeight are 3.6/5.4 (see _buildScene), so y=2.7 is the
+    // opening's own true vertical centre; z sits inside the back wall's
+    // own thickness (the wall's front face is at -roomDepth/2, its back
+    // face wallThickness further at -roomDepth/2-wallThickness) rather
+    // than flush with either face, so it reads as genuinely suspended
+    // inside the doorway rather than resting on either side of it
+    rock.position.set(0, 2.7, -5.7);
     rock.rotation.set(0.4, 0.8, 0.2);
     rock.castShadow = true;
     rock.receiveShadow = true;
     this.roomGroup.add(rock);
     this.floatingRock = rock;
     this._rockBaseY = rock.position.y;
+    // captured once, at its true resting spot — the throw animation in
+    // _frame() lerps FROM this every time (not from whatever position
+    // the previous frame left it at), so scrolling back up mid-throw
+    // reverses cleanly along the same path instead of drifting
+    this._rockRestPos = rock.position.clone();
   }
 
   // no discrete lights at all — the whole room is lit by one real HDRI
@@ -1259,24 +1446,80 @@ class ProcessRoom {
   }
 
   // -----------------------------------------------------------------
-  // camera — fixed wide framing, one continuous push/tilt over the
-  // whole scroll range rather than 4 discrete stage stops. Widened
-  // considerably from the original v1 pass (a 3-unit dolly, 0.25-unit
-  // height drop) so the scroll-driven movement actually reads as
-  // motion rather than a subtle drift
+  // camera — a real 4-stop journey through the room now, per direct
+  // request, one stop per process step, each framing the object that
+  // step is tied to: the sphere (Discover), the spiral stairs (Plan),
+  // the chair pile (Structure), the floating rock (Delivery). Replaces
+  // the previous single continuous push between two points — this is
+  // 4 waypoints with smoothstep easing between each consecutive pair,
+  // which is what actually produces the "settle at each stop" feel:
+  // smoothstep's own derivative goes to zero at both ends of a
+  // segment, so the camera visibly slows into and out of every
+  // waypoint rather than cruising past it at constant speed. See
+  // _updateProcessStep for how the step text syncs to this same path.
   // -----------------------------------------------------------------
   _buildKeyframes(){
-    this.camStart = new THREE.Vector3(0, 2.1, 10.8);
-    this.camEnd = new THREE.Vector3(0, 1.3, 4.8);
-    this.lookStart = new THREE.Vector3(0, 1.7, SPHERE_POS.z - 0.1);
-    this.lookEnd = new THREE.Vector3(0, 1.25, SPHERE_POS.z + 0.2);
+    this.stages = [
+      { // 0 — the establishing shot: pulled back wide enough to read
+        // the whole room in one frame (sphere, both back corners, the
+        // arch) rather than opening already tight on the sphere, per
+        // direct request. label:null marks this one as the "Welcome"
+        // intro rather than a numbered process step — see
+        // _updateProcessStep for how that's handled
+        pos: new THREE.Vector3(0, 2.6, 11.5),
+        look: new THREE.Vector3(0, 1.8, -1.0),
+        label: null,
+      },
+      { // 1 — Discover: the glass sphere, dead centre in the water
+        pos: new THREE.Vector3(0, 1.3, 4.8),
+        look: new THREE.Vector3(0, 1.25, SPHERE_POS.z + 0.2),
+        label: 'Discover',
+      },
+      { // 2 — Plan: the spiral stairs, back-right corner
+        pos: new THREE.Vector3(2.6, 2.1, 1.4),
+        look: new THREE.Vector3(4.0, 2.2, -4.4),
+        label: 'Plan',
+      },
+      { // 3 — Structure: the tossed chair pile, back-left corner
+        pos: new THREE.Vector3(-2.4, 2.1, 1.4),
+        look: new THREE.Vector3(-3.8, 1.6, -4.2),
+        label: 'Structure',
+      },
+      { // 4 — Delivery: the floating crystal, suspended dead-centre in
+        // the arch doorway — camera comes back to centre for this one
+        // (unlike the off-axis Plan/Structure stops) so the room's own
+        // symmetry frames it, the same way stage 1 frames the sphere
+        pos: new THREE.Vector3(0, 2.0, 2.2),
+        look: new THREE.Vector3(0, 2.6, -5.6),
+        label: 'Delivery',
+      },
+    ];
   }
 
   _cameraForProgress(p){
-    const t = p * p * (3 - 2 * p); // smoothstep
-    const pos = this.camStart.clone().lerp(this.camEnd, t);
-    const look = this.lookStart.clone().lerp(this.lookEnd, t);
-    return { pos, look };
+    const stages = this.stages;
+    const last = stages.length - 1;
+    const clampedP = THREE.MathUtils.clamp(p, 0, 1);
+    // the 5-stop journey itself only ever plays out across
+    // [0, CONFIG.throwStart] of the section's own total scroll range —
+    // journeyP remaps that sub-range back to a plain 0..1 so the rest
+    // of this function doesn't need to know throwStart exists at all.
+    // Clamping to 1 (rather than letting it run past) is what actually
+    // freezes the camera at stage 4's own framing for the remainder —
+    // the crystal does the moving from here on, not the camera (see
+    // _frame's own rock-throw block, driven by throwT below)
+    const journeyP = Math.min(clampedP, CONFIG.throwStart) / CONFIG.throwStart;
+    const seg = journeyP * last;
+    const i = Math.min(last - 1, Math.floor(seg));
+    const localT = seg - i;
+    const t = localT * localT * (3 - 2 * localT); // smoothstep
+    const a = stages[i], b = stages[i + 1];
+    const pos = a.pos.clone().lerp(b.pos, t);
+    const look = a.look.clone().lerp(b.look, t);
+    const throwT = clampedP <= CONFIG.throwStart
+      ? 0
+      : (clampedP - CONFIG.throwStart) / (1 - CONFIG.throwStart);
+    return { pos, look, seg, throwT };
   }
 
   _resize(){
@@ -1299,11 +1542,12 @@ class ProcessRoom {
   }
 
   _renderStatic(){
-    const { pos, look } = this._cameraForProgress(0);
+    const { pos, look, seg } = this._cameraForProgress(0);
     this.camera.position.copy(pos);
     this.camera.lookAt(look);
     this._renderFrame();
     this._updateTrafficLight(0);
+    this._updateProcessStep(seg);
     this.canvas.classList.add('is-ready');
   }
 
@@ -1352,7 +1596,7 @@ class ProcessRoom {
       lastResizeW = w; lastResizeH = h;
       this.isMobile = w < 860;
       clearTimeout(this._resizeT);
-      this._resizeT = setTimeout(() => { this._resize(); this._measure(); this._update(); }, 200);
+      this._resizeT = setTimeout(() => { this._resize(); this._measure(); this._update(); this._updateVeil(); }, 200);
     };
     window.addEventListener('resize', this._onResize);
 
@@ -1375,15 +1619,21 @@ class ProcessRoom {
 
     this._measure();
     let ticking = false;
+    // _updateVeil rides this exact same listener rather than getting
+    // its own — this one already runs unconditionally for the page's
+    // whole lifetime (unlike _frame's own rAF loop, which stops once
+    // this section scrolls out of IntersectionObserver range), which
+    // is exactly what the veil's own fade-out (playing out well after
+    // this section has scrolled past and un-pinned) needs
     window.addEventListener('scroll', () => {
       if(ticking) return;
       ticking = true;
-      requestAnimationFrame(() => { this._update(); ticking = false; });
+      requestAnimationFrame(() => { this._update(); this._updateVeil(); ticking = false; });
     }, { passive: true });
 
-    if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => { this._measure(); this._update(); });
-    window.addEventListener('load', () => { this._measure(); this._update(); });
-    requestAnimationFrame(() => { this._measure(); this._update(); });
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => { this._measure(); this._update(); this._updateVeil(); });
+    window.addEventListener('load', () => { this._measure(); this._update(); this._updateVeil(); });
+    requestAnimationFrame(() => { this._measure(); this._update(); this._updateVeil(); });
 
     // the water ripple and sphere rotation used to only advance when
     // _frame() got woken by a scroll or mousemove event, so the water
@@ -1487,7 +1737,9 @@ class ProcessRoom {
       this.mouse.y += (this.mouseTarget.y - this.mouse.y) * mouseFactor;
       this._state.displayProgress += (this._state.progress - this._state.displayProgress) * progressFactor;
 
-      const { pos, look } = this._cameraForProgress(this._state.displayProgress);
+      const { pos, look, seg, throwT } = this._cameraForProgress(this._state.displayProgress);
+      this._updateProcessStep(seg);
+      this._throwT = throwT;
       // a small position shift for depth-parallax, plus — the actual
       // unseen.co effect, confirmed by hovering their own corners
       // directly — a real camera ROTATION on top, not another lookAt
@@ -1505,17 +1757,86 @@ class ProcessRoom {
       this.camera.rotateY(-this.mouse.x * CONFIG.rotationYawMax);
       this.camera.rotateX(this.mouse.y * CONFIG.rotationPitchMax);
     } else {
-      const { pos, look } = this._cameraForProgress(0);
+      const { pos, look, seg } = this._cameraForProgress(0);
       this.camera.position.copy(pos);
       this.camera.lookAt(look);
+      this._updateProcessStep(seg);
+      // reduced motion holds the room at its very first resting frame
+      // (progress locked to 0 above) — the throw is itself a motion
+      // effect, so it stays off here the same way every other
+      // animation in this file already does under this preference
+      this._throwT = 0;
     }
 
     if(this.sphere) this.sphere.rotation.y += 0.0018;
     if(this.floatingRock){
-      this._rockTime = (this._rockTime || 0) + 0.016;
-      this.floatingRock.position.y = this._rockBaseY + Math.sin(this._rockTime * 0.6) * 0.08;
-      this.floatingRock.rotation.y += 0.0011;
-      this.floatingRock.rotation.x += 0.0006;
+      const throwT = this._throwT || 0;
+      if(throwT > 0){
+        // thrown directly at the (now-frozen, see _cameraForProgress)
+        // camera, per direct request — eased with the same smoothstep
+        // curve every other stage transition in this file already
+        // uses, for the same reason: constant-speed motion reads as
+        // mechanical, easing reads as a real thrown object. Scale
+        // climbs alongside position — at this camera's fixed distance/
+        // FOV, position change alone undersells "hurtling toward the
+        // lens"; growing the mesh itself on top of that perspective
+        // growth is what actually reads as an object closing distance
+        // fast rather than just drifting closer
+        const te = throwT * throwT * (3 - 2 * throwT);
+        // target z (1.8) stays in front of the camera's own fixed
+        // z (2.2) at every te, on purpose — a target AT or PAST the
+        // camera crosses behind it partway through the throw (camera
+        // looks down -z, so anything with a larger z than the camera's
+        // own is out of frustum entirely), confirmed directly as the
+        // crystal vanishing outright for the back half of the throw,
+        // a second, different way to end up with nothing on screen
+        // from the same root cause as the clamp below
+        const targetPos = new THREE.Vector3(
+          THREE.MathUtils.lerp(this._rockRestPos.x, 0, te),
+          THREE.MathUtils.lerp(this._rockRestPos.y, 2.0, te),
+          THREE.MathUtils.lerp(this._rockRestPos.z, 1.8, te)
+        );
+        const scale = THREE.MathUtils.lerp(1, 7, te);
+        // a naive lerp toward a point this close to the camera, on a
+        // mesh that's ALSO growing this fast, overtakes the camera's
+        // own position partway through the throw — confirmed directly:
+        // the camera ends up fully inside the crystal, which (being an
+        // ordinary backface-culled mesh) then renders as nothing at
+        // all for a real stretch of the animation, well before the
+        // veil is opaque enough to cover for it. Clamping the rock's
+        // own distance from the camera to never go below its own
+        // scaled radius (+15% margin) keeps the camera looking at its
+        // near surface instead of winding up inside it — by the end of
+        // the throw the clamp is doing most of the work (the naive
+        // target alone would already be nearly on top of the camera),
+        // holding the crystal just far enough in front to stay
+        // genuinely visible while its own scale by then is large
+        // enough to fill past the camera's own FOV regardless
+        const camPos = this.camera.position;
+        const toRock = targetPos.clone().sub(camPos);
+        const minDist = 0.65 * scale * 1.15;
+        if(toRock.length() < minDist) toRock.setLength(minDist);
+        this.floatingRock.position.copy(camPos).add(toRock);
+        this.floatingRock.scale.setScalar(scale);
+        // spin accelerates into the throw rather than holding the
+        // idle tumble's own fixed rate — a thrown object tumbling
+        // faster as it closes distance is what sells "thrown", not
+        // "drifting"
+        this.floatingRock.rotation.y += 0.02 + te * 0.14;
+        this.floatingRock.rotation.x += 0.014 + te * 0.09;
+      } else {
+        this._rockTime = (this._rockTime || 0) + 0.016;
+        this.floatingRock.position.y = this._rockBaseY + Math.sin(this._rockTime * 0.6) * 0.08;
+        this.floatingRock.rotation.y += 0.0011;
+        this.floatingRock.rotation.x += 0.0006;
+        // scale/x/z only ever get touched by the throw branch above —
+        // reset explicitly on the way back in (scrolling back up after
+        // a throw) rather than assuming they're still at rest, since
+        // nothing else restores them
+        this.floatingRock.scale.setScalar(1);
+        this.floatingRock.position.x = this._rockRestPos.x;
+        this.floatingRock.position.z = this._rockRestPos.z;
+      }
     }
     if(this.floorRippleUniforms){
       this.floorRippleUniforms.uRippleOffset.value.x += 0.00035;

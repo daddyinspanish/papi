@@ -14,7 +14,7 @@ window.scrollTo(0, 0);
 
 // a stable stand-in for 100vh, computed once up front rather than
 // trusting the CSS vh unit directly — see the long comment on
-// .contrast-section in style.css. Some in-app browsers (Instagram's
+// .process-room-section in style.css. Some in-app browsers (Instagram's
 // own chief among them) keep recomputing vh continuously as their own
 // embedded chrome slides in/out while scrolling, not just once like
 // iOS Safari; adding the newer svh CSS unit as an override helped but
@@ -91,152 +91,104 @@ window.scrollTo(0, 0);
   <!-- a simple 3D alcove (Three.js, js/process-room.js) — one arched
        opening, a reflective floor, a glass hero object — lit almost
        entirely by a real HDRI sky rather than hand-placed point
-       lights, with a small continuous camera push driven by scroll.
-       Same tall-outer-section + sticky-inner-viewport pattern as
-       .contrast-section: scrolling through the outer section's own
-       height keeps the canvas pinned. -->
+       lights, with the camera now stopping at 4 waypoints as you
+       scroll (sphere/stairs/chairs/rock), one per process step — see
+       js/process-room.js's own _buildKeyframes/_updateProcessStep.
+       Tall-outer-section + sticky-inner-viewport pattern: scrolling
+       through the outer section's own height keeps the canvas pinned. -->
   <section class="process-room-section" id="processRoom">
     <div class="process-room-sticky">
       <canvas id="processRoomCanvas" aria-hidden="true"></canvas>
+      <!-- a neon-sign-style quick nav, shown only during the wide
+           establishing shot (see .process-neon-menu's own opacity,
+           driven by process-room.js's _updateProcessStep alongside the
+           "Welcome" text below — same lifecycle, same crossfade). Real
+           <a> links (not JS-driven scroll) so they stay keyboard/
+           screen-reader navigable and work even if the 3D scene fails
+           to load; html{scroll-behavior:smooth} (index.html's own
+           <head>) already makes plain anchor jumps ease in rather than
+           snapping -->
+      <nav class="process-neon-menu" id="processNeonMenu" aria-label="Quick links">
+        <a href="#liveDemoSection" class="process-neon-link">Our Projects</a>
+        <span class="process-neon-dot" aria-hidden="true"></span>
+        <a href="#comparisonSection" class="process-neon-link">Results</a>
+        <span class="process-neon-dot" aria-hidden="true"></span>
+        <a href="#quoteSection" class="process-neon-link">Get Started</a>
+      </nav>
+      <!-- purely decorative overlay, kept in sync with the camera's
+           own 5-stage position by process-room.js every frame (a wide
+           establishing "Welcome" shot, then the 4 numbered process
+           steps) — the process itself isn't described anywhere else on
+           the page, so this is the only copy of it, but it's tightly
+           coupled to a 3D scene with no static fallback, same
+           treatment as the canvas itself -->
+      <div class="process-step" id="processStep" aria-hidden="true">
+        <span class="process-step-number" id="processStepNumber">Welcome</span>
+        <span class="process-step-label" id="processStepLabel">Scroll to proceed</span>
+      </div>
     </div>
   </section>
 
 </main>
 
-<!-- ============ CONTRAST — the same fake business shown as two
-     websites: a flat generic template underneath, and an immersive
-     Papi-built version that wipes across on top as the visitor
-     scrolls. Makes the value of the design work visible rather than
-     just claimed in copy. The heading now lives inside the pinned
-     sticky itself, as an absolutely-positioned intro layer that fades/
-     rises in, holds for a beat with a "keep scrolling" cue, then hands
-     off to the stage fading/scaling in over it — one continuous
-     scroll-driven scene instead of a static heading followed by a
-     separate reveal. Being position:absolute means it never competes
-     with the stage for the sticky's own vertical space (see
-     js/contrast.js for the timeline). ============ -->
-<section class="contrast-section" id="contrastSection">
-  <div class="contrast-sticky">
-    <div class="contrast-intro" id="contrastIntro">
-      <p class="contrast-eyebrow">Same Business. Two Websites.</p>
-      <h2 class="contrast-heading"><span class="contrast-heading-one" id="contrastHeadingOne">One</span> of these sites turns visitors into customers.<br><em id="contrastHeadingEm">The other gets ignored.</em></h2>
-      <div class="contrast-scroll-cue" id="contrastScrollCue">
-        <span class="contrast-scroll-cue-dot"></span>
-        <span class="contrast-scroll-cue-label">Keep scrolling to see the transformation</span>
-      </div>
-    </div>
-    <div class="contrast-stage-wrap">
-      <div class="contrast-stage-title" id="contrastStageTitle">
-        <span class="contrast-stage-title-before">Old Website</span>
-        <span class="contrast-stage-title-after">Papi Website</span>
-      </div>
-      <div class="contrast-stage" id="contrastStage">
-      <div class="mock mock-before">
-        <div class="mock-nav">
-          <span class="mock-logo">Anderson Plumbing</span>
-          <span class="mock-links">Home&nbsp;&nbsp;&nbsp;Services&nbsp;&nbsp;&nbsp;About&nbsp;&nbsp;&nbsp;Contact</span>
-        </div>
-        <div class="mock-social-row">
-          <span class="mock-social-badge mock-social-badge--myspace">myspace</span>
-          <span class="mock-social-badge mock-social-badge--tumblr">Tumblr</span>
-        </div>
-        <div class="mock-hero">
-          <h3>Welcome to Anderson Plumbing</h3>
-          <p>We provide plumbing services for homes and businesses.</p>
-          <span class="mock-btn">Contact Us</span>
-        </div>
-        <div class="mock-photo-broken">
-          <span class="mock-photo-broken-icon">🖼</span>
-          <span>No image uploaded</span>
-        </div>
-        <div class="mock-cards">
-          <div class="mock-card">Drain Cleaning</div>
-          <div class="mock-card">Water Heaters</div>
-          <div class="mock-card">Leak Repair</div>
-        </div>
-      </div>
-      <div class="mock mock-after" id="mockAfter">
-        <div class="mock-nav mock-nav--after">
-          <span class="mock-logo mock-logo--after">Anderson <em>Plumbing</em></span>
-          <span class="mock-btn mock-btn--after mock-btn--small">Get a Quote</span>
-        </div>
-        <div class="mock-hero mock-hero--after">
-          <div class="mock-hero-bg">
-            <!-- drop the real file at videos/plumbing-hero.mp4 (any
-                 filename works, just update the src below) — until
-                 then this silently falls back to the dark gradient
-                 already set as .mock-hero-bg's own background -->
-            <video class="mock-hero-video" autoplay muted loop playsinline>
-              <source src="videos/plumbing-hero.mp4" type="video/mp4">
-            </video>
-            <div class="mock-hero-overlay"></div>
-            <div class="mock-hero-glow mock-hero-glow--a"></div>
-            <div class="mock-hero-glow mock-hero-glow--b"></div>
-          </div>
-          <div class="mock-hero-grid">
-            <div class="mock-hero-copy">
-              <p class="mock-eyebrow--after">Trusted Local Plumbers</p>
-              <h3>Built to <em>protect</em><br>what matters most</h3>
-              <p class="mock-sub--after">Fast, reliable plumbing — from first leak to full install.</p>
-              <span class="mock-btn mock-btn--after">Book a Free Estimate</span>
-              <div class="mock-stats">
-                <div class="mock-stat">
-                  <strong class="mock-counter" data-target="500">0</strong>
-                  <span>Jobs Completed</span>
-                </div>
-                <div class="mock-stat">
-                  <strong class="mock-counter" data-target="49" data-decimal="1">0</strong>
-                  <span>Average Rating</span>
-                </div>
-              </div>
-            </div>
-            <div class="mock-hero-visual">
-              <div class="mock-photo-card">
-                <img src="img/mock/plumber-portrait.jpg" alt="" loading="lazy">
-              </div>
-              <div class="mock-review-float">
-                <div class="mock-review-avatar"><img src="img/reviews/customer-1.jpg" alt="" loading="lazy"></div>
-                <div class="mock-review-body">
-                  <span class="mock-review-stars">★★★★★</span>
-                  <p>“Fixed our leak in under an hour. Incredible service.”</p>
-                  <span class="mock-review-name">Jamie D., verified customer</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="mock-services-marquee">
-          <div class="mock-services-track">
-            <span class="mock-service-pill">Drain Cleaning</span>
-            <span class="mock-service-pill">Water Heaters</span>
-            <span class="mock-service-pill">Leak Repair</span>
-            <span class="mock-service-pill">Pipe Installation</span>
-            <span class="mock-service-pill">Emergency Service</span>
-            <span class="mock-service-pill">Bathroom Remodels</span>
-            <span class="mock-service-pill" aria-hidden="true">Drain Cleaning</span>
-            <span class="mock-service-pill" aria-hidden="true">Water Heaters</span>
-            <span class="mock-service-pill" aria-hidden="true">Leak Repair</span>
-            <span class="mock-service-pill" aria-hidden="true">Pipe Installation</span>
-            <span class="mock-service-pill" aria-hidden="true">Emergency Service</span>
-            <span class="mock-service-pill" aria-hidden="true">Bathroom Remodels</span>
-          </div>
-        </div>
-      </div>
-      <div class="contrast-divider" id="contrastDivider"><i></i></div>
-      </div>
+<!-- ============ LIVE DEMOS — now the first section after the hero: the
+     before/after comparison section that used to sit here is gone
+     entirely (removed per direct request), so a visitor reaches real
+     examples of Papi's own work immediately. Real, live, scrollable
+     embeds of sites Papi has actually built (not screenshots or
+     mockups) — swipe to browse more than one, scroll *inside* the
+     window itself to explore that actual live site. Cards are built
+     by js/live-demo.js from a small data array, so adding another
+     demo later is just appending to it. ============ -->
+<section class="live-demo-section" id="liveDemoSection">
+  <div class="live-demo-inner">
+    <p class="live-demo-eyebrow">See It Live</p>
+    <h2 class="live-demo-title">Not a screenshot. <em>The real site.</em></h2>
+    <p class="live-demo-sub">Scroll inside the window below — it's the actual live website, not a mockup.</p>
+    <div class="live-demo-stack" id="liveDemoStack"></div>
+    <div class="live-demo-controls" id="liveDemoControls">
+      <button type="button" class="live-demo-arrow" id="liveDemoPrev" aria-label="Previous demo">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="live-demo-dots" id="liveDemoDots"></div>
+      <button type="button" class="live-demo-arrow" id="liveDemoNext" aria-label="Next demo">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
     </div>
   </div>
 </section>
 
-<!-- ============ SHOWCASE — fan of live previews + business list ============ -->
-<section class="showcase" id="showcase">
-  <div class="showcase-bg showcase-bg--dark" aria-hidden="true"></div>
-  <div class="showcase-sticky">
-    <h2 class="showcase-title" id="showcaseTitle">Papi&rsquo;s mission is to design an experience that guides your customer to buy from your company</h2>
-    <p class="showcase-subtitle">For every industry.</p>
-    <div class="showcase-items" id="showcaseItems"></div>
-    <div class="showcase-fan" id="showcaseFan">
-      <p class="showcase-phrase" id="showcasePhrase"></p>
+<!-- ============ TRADES — a small, continuously scrolling strip of the
+     industries Papi designs for, sitting right below the live demos.
+     Replaces the old fan-of-preview-cards showcase section entirely
+     (removed per direct request) — keeps only the scrolling trade-name
+     list from that section, now a compact ambient strip instead of its
+     own tall scroll-jacked section. Pure CSS marquee, no JS at all —
+     see .trades-track's own comment in style.css for how the seamless
+     loop works. Trade names listed twice (second copy aria-hidden) is
+     the standard marquee technique, not a mistake. ============ -->
+<section class="trades-section" id="tradesSection">
+  <p class="trades-label">Industries we design for</p>
+  <div class="trades-track">
+    <div class="trades-track-group">
+      <span class="trades-item">Roofing</span>
+      <span class="trades-item">Dentists</span>
+      <span class="trades-item">Plumbers</span>
+      <span class="trades-item">Electricians</span>
+      <span class="trades-item">Real Estate</span>
+      <span class="trades-item">Law Firms</span>
+      <span class="trades-item">Restaurants</span>
+      <span class="trades-item">Fitness Studios</span>
+    </div>
+    <div class="trades-track-group" aria-hidden="true">
+      <span class="trades-item">Roofing</span>
+      <span class="trades-item">Dentists</span>
+      <span class="trades-item">Plumbers</span>
+      <span class="trades-item">Electricians</span>
+      <span class="trades-item">Real Estate</span>
+      <span class="trades-item">Law Firms</span>
+      <span class="trades-item">Restaurants</span>
+      <span class="trades-item">Fitness Studios</span>
     </div>
   </div>
 </section>
@@ -289,37 +241,9 @@ window.scrollTo(0, 0);
   </div>
 </section>
 
-<!-- ============ LIVE DEMOS — real, live, scrollable embeds of sites
-     Papi has actually built (not screenshots or mockups) — swipe to
-     browse more than one, scroll *inside* the window itself to
-     explore that actual live site. Cards are built by js/live-demo.js
-     from a small data array, so adding another demo later is just
-     appending to it. ============ -->
-<section class="live-demo-section" id="liveDemoSection">
-  <div class="live-demo-inner">
-    <p class="live-demo-eyebrow">See It Live</p>
-    <h2 class="live-demo-title">Not a screenshot. <em>The real site.</em></h2>
-    <p class="live-demo-sub">Scroll inside the window below — it's the actual live website, not a mockup.</p>
-    <div class="live-demo-stack" id="liveDemoStack"></div>
-    <div class="live-demo-controls" id="liveDemoControls">
-      <button type="button" class="live-demo-arrow" id="liveDemoPrev" aria-label="Previous demo">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
-      </button>
-      <div class="live-demo-dots" id="liveDemoDots"></div>
-      <button type="button" class="live-demo-arrow" id="liveDemoNext" aria-label="Next demo">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
-      </button>
-    </div>
-  </div>
-</section>
-
 <!-- ============ TESTIMONIALS — businesses across industries, swipe
      left/right to browse (independent of scrolling down the page) ============ -->
 <section class="testimonials-section" id="testimonialsSection">
-  <div class="testimonials-bg" aria-hidden="true">
-    <span class="t-glow t-glow--a"></span>
-    <span class="t-glow t-glow--b"></span>
-  </div>
   <div class="testimonials-sticky">
     <p class="testimonials-eyebrow">Trusted across industries</p>
     <h2 class="testimonials-heading">What business owners say</h2>
@@ -541,8 +465,20 @@ window.scrollTo(0, 0);
   <span class="cursor-dot"></span>
 </div>
 
+<!-- the hero's own exit transition — a full-viewport blue veil that
+     fades in as the crystal is "thrown" at the camera on the last
+     stretch of the hero's own scroll, then fades back out over the
+     first stretch of the live-demo section beneath it. position:fixed
+     at the body level on purpose (not nested inside the hero's own
+     sticky) — a transformed/positioned ancestor hijacks position:fixed
+     centering, the same class of bug already hit once with the fan-
+     card expand — driven entirely by js/process-room.js's own
+     _updateVeil, independent of the hero's 3D render loop so it keeps
+     working after the hero itself has scrolled past and un-pinned -->
+<div class="hero-veil" id="heroVeil" aria-hidden="true"></div>
+
 <!-- ============ NEWSLETTER POPUP — triggered once, the first time the
-     visitor scrolls past the before/after section ============ -->
+     visitor scrolls past the live-demo section ============ -->
 <div class="newsletter-popup" id="newsletterPopup" aria-hidden="true">
   <div class="newsletter-popup-backdrop" id="newsletterBackdrop"></div>
   <div class="newsletter-popup-card" role="dialog" aria-modal="true" aria-labelledby="newsletterTitle">
@@ -602,8 +538,6 @@ window.scrollTo(0, 0);
 </script>
 <script type="module" src="js/process-room.js"></script>
 <script src="js/title-dock.js"></script>
-<script src="js/contrast.js"></script>
-<script src="js/showcase.js"></script>
 <script src="js/testimonials.js"></script>
 <script src="js/comparison-chart.js"></script>
 <script src="js/live-demo.js"></script>

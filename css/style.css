@@ -8,9 +8,19 @@
   --ink-soft: #17171a;
   --cream: #f3ede2;
   --cream-dim: #cfc7b8;
-  --gold: #cba869;
-  --gold-soft: #e4cd9a;
-  --gold-deep: #8a6a1f; /* darker gold for legibility over light backgrounds */
+  /* names kept as --gold* on purpose (not renamed to --blue*) — every
+     var(--gold...) reference site-wide still means "the one brand
+     accent color," which is what actually matters; only the VALUE
+     changed, from gold to light blue, per direct request to move the
+     whole site off yellow/gold. Each new value is the old gold's exact
+     R/G/B with the red and blue channels swapped (#RRGGBB → #BBGGRR)
+     — a deliberate, systematic transform rather than eyeballed
+     replacements, so every color keeps the same luminance/contrast
+     relationships it had before (anywhere the old gold was legible
+     against black or white, the new blue still is) */
+  --gold: #69a8cb;
+  --gold-soft: #9acde4;
+  --gold-deep: #1f6a8a; /* darker blue for legibility over light backgrounds */
 
   /* luxury white — used for the showcase section */
   --paper: #f8f6f2;
@@ -24,11 +34,12 @@
      in particular used to default to a light cream (right for the old
      near-black hero); switched to a dark tone here since it's what the
      brand mark/CTA border/"purpose" fall back to against the new white
-     hero background. */
-  --accent: 201, 168, 105;      /* r,g,b */
+     hero background. --accent/--accent-tint's own R/B channels swapped
+     the same way as --gold above, for the same reason */
+  --accent: 105, 168, 201;      /* r,g,b */
   --style-contrast: 26, 20, 13;
   /* soft cream-blended tint of --accent, used for supporting text */
-  --accent-tint: 222, 208, 180;
+  --accent-tint: 180, 208, 222;
 
   --ease-out: cubic-bezier(.16,1,.3,1);
   --ease-in-out: cubic-bezier(.65,0,.35,1);
@@ -231,7 +242,7 @@ body, a{ cursor:none; }
      character's own position in it, so splitting into per-character
      spans still reads as one continuous sweep rather than separate
      mini-gradients repeating on each letter. */
-  background-image:linear-gradient(100deg, #8a6a1f 0%, #d4af37 25%, #fff6d8 50%, #d4af37 75%, #8a6a1f 100%);
+  background-image:linear-gradient(100deg, #1f6a8a 0%, #37afd4 25%, #d8f6ff 50%, #37afd4 75%, #1f6a8a 100%);
   background-size:250% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -391,7 +402,7 @@ body, a{ cursor:none; }
 }
 .closing-brand-line em{
   font-style:italic;
-  color:#ffdd7a;
+  color:#7addff;
 }
 
 /* the row of clickable social icons, tucked at the bottom of
@@ -472,20 +483,52 @@ body, a{ cursor:none; }
 }
 
 /* ---- process room — a real 3D space (Three.js, js/process-room.js),
-   the site's hero itself — same tall-outer-section + sticky-inner-
-   viewport pattern as .contrast-section below: scrolling through the
-   outer section's own height keeps .process-room-sticky pinned in the
-   viewport while the camera travels a fixed path through the room. ---- */
+   the site's hero itself: scrolling through the outer section's own
+   height keeps .process-room-sticky pinned in the viewport while the
+   camera travels a fixed path through the room. ---- */
 .process-room-section{
   position:relative;
-  /* a single, mostly-static camera push — 320vh gives that push a
-     comfortable, still-brisk scroll distance to play out over */
-  height:320vh;
-  /* svh + --stable-vh — see the long comment on .contrast-section
-     below for why plain vh alone isn't enough on several in-app
-     browsers */
-  height:320svh;
-  height:calc(320 * var(--stable-vh, 1vh));
+  /* a real 5-stop journey (a wide establishing shot, then 4 process-
+     step stops) plus one final exit phase — raised from an original
+     320vh (4 stops/3 segments) to 420vh (5 stops/4 segments) to 480vh
+     now, each raise keeping the earlier segments' own real scroll
+     distance intact rather than compressing everything to fit the old
+     total. The newest 60vh is CONFIG.THROW_START's own share (see
+     process-room.js) — the crystal's own throw-at-camera animation
+     and the hero-veil's blue crossfade into the live demos below,
+     which need genuine scroll distance of their own to play out over,
+     same as every other stop here */
+  height:480vh;
+  /* svh ("small" viewport height) instead of plain vh for this and
+     every other scroll-distance-defining height on the page — plain
+     vh tracks the browser chrome's CURRENT collapsed/expanded state on
+     several in-app browsers (Instagram/Facebook/TikTok's own embedded
+     WebViews chief among them; iOS Safari itself only recalculates vh
+     once, on the first scroll of a session, but these apps' own chrome
+     keeps sliding in and out continuously as you scroll). At this
+     section's own multiplier, that live recompute doesn't just nudge
+     this section's own height — it swings the ENTIRE page's total
+     scrollable height by hundreds of pixels in real time while
+     scrolling, which reads as sections "jumping" further down the
+     page: the visitor's actual scrollY (a fixed pixel offset) keeps
+     landing on a completely different section every time the layout
+     above it re-settles. svh is pinned to the chrome's fully-expanded
+     (smallest) state and never changes as chrome auto-hides, so this
+     section's height — and the page's total height along with it —
+     stays put for the entire scroll. Old browsers without svh support
+     just ignore this line and keep the vh value above.
+
+     Turned out not to be enough on its own: some in-app browsers'
+     bundled WebKit predates real svh support, so the svh line above
+     silently never engages there and the original bug is right back.
+     --stable-vh (computed once by the inline script in index.html's
+     <head>, re-measured only on a genuine width change) is the
+     bulletproof final layer — plain arithmetic, no dependency on which
+     CSS units the browser happens to understand. Every other section
+     on the page with its own scroll-distance height reuses this same
+     --stable-vh rather than repeating this explanation. */
+  height:480svh;
+  height:calc(480 * var(--stable-vh, 1vh));
   background:var(--paper);
 }
 .process-room-sticky{
@@ -518,1253 +561,206 @@ body, a{ cursor:none; }
   opacity:1;
 }
 
+/* the neon-sign quick nav — only ever visible during the wide
+   establishing shot (stage 0), fading out in lockstep with the
+   "Welcome" text below as soon as the visitor starts scrolling into
+   the actual process steps. Comes out "above the arch" per direct
+   request: positioned near the very top of the sticky viewport, which
+   is roughly where the arch's own top edge sits in that wide framing.
+   Layered text-shadow (not a blur filter — cheaper, and a filter would
+   force its own compositing layer for no benefit here) is the classic
+   CSS neon-tube technique: several glow layers at increasing blur
+   radius stacked on the same flat-coloured text */
+.process-neon-menu{
+  position:absolute;
+  left:50%;
+  top:7%;
+  transform:translateX(-50%);
+  z-index:4;
+  display:flex;
+  align-items:center;
+  gap:clamp(.9rem, 2.2vw, 1.6rem);
+  opacity:0;
+  pointer-events:none;
+}
+.process-neon-link{
+  font-family:'Inter', sans-serif;
+  font-weight:700;
+  font-size:clamp(.72rem, 1.6vw, .92rem);
+  letter-spacing:.22em;
+  text-transform:uppercase;
+  color:#dff4ff;
+  text-decoration:none;
+  white-space:nowrap;
+  text-shadow:
+    0 0 4px rgba(223,244,255,.9),
+    0 0 12px rgba(122,221,255,.85),
+    0 0 26px rgba(122,221,255,.6),
+    0 0 46px rgba(47,157,255,.4);
+  animation:processNeonGlow 3.2s ease-in-out infinite;
+  transition:color .2s ease;
+}
+.process-neon-link:hover{ color:#fff; }
+.process-neon-dot{
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:#7addff;
+  box-shadow:0 0 8px 2px rgba(122,221,255,.7);
+  flex-shrink:0;
+}
+@keyframes processNeonGlow{
+  0%, 100%{ text-shadow:
+    0 0 4px rgba(223,244,255,.9),
+    0 0 12px rgba(122,221,255,.85),
+    0 0 26px rgba(122,221,255,.6),
+    0 0 46px rgba(47,157,255,.4); }
+  50%{ text-shadow:
+    0 0 5px rgba(223,244,255,1),
+    0 0 16px rgba(122,221,255,1),
+    0 0 34px rgba(122,221,255,.8),
+    0 0 60px rgba(47,157,255,.55); }
+}
+@media (max-width:860px){
+  .process-neon-menu{ top:5.5%; gap:.7rem; }
+  .process-neon-link{ font-size:clamp(.6rem, 2.6vw, .74rem); letter-spacing:.16em; }
+}
+@media (prefers-reduced-motion:reduce){
+  .process-neon-link{ animation:none; }
+}
+
+/* the process-step popup — number + label, synced every frame to
+   whichever of the camera's 5 waypoints (the wide establishing shot,
+   then sphere/stairs/chairs/crystal) it's currently nearest to (see
+   process-room.js's own _updateProcessStep). opacity/transform are
+   both written directly from JS every frame rather than toggled via a
+   CSS transition — the underlying value already animates smoothly
+   frame to frame (it's a continuous function of scroll position), so
+   a second, independent CSS transition on top would just fight it */
+.process-step{
+  position:absolute;
+  left:50%;
+  bottom:9%;
+  transform:translateX(-50%);
+  z-index:4;
+  text-align:center;
+  pointer-events:none;
+  opacity:0;
+}
+.process-step-number{
+  display:block;
+  font-family:'Fraunces', serif;
+  font-style:italic;
+  font-weight:500;
+  font-size:clamp(2.2rem, 5.6vw, 3.6rem);
+  line-height:1;
+  color:#7addff;
+  text-shadow:0 0 40px rgba(122,221,255,.35);
+}
+.process-step-label{
+  display:block;
+  margin-top:.35rem;
+  font-family:'Inter', sans-serif;
+  font-size:.76rem;
+  font-weight:600;
+  letter-spacing:.34em;
+  text-transform:uppercase;
+  color:rgba(243,237,226,.85);
+}
+@media (max-width:860px){
+  .process-step{ bottom:7%; }
+  .process-step-number{ font-size:clamp(1.9rem, 8vw, 2.6rem); }
+  .process-step-label{ font-size:.66rem; letter-spacing:.28em; }
+}
+
 @media (prefers-reduced-motion:no-preference){
   html{ scroll-behavior:smooth; }
 }
-
-/* ===================================================================
-   CONTRAST — the same fake business ("Anderson Plumbing") built two
-   ways: a flat generic template underneath, an immersive Papi-style
-   version wiping across on top as the visitor scrolls (js/contrast.js
-   drives --wipe, a 0%..100% custom property, off scroll position —
-   same tall-outer-section-plus-sticky-inner-viewport pattern as the
-   showcase/testimonials sections below it). The heading/cue intro and
-   the stage both live inside the sticky now, sequenced by scroll
-   position rather than the heading sitting in normal flow before it.
-=================================================================== */
-.contrast-section{
-  position:relative;
-  height:400vh;
-  /* svh ("small" viewport height) instead of plain vh for this and
-     every other scroll-distance-defining height on the page — plain
-     vh tracks the browser chrome's CURRENT collapsed/expanded state on
-     several in-app browsers (Instagram/Facebook/TikTok's own embedded
-     WebViews chief among them; iOS Safari itself only recalculates
-     vh once, on the first scroll of a session, but these apps' own
-     chrome keeps sliding in and out continuously as you scroll). At a
-     4x multiplier (400vh) that live recompute doesn't just nudge this
-     section's own height — it swings the ENTIRE page's total
-     scrollable height by hundreds of pixels in real time while
-     scrolling, which is what read as sections "jumping" back and
-     forth between the numbers section and the form near the bottom of
-     the page: the visitor's actual scrollY (a fixed pixel offset) kept
-     landing on a completely different section every time the layout
-     above it re-settled. svh is pinned to the chrome's fully-expanded
-     (smallest) state and never changes as chrome auto-hides, so this
-     section's height — and the page's total height along with it —
-     stays put for the entire scroll. Old browsers without svh support
-     just ignore this line and keep the vh value above.
-
-     Turned out not to be enough on its own: some in-app browsers'
-     bundled WebKit predates real svh support, so the svh line above
-     silently never engages there and the original bug is right back.
-     --stable-vh (computed once by the inline script in index.html's
-     <head>, re-measured only on a genuine width change) is the
-     bulletproof final layer — plain arithmetic, no dependency on which
-     CSS units the browser happens to understand. */
-  height:400svh;
-  height:calc(400 * var(--stable-vh, 1vh));
-  background:#f2efe8;
-  z-index:1;
-}
-.contrast-sticky{
-  position:sticky;
-  top:0;
-  height:100vh;
-  height:100svh;
-  height:calc(100 * var(--stable-vh, 1vh));
-  overflow:hidden;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-
-/* the heading/cue intro layer — absolutely positioned over the sticky
-   rather than a flex sibling of the stage, so it never competes with
-   the stage for vertical space (that fight is exactly what caused the
-   mobile empty-space bug the stage sizing already had to solve once).
-   It fades/rises in, then js/contrast.js fades it back out as the
-   stage fades/scales in over the same spot — a handoff, not two boxes
-   stacked in a column. */
-.contrast-intro{
-  position:absolute;
-  inset:0;
-  z-index:2;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-start;
-  text-align:center;
-  padding:clamp(4rem, 12vh, 7rem) 1.5rem 0;
-  pointer-events:none;
-}
-.contrast-eyebrow{
-  font-size:.78rem;
-  font-weight:600;
-  letter-spacing:.16em;
-  text-transform:uppercase;
-  color:var(--gold-deep);
-  margin-bottom:.9rem;
-}
-/* Space Grotesk, not Fraunces — a firmer, more confident sans rather
-   than the softer editorial serif everything else near here uses;
-   already loaded elsewhere on the page (the testimonials heading) so
-   this doesn't add another font fetch */
-.contrast-heading{
-  font-family:'Space Grotesk', 'Inter', sans-serif;
-  font-weight:700;
-  letter-spacing:-.01em;
-  font-size:clamp(1.5rem, 3.4vw, 2.35rem);
-  line-height:1.3;
-  max-width:640px;
-  margin:0 auto;
-  color:var(--paper-ink);
-}
-/* "One" gets its own scroll-driven entrance (see js/contrast.js) — comes
-   in separately from the rest of the sentence and settles into gold
-   rather than just fading in the same ink color as everything else */
-.contrast-heading-one{
-  display:inline-block;
-}
-/* typed out character-by-character as the visitor scrolls (see
-   js/contrast.js) rather than just fading in — a deliberate reveal to
-   match how deliberately dismissive the line itself reads. Red rather
-   than the rest of the heading's ink/gold palette: this is the one
-   negative beat in the sequence ("...gets ignored"), and reads as a
-   warning precisely because it breaks from every other color used here */
-.contrast-heading em{
-  font-style:italic;
-  font-weight:400;
-  color:#b3392c;
-}
-.contrast-heading em .type-char{ opacity:0; }
-/* a thin blinking caret right after the last typed character — only
-   meaningful while typing is actually in progress; js/contrast.js
-   toggles .is-typing on/off around that window */
-.contrast-heading-em-cursor{
-  display:inline-block;
-  width:2px;
-  margin-left:1px;
-  color:#b3392c;
-  opacity:0;
-}
-.contrast-heading-em-cursor.is-typing{
-  animation:contrastCaretBlink .9s step-end infinite;
-}
-@keyframes contrastCaretBlink{
-  0%, 49%{ opacity:1; }
-  50%, 100%{ opacity:0; }
-}
-
-/* "keep scrolling" cue — same pulsing-ring technique as
-   .fan-card-exit-dot's hintPulse, retuned to gold-deep so the ring
-   reads against this section's light backdrop instead of the dark
-   sections that pattern was built for elsewhere */
-.contrast-scroll-cue{
-  margin-top:2.2rem;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:.6rem;
-}
-.contrast-scroll-cue-dot{
-  width:8px;
-  height:8px;
-  border-radius:50%;
-  background:var(--gold-deep);
-  animation:contrastCuePulse 1.8s ease-out infinite;
-}
-@keyframes contrastCuePulse{
-  0%{ box-shadow:0 0 0 0 rgba(138,106,31,.45); }
-  70%{ box-shadow:0 0 0 9px rgba(138,106,31,0); }
-  100%{ box-shadow:0 0 0 0 rgba(138,106,31,0); }
-}
-.contrast-scroll-cue-label{
-  font-size:clamp(.92rem, 2.1vw, 1.08rem);
-  font-weight:700;
-  letter-spacing:.12em;
-  text-transform:uppercase;
-  color:var(--gold-deep);
-  animation:contrastCueBlink 1.1s ease-in-out infinite;
-}
-@keyframes contrastCueBlink{
-  0%, 100%{ opacity:1; }
-  50%{ opacity:.32; }
-}
-
-/* wraps the stage-title + the stage itself so they stack as one flex
-   child of .contrast-sticky, instead of .contrast-sticky needing its
-   own flex-direction just to stack two real children */
-.contrast-stage-wrap{
-  position:relative;
-  z-index:2;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  flex-shrink:0;
-}
-
-/* sits above the stage with room to breathe — reads "Old Website"
-   until the wipe crosses its own halfway point, then crossfades (the
-   same before/after-label technique used elsewhere in this section)
-   into "Papi Website" in gold, right in the same spot */
-.contrast-stage-title{
-  position:relative;
-  z-index:2;
-  height:1.7em;
-  min-width:14ch;
-  margin-bottom:1.3rem;
-}
-.contrast-stage-title-before,
-.contrast-stage-title-after{
-  position:absolute;
-  inset:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  white-space:nowrap;
-  font-family:'Fraunces', serif;
-  font-weight:600;
-  font-size:clamp(1rem, 2.4vw, 1.35rem);
-  letter-spacing:.03em;
-}
-.contrast-stage-title-before{ color:var(--paper-ink); }
-.contrast-stage-title-after{ color:var(--gold-deep); opacity:0; }
-
-.contrast-stage{
-  position:relative;
-  width:min(980px, 90vw);
-  aspect-ratio:16/10;
-  border-radius:16px;
-  overflow:hidden;
-  box-shadow:0 40px 90px rgba(11,11,12,.22);
-  flex-shrink:0;
-}
-
-/* shared base for both mocked-up "websites" — identical box, stacked
-   exactly on top of each other so the wipe reads as one screen
-   changing, not two separate panels */
-.mock{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-}
-
-/* ---- BEFORE: deliberately bland — default system font, a harsh
-   "generic web" blue, boxy shadowless cards, no motion. Not a strawman
-   so much as what a huge number of small-business sites actually look
-   like. ---- */
-.mock-before{
-  background:#ffffff;
-  font-family:Arial, Helvetica, sans-serif;
-  color:#333;
-  z-index:1;
-}
-.mock-before .mock-nav{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:1.1rem 1.6rem;
-  border-bottom:1px solid #e2e2e2;
-  font-size:.85rem;
-}
-.mock-before .mock-logo{ font-weight:700; color:#222; }
-.mock-before .mock-links{ color:#1a5fb4; letter-spacing:.01em; }
-.mock-before .mock-hero{
-  text-align:center;
-  padding:clamp(1.6rem,5vw,3.2rem) 1.5rem clamp(1.2rem,3vw,2rem);
-}
-.mock-before .mock-hero h3{
-  font-size:clamp(1.15rem, 3vw, 1.7rem);
-  font-weight:700;
-  color:#222;
-  margin-bottom:.6rem;
-}
-.mock-before .mock-hero p{
-  font-size:.85rem;
-  color:#555;
-  margin-bottom:1.1rem;
-}
-.mock-before .mock-btn{
-  display:inline-block;
-  background:#2563eb;
-  color:#fff;
-  font-size:.82rem;
-  font-weight:700;
-  padding:.55rem 1.3rem;
-  border-radius:3px;
-  box-shadow:0 2px 4px rgba(0,0,0,.2);
-}
-.mock-before .mock-cards{
-  display:flex;
-  gap:.9rem;
-  padding:0 1.5rem 1.5rem;
-}
-.mock-before .mock-card{
-  flex:1;
-  background:#fff;
-  border:1px solid #ddd;
-  border-radius:4px;
-  padding:.9rem .7rem;
-  text-align:center;
-  font-size:.78rem;
-  font-weight:700;
-  color:#444;
-  box-shadow:0 1px 3px rgba(0,0,0,.08);
-}
-/* dated "follow us" badges — a small, very recognizable "this hasn't
-   been touched in years" signal. Text-only approximations of the old
-   platforms' own look rather than reproductions of their actual marks. */
-.mock-social-row{
-  display:flex;
-  gap:.5rem;
-  padding:.6rem 1.6rem 0;
-}
-.mock-social-badge{
-  font-size:.66rem;
-  font-weight:700;
-  padding:.25rem .6rem;
-  border-radius:3px;
-  color:#fff;
-  font-family:Arial, Helvetica, sans-serif;
-}
-.mock-social-badge--myspace{ background:#003399; }
-.mock-social-badge--tumblr{ background:#001935; }
-/* the classic broken/empty-state placeholder — the fastest possible
-   signal that a page was never finished */
-.mock-photo-broken{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:.3rem;
-  margin:0 1.6rem 1.2rem;
-  padding:1.4rem 1rem;
-  border:1.5px dashed #ccc;
-  border-radius:4px;
-  background:#fafafa;
-  color:#999;
-  font-size:.72rem;
-}
-.mock-photo-broken-icon{ font-size:1.3rem; opacity:.6; }
-
-/* ---- AFTER: the Papi treatment of the exact same business/content —
-   Fraunces serif, gold accents, generous space, the site's own real
-   pill-button language. Clipped by --wipe (js/contrast.js), revealing
-   left-to-right over .mock-before beneath it. ---- */
-.mock-after{
-  background:linear-gradient(160deg, #fffaf0 0%, #ffffff 60%);
-  font-family:'Fraunces', serif;
-  color:var(--paper-ink);
-  z-index:2;
-  clip-path:inset(0 var(--wipe, 100%) 0 0);
-}
-.mock-nav--after{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:1.3rem 1.8rem;
-}
-.mock-logo--after{ font-size:1rem; letter-spacing:.02em; }
-.mock-logo--after em{ font-style:italic; color:#2e6bff; }
-
-/* the "after" hero isn't just the same layout in nicer type — a dark,
-   immersive banner (a real video behind the text, ambient blurred
-   glows drifting slowly, a shine-sweep on the emphasized word) is
-   what actually reads as "immersive," where the first attempt at this
-   (same content, just Fraunces + gold instead of Arial + blue) only
-   ever read as "a nicer-looking version of the same page." Blue/black
-   rather than the original gold — a deliberate palette swap so this
-   mock doesn't just look like a smaller copy of the real Papi hero. */
-.mock-hero--after{
-  position:relative;
-  overflow:visible;
-  background:radial-gradient(120% 100% at 50% 15%, #0d1b2e 0%, #060a10 65%, #020305 100%);
-  text-align:center;
-  padding:clamp(1.8rem,4.5vw,2.8rem) 1.5rem clamp(2rem,4.5vw,2.8rem);
-  color:#eaf1fb;
-}
-.mock-hero-bg{
-  position:absolute;
-  inset:0;
-  overflow:hidden;
-  pointer-events:none;
-}
-/* the real video, once one is attached at videos/plumbing-hero.mp4 —
-   until then there's simply no source to load, and .mock-hero--after's
-   own dark gradient (behind this element) shows through untouched */
-.mock-hero-video{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  /* pans the visible crop of the frame slowly from top to bottom and
-     back, on a loop independent of the video's own runtime — reads as
-     the page in the footage being scrolled down (and back up) so more
-     of the "after" template is visible over time, rather than the
-     video just sitting on one fixed crop the whole time it plays */
-  animation:mockVideoPan 14s ease-in-out infinite alternate;
-}
-@keyframes mockVideoPan{
-  0%{ object-position:50% 0%; }
-  100%{ object-position:50% 100%; }
-}
-/* darkens/evens out whatever the video actually shows so the copy and
-   CTA stay legible regardless of its own brightness/color */
-.mock-hero-overlay{
-  position:absolute;
-  inset:0;
-  background:linear-gradient(180deg, rgba(2,4,8,.5) 0%, rgba(2,4,8,.72) 100%);
-}
-/* filter:blur() removed — even while contrast.js pauses the drift
-   keyframe below once scrolled out of view, the blur filter itself
-   still costs a WebKit recomposite on every frame the drift animation
-   IS running (the whole time this section is actually being viewed).
-   Multiple gradient stops give the same soft glow without it. */
-.mock-hero-glow{
-  position:absolute;
-  border-radius:50%;
-}
-.mock-hero-glow--a{
-  width:60%;
-  aspect-ratio:1;
-  top:-22%;
-  left:-12%;
-  background:radial-gradient(circle, rgba(79,157,255,.32) 0%, rgba(79,157,255,.16) 35%, rgba(79,157,255,.05) 60%, transparent 80%);
-  animation:mockGlowDrift 9s ease-in-out infinite;
-}
-.mock-hero-glow--b{
-  width:50%;
-  aspect-ratio:1;
-  bottom:-26%;
-  right:-10%;
-  background:radial-gradient(circle, rgba(46,107,255,.26) 0%, rgba(46,107,255,.13) 35%, rgba(46,107,255,.04) 60%, transparent 80%);
-  animation:mockGlowDrift 11s ease-in-out infinite reverse;
-}
-@keyframes mockGlowDrift{
-  0%, 100%{ transform:translate(0,0) scale(1); }
-  50%{ transform:translate(5%,6%) scale(1.15); }
-}
-/* a real two-column hero — headline/CTA/stats on one side, a photo
-   panel + a floating customer review on the other — rather than the
-   single centred text block every generic template (and the first
-   "after" attempt) uses. This is the structural change that actually
-   reads as a different, richer page, not just a recolored one. */
-.mock-hero-grid{
+/* ============ TRADES — a small, continuously scrolling strip of the
+   industries Papi designs for. Replaces the old showcase section (a
+   huge scroll-jacked fan-card carousel, ~500 lines of CSS) entirely,
+   per direct request — keeps only the trade-name list, as a compact
+   pure-CSS marquee. Same dark radial gradient as the live-demo and
+   comparison sections either side of it, so the whole stretch reads
+   as one continuous dark zone rather than three separate blocks. ============ */
+.trades-section{
   position:relative;
   z-index:1;
-  display:grid;
-  grid-template-columns:1.1fr .9fr;
-  gap:1.8rem;
-  align-items:center;
-  text-align:left;
-  max-width:840px;
-  margin:0 auto;
-}
-.mock-eyebrow--after{
-  font-size:.68rem;
-  font-weight:600;
-  letter-spacing:.16em;
-  text-transform:uppercase;
-  color:#7db2ff;
-  margin-bottom:.7rem;
-}
-.mock-hero--after h3{
-  font-size:clamp(1.2rem, 2.8vw, 1.8rem);
-  font-weight:500;
-  line-height:1.25;
-  margin-bottom:.7rem;
-  color:#f4f8ff;
-}
-/* the same metallic shine-sweep technique as .quote-form-title — a
-   moving gradient clipped to the text, icy blue/white rather than gold */
-.mock-hero--after h3 em{
-  font-style:italic;
-  font-weight:400;
-  background:linear-gradient(100deg, #0a3d91 0%, #4f9dff 30%, #eaf4ff 50%, #4f9dff 70%, #0a3d91 100%);
-  background-size:250% 100%;
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
-  animation:mockShine 5s ease-in-out infinite;
-}
-@keyframes mockShine{
-  0%{ background-position:0% 50%; }
-  50%{ background-position:100% 50%; }
-  100%{ background-position:0% 50%; }
-}
-.mock-sub--after{
-  font-size:.85rem;
-  color:rgba(234,241,251,.7);
-  max-width:32ch;
-  margin:0 0 1.2rem;
-}
-.mock-btn--after{
-  display:inline-flex;
-  align-items:center;
-  gap:.4rem;
-  border:1px solid rgba(23,24,26,.3);
-  background:rgba(203,168,105,.14);
-  color:var(--paper-ink);
-  font-size:.76rem;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-  padding:.7rem 1.3rem;
-  border-radius:999px;
-}
-/* the hero's own CTA sits directly on top of a video background, so
-   it needs to hold up against arbitrary, unpredictable footage — a
-   solid, opaque, high-contrast fill reads reliably regardless of what
-   plays behind it, unlike the subtle bordered-pill look that's fine
-   over a flat light background elsewhere */
-.mock-hero--after .mock-btn--after{
-  border:1px solid rgba(240,220,168,.55);
-  background:linear-gradient(135deg, #f5e2b3 0%, #cba869 45%, #8a6a1f 100%);
-  color:#241a04;
-  font-weight:700;
-  box-shadow:0 10px 26px rgba(0,0,0,.4);
-}
-.mock-btn--small{ font-size:.68rem; padding:.5rem 1rem; }
-
-/* animated stat pair under the CTA — the numbers count up once (see
-   js/contrast.js) the first time this mock scrolls into view */
-.mock-stats{
-  display:flex;
-  gap:1.6rem;
-  margin-top:1.1rem;
-}
-.mock-stat{ display:flex; flex-direction:column; }
-.mock-stat strong{
-  font-size:1.3rem;
-  font-weight:600;
-  color:#eaf4ff;
-  line-height:1.1;
-}
-.mock-stat span{
-  font-size:.62rem;
-  color:rgba(234,241,251,.55);
-  text-transform:uppercase;
-  letter-spacing:.08em;
-}
-
-/* the "picture" side of the hero — an actual generated photo now
-   (img/mock/plumber-handshake.jpg), with the dark gradient kept as the
-   card's own background so it still reads as an intentional framed
-   panel the instant it loads, rather than a flash of empty white */
-.mock-hero-visual{
-  position:relative;
-  display:flex;
-  justify-content:center;
-}
-.mock-photo-card{
-  width:100%;
-  max-width:200px;
-  aspect-ratio:4/5;
-  border-radius:16px;
-  overflow:hidden;
-  background:linear-gradient(150deg, #16233a 0%, #060a12 70%);
-  box-shadow:0 20px 50px rgba(0,0,0,.35);
-  animation:mockPhotoFloat 6s ease-in-out infinite;
-}
-.mock-photo-card img{
-  display:block;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-}
-@keyframes mockPhotoFloat{
-  0%, 100%{ transform:translateY(0); }
-  50%{ transform:translateY(-8px); }
-}
-/* a real customer review, not just a "trust badge" — an avatar, a
-   rating, a quote, a name — floating over the seam between the photo
-   card and the seam below it, on its own gentle bob so it doesn't
-   read as a static sticker */
-.mock-review-float{
-  position:absolute;
-  left:-4%;
-  bottom:-8%;
-  z-index:2;
-  display:flex;
-  gap:.55rem;
-  align-items:flex-start;
-  background:#fff;
-  border-radius:14px;
-  padding:.7rem .9rem;
-  max-width:190px;
-  text-align:left;
-  box-shadow:0 16px 34px rgba(11,11,12,.28);
-  animation:mockReviewIn .6s var(--ease-out) .2s both, mockReviewFloat 5s ease-in-out 1s infinite;
-}
-.mock-review-avatar{
-  flex:none;
-  width:26px;
-  height:26px;
-  border-radius:50%;
-  overflow:hidden;
-  background:linear-gradient(135deg, #4f9dff, #0a3d91);
-  color:#fff;
-  font-size:.6rem;
-  font-weight:700;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-.mock-review-avatar img{
-  display:block;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  /* focuses on the face rather than the centre of the frame, which
-     for this particular photo would land between two people */
-  object-position:75% 30%;
-}
-.mock-review-stars{ display:block; color:#e0a92e; font-size:.62rem; letter-spacing:.02em; }
-.mock-review-body p{
-  font-size:.66rem;
-  color:var(--paper-ink);
-  line-height:1.35;
-  margin:.2rem 0;
-}
-.mock-review-name{ font-size:.58rem; color:var(--paper-dim); }
-@keyframes mockReviewFloat{
-  0%, 100%{ transform:translateY(0); }
-  50%{ transform:translateY(-6px); }
-}
-@keyframes mockReviewIn{
-  from{ opacity:0; transform:translateY(10px) scale(.94); }
-  to{ opacity:1; transform:translateY(0) scale(1); }
-}
-/* replaces the old static three-card row — an actual scrolling element
-   the visitor watches move, continuing the "immersive" idea into the
-   services area instead of stopping at the hero. Two identical copies
-   of the same pill list back to back, translated by exactly -50%,
-   is what makes the loop seamless rather than visibly snapping. */
-.mock-services-marquee{
-  position:relative;
-  overflow:hidden;
-  padding:1.1rem 0;
-  background:#04070d;
-}
-/* -webkit-mask-image/mask-image used to fade the edges here, but that
-   combined with the track's own infinite transform animation below hits
-   a real WebKit bug: the browser periodically re-evaluates and repaints
-   a masked layer that's continuously being transformed, which shows up
-   as the whole track intermittently blanking out and reappearing — not
-   on any fixed timer, since it's driven by WebKit's own internal layer
-   management rather than anything in this page. Two solid-color gradient
-   overlays fake the same edge fade without masking at all, sidestepping
-   the bug entirely (this is the same fix already applied to the
-   Velocity Tire Co. site's own marquee after hitting the identical issue). */
-.mock-services-marquee::before,
-.mock-services-marquee::after{
-  content:'';
-  position:absolute;
-  top:0; bottom:0;
-  width:8%;
-  z-index:2;
-  pointer-events:none;
-}
-.mock-services-marquee::before{ left:0; background:linear-gradient(90deg, #04070d, rgba(4,7,13,0)); }
-.mock-services-marquee::after{ right:0; background:linear-gradient(270deg, #04070d, rgba(4,7,13,0)); }
-.mock-services-track{
-  display:flex;
-  gap:.7rem;
-  width:max-content;
-  animation:mockMarquee 16s linear infinite;
-  transform:translateZ(0);
-  will-change:transform;
-}
-.mock-service-pill{
-  flex:none;
-  background:rgba(79,157,255,.12);
-  border:1px solid rgba(79,157,255,.35);
-  color:#cfe6ff;
-  font-size:.72rem;
-  font-weight:500;
-  padding:.5rem 1rem;
-  border-radius:999px;
-  white-space:nowrap;
-}
-@keyframes mockMarquee{
-  from{ transform:translateX(0); }
-  to{ transform:translateX(-50%); }
-}
-
-/* the wipe seam itself — tracks --wipe so it always sits exactly at
-   the current reveal edge */
-.contrast-divider{
-  position:absolute;
-  top:0;
-  bottom:0;
-  left:calc(100% - var(--wipe, 100%));
-  width:2px;
-  background:rgba(255,255,255,.9);
-  box-shadow:0 0 16px rgba(11,11,12,.35);
-  z-index:3;
-  transform:translateX(-50%);
-  pointer-events:none;
-}
-.contrast-divider i{
-  position:absolute;
-  top:50%;
-  left:50%;
-  transform:translate(-50%,-50%);
-  width:34px;
-  height:34px;
-  border-radius:50%;
-  background:#fff;
-  box-shadow:0 4px 14px rgba(11,11,12,.3);
-}
-.contrast-divider i::before{
-  content:'';
-  position:absolute;
-  inset:0;
-  margin:auto;
-  width:12px;
-  height:12px;
-  border-left:1.5px solid var(--paper-ink);
-  border-bottom:1.5px solid var(--paper-ink);
-  transform:rotate(45deg);
-}
-
-@media (max-width:640px){
-  /* sized to the after mock's actual content (nav + hero + services
-     marquee) plus a small buffer — taller than this just leaves empty
-     background showing below the marquee, which is exactly the "big
-     empty white space" this was tuned to remove */
-  .contrast-stage{ aspect-ratio:2/3.3; }
-  .contrast-stage-title{ height:1.4em; margin-bottom:.7rem; }
-  .contrast-stage-title-before, .contrast-stage-title-after{ font-size:.85rem; }
-  .mock-before .mock-links{ display:none; }
-  .mock-cards{ flex-direction:column; gap:.5rem; padding:0 1.2rem 1rem; }
-  .mock-before .mock-hero{ padding:1.2rem 1.2rem .8rem; }
-  .mock-hero--after{ padding:.8rem 1rem .5rem; }
-  .mock-before .mock-nav, .mock-nav--after{ padding:.85rem 1.2rem; }
-  .mock-services-marquee{ padding:.8rem 0; }
-  .mock-service-pill{ font-size:.66rem; padding:.4rem .8rem; }
-  /* the two-column hero (copy + photo/review) stacks into one column;
-     the review card drops out of absolute positioning into normal
-     flow, right below the photo card, rather than risking it
-     overlapping/clipping on a narrow screen. The photo card itself
-     shrinks a lot here too — at its desktop size, stacked *and*
-     centred above the review card and stats, it alone accounted for
-     a large share of the overflow this layout had at this width. */
-  .mock-hero-grid{ grid-template-columns:1fr; text-align:center; gap:.6rem; }
-  .mock-hero-copy{ text-align:center; }
-  .mock-sub--after{ margin:0 auto .8rem; }
-  .mock-stats{ justify-content:center; margin-top:.7rem; }
-  .mock-hero-visual{ flex-direction:column; align-items:center; margin-top:.2rem; padding-bottom:1.8rem; }
-  .mock-photo-card{ max-width:110px; }
-  .mock-review-float{
-    position:absolute;
-    left:50%;
-    bottom:-1rem;
-    transform:translateX(-50%);
-    padding:.55rem .7rem;
-    max-width:170px;
-    animation:mockReviewIn .6s var(--ease-out) .2s both;
-  }
-}
-
-/* ===================================================================
-   SHOWCASE — fan of live-demo previews (left) + business list (right),
-   both driven by scroll position via a sticky inner viewport
-=================================================================== */
-/* on brand: black background with gold-toned cards/text, matching the
-   cube/testimonials/form sections instead of the old white "paper" look */
-.showcase{
-  position:relative;
-  z-index:1;
-}
-.showcase-bg{
-  position:absolute;
-  inset:0;
-  z-index:0;
-}
-.showcase-bg--dark{
   background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
-}
-/* NOTE: a previous fix here bumped this section's own z-index above
-   the expanded fan-card's while one was open, meaning to let the quote
-   nested inside it stack back on top of the card. It actually dragged
-   this section's own opaque background above the card instead, hiding
-   the card entirely — the quote is re-parented onto <body> directly in
-   showcase.js now (the same way the card itself already is), which
-   doesn't have that problem. */
-
-/* stacked, in reading order: eyebrow, then the scrolling trade name,
-   then the fan of preview cards underneath — was a two-column grid
-   (fan left, name+eyebrow right); this reads top-to-bottom instead */
-.showcase-sticky{
-  position:sticky;
-  top:0;
-  height:100vh;
-  /* see the long comment on .contrast-section above — same fix, same
-     reason. This section's own outer height is set from JS in
-     showcase.js using the same --stable-vh custom property. */
-  height:100svh;
-  height:calc(100 * var(--stable-vh, 1vh));
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  /* the trade-name carousel's own text visually overflows its
-     container's nominal height (large type, translated in/out around
-     a shared centre) — a bigger gap here keeps that overflow clear of
-     the fan cards underneath instead of the two overlapping */
-  gap:clamp(2rem, 6vw, 3.6rem);
-  /* asymmetric top/bottom (was a flat 2rem both sides) — the column is
-     centered via justify-content:center below, so giving it more
-     padding at the bottom than the top shifts that centered point
-     upward within the viewport instead of sitting toward the lower
-     edge, without giving up the "always vertically centered, however
-     tall the content is" behavior the flex-centering is there for */
-  padding:1.2rem clamp(1.5rem, 5vw, 4.5rem) 5rem;
+  padding:clamp(1.6rem, 4vw, 2.4rem) 0;
   overflow:hidden;
+}
+.trades-label{
   text-align:center;
-}
-/* opened up only while a fan card is expanded — normally this clips
-   the fan's own rotated/off-centre cards to the section, but the
-   expanded card is deliberately larger than that footprint so it can
-   actually be read. The big gap above exists to keep the trade-name
-   carousel clear of the cards — moot while expanded (those names are
-   faded out and the quote takes their place instead), so it's pulled
-   in tight here to bring the card right up under the quote instead of
-   leaving it stranded far below. */
-.showcase-sticky.has-expanded-card{
-  overflow:visible;
-  gap:clamp(.5rem, 2vw, 1rem);
-}
-
-.showcase-fan{
-  position:relative;
-  z-index:2;
-  width:100%;
-  height:min(38vh, 340px);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-.showcase-fan.has-expanded-card{ overflow:visible; }
-
-/* above ~860px there's enough width to give the trade names their own
-   column on the left instead of stacking above the fan — scrolling
-   through them no longer competes with the fan/cards for the same
-   vertical space the way it did stacked. The fan gets the rest of the
-   width (and more height) to spread and expand into. The quote lives
-   inside .showcase-fan in the markup for exactly this — it rides along
-   with the fan's own column instead of staying centered over the old,
-   now-vacated stacked layout. Everything here is scoped to this
-   min-width query on purpose: the stacked, centered layout below it
-   (iPhone, iPad portrait) is untouched. */
-@media (min-width:861px){
-  .showcase-sticky{
-    --showcase-left-col: clamp(200px, 24vw, 300px);
-    --showcase-col-gap: clamp(2.5rem, 5vw, 4.5rem);
-    display:grid;
-    grid-template-columns: var(--showcase-left-col) 1fr;
-    column-gap: var(--showcase-col-gap);
-    /* tighter than the flex layout's own gap (that one's sized for the
-       *stacked* mobile layout, where the trade names need clearance
-       from the fan below them — here they're side by side instead) —
-       title+subtitle+items were reading as pushed down into the
-       bottom-left corner of the column, well below the fan's own
-       vertical centre, with that much space between each of them */
-    row-gap:.7rem;
-    align-items:center;
-  }
-  .showcase-sticky.has-expanded-card{ column-gap: var(--showcase-col-gap); }
-  .showcase-title{ grid-column:1; grid-row:1; text-align:left; }
-  .showcase-subtitle{ grid-column:1; grid-row:2; text-align:left; }
-  /* pulled up to sit level with the fan's own vertical centre instead
-     of trailing at the bottom of the title+subtitle stack — align-self
-     here (rather than relying on the row's own auto height) is what
-     actually lets it move independently of how tall the title renders */
-  .showcase-items{ grid-column:1; grid-row:3; align-self:center; margin-top:-1.4rem; }
-  .showcase-item{ text-align:left; }
-  .showcase-fan{
-    grid-column:2;
-    grid-row:1 / span 3;
-    height:min(48vh, 440px);
-  }
-}
-
-.fan-card{
-  --card-scale:1;
-  position:absolute;
-  width:clamp(210px, 22vw, 300px);
-  height:clamp(280px, 29vw, 400px);
-  border-radius:18px;
-  /* backdrop-filter removed everywhere on this card (it briefly lived
-     on .is-active/.is-expanded only) — that was still a real WebKit
-     cliff: dynamically ADDING backdrop-filter to a newly-expanding,
-     position:fixed card forces an expensive synchronous layer/backdrop
-     creation right at the moment of the tap, which is what showed up
-     as a several-second freeze (and the card appearing to just vanish
-     instead of opening) specifically on iPhone. A gradient tint gives
-     it some depth without ever sampling anything behind it, at any
-     card count or interaction. */
-  background:linear-gradient(160deg, rgba(255,255,255,.13), rgba(255,255,255,.05));
-  border:1px solid rgba(255,255,255,.22);
-  box-shadow:0 30px 70px -26px rgba(0,0,0,.6), 0 0 30px rgba(255,255,255,.06);
-  overflow:hidden;
-  transform-origin:center bottom;
-  will-change:transform, opacity;
-  transition:transform .35s var(--ease-out), opacity .3s var(--ease-out), box-shadow .35s var(--ease-out), border-color .35s var(--ease-out), width .35s var(--ease-out), height .35s var(--ease-out);
-  cursor:none;
-  /* backface-visibility/translateZ alone didn't fix the expanded blur
-     — the real cause is that border-radius + overflow:hidden +
-     backdrop-filter force this element onto its own rasterized
-     texture, and CSS transform:scale() then just stretches that
-     already-rasterized bitmap rather than re-rendering its content
-     (the name text and the image) sharp at the larger size. Fixed at
-     the source: the expanded state resizes the card for real (width/
-     height in showcase.js) instead of scaling it, so the browser
-     lays out and paints it fresh at its true displayed size. Padding/
-     font-size/etc. below scale via the --card-scale variable that
-     goes with it, since a real resize doesn't proportionally grow
-     rem-based children on its own the way transform:scale() did. */
-}
-.fan-card:hover{ box-shadow:0 34px 80px -24px rgba(0,0,0,.7), 0 0 30px rgba(255,255,255,.1); }
-.fan-card.is-active{
-  background:linear-gradient(160deg, rgba(255,255,255,.2), rgba(255,255,255,.08));
-  border-color:rgba(255,255,255,.45);
-  box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.25);
-  /* a slow breathing glow, so the front card feels alive rather than
-     static once it's settled into place — safe to animate box-shadow
-     here since (unlike transform/opacity) nothing else writes to it
-     every frame, so it never fights the scroll-driven JS above */
-  animation:fanCardGlow 3.4s ease-in-out infinite;
-}
-@keyframes fanCardGlow{
-  0%, 100%{ box-shadow:0 46px 110px -22px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.25); }
-  50%{ box-shadow:0 46px 120px -20px rgba(0,0,0,.8), 0 0 42px 4px rgba(255,255,255,.35); }
-}
-.fan-card.is-expanded{
-  /* fixed to the viewport, rather than scaled up from its normal
-     position within the fan — the fan sits wherever the section's
-     scroll happens to have it, which could be anywhere from top to
-     bottom of a very tall section, and scaling up in place could push
-     the card's edges past the screen on shorter monitors regardless of
-     how the scale itself was capped. left is fixed at centre; top is
-     set directly by showcase.js, which measures the actual space left
-     below the quote and centers the card in that, rather than the
-     whole viewport — dead-centering it here could put it right on top
-     of the quote (and the section title above that). */
-  position:fixed;
-  left:50%;
-  z-index:500;
-  cursor:none;
-  /* explicit here too (not just inherited from .is-active) — a card
-     can be expanded by clicking any card in the fan, not only the one
-     currently front-and-center, so the two classes don't always
-     coincide */
-  background:linear-gradient(160deg, rgba(255,255,255,.2), rgba(255,255,255,.08));
-  box-shadow:0 60px 140px -20px rgba(0,0,0,.85), 0 0 0 1.5px rgba(255,255,255,.6), 0 0 60px 6px rgba(255,255,255,.32);
-  animation:none;
-}
-
-/* a quiet "there's a way out" affordance to go with the scroll lock
-   while a card is expanded — a small pulsing dot rather than a
-   labeled button, so it reads as a subtle cue instead of competing
-   with the close (✕) button for attention. Still clickable: it falls
-   through to the card's own click handler (tapping the already-
-   expanded card again collapses it), it's just not a separate control. */
-.fan-card-exit-dot{
-  position:absolute;
-  left:50%;
-  bottom:.85rem;
-  z-index:2;
-  width:8px;
-  height:8px;
-  border-radius:50%;
-  background:#ffdd7a;
-  transform:translateX(-50%);
-  opacity:0;
-  transition:opacity .3s var(--ease-out);
-}
-.fan-card.is-expanded .fan-card-exit-dot{
-  opacity:.9;
-  animation:hintPulse 1.8s ease-out infinite;
-}
-/* used here and nowhere else now — used to also drive the cube
-   section's own interact-hint pulse before that section was removed */
-@keyframes hintPulse{
-  0%{ box-shadow:0 0 0 0 rgba(255,221,122,.6); }
-  70%{ box-shadow:0 0 0 9px rgba(255,221,122,0); }
-  100%{ box-shadow:0 0 0 0 rgba(255,221,122,0); }
-}
-
-/* a short encouraging line that takes over the trade-name carousel's
-   own spot (below the "Real websites. Every industry." eyebrow, above
-   the fan) only while a card is expanded — picked at random each time
-   (see PHRASES in showcase.js) — rather than sitting on top of the
-   card/image itself, which would compete with the pan animation
-   that's the actual point of expanding. The trade names underneath
-   are untouched: they simply fade out (existing opacity logic in
-   showcase.js) while this is visible, and fade back in once collapsed.
-   Anchored to the top of that space (not vertically centered in it)
-   with its own top margin — keeps clear room both above (between it
-   and the eyebrow) and below (between it and the expanded card, which
-   also now grows from its own centre instead of its bottom edge, so
-   it no longer reaches as far up into this space). */
-.showcase-phrase{
-  position:absolute;
-  top:0;
-  left:0;
-  right:0;
-  margin:1.75rem 0 0;
-  padding:0 1.5rem;
-  font-family:'Fraunces', serif;
-  font-style:italic;
-  font-weight:500;
-  font-size:clamp(1.2rem, 3vw, 1.7rem);
-  text-align:center;
-  color:#ffdd7a;
-  text-shadow:0 2px 16px rgba(0,0,0,.5);
-  opacity:0;
-  pointer-events:none;
-}
-.showcase-phrase::before{ content:'\201C'; }
-.showcase-phrase::after{ content:'\201D'; }
-
-/* .showcase-phrase's containing block is .showcase-fan, which above
-   ~860px is only the right-hand column (see the showcase-sticky grid
-   below), off-centre from the section as a whole — but the expanded
-   card centers itself on the full viewport (position:fixed; left:50%)
-   same as it always has. Left alone, the quote stayed centered on the
-   fan's own narrower box instead, visibly drifting toward the
-   expanded card's right edge/corner instead of sitting over its
-   centre. Extending the quote's own left edge back out by exactly the
-   width the left column + gap take re-spans it across the *whole*
-   section again, so text-align:center centers it on the same middle
-   the expanded card uses. (Placed after the base rule above, not
-   inside the grid media query further up, so it actually wins the
-   cascade against that rule's own left:0 at equal specificity.) */
-@media (min-width:861px){
-  .showcase-phrase{
-    left: calc(-1 * (var(--showcase-left-col) + var(--showcase-col-gap)));
-    /* pulled up further from the base rule's 1.75rem — moving the
-       quote closer to the top of the fan raises the floor (topBound in
-       showcase.js) the expanded card centers itself against, so the
-       card sits higher too instead of just the quote moving on its own */
-    margin-top:-.75rem;
-  }
-}
-
-/* a different entrance plays each time (picked at random in
-   showcase.js, one class added per expand) — the point is that the
-   phrase itself keeps drawing the eye every time a card opens, rather
-   than becoming background noise after the first couple of times it's
-   seen fade in the exact same way */
-@keyframes phraseRise{
-  from{ opacity:0; transform:translateY(18px); }
-  to{ opacity:1; transform:translateY(0); }
-}
-@keyframes phrasePop{
-  0%{ opacity:0; transform:scale(.8); }
-  70%{ opacity:1; transform:scale(1.06); }
-  100%{ opacity:1; transform:scale(1); }
-}
-@keyframes phraseSlideLeft{
-  from{ opacity:0; transform:translateX(-30px); }
-  to{ opacity:1; transform:translateX(0); }
-}
-@keyframes phraseSlideRight{
-  from{ opacity:0; transform:translateX(30px); }
-  to{ opacity:1; transform:translateX(0); }
-}
-@keyframes phraseBlurIn{
-  from{ opacity:0; filter:blur(7px); transform:translateY(8px); }
-  to{ opacity:1; filter:blur(0); transform:translateY(0); }
-}
-.showcase-phrase.anim-rise{ animation:phraseRise .6s var(--ease-out) both; }
-.showcase-phrase.anim-pop{ animation:phrasePop .6s var(--ease-out) both; }
-.showcase-phrase.anim-slide-left{ animation:phraseSlideLeft .6s var(--ease-out) both; }
-.showcase-phrase.anim-slide-right{ animation:phraseSlideRight .6s var(--ease-out) both; }
-.showcase-phrase.anim-blur{ animation:phraseBlurIn .7s var(--ease-out) both; }
-.fan-card .fan-bar{
-  display:flex;
-  gap:calc(5px * var(--card-scale));
-  padding:calc(.7rem * var(--card-scale)) calc(.8rem * var(--card-scale));
-  background:rgba(255,221,122,.06);
-}
-.fan-card .fan-bar span{
-  width:calc(7px * var(--card-scale));
-  height:calc(7px * var(--card-scale));
-  border-radius:50%;
-  background:rgba(255,221,122,.2);
-}
-.fan-card .fan-hero{
-  position:relative;
-  /* was 44% — too tight a crop to read as an actual site, more like a
-     sliver peeking out above the card's own name/lines. Taller window
-     (closer to a mini tablet screen than a thin letterbox) shows
-     meaningfully more of the real design underneath */
-  height:66%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:calc(2.4rem * var(--card-scale));
-  overflow:hidden;
-}
-/* real live-site screenshots are tall full-page captures — cropped to
-   just their own top (the hero) rather than squashed to fit, cover +
-   top alignment reads as a proper preview thumbnail instead of a
-   shrunk full page */
-.fan-card .fan-hero img{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  object-position:top center;
-  /* the expand-only pan below animates object-position, which forces a
-     repaint rather than a cheap GPU composite (unlike transform/opacity).
-     Isolating this image onto its own compositing layer up front keeps
-     that repaint contained to just this element instead of it cascading
-     into whatever layer it would otherwise be sharing with -- on a
-     weaker/smaller-screen phone, a shared-layer repaint here was what
-     showed up as unrelated nearby content (or the photo itself)
-     intermittently blanking for a frame while a card was expanded. */
-  transform:translateZ(0);
-  backface-visibility:hidden;
-}
-/* while expanded, a slow gentle pan reveals more of the page below the
-   hero crop these otherwise sit on — full-page screenshots have a lot
-   more to show than the sliver a static top-aligned crop lets through.
-   Only runs while expanded; every other card stays on its static crop. */
-.fan-card.is-expanded .fan-hero img{
-  animation:fanHeroPan 10s ease-in-out infinite alternate;
-}
-@keyframes fanHeroPan{
-  0%{ object-position:top center; }
-  100%{ object-position:bottom center; }
-}
-.fan-card .fan-body{ padding:calc(1rem * var(--card-scale)) calc(1.15rem * var(--card-scale)); }
-.fan-card .fan-name{
-  font-family:'Fraunces', serif;
-  font-size:calc(1.05rem * var(--card-scale));
-  margin-bottom:calc(.7rem * var(--card-scale));
-  color:#ffdd7a;
-}
-.fan-card .fan-line{
-  height:calc(6px * var(--card-scale));
-  border-radius:3px;
-  background:rgba(255,221,122,.1);
-  margin-bottom:calc(.45rem * var(--card-scale));
-}
-.fan-card .fan-line.short{ width:55%; }
-
-/* the section's own mission statement — rises in with the rest of the
-   sticky's own fade (see js/showcase.js's updateEntrance) rather than a
-   separate effect of its own */
-/* Inter, not Fraunces — the mission statement is a full sentence, not
-   a short display headline, and reads more like modern editorial copy
-   in a clean sans at a light weight than as another serif headline */
-.showcase-title{
-  position:relative;
-  z-index:2;
-  font-family:'Inter', sans-serif;
-  font-weight:300;
-  letter-spacing:.01em;
-  font-size:clamp(1.05rem, 2.3vw, 1.4rem);
-  line-height:1.6;
-  max-width:42ch;
-  color:var(--cream);
-  /* smooths the scroll-driven fade-out js/showcase.js writes every
-     frame (raw scroll steps, not one per pixel) into something that
-     reads as a continuous fade rather than a choppy stepped one, and
-     also softens the instant hide/restore when a card expands/collapses */
-  transition:opacity .25s var(--ease-out);
-}
-/* a slow, smooth breathing glow once the title has fully settled into
-   place (js/showcase.js toggles this class once its entrance reaches
-   1) — a plain CSS text-shadow pulse, no JS driving it per frame */
-.showcase-title.is-glowing{
-  animation:showcaseTitleGlow 3.6s ease-in-out infinite;
-}
-@keyframes showcaseTitleGlow{
-  0%, 100%{ text-shadow:0 0 16px rgba(255,221,122,.18); }
-  50%{ text-shadow:0 0 32px rgba(255,221,122,.4); }
-}
-
-/* metallic gold, same shine-sweep technique as .quote-form-title, with
-   a slow breathing scale/opacity layered on top for "pulsing" — gold
-   already reads fine on both this section's dark start and its cream
-   end, so this needs no light/dark variant of its own */
-.showcase-subtitle{
-  position:relative;
-  z-index:2;
-  font-size:.76rem;
+  font-size:.7rem;
   font-weight:600;
   letter-spacing:.32em;
   text-transform:uppercase;
-  margin-top:.9rem;
-  background:linear-gradient(100deg, #8a6a1f 0%, #d4af37 25%, #fff6d8 50%, #d4af37 75%, #8a6a1f 100%);
-  background-size:250% 100%;
-  -webkit-background-clip:text;
-  background-clip:text;
-  color:transparent;
-  animation:showcaseSubShine 6s ease-in-out infinite, showcaseSubPulse 2.6s ease-in-out infinite;
+  color:rgba(243,237,226,.45);
+  margin:0 0 clamp(1rem, 2.5vw, 1.4rem);
 }
-@keyframes showcaseSubShine{
-  0%{ background-position:0% 50%; }
-  50%{ background-position:100% 50%; }
-  100%{ background-position:0% 50%; }
+/* two identical, adjacent groups of trade names, both inside one flex
+   row that never wraps (width:max-content) — animating that row by
+   exactly -50% shifts it by precisely one group's own width, so the
+   instant the first group has scrolled fully off, the second sits in
+   exactly the position the first started in. No JS, no scroll-position
+   math, no loop-reset jump — the wrap-around is genuinely invisible */
+.trades-track{
+  display:flex;
+  width:max-content;
+  animation:tradesScroll 28s linear infinite;
 }
-@keyframes showcaseSubPulse{
-  0%, 100%{ opacity:.88; transform:scale(1); }
-  50%{ opacity:1; transform:scale(1.035); }
+.trades-track-group{
+  display:flex;
+  align-items:center;
+  flex-shrink:0;
 }
-.showcase-items{
+.trades-item{
   position:relative;
-  z-index:2;
-  width:100%;
-  height:min(26vh, 260px);
-}
-.showcase-item{
-  position:absolute;
-  top:50%;
-  left:0;
-  width:100%;
-  text-align:center;
   font-family:'Fraunces', serif;
-  font-size:clamp(2.2rem, 5.6vw, 4.6rem);
+  font-style:italic;
   font-weight:400;
-  letter-spacing:-.01em;
-  line-height:1.1;
-  color:rgba(228,205,154,.28);
+  font-size:clamp(1.3rem, 3vw, 1.9rem);
+  color:rgba(154,205,228,.55);
   white-space:nowrap;
-  will-change:transform, opacity;
-  /* shorter than before (was .5s) — this is re-triggered on every
-     scroll frame with a fresh target position, so a shorter duration
-     tracks the actual scroll position more closely (less lag chasing
-     a target that's already moved on) instead of feeling like it's
-     drifting a beat behind the page */
-  transition:transform .35s var(--ease-out), opacity .35s var(--ease-out), color .6s var(--ease-out), text-shadow .6s var(--ease-out);
-  cursor:none;
+  padding:0 clamp(1.1rem, 2.8vw, 1.8rem);
 }
-.showcase-item.is-active{
-  color:#ffdd7a;
-  text-shadow:0 0 64px rgba(255,221,122,.35), 0 0 120px rgba(255,221,122,.18);
+.trades-item:not(:last-child)::after{
+  content:'';
+  position:absolute;
+  right:0;
+  top:50%;
+  transform:translateY(-50%);
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  background:rgba(154,205,228,.3);
+}
+@keyframes tradesScroll{
+  from{ transform:translateX(0); }
+  to{ transform:translateX(-50%); }
+}
+@media (prefers-reduced-motion:reduce){
+  .trades-track{ animation:none; }
 }
 
-@media (max-width:640px){
-  .showcase-item{ font-size:clamp(1.7rem, 8vw, 2.6rem); }
-}
-
-@media (max-width:860px){
-  .showcase-sticky{ padding-top:5rem; }
-  .fan-card{ width:min(64vw, 240px); height:min(36vh, 320px); }
-  /* a bit more clearance below the eyebrow/trade-name area than the
-     base rule gives — on the stacked mobile layout the quote was
-     sitting close enough to read as crowding the section title above it */
-  .showcase-phrase{ margin-top:2.5rem; }
+/* ===================================================================
+   HERO VEIL — the crystal-throw exit transition into the live demos
+=================================================================== */
+/* full-viewport, fixed at the body level (not nested inside the hero's
+   own transformed .process-room-sticky — see this element's own HTML
+   comment for why). Opacity alone is driven every frame by
+   process-room.js's _updateVeil, straight off window.scrollY — no CSS
+   transition here for the same reason .process-step has none: the
+   underlying value is already a continuous, smooth function of scroll
+   position, so a second transition on top would only add lag */
+.hero-veil{
+  position:fixed;
+  inset:0;
+  z-index:1500;
+  pointer-events:none;
+  opacity:0;
+  background:radial-gradient(120% 100% at 50% 45%, #7addff 0%, #2f9dff 45%, #06172b 100%);
 }
 
 /* ===================================================================
@@ -1802,8 +798,8 @@ body, a{ cursor:none; }
   animation:cursorGlowPulse 2.6s ease-in-out infinite;
 }
 @keyframes cursorGlowPulse{
-  0%, 100%{ box-shadow:0 0 16px rgba(255,221,122,.3); }
-  50%{ box-shadow:0 0 28px rgba(255,221,122,.55); }
+  0%, 100%{ box-shadow:0 0 16px rgba(122,221,255,.3); }
+  50%{ box-shadow:0 0 28px rgba(122,221,255,.55); }
 }
 .cursor-dot{
   position:absolute;
@@ -1816,14 +812,14 @@ body, a{ cursor:none; }
 .custom-cursor.is-active .cursor-ring{
   width:64px; height:64px;
   margin:-32px 0 0 -32px;
-  border-color:#ffdd7a;
+  border-color:#7addff;
   /* brighter, faster pulse while hovering something interactive —
      the glow itself calling out that this is clickable */
   animation:cursorGlowPulseActive 1.3s ease-in-out infinite;
 }
 @keyframes cursorGlowPulseActive{
-  0%, 100%{ box-shadow:0 0 24px rgba(255,221,122,.55); }
-  50%{ box-shadow:0 0 40px rgba(255,221,122,.85); }
+  0%, 100%{ box-shadow:0 0 24px rgba(122,221,255,.55); }
+  50%{ box-shadow:0 0 40px rgba(122,221,255,.85); }
 }
 
 @media (hover:none), (pointer:coarse){
@@ -1846,35 +842,6 @@ body, a{ cursor:none; }
   background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
   padding:clamp(3.5rem, 8vw, 6rem) 0;
   overflow:hidden;
-}
-
-.testimonials-bg{
-  position:absolute;
-  inset:0;
-  z-index:0;
-  overflow:hidden;
-  pointer-events:none;
-}
-/* filter:blur(100px) used to sit here — a huge blur radius on two
-   large (up to 560px) always-on circles that never pause is severely
-   expensive specifically on iOS WebKit (both Safari and Chrome-on-iOS
-   use the same underlying engine there), invisible on desktop
-   Chromium. Multiple gradient stops instead of a single hard-edged
-   one give the same soft, hazy falloff without needing an actual blur
-   filter at all. */
-.t-glow{
-  position:absolute;
-  width:min(50vw, 560px);
-  height:min(50vw, 560px);
-  border-radius:50%;
-}
-.t-glow--a{
-  top:-10%; left:-10%;
-  background:radial-gradient(circle, rgba(255,196,40,.22) 0%, rgba(255,196,40,.12) 35%, rgba(255,196,40,.04) 60%, transparent 80%);
-}
-.t-glow--b{
-  bottom:-14%; right:-8%;
-  background:radial-gradient(circle, rgba(202,153,20,.16) 0%, rgba(202,153,20,.09) 35%, rgba(202,153,20,.03) 60%, transparent 80%);
 }
 
 /* opacity/transform driven directly, continuously, by scroll position
@@ -1900,7 +867,7 @@ body, a{ cursor:none; }
   font-size:.72rem;
   letter-spacing:.4em;
   text-transform:uppercase;
-  color:rgba(228,205,154,.65);
+  color:rgba(154,205,228,.65);
 }
 /* its own font on purpose — everything else on the site is Fraunces
    (headings) or Inter (body); Space Grotesk's confident, slightly
@@ -1912,7 +879,7 @@ body, a{ cursor:none; }
   font-weight:700;
   letter-spacing:-.01em;
   font-size:clamp(2rem, 5vw, 3.4rem);
-  background:linear-gradient(100deg, var(--cream) 30%, #ffdd7a 65%, #ffb400 100%);
+  background:linear-gradient(100deg, var(--cream) 30%, #7addff 65%, #00b4ff 100%);
   -webkit-background-clip:text;
   background-clip:text;
   color:transparent;
@@ -1929,7 +896,7 @@ body, a{ cursor:none; }
    with nothing to clip against). */
 .testimonials-heading-word{
   display:inline-block;
-  color:#ffdd7a;
+  color:#7addff;
   opacity:0;
   will-change:opacity, transform;
 }
@@ -1946,7 +913,7 @@ body, a{ cursor:none; }
   height:.72em;
   margin-left:.32em;
   vertical-align:-.06em;
-  color:#ffb400;
+  color:#00b4ff;
   opacity:0;
   will-change:opacity, transform;
 }
@@ -2009,7 +976,7 @@ body, a{ cursor:none; }
   padding:clamp(1.4rem, 3vw, 2.4rem);
   border-radius:22px;
   background:linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-  border:1px solid rgba(255,221,122,.16);
+  border:1px solid rgba(122,221,255,.16);
   box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
   opacity:.5;
   transform:scale(.94);
@@ -2018,7 +985,7 @@ body, a{ cursor:none; }
 .testimonial-card.is-active{
   opacity:1;
   transform:scale(1);
-  box-shadow:0 46px 110px -26px rgba(0,0,0,.7), 0 0 0 1px rgba(255,221,122,.22);
+  box-shadow:0 46px 110px -26px rgba(0,0,0,.7), 0 0 0 1px rgba(122,221,255,.22);
 }
 
 .testimonial-icon{ font-size:2.2rem; margin-bottom:.5rem; }
@@ -2026,7 +993,7 @@ body, a{ cursor:none; }
   font-size:.72rem;
   letter-spacing:.32em;
   text-transform:uppercase;
-  color:#ffdd7a;
+  color:#7addff;
   margin-bottom:.9rem;
 }
 .testimonial-quote{
@@ -2060,7 +1027,7 @@ body, a{ cursor:none; }
 }
 .testimonial-result::before{ content:'✓'; font-weight:700; }
 .testimonial-stars{
-  color:#ffdd7a;
+  color:#7addff;
   letter-spacing:.25em;
   font-size:.85rem;
   margin-bottom:.7rem;
@@ -2090,7 +1057,7 @@ body, a{ cursor:none; }
   cursor:none;
   transition:border-color .3s var(--ease-out), color .3s var(--ease-out), background .3s var(--ease-out);
 }
-.testimonial-arrow:hover{ border-color:#ffdd7a; color:#ffdd7a; background:rgba(255,221,122,.08); }
+.testimonial-arrow:hover{ border-color:#7addff; color:#7addff; background:rgba(122,221,255,.08); }
 @media (hover:none), (pointer:coarse){ .testimonial-arrow{ display:none; } }
 
 .testimonial-dots{
@@ -2112,7 +1079,7 @@ body, a{ cursor:none; }
 .testimonial-dot.is-active{
   width:22px;
   border-radius:5px;
-  background:#ffdd7a;
+  background:#7addff;
 }
 
 /* ===================================================================
@@ -2139,7 +1106,7 @@ body, a{ cursor:none; }
   font-size:.76rem;
   letter-spacing:.38em;
   text-transform:uppercase;
-  color:#ffdd7a;
+  color:#7addff;
   margin-bottom:1rem;
 }
 .comparison-title{
@@ -2151,23 +1118,23 @@ body, a{ cursor:none; }
 }
 .comparison-title em{
   font-style:italic;
-  color:#ffdd7a;
+  color:#7addff;
   /* a subtle pulsing text-shadow glow, tuned to this heading's own
-     gold (#ffdd7a) */
+     light blue (#7addff) */
   animation:comparisonGlowPulse 3.6s ease-in-out infinite;
 }
 @keyframes comparisonGlowPulse{
   0%, 100%{
     text-shadow:
-      0 0 9px rgba(255,221,122,.4),
-      0 0 20px rgba(255,221,122,.24),
-      0 0 36px rgba(255,221,122,.14);
+      0 0 9px rgba(122,221,255,.4),
+      0 0 20px rgba(122,221,255,.24),
+      0 0 36px rgba(122,221,255,.14);
   }
   50%{
     text-shadow:
-      0 0 13px rgba(255,221,122,.62),
-      0 0 28px rgba(255,221,122,.4),
-      0 0 48px rgba(255,221,122,.24);
+      0 0 13px rgba(122,221,255,.62),
+      0 0 28px rgba(122,221,255,.4),
+      0 0 48px rgba(122,221,255,.24);
   }
 }
 .comparison-sub{
@@ -2188,7 +1155,7 @@ body, a{ cursor:none; }
 .comparison-legend-item{ display:inline-flex; align-items:center; gap:.5rem; }
 .comparison-dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
 .comparison-dot--old{ background:rgba(243,237,226,.3); }
-.comparison-dot--papi{ background:linear-gradient(135deg, #ffd23f, #cba869); }
+.comparison-dot--papi{ background:linear-gradient(135deg, #3fd2ff, #69a8cb); }
 
 /* the chart and the big "5X" headline stat sit side by side — the
    chart takes the wider share, the stat lands toward the right-center
@@ -2224,7 +1191,7 @@ body, a{ cursor:none; }
 .comparison-line{ fill:none; stroke-linecap:round; stroke-linejoin:round; }
 .comparison-line--old{ stroke:rgba(243,237,226,.4); stroke-width:3; }
 .comparison-line--papi{
-  stroke:#ffd23f;
+  stroke:#3fd2ff;
   stroke-width:4;
   filter:drop-shadow(0 0 8px rgba(255,210,63,.5));
 }
@@ -2252,7 +1219,7 @@ body, a{ cursor:none; }
   transition:opacity .5s var(--ease-out), transform .5s var(--ease-out);
 }
 .comparison-dot-group--old circle{ fill:rgba(243,237,226,.55); }
-.comparison-dot-group--papi circle{ fill:#fff6d8; stroke:#ffd23f; stroke-width:2; }
+.comparison-dot-group--papi circle{ fill:#d8f6ff; stroke:#3fd2ff; stroke-width:2; }
 .comparison-svg-box.is-visible .comparison-dot-group circle{ opacity:1; transform:scale(1); }
 /* staggered so each pair of dots appears roughly as the line actually
    reaches that point, not all three at once */
@@ -2266,7 +1233,7 @@ body, a{ cursor:none; }
   font-family:'Fraunces', serif;
   font-weight:600;
   font-size:1rem;
-  color:#ffdd7a;
+  color:#7addff;
   white-space:nowrap;
   opacity:0;
   transition:opacity .5s var(--ease-out);
@@ -2299,7 +1266,7 @@ body, a{ cursor:none; }
   font-weight:600;
   font-size:clamp(4.5rem, 11vw, 8rem);
   line-height:1;
-  background:linear-gradient(180deg, #fff6d8 0%, #ffd23f 45%, #cba869 100%);
+  background:linear-gradient(180deg, #d8f6ff 0%, #3fd2ff 45%, #69a8cb 100%);
   -webkit-background-clip:text;
   background-clip:text;
   color:transparent;
@@ -2353,7 +1320,7 @@ body, a{ cursor:none; }
 .comparison-stat.is-visible .comparison-stat-label{ opacity:1; }
 
 /* ===================================================================
-   FAQ — gold-on-black accordion, one answer open at a time.
+   FAQ — light-blue-on-black accordion, one answer open at a time.
 =================================================================== */
 .faq-section{
   position:relative;
@@ -2369,7 +1336,7 @@ body, a{ cursor:none; }
   font-size:.76rem;
   letter-spacing:.38em;
   text-transform:uppercase;
-  color:#ffdd7a;
+  color:#7addff;
   margin-bottom:1rem;
 }
 .faq-title{
@@ -2380,12 +1347,12 @@ body, a{ cursor:none; }
   color:var(--cream);
   margin-bottom:3rem;
 }
-.faq-title em{ font-style:italic; color:#ffdd7a; }
+.faq-title em{ font-style:italic; color:#7addff; }
 
 .faq-item{
-  border-bottom:1px solid rgba(255,221,122,.18);
+  border-bottom:1px solid rgba(122,221,255,.18);
 }
-.faq-item:first-child{ border-top:1px solid rgba(255,221,122,.18); }
+.faq-item:first-child{ border-top:1px solid rgba(122,221,255,.18); }
 .faq-question{
   width:100%;
   display:flex;
@@ -2402,13 +1369,13 @@ body, a{ cursor:none; }
   cursor:none;
   transition:color .25s var(--ease-out);
 }
-.faq-question:hover{ color:#ffdd7a; }
+.faq-question:hover{ color:#7addff; }
 .faq-chevron{
   flex:0 0 auto;
   width:10px;
   height:10px;
-  border-right:1.5px solid #ffdd7a;
-  border-bottom:1.5px solid #ffdd7a;
+  border-right:1.5px solid #7addff;
+  border-bottom:1.5px solid #7addff;
   transform:rotate(45deg);
   transition:transform .3s var(--ease-out);
 }
@@ -2426,22 +1393,22 @@ body, a{ cursor:none; }
 }
 
 /* ===================================================================
-   QUOTE — request-a-quote form. On brand: black and gold only. The
-   section behind the white card runs a slow, solid (not blurred/
-   translucent like the cube's glow) sweep between black and gold —
-   the same "moving colors" idea as the cube's background, just more
-   saturated, and kept strictly within the brand pair rather than a
-   rainbow. The form's own border rotates through black/gold/cream so
-   it always reads as contrasted against whatever's behind it. Not a
-   tall sticky section like the others: a form should feel direct,
-   not gimmicky.
+   QUOTE — request-a-quote form. On brand: black and light blue only
+   (was gold — changed per direct request). The section behind the
+   white card runs a slow, solid (not blurred/translucent like the
+   cube's glow) sweep between black and blue — the same "moving
+   colors" idea as the cube's background, just more saturated, and
+   kept strictly within the brand pair rather than a rainbow. The
+   form's own border rotates through black/blue/cream so it always
+   reads as contrasted against whatever's behind it. Not a tall sticky
+   section like the others: a form should feel direct, not gimmicky.
 =================================================================== */
 .quote-section{
   position:relative;
-  /* the gold stop stays muted/deep rather than bright yellow — the
-     white copy text sitting directly on top needs to stay legible
-     through the whole sweep, not just the darker parts of it */
-  background:linear-gradient(120deg, #0a0908, #2a1f08, #8a6a1f, #2a1f08, #0a0908);
+  /* the blue stop stays muted/deep rather than bright — the white
+     copy text sitting directly on top needs to stay legible through
+     the whole sweep, not just the darker parts of it */
+  background:linear-gradient(120deg, #0a0908, #2a1f08, #1f6a8a, #2a1f08, #0a0908);
   background-size:400% 400%;
   animation:quoteBgSweep 18s ease-in-out infinite;
   padding:clamp(4rem, 10vw, 8rem) clamp(1.5rem, 5vw, 4rem);
@@ -2494,7 +1461,7 @@ body, a{ cursor:none; }
   font-size:clamp(2rem, 4.4vw, 3.1rem);
   line-height:1.1;
   margin-bottom:1rem;
-  background:linear-gradient(100deg, #fff, #ffe27a, #ffd23f, #fff6d8, #fff);
+  background:linear-gradient(100deg, #fff, #7ae2ff, #3fd2ff, #d8f6ff, #fff);
   background-size:300% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -2510,7 +1477,7 @@ body, a{ cursor:none; }
    heading's own slow overall sweep — a distinct highlight sweeping
    across just that one word rather than blending into the rest */
 .quote-heading-shine{
-  background:linear-gradient(100deg, #ffd23f 0%, #fff6d8 20%, #fff 40%, #fff6d8 60%, #ffd23f 100%);
+  background:linear-gradient(100deg, #3fd2ff 0%, #d8f6ff 20%, #fff 40%, #d8f6ff 60%, #3fd2ff 100%);
   background-size:250% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -2535,7 +1502,7 @@ body, a{ cursor:none; }
   gap:1.1rem;
 }
 .quote-rating{ display:flex; align-items:center; gap:.7rem; }
-.quote-stars{ color:#ffd23f; letter-spacing:.15em; font-size:1.05rem; }
+.quote-stars{ color:#3fd2ff; letter-spacing:.15em; font-size:1.05rem; }
 .quote-rating-text{ font-size:.9rem; color:rgba(255,255,255,.8); }
 .quote-rating-text strong{ color:#fff; }
 
@@ -2611,7 +1578,7 @@ body, a{ cursor:none; }
 .quote-form-tab.is-active{
   color:#0f1f3d;
   background:#fff;
-  border-bottom-color:#8a6a1f;
+  border-bottom-color:#1f6a8a;
 }
 
 .quote-form-stack{
@@ -2663,7 +1630,7 @@ body, a{ cursor:none; }
   font-size:clamp(1.3rem, 2.6vw, 1.7rem);
   text-align:center;
   margin:0 0 -.3rem;
-  background:linear-gradient(100deg, #8a6a1f 0%, #d4af37 25%, #fff6d8 50%, #d4af37 75%, #8a6a1f 100%);
+  background:linear-gradient(100deg, #1f6a8a 0%, #37afd4 25%, #d8f6ff 50%, #37afd4 75%, #1f6a8a 100%);
   background-size:250% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -2709,7 +1676,7 @@ body, a{ cursor:none; }
 .quote-field textarea:focus,
 .quote-field select:focus{
   outline:none;
-  border-color:#8a6a1f;
+  border-color:#1f6a8a;
   background:#fff;
   box-shadow:0 0 0 4px rgba(202,153,20,.16);
 }
@@ -2730,13 +1697,13 @@ body, a{ cursor:none; }
 .quote-field textarea:not(:placeholder-shown) + label{
   top:.4rem;
   transform:scale(.72);
-  color:#8a6a1f;
+  color:#1f6a8a;
 }
 
 /* the business/industry field — a native <select> (its options scroll
    on both a phone's native wheel picker and a desktop dropdown) rather
    than a free-text field, so a visitor picks their trade from the same
-   list the showcase section uses instead of typing it out. Selects
+   list the trades-section strip uses instead of typing it out. Selects
    don't support :placeholder-shown, so the floated-label state is
    driven by a .has-value class toggled in quote-form.js instead. */
 .quote-field--select select{
@@ -2755,7 +1722,7 @@ body, a{ cursor:none; }
 .quote-field--select select.has-value + label{
   top:.4rem;
   transform:scale(.72);
-  color:#8a6a1f;
+  color:#1f6a8a;
 }
 
 /* the preferred-call-date field — a native date input so tapping it
@@ -2775,7 +1742,7 @@ body, a{ cursor:none; }
 .quote-field--date input.has-value + label{
   top:.4rem;
   transform:scale(.72);
-  color:#8a6a1f;
+  color:#1f6a8a;
 }
 
 .quote-submit{
@@ -2787,7 +1754,7 @@ body, a{ cursor:none; }
   padding:1rem 1.5rem;
   border:none;
   border-radius:14px;
-  background:linear-gradient(120deg, #8a6a1f, #ffd23f, #cba869, #8a6a1f);
+  background:linear-gradient(120deg, #1f6a8a, #3fd2ff, #69a8cb, #1f6a8a);
   background-size:300% 100%;
   animation:quoteBgSweep 8s ease-in-out infinite;
   color:#1a1408;
@@ -2901,7 +1868,7 @@ body, a{ cursor:none; }
   font-weight:700;
   letter-spacing:.2em;
   text-transform:uppercase;
-  color:#8a6a1f;
+  color:#1f6a8a;
   margin-bottom:.7rem;
 }
 .newsletter-popup-title{
@@ -2916,7 +1883,7 @@ body, a{ cursor:none; }
 /* same metallic gold sweep as .quote-form-title, tuned for the same
    white backdrop */
 .newsletter-popup-highlight{
-  background:linear-gradient(100deg, #8a6a1f 0%, #d4af37 25%, #fff6d8 50%, #d4af37 75%, #8a6a1f 100%);
+  background:linear-gradient(100deg, #1f6a8a 0%, #37afd4 25%, #d8f6ff 50%, #37afd4 75%, #1f6a8a 100%);
   background-size:250% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -2966,7 +1933,7 @@ body, a{ cursor:none; }
   font-size:.76rem;
   letter-spacing:.38em;
   text-transform:uppercase;
-  color:#ffdd7a;
+  color:#7addff;
 }
 .live-demo-title{
   font-family:'Fraunces', serif;
@@ -2977,7 +1944,7 @@ body, a{ cursor:none; }
 }
 .live-demo-title em{
   font-style:italic;
-  color:#ffdd7a;
+  color:#7addff;
 }
 .live-demo-sub{
   max-width:520px;
@@ -3027,7 +1994,7 @@ body, a{ cursor:none; }
   border-radius:16px;
   overflow:hidden;
   background:#0d0d10;
-  border:1px solid rgba(255,221,122,.16);
+  border:1px solid rgba(122,221,255,.16);
   box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
 }
 .live-demo-browser-bar{
@@ -3035,13 +2002,13 @@ body, a{ cursor:none; }
   align-items:center;
   gap:.5rem;
   padding:.65rem .9rem;
-  background:rgba(255,221,122,.06);
+  background:rgba(122,221,255,.06);
 }
 .live-demo-dot{
   width:8px;
   height:8px;
   border-radius:50%;
-  background:rgba(255,221,122,.22);
+  background:rgba(122,221,255,.22);
   flex:0 0 auto;
 }
 .live-demo-url{
@@ -3122,9 +2089,9 @@ body, a{ cursor:none; }
 .live-demo-visit{
   margin-top:.8rem;
   font-size:.85rem;
-  color:#ffdd7a;
+  color:#7addff;
   text-decoration:none;
-  border-bottom:1px solid rgba(255,221,122,.4);
+  border-bottom:1px solid rgba(122,221,255,.4);
   padding-bottom:2px;
   cursor:none;
   transition:border-color .3s var(--ease-out);
@@ -3150,7 +2117,7 @@ body, a{ cursor:none; }
   cursor:none;
   transition:border-color .3s var(--ease-out), color .3s var(--ease-out), background .3s var(--ease-out);
 }
-.live-demo-arrow:hover{ border-color:#ffdd7a; color:#ffdd7a; background:rgba(255,221,122,.08); }
+.live-demo-arrow:hover{ border-color:#7addff; color:#7addff; background:rgba(122,221,255,.08); }
 @media (hover:none), (pointer:coarse){ .live-demo-arrow{ display:none; } }
 /* hidden outright with a single demo — no point browsing a list of one */
 .live-demo-controls.is-single{ display:none; }
@@ -3174,5 +2141,5 @@ body, a{ cursor:none; }
 .live-demo-dot-btn.is-active{
   width:22px;
   border-radius:5px;
-  background:#ffdd7a;
+  background:#7addff;
 }

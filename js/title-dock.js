@@ -3,11 +3,12 @@
    Two independent jobs: the social icon row's one-time entrance, and
    driving the persistent nav's (#siteHeader) own scroll-dependent
    state — a dark-on-light text flip while it's still transparent and
-   over one of the site's two light zones (the hero, and the contrast
-   section further down), and a solid background once it's been
-   scrolled past the hero (see .is-solid in style.css) so it sits
-   cleanly on top of later sections' own pinned content instead of
-   needing to duck out of the way of it.
+   over the hero (the site's one light/white zone now that the
+   before/after contrast section has been removed entirely), and a
+   solid background once it's been scrolled past the hero (see
+   .is-solid in style.css) so it sits cleanly on top of later
+   sections' own pinned content instead of needing to duck out of the
+   way of it.
 
    This file used to also drive a "Papi" word floating and tracking
    itself inside the hero's own liquid mass (per-letter physics riding
@@ -48,28 +49,19 @@
   window.Papi.revealSocial = revealSocial;
 
   const heroEl = document.getElementById('hero');
-  const contrastSectionEl = document.getElementById('contrastSection');
 
   // the persistent nav (see .site-header in style.css) needs two
   // scroll-driven things: a dark-on-light flip for its own text while
-  // it's still transparent and over one of the site's two light zones
-  // (the hero, and the contrast section further down), and a solid
-  // background once it's left the hero entirely — see .is-solid, which
-  // is what actually keeps it from colliding with .contrast-sticky/
-  // .showcase-sticky once those sections pin their own content to the
-  // viewport's top edge. Both only depend on scroll position and a
-  // couple of section boundaries, measured once (not on every scroll
-  // event — offsetTop/offsetHeight force a synchronous layout read)
-  // and re-measured on resize/fonts-ready, same convention as the rest
-  // of this file and contrast.js's own sizing.
+  // it's still transparent and over the hero, and a solid background
+  // once it's left the hero entirely — see .is-solid, which is what
+  // actually keeps it from colliding with later sections' own pinned
+  // content. Only depends on scroll position and the hero's own
+  // height, measured once (not on every scroll event — offsetHeight
+  // forces a synchronous layout read) and re-measured on resize/
+  // fonts-ready, same convention as the rest of this file.
   let heroHeight = 0;
-  let contrastTop = 0, contrastBottom = 0;
   function measureZones(){
     heroHeight = heroEl ? heroEl.offsetHeight : 0;
-    if(contrastSectionEl){
-      contrastTop = contrastSectionEl.offsetTop;
-      contrastBottom = contrastTop + contrastSectionEl.offsetHeight;
-    }
     // update()'s own very first call (bottom of this file) runs
     // synchronously, before this rAF-deferred first measurement has
     // ever landed — heroHeight is still its initial 0 then, which
@@ -96,17 +88,14 @@
 
   function update(){
     // the nav's own text only needs to flip to dark-on-light while
-    // it's BOTH still transparent AND over one of this site's white
-    // zones — the hero (a plain white background now, always) and the
-    // contrast section, also white. Every other section has a dark
-    // background, where the static gold/cream text already reads fine
-    // on its own. (See .site-header:not(.is-solid) in style.css for
-    // the other half of that scoping.)
+    // it's BOTH still transparent AND over the hero (a plain white
+    // background, always) — the only light zone left on the page.
+    // Every other section has a dark background, where the static
+    // blue/cream text already reads fine on its own. (See
+    // .site-header:not(.is-solid) in style.css for the other half of
+    // that scoping.)
     const onHero = window.scrollY < heroHeight;
-    const onContrast = contrastSectionEl
-      ? window.scrollY >= contrastTop && window.scrollY < contrastBottom
-      : false;
-    document.body.classList.toggle('on-light-section', onHero || onContrast);
+    document.body.classList.toggle('on-light-section', onHero);
     // solid background as soon as the hero's been scrolled past — see
     // the comment above this function for why (keeps the nav sitting
     // cleanly on top of later sections' own pinned content instead of
