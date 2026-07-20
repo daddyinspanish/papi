@@ -589,11 +589,6 @@ class ProcessRoom {
         uRippleOffset: { value: new THREE.Vector2(0, 0) },
         uRippleCenter: { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) },
         uTime: { value: 0 },
-        // how close (world units) the water sits to the room's own
-        // wall footprint, used to fade toward a plain dark tone right
-        // at the wall base — see the fragment shader's own comment
-        uRoomHalfWidth: { value: roomWidth / 2 },
-        uRoomBackZ: { value: -(roomDepth / 2 + wallThickness) },
       },
       vertexShader: `
         uniform mat4 textureMatrix;
@@ -614,8 +609,6 @@ class ProcessRoom {
         uniform vec2 uRippleOffset;
         uniform vec2 uRippleCenter;
         uniform float uTime;
-        uniform float uRoomHalfWidth;
-        uniform float uRoomBackZ;
         varying vec4 vUv;
         varying vec2 vUv2;
         varying vec3 vWorldPos;
@@ -658,23 +651,11 @@ class ProcessRoom {
           float reflectivity = mix(0.35, 0.6, fresnel);
           vec3 col = mix(color, reflection, reflectivity);
 
-          // a real, hard-to-fully-root-cause seam sits right where the
-          // water meets each wall's own base — traced it through the
-          // reflection render, the ripple distortion, the fresnel mix,
-          // geometry position/size, shadow casting/receiving, the
-          // wall's own texture, and even the whole post-processing
-          // chain, one at a time, with none of them being the actual
-          // source (each swap left the seam untouched, right up until
-          // the wall itself was hidden entirely, which finally did).
-          // Rather than keep guessing at an increasingly narrow
-          // remaining cause, this fades the water toward its own plain
-          // base colour as it nears the room's own wall footprint —
-          // masks the seam directly, by world position, regardless of
-          // camera angle and regardless of what's actually producing it
-          float wallDistX = uRoomHalfWidth - abs(vWorldPos.x);
-          float wallDistZ = vWorldPos.z - uRoomBackZ;
-          float wallEdgeFade = smoothstep(0.0, 1.4, min(wallDistX, wallDistZ));
-          col = mix(color, col, wallEdgeFade);
+          // the fade toward a plain flat colour near the room's own
+          // wall footprint that used to sit here (masking a reflection
+          // seam at the wall base) is gone per direct request — it read
+          // as the water looking genuinely liquid/reflective in the
+          // centre but like one flat solid colour near the edges
 
           // the sphere's own reactive ripple ring — ported unchanged
           // from the previous version. Faster decay so it fades out
@@ -1375,36 +1356,21 @@ class ProcessRoom {
     };
     window.addEventListener('resize', this._onResize);
 
-    if(!this.prefersReducedMotion){
-      if(!this.isCoarsePointer){
-        this._onMouseMove = (e) => {
-          this.mouseTarget.x = (e.clientX / window.innerWidth) * 2 - 1;
-          this.mouseTarget.y = (e.clientY / window.innerHeight) * 2 - 1;
-          this._wake();
-        };
-        window.addEventListener('mousemove', this._onMouseMove, { passive: true });
-      } else {
-        // touch gets the same look-around parallax as desktop's mouse
-        // move, driven by finger position instead of cursor position —
-        // a single finger was previously ONLY able to scroll the page
-        // (see touch-action:pan-y on .process-room-sticky/#processRoomCanvas
-        // in style.css), with no way to actually look around the room.
-        // Listening here rather than switching that touch-action is what
-        // keeps vertical scroll working exactly as before (this is a
-        // passive listener, nothing calls preventDefault) while ALSO
-        // feeding the same mouseTarget the desktop parallax already
-        // reads in _frame() — dragging a finger now rotates the camera
-        // the same way moving a mouse does, scroll or no scroll
-        this._onTouchMove = (e) => {
-          const t = e.touches[0];
-          if(!t) return;
-          this.mouseTarget.x = (t.clientX / window.innerWidth) * 2 - 1;
-          this.mouseTarget.y = (t.clientY / window.innerHeight) * 2 - 1;
-          this._wake();
-        };
-        window.addEventListener('touchstart', this._onTouchMove, { passive: true });
-        window.addEventListener('touchmove', this._onTouchMove, { passive: true });
-      }
+    // touch used to feed the same look-around parallax as desktop's
+    // mouse move, driven by finger position — removed per direct
+    // request ("scroll lock, no moving around on mobile"): dragging a
+    // finger to scroll was also rotating the camera based on that
+    // finger's absolute screen position, reading as the room swinging
+    // around unpredictably while just trying to scroll. Mobile now
+    // only ever moves through the scroll-driven camera path itself;
+    // desktop's mouse-driven swing is unaffected
+    if(!this.prefersReducedMotion && !this.isCoarsePointer){
+      this._onMouseMove = (e) => {
+        this.mouseTarget.x = (e.clientX / window.innerWidth) * 2 - 1;
+        this.mouseTarget.y = (e.clientY / window.innerHeight) * 2 - 1;
+        this._wake();
+      };
+      window.addEventListener('mousemove', this._onMouseMove, { passive: true });
     }
 
     this._measure();
