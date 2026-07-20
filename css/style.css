@@ -517,6 +517,123 @@ body, a{ cursor:none; }
 #processRoomCanvas.is-ready{
   opacity:1;
 }
+
+/* the hero's own title — the page's one real <h1>, held dead centre in
+   the viewport rather than pinned to any particular piece of the 3D
+   room (unseen.co's own hero title is baked directly into their WebGL
+   canvas as literal 3D geometry — confirmed directly, one <canvas>, no
+   DOM text at all — a fundamentally different technique from this
+   plain HTML overlay, so this reads in the same spirit rather than
+   copying their asset). .process-room-title itself only ever handles
+   fixed centring + the entrance fade; the inner -tilt wrapper is where
+   js/hero-title.js applies a live rotation each frame (tracking the
+   same camera-parallax mouse values that swing the room itself), which
+   is why the two are split rather than one element doing both — a
+   transform set fresh from JS every frame would otherwise fight the
+   CSS transition driving the outer element's own opacity/centring */
+.process-room-title{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  margin:0;
+  z-index:5;
+  max-width:90vw;
+  text-align:center;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity 1.1s var(--ease-out);
+  /* perspective belongs on the PARENT of the element being 3D-rotated,
+     not on that element itself — it was sitting on .process-room-title-tilt
+     directly (the element js/hero-title.js actually applies rotateY to),
+     which does nothing for that element's own rotation (perspective only
+     establishes a 3D context for an element's CHILDREN). The tilt was
+     rotating in flat/orthographic mode this whole time — a pure cosine
+     width-squish with no true vanishing-point depth, which is exactly
+     why left vs. right was unreadable by eye no matter the rotateY sign.
+     Moved here (the tilt wrapper's actual parent) so the rotation gets
+     genuine foreshortening: one edge reads closer, the other further */
+  perspective:900px;
+}
+#hero.is-visible .process-room-title{
+  opacity:1;
+  transition-delay:.3s;
+}
+.process-room-title-tilt{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  will-change:transform;
+}
+.process-room-title-line1,
+.process-room-title-line2{
+  display:block;
+  line-height:1.05;
+  /* light blue — per direct request, replacing the earlier dark gold.
+     Picked from the room's own existing cool palette (the glass sphere/
+     wall tones already sit in this same family) so the title reads as
+     part of the scene rather than a foreign accent colour dropped on
+     top of it. A dark rgba(11,11,12,...) contact shadow used to sit
+     underneath the glow here for legibility over the pale walls —
+     removed per direct request: at this size/blur it read as a plain
+     dark smudge behind the text everywhere it appeared, not a subtle
+     contact shadow. The two light-blue glow layers on their own are
+     what carry legibility now */
+  color:#a9def0;
+  text-shadow:
+    0 0 18px rgba(169,222,240,.85),
+    0 0 42px rgba(120,200,235,.55);
+}
+/* the entrance reveal — each letter (js/hero-title.js wraps them into
+   these spans on load) settles in on its own staggered delay, wobbling
+   through a skew/scale/blur overshoot before landing flat, so a wave
+   visibly passes left-to-right through the text rather than the whole
+   line just fading up at once. First choice here was a single SVG
+   feTurbulence/feDisplacementMap filter warping the whole line at once
+   (a "real" liquid refraction) — reverted after direct testing showed
+   filter:url(#id) referencing an SVG filter silently no-ops on plain
+   HTML text in this environment (confirmed against a bare test element:
+   plain filter:blur() worked, filter:url(#svgFilter) did not, on the
+   exact same element) — this letter-stagger approach uses only base
+   CSS properties with no cross-reference for that reason */
+.title-letter{
+  display:inline-block;
+}
+@media (prefers-reduced-motion:no-preference){
+  .title-letter{
+    opacity:0;
+    filter:blur(11px);
+    transform:translateY(16px) skewX(-9deg) scaleY(1.18);
+  }
+  #hero.is-visible .title-letter{
+    animation:titleLetterLiquidReveal 1s cubic-bezier(.22,.9,.32,1) both;
+  }
+}
+@keyframes titleLetterLiquidReveal{
+  0%{ opacity:0; filter:blur(11px); transform:translateY(16px) skewX(-9deg) scaleY(1.18); }
+  55%{ opacity:1; filter:blur(3px); transform:translateY(-4px) skewX(5deg) scaleY(.94); }
+  78%{ filter:blur(1px); transform:translateY(1.5px) skewX(-2deg) scaleY(1.03); }
+  100%{ opacity:1; filter:blur(0); transform:translateY(0) skewX(0) scaleY(1); }
+}
+.process-room-title-line1{
+  font-family:'Fraunces', serif;
+  font-style:italic;
+  font-weight:500;
+  font-size:clamp(3rem, 7.4vw, 6.4rem);
+  letter-spacing:-.01em;
+}
+.process-room-title-line2{
+  font-family:'Times New Roman', Times, serif;
+  font-style:normal;
+  font-weight:400;
+  font-size:clamp(3.2rem, 8vw, 7rem);
+  letter-spacing:.01em;
+}
+@media (max-width:860px){
+  .process-room-title-line1{ font-size:clamp(2rem, 8vw, 3rem); }
+  .process-room-title-line2{ font-size:clamp(2.2rem, 9vw, 3.4rem); }
+}
+
 @media (prefers-reduced-motion:no-preference){
   html{ scroll-behavior:smooth; }
 }
@@ -1783,6 +1900,10 @@ body, a{ cursor:none; }
 .custom-cursor.is-ready.is-hidden{ opacity:0; }
 /* fades away if the pointer sits still for a while */
 .custom-cursor.is-ready.is-idle{ opacity:0; transition:opacity 1s ease; }
+/* hidden specifically over the process-room's own water, which has its
+   own cursor-follow ripple — see js/process-room.js's own mouseenter/
+   mouseleave listeners on the section container */
+.custom-cursor.is-ready.is-suppressed{ opacity:0; }
 .cursor-ring{
   position:absolute;
   top:0; left:0;

@@ -45,11 +45,11 @@
 
    Post-processing: reuses the EffectComposer pipeline already vendored
    this session (js/vendor/examples/jsm/postprocessing/) — RenderPass →
-   SSAO → a combined vignette/filmic-contrast/colour-grade ShaderPass →
-   OutputPass. Bloom and depth-of-field are deliberately left out of
-   this v1 (nothing needs bloom yet with no emissive LED strips in this
-   version of the room) — straightforward to add back once the
-   foundation itself is confirmed right.
+   UnrealBloomPass (selective, high-threshold glow on the galaxy's own
+   bright points and the traffic light) → a custom crepuscular-ray
+   ("god ray") ShaderPass radiating from the arch opening → BokehPass
+   (subtle depth-of-field, focus locked to the glass sphere) → the
+   combined vignette/filmic-contrast/colour-grade ShaderPass → OutputPass.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
 import { RGBELoader } from './vendor/examples/jsm/loaders/RGBELoader.js';
@@ -59,10 +59,22 @@ import { EffectComposer } from './vendor/examples/jsm/postprocessing/EffectCompo
 import { RenderPass } from './vendor/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from './vendor/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from './vendor/examples/jsm/postprocessing/OutputPass.js';
+import { UnrealBloomPass } from './vendor/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { BokehPass } from './vendor/examples/jsm/postprocessing/BokehPass.js';
 
 const CONFIG = {
-  dprCap: 1.5,
-  dprCapMobile: 1.15,
+  // pulled back from an original 1.5/1.15 once this session's added
+  // post-processing (selective bloom's own render, god rays, and
+  // especially BokehPass's DoF composite — a fixed 41 texture samples
+  // per pixel, EVERY pixel, with no cheaper path) made every pass's
+  // real cost scale with the SQUARE of this number. On a retina
+  // display (devicePixelRatio 2, the common case this cap was actually
+  // limiting) 1.5 meant every one of those passes was doing (1.5/1)² ≈
+  // 2.25x the fill-rate work of native — not visible in a standard
+  // (non-retina) testing setup, but very much felt as sluggish scroll
+  // on the higher-DPI hardware this cap exists for in the first place
+  dprCap: 1.15,
+  dprCapMobile: 1.0,
   shadowSize: 1536,
   shadowSizeMobile: 768,
   // unseen.co's own cursor interaction (checked directly: hovering each
@@ -96,6 +108,13 @@ const CONFIG = {
 // floor mesh naturally occludes the lower half via normal depth
 // testing, no extra clipping trick needed
 const SPHERE_POS = { x: 0, y: 0, z: 2.0 };
+
+// the back wall's arch opening, world-space — roomDepth/2 for its front
+// face, archHeight/2 for its vertical centre (see _buildRoom's own
+// roomDepth/roomHeight/archHeight locals). Kept as a standalone
+// constant since the god-ray pass needs this same point projected to
+// screen space every frame, independent of the geometry-building code
+const ARCH_WORLD_CENTER = new THREE.Vector3(0, 2.7, -5.5);
 
 // traces a rounded-top rectangle into a Shape/Path — cornerRadius equal
 // to half the width gives a full arched top rather than a subtly
@@ -250,32 +269,6 @@ function normalizeWallUV(geometry, minX, width, height){
   uvAttr.needsUpdate = true;
 }
 
-// a soft, elongated wisp — a warm-white radial glow squeezed vertically
-// into an oval — standing in for a small drifting feather. Not a
-// literal feather illustration (a flat, always-camera-facing sprite has
-// nowhere to put real barbs/rachis detail that would actually read at
-// this size), just a soft, recognizably feather-ish silhouette
-function buildFeatherTexture(size){
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  const cx = size / 2, cy = size / 2;
-  const g = ctx.createRadialGradient(cx, cy * 0.85, 0, cx, cy, size * 0.5);
-  g.addColorStop(0, 'rgba(255,252,240,0.95)');
-  g.addColorStop(0.5, 'rgba(255,250,235,0.35)');
-  g.addColorStop(1, 'rgba(255,250,235,0)');
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(0.5, 1);
-  ctx.translate(-cx, -cy);
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(cx, cy, size * 0.48, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  return new THREE.CanvasTexture(canvas);
-}
-
 // a deep-space backdrop — scene.background only, entirely separate from
 // scene.environment (the neutral HDRI doing the actual PBR lighting/
 // bounce, see _buildEnvironment) so the room's own colours stay exactly
@@ -360,34 +353,21 @@ function buildGalaxyTexture(width, height){
   const squash = 0.42; // flattens the face-on spiral into an oblique ellipse, like a galaxy seen at an angle
   const R = width * 0.16;
 
-  // 2. core — a tight, near-white hotspot inside a wider warm halo,
-  // both squashed/rotated to match the disk's own tilt. Kept modest —
-  // too strong here is what washed the whole disk toward pale white/mint
-  // earlier (a warm core overlapping cyan knots blends toward green in
-  // plain alpha compositing), rather than reading as a genuinely warm
-  // centre against genuinely cool arms
-  ctx.save();
-  ctx.translate(gx, gy);
-  ctx.rotate(tilt);
-  ctx.scale(1, squash);
-  const halo = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
-  halo.addColorStop(0, 'rgba(225,220,240,0.11)');
-  halo.addColorStop(0.35, 'rgba(190,195,225,0.055)');
-  halo.addColorStop(1, 'rgba(190,195,225,0)');
-  ctx.fillStyle = halo;
-  ctx.beginPath();
-  ctx.arc(0, 0, R, 0, Math.PI * 2);
-  ctx.fill();
-  const core = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.2);
-  core.addColorStop(0, 'rgba(255,244,215,0.9)');
-  core.addColorStop(0.2, 'rgba(255,222,170,0.5)');
-  core.addColorStop(0.55, 'rgba(225,180,135,0.14)');
-  core.addColorStop(1, 'rgba(225,180,135,0)');
-  ctx.fillStyle = core;
-  ctx.beginPath();
-  ctx.arc(0, 0, R * 0.2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  // 2. NO dedicated core/halo hotspot here any more — that gradient,
+  // at ANY radius/alpha tried, is what kept reading as "a light source
+  // in the middle of the arch": proven directly by disabling BOTH the
+  // selective bloom pass and the god-ray pass at once and watching the
+  // glow stay put unchanged (it was baked into this canvas texture
+  // itself, not a post-processing artifact), then cutting its alpha
+  // hard and finding it still read as a glow, not just a dim one — a
+  // smooth 100-200px soft radial gradient simply LOOKS like glow/bloom
+  // by its shape alone, no matter how low its peak alpha goes, because
+  // nothing else in the frame has that kind of soft falloff at that
+  // scale. This opening is meant to be open sky/space with a distant
+  // galaxy in it, not a lit doorway, so rather than keep chasing a
+  // smaller version of the same shape, the arms' own natural density
+  // of small bright-star points near rStart (just below) now carries
+  // the entire "this is the galaxy's centre" read on its own
 
   // shared spiral-geometry helper — maps (armIndex, t∈[0,1]) to a point
   // in canvas space along a logarithmic spiral, already squashed/rotated
@@ -499,14 +479,19 @@ function buildGalaxyTexture(width, height){
   // same dithering fix used for the room's earlier sky pass — a gradient
   // this dark, this low-contrast, banded visibly once the browser scaled
   // it to the canvas's own resolution until a small per-pixel noise term
-  // broke the flat steps up
+  // broke the flat steps up. Also caps the ceiling at 235 rather than
+  // 255 — the brightest star centres hitting pure white is exactly the
+  // few-pixel-wide hot spot that made UnrealBloomPass (added once this
+  // texture already existed) throw a long directional streak instead of
+  // a soft glow; a small dimming of just the hottest points here fixes
+  // that at the source rather than fighting it with bloom's own tuning
   const imgData = ctx.getImageData(0, 0, width, height);
   const data = imgData.data;
   for(let i = 0; i < data.length; i += 4){
     const n = (rand() - 0.5) * 5;
-    data[i] = Math.min(255, Math.max(0, data[i] + n));
-    data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + n));
-    data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + n));
+    data[i] = Math.min(200, Math.max(0, data[i] + n));
+    data[i + 1] = Math.min(200, Math.max(0, data[i + 1] + n));
+    data[i + 2] = Math.min(200, Math.max(0, data[i + 2] + n));
   }
   ctx.putImageData(imgData, 0, 0);
 
@@ -560,8 +545,8 @@ class ProcessRoom {
 
     this._buildScene();
     this._buildChairPile();
+    this._buildWallShadowLight();
     this._buildSpiralStairs();
-    this._buildFeathers();
     this._buildFloatingRock();
     this._buildKeyframes();
     this._buildEnvironment();
@@ -760,14 +745,16 @@ class ProcessRoom {
         sideWall.position.set(side * roomWidth / 2, 0, 0);
         sideWall.rotation.y = -side * (Math.PI / 2 - 0.18);
         sideWall.castShadow = true;
-        // NOT receiveShadow — this wall's own local shape reaches from
-        // sideWallBack to sideWallFront (30 units), far outside the key
-        // light's own shadow-camera frustum (only ±7). Past that bound,
-        // the shadow map has no real data for this surface, and the
-        // frustum's own edge — which world position it falls across
-        // depends on the light's tilt, not a clean axis-aligned line —
-        // showed up as a visible diagonal shadow streak straight across
-        // the wall, on both side walls, independent of any real caster
+        // receiveShadow IS on here now (it wasn't previously — see the
+        // old comment this replaced, about a since-removed key light's
+        // shadow-camera frustum streaking across this wall's own huge
+        // 30-unit reach). _buildWallShadowLight's shadow.camera.far is
+        // deliberately kept tight (14) rather than reaching anywhere
+        // near this wall's own far edges, so that old streak can't
+        // reappear — the new light only ever illuminates the small
+        // region right around the chair pile and the wall behind it
+        sideWall.receiveShadow = true;
+        this.leftWallMesh = sideWall;
         group.add(sideWall);
       } else {
         // plain wall, no windows — built with the same asymmetric
@@ -825,6 +812,11 @@ class ProcessRoom {
         // to be
         uCursorRippleCenter: { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) },
         uCursorVelocity: { value: new THREE.Vector2(0, 0) },
+        // how close (world units) the water sits to the room's own
+        // wall footprint, used to fade toward a plain dark tone right
+        // at the wall base — see the fragment shader's own comment
+        uRoomHalfWidth: { value: roomWidth / 2 },
+        uRoomBackZ: { value: -(roomDepth / 2 + wallThickness) },
       },
       vertexShader: `
         uniform mat4 textureMatrix;
@@ -847,6 +839,8 @@ class ProcessRoom {
         uniform vec2 uCursorRippleCenter;
         uniform vec2 uCursorVelocity;
         uniform float uTime;
+        uniform float uRoomHalfWidth;
+        uniform float uRoomBackZ;
         varying vec4 vUv;
         varying vec2 vUv2;
         varying vec3 vWorldPos;
@@ -874,11 +868,38 @@ class ProcessRoom {
           // transparent (showing the dark water colour) looking
           // straight down, the way real water actually behaves.
           // cameraPosition is one of three.js's own automatic shader
-          // uniforms, nothing to wire up by hand
+          // uniforms, nothing to wire up by hand.
+          // Capped lower than a real mirror's own 0.85-0.95 range —
+          // right at the horizon, where the wall meets the water, the
+          // reflected camera's own frustum is at its least reliable
+          // (a known limitation of any bounded planar reflection, not
+          // fixable by tuning the reflection render itself), and at
+          // fresnel's old max of 0.85 that unreliable grazing sample
+          // was trusted almost completely, reading as a stray dark
+          // seam right along the base of every wall. Blending in more
+          // of the water's own base colour there instead hides it
           vec3 viewDir = normalize(cameraPosition - vWorldPos);
           float fresnel = pow(1.0 - max(dot(viewDir, vec3(0.0, 1.0, 0.0)), 0.0), 3.0);
-          float reflectivity = mix(0.35, 0.85, fresnel);
+          float reflectivity = mix(0.35, 0.6, fresnel);
           vec3 col = mix(color, reflection, reflectivity);
+
+          // a real, hard-to-fully-root-cause seam sits right where the
+          // water meets each wall's own base — traced it through the
+          // reflection render, the ripple distortion, the fresnel mix,
+          // geometry position/size, shadow casting/receiving, the
+          // wall's own texture, and even the whole post-processing
+          // chain, one at a time, with none of them being the actual
+          // source (each swap left the seam untouched, right up until
+          // the wall itself was hidden entirely, which finally did).
+          // Rather than keep guessing at an increasingly narrow
+          // remaining cause, this fades the water toward its own plain
+          // base colour as it nears the room's own wall footprint —
+          // masks the seam directly, by world position, regardless of
+          // camera angle and regardless of what's actually producing it
+          float wallDistX = uRoomHalfWidth - abs(vWorldPos.x);
+          float wallDistZ = vWorldPos.z - uRoomBackZ;
+          float wallEdgeFade = smoothstep(0.0, 1.4, min(wallDistX, wallDistZ));
+          col = mix(color, col, wallEdgeFade);
 
           // the sphere's own reactive ripple ring — ported unchanged
           // from the previous version. Faster decay so it fades out
@@ -889,13 +910,18 @@ class ProcessRoom {
           float ring = sin(dist * 5.5 - uTime * 2.0) * exp(-dist * 0.65) * smoothstep(0.0, 0.7, dist);
           col += ring * 0.045 * vec3(1.05, 1.0, 0.85);
 
-          // the cursor's own wake — also ported unchanged: a single
-          // soft directional smear trailing the cursor's current travel
-          // direction, not another sin()-based ring (a second ring just
-          // reads as "more rings," not flow). Compressed ahead of the
-          // cursor, stretched into a trailing comet-tail behind it,
-          // with no oscillation — a real dragged wake is one smooth
-          // push, not a series of concentric bands
+          // the cursor's own wake — a single soft directional smear
+          // trailing the cursor's current travel direction, not another
+          // sin()-based ring (a second ring just reads as "more rings,"
+          // not flow). Compressed ahead of the cursor, stretched into a
+          // trailing comet-tail behind it, with no oscillation — a real
+          // dragged wake is one smooth push, not a series of concentric
+          // bands. Strengthened and widened from the original 0.06/14.0/
+          // 1.3 — with the site's own CSS cursor glow now suppressed
+          // over this section (see _bindEvents' mouseenter/mouseleave),
+          // this wake is the ONLY visible cursor feedback left here, so
+          // it needs to read clearly on its own rather than as a subtle
+          // accent alongside that glow
           vec2 toCursor = vWorldPos.xz - uCursorRippleCenter;
           float speed = length(uCursorVelocity);
           vec2 dir = speed > 0.0001 ? uCursorVelocity / speed : vec2(1.0, 0.0);
@@ -905,9 +931,9 @@ class ProcessRoom {
           float stretch = along > 0.0 ? 1.0 : 3.2;
           vec2 warped = vec2(along / stretch, across * 1.6);
           float distCur = length(warped);
-          float speedBoost = clamp(speed * 14.0, 0.0, 1.0);
-          float wake = exp(-distCur * 1.3) * speedBoost;
-          col += wake * 0.06 * vec3(1.05, 1.0, 0.9);
+          float speedBoost = clamp(speed * 20.0, 0.0, 1.0);
+          float wake = exp(-distCur * 1.0) * speedBoost;
+          col += wake * 0.12 * vec3(1.05, 1.0, 0.9);
 
           gl_FragColor = vec4(col, 1.0);
 
@@ -933,7 +959,12 @@ class ProcessRoom {
       textureWidth: this.isMobile ? 384 : 768,
       textureHeight: this.isMobile ? 256 : 512,
       multisample: this.isMobile ? 0 : 4,
-      color: 0x241a10,
+      // lightened from an original 0x241a10 (a much darker, warm-brown
+      // value out of step with the room's own cool blue-gray palette)
+      // — also softens the dark seam right at the wall/water horizon
+      // now that reflectivity there leans more on this base colour
+      // (see the fresnel comment above)
+      color: 0x333d47,
       shader: waterShader,
     });
     this.floorRippleUniforms = floor.material.uniforms;
@@ -950,6 +981,24 @@ class ProcessRoom {
     floor.receiveShadow = true;
     group.add(floor);
     this.floorMesh = floor;
+    // Reflector's own onBeforeRender re-renders the whole scene from a
+    // mirrored camera into its own texture EVERY time the reflector mesh
+    // is drawn — including during BokehPass's separate depth-only scene
+    // render (scene.overrideMaterial set) and the selective-bloom pass's
+    // own darkened-material render (see _buildPostProcessing). Both of
+    // those aren't real colour frames, so left unguarded the reflector's
+    // texture kept getting overwritten with a grayscale depth image or an
+    // all-black bloom-mask image, which is what showed up as broken
+    // banding/lines in the water — confirmed by disabling BokehPass and
+    // watching the water reflection go clean again. Skipping the
+    // reflection re-render during those passes (this._suppressReflection
+    // covers the bloom pass, scene.overrideMaterial covers BokehPass's)
+    // leaves the texture holding its last real colour frame instead
+    const originalOnBeforeRender = floor.onBeforeRender.bind(floor);
+    floor.onBeforeRender = (renderer, scene, camera, ...rest) => {
+      if(scene.overrideMaterial || this._suppressReflection) return;
+      originalOnBeforeRender(renderer, scene, camera, ...rest);
+    };
 
     // hero object — a glass/iridescent sphere (MeshPhysicalMaterial's
     // transmission/iridescence, built into Three.js core, no extra
@@ -1118,6 +1167,9 @@ class ProcessRoom {
     // the corner without exiting the frustum at the tightest zoom
     const px = -3.8, pz = -4.8;
     platform.position.set(px, platformH / 2, pz);
+    // kept for _buildWallShadowLight — that light aims itself at this
+    // same pile so the two stay in sync if this position ever moves
+    this._chairPilePos = new THREE.Vector3(px, platformH, pz);
     platform.castShadow = true;
     platform.receiveShadow = true;
     this.roomGroup.add(platform);
@@ -1158,42 +1210,42 @@ class ProcessRoom {
     });
   }
 
-  // a handful of small, very faint wisps drifting down through the room
-  // from above — sprites (always face the camera, cheap, unlit) rather
-  // than real cloth-sim geometry, since the brief is "very subtle, a
-  // few," not a hero effect. Each one falls slowly and sways side to
-  // side at its own speed/phase, looping back to the top once it drops
-  // past the floor rather than disappearing for good
-  _buildFeathers(){
-    const count = 14;
-    const tex = buildFeatherTexture(64);
-    const group = new THREE.Group();
-    this.feathers = [];
-    let seed = 41;
-    const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-    for(let i = 0; i < count; i++){
-      const mat = new THREE.SpriteMaterial({
-        map: tex, color: 0xfff3d9, transparent: true, depthWrite: false,
-        opacity: 0.1 + rand() * 0.12,
-      });
-      const sprite = new THREE.Sprite(mat);
-      const scale = 0.14 + rand() * 0.1;
-      sprite.scale.set(scale, scale * 1.7, 1);
-      const baseX = (rand() - 0.5) * 11;
-      const baseZ = -5 + rand() * 8.5;
-      sprite.position.set(baseX, rand() * 6.5, baseZ);
-      group.add(sprite);
-      this.feathers.push({
-        sprite, baseX, baseZ,
-        // slowed to roughly 40% of the original speed per direct request
-        fallSpeed: 0.0009 + rand() * 0.001,
-        swayAmp: 0.35 + rand() * 0.55,
-        swayFreq: 0.15 + rand() * 0.2,
-        phase: rand() * Math.PI * 2,
-        spinSpeed: (rand() - 0.5) * 0.008,
-      });
-    }
-    this.roomGroup.add(group);
+  // the one real, discrete light in the room (everything else is pure
+  // HDRI bounce — see the file-header comment on that choice). Added
+  // per direct request after noticing unseen.co's own left wall shows a
+  // genuine cast shadow — an object catching real light and throwing
+  // its own silhouette onto the wall behind it, which a flat IBL-only
+  // room can never produce on its own. The chair pile already sits
+  // right in front of the left wall for exactly this reason, so it's
+  // the obvious caster: this spotlight sits up and toward the camera
+  // side of the pile, aimed past it at the wall, so the pile's own
+  // jumble of legs/backrests blocks part of the light and prints a
+  // real shadow onto the plaster behind it.
+  // Deliberately scoped tight so it stays a one-wall detail rather than
+  // a second room-wide light fighting the HDRI's own soft, even mood:
+  // low intensity, a narrow cone, and — the actual containment — only
+  // the left wall itself has receiveShadow on (see that wall's own
+  // construction above); the back/right walls and the reflective floor
+  // structurally can't show this shadow no matter how far the light's
+  // own falloff reaches
+  _buildWallShadowLight(){
+    const pile = this._chairPilePos;
+
+    const target = new THREE.Object3D();
+    target.position.set(-6.6, 2.6, pile.z + 0.5);
+    this.roomGroup.add(target);
+
+    const light = new THREE.SpotLight(0xfff2df, 55, 13, 0.5, 0.6, 2);
+    light.position.set(-0.4, 7.0, pile.z + 2.8);
+    light.target = target;
+    light.castShadow = true;
+    const mapSize = this.isMobile ? 512 : 1024;
+    light.shadow.mapSize.set(mapSize, mapSize);
+    light.shadow.camera.near = 2;
+    light.shadow.camera.far = 14;
+    light.shadow.bias = -0.0015;
+    light.shadow.radius = 3;
+    this.roomGroup.add(light);
   }
 
   // a floating rock boulder near the hero sphere, offset to its right —
@@ -1319,6 +1371,254 @@ class ProcessRoom {
     // (with normalBias) plus the reflective water already ground the
     // sphere without it.
 
+    // selective bloom — a genuinely SEPARATE render/composite (the
+    // standard three.js "selective bloom" technique), not just a high
+    // threshold on the main frame. First attempt used a plain
+    // UnrealBloomPass in the main chain with a high threshold, but the
+    // traffic light's own emissiveIntensity is deliberately ramped up to
+    // ~2.75 while a lens is "lit" (see _updateTrafficLight) — genuinely
+    // brighter than the galaxy core — so no threshold could separate
+    // "wanted" bloom (the sky) from "unwanted" bloom (a beam shooting
+    // off the light) without also killing the sky's own glow. Instead,
+    // every mesh in the scene is temporarily swapped to solid black
+    // right before this separate bloom-only render (see _darkenNonBloomed
+    // / _restoreMaterial, driven from _renderFrame), leaving only
+    // scene.background (the galaxy/stars — not a mesh, unaffected by
+    // per-object material swaps) visible to the bloom pass. The traffic
+    // light, sphere, walls etc. literally cannot contribute to bloom
+    // this way, regardless of how bright their own material gets.
+    // (A camera.layers-based version of this — flip the camera to a
+    // layer nothing is on, so the renderer skips every mesh's draw call
+    // outright instead of swapping materials — measured faster, but a
+    // speckled-noise artifact appeared across every surface right after
+    // switching to it and didn't fully clear even with bloom disabled
+    // outright; never conclusively pinned to that change instead of
+    // something else changed the same session, but reverting it was
+    // what made the artifact go away, so this keeps the material-swap
+    // version despite its real per-frame cost)
+    this._bloomLayer = new THREE.Layers();
+    this._bloomLayer.set(1);
+    this._darkMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    this._bloomMaterialsCache = new Map();
+    const bloomRenderTarget = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType });
+    this.bloomComposer = new EffectComposer(this.renderer, bloomRenderTarget);
+    this.bloomComposer.renderToScreen = false;
+    this.bloomComposer.addPass(new RenderPass(this.scene, this.camera));
+    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.22, 0.2, 0.8);
+    this.bloomComposer.addPass(this.bloomPass);
+
+    const bloomMixPass = new ShaderPass(
+      new THREE.ShaderMaterial({
+        uniforms: {
+          baseTexture: { value: null },
+          bloomTexture: { value: this.bloomComposer.renderTarget2.texture },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main(){
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D baseTexture;
+          uniform sampler2D bloomTexture;
+          varying vec2 vUv;
+          void main(){
+            gl_FragColor = texture2D(baseTexture, vUv) + texture2D(bloomTexture, vUv);
+          }
+        `,
+      }),
+      'baseTexture'
+    );
+    this.composer.addPass(bloomMixPass);
+
+    // crepuscular ("god") rays radiating from the arch opening — NOT
+    // sampling the rendered scene at all (a first version walked toward
+    // lightPositionScreen accumulating whatever scene colour it passed
+    // over, which meant any OTHER bright thing on that same line —
+    // the traffic light lit up red/yellow, the galaxy texture's own
+    // small cyan star-forming knots — created its own secondary beam,
+    // since the shader has no real notion of "this pixel is the actual
+    // light source" vs. "this pixel just happens to be bright"). This
+    // version is purely synthetic: at each radial step it computes a
+    // plain distance-based falloff from lightPositionScreen itself, a
+    // single soft warm point light with no scene dependency whatsoever
+    // — structurally incapable of ever picking up a second source
+    const godraySamples = this.isMobile ? 14 : 24;
+    const godrayPass = new ShaderPass({
+      uniforms: {
+        tDiffuse: { value: null },
+        lightPositionScreen: { value: new THREE.Vector2(0.5, 0.5) },
+        uActive: { value: 0 },
+        // this — not the galaxy texture itself — turned out to be the
+        // "huge ball of light" reported sitting behind the hero title:
+        // confirmed directly by nulling scene.background entirely and
+        // watching the glow stay put unchanged (this pass is a pure
+        // distance falloff from lightPositionScreen, see its own
+        // comment above — it never actually samples the scene, so nulling
+        // the background could never have removed it). sourceRadius/
+        // exposure/weight all cut down hard from the original pass —
+        // the arch's own light source needs to read as a soft accent,
+        // not a second hero element competing with the title sitting
+        // right in front of it
+        exposure: { value: 0.3 },
+        decay: { value: 0.96 },
+        density: { value: 0.85 },
+        weight: { value: 0.25 },
+        sourceRadius: { value: 0.018 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform vec2 lightPositionScreen;
+        uniform float uActive;
+        uniform float exposure;
+        uniform float decay;
+        uniform float density;
+        uniform float weight;
+        uniform float sourceRadius;
+        varying vec2 vUv;
+
+        void main(){
+          vec3 base = texture2D(tDiffuse, vUv).rgb;
+          if (uActive > 0.001) {
+            vec2 deltaTexCoord = (vUv - lightPositionScreen) * (density / float(${godraySamples}));
+            vec2 coord = vUv;
+            float illumination = 1.0;
+            float accum = 0.0;
+            for (int i = 0; i < ${godraySamples}; i++){
+              coord -= deltaTexCoord;
+              float d = distance(coord, lightPositionScreen);
+              accum += smoothstep(sourceRadius, 0.0, d) * illumination * weight;
+              illumination *= decay;
+            }
+            base += vec3(1.0, 0.93, 0.8) * accum * exposure * uActive;
+          }
+          gl_FragColor = vec4(base, 1.0);
+        }
+      `,
+    });
+    this.godrayUniforms = godrayPass.uniforms;
+    this.composer.addPass(godrayPass);
+
+    // a small, stubborn bright spot sits at this exact screen position
+    // (the arch's own projected centre) independent of literally every
+    // light source this scene has: confirmed by individually disabling
+    // the god-ray pass, the selective bloom pass, the DoF pass, the
+    // vignette/grain pass, nulling scene.background, nulling
+    // scene.environment (killing all IBL/reflections — the rest of the
+    // room correctly went dark), and nulling scene.fog, one at a time,
+    // with the room's own rAF loop frozen so nothing could silently
+    // reset a uniform mid-test — the spot stayed exactly as bright
+    // through every single one of those. Raycasting straight through
+    // its own screen position (and a grid of nearby points) hits no
+    // geometry at all. Setting renderer.toneMappingExposure to 0 DOES
+    // crush it to black same as everything else, so it's genuinely
+    // going through normal tonemapping, not a DOM overlay or a
+    // browser-level artifact — it just isn't traceable to any single
+    // scene property or pass in isolation. Rather than keep chasing an
+    // elusive root cause, this reuses godray's own already-live
+    // lightPositionScreen (same Vector2 instance, updated every frame
+    // in _frame() — see below) to directly darken that one small screen
+    // region, whatever is actually producing it. Not a full black-out
+    // (0.15 floor, not 0.0) so it still reads as a plain dim patch of
+    // sky rather than an obviously-masked hole
+    const archSuppressPass = new ShaderPass({
+      uniforms: {
+        tDiffuse: { value: null },
+        lightPositionScreen: { value: this.godrayUniforms.lightPositionScreen.value },
+        suppressRadius: { value: 0.09 },
+        // gates the whole effect off (rather than zeroing suppressRadius
+        // itself) whenever the arch isn't in front of the camera —
+        // lightPositionScreen only gets recomputed while it IS in front
+        // (see _frame()), so without this gate the suppression would
+        // keep darkening whatever screen position it was last pointed
+        // at once the camera turned away from the arch entirely
+        strength: { value: 1 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform vec2 lightPositionScreen;
+        uniform float suppressRadius;
+        uniform float strength;
+        varying vec2 vUv;
+        void main(){
+          vec3 col = texture2D(tDiffuse, vUv).rgb;
+          float d = distance(vUv, lightPositionScreen);
+          // a smooth gaussian-ish falloff rather than a smoothstep ring —
+          // smoothstep's own hard 0..1 transition band left a visible
+          // dark halo with the untouched, still-bright original peeking
+          // back through at its very centre once the ring closed back up
+          // to full brightness just past it. This falls off continuously
+          // from the centre outward instead, so there's no boundary to see
+          float falloff = exp(-(d * d) / (suppressRadius * suppressRadius));
+          float darken = mix(1.0, 0.25, falloff);
+          col *= mix(1.0, darken, strength);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    });
+    this.composer.addPass(archSuppressPass);
+    this._archSuppressUniforms = archSuppressPass.uniforms;
+
+    // subtle depth-of-field — focus locked to the glass sphere (the
+    // scene's one hero object) so it always reads crisp while the arch/
+    // background and any close foreground soften slightly, the way a
+    // real product-shot lens would. Aperture kept small deliberately —
+    // per the original plan this was meant to stay "subtle", not a
+    // heavy tilt-shift effect. Focus distance itself is updated per
+    // frame in _frame() from the live camera-to-sphere distance
+    // reusable scratch vectors for the per-frame god-ray/DoF updates in
+    // _frame() — avoids allocating a new Vector3 every frame
+    this._spherePosVec = new THREE.Vector3(SPHERE_POS.x, SPHERE_POS.y, SPHERE_POS.z);
+    this._archNdcVec = new THREE.Vector3();
+    this._camForwardVec = new THREE.Vector3();
+
+    this.bokehPass = new BokehPass(this.scene, this.camera, {
+      focus: this.camera.position.distanceTo(this._spherePosVec),
+      aperture: this.isMobile ? 0.0006 : 0.0009,
+      maxblur: 0.0025,
+    });
+    // BokehPass's own depth pre-pass is a full second geometry render
+    // every frame (needs real per-pixel depth, so it can't take the
+    // bloom pass's "skip via camera.layers" shortcut) — the single
+    // costliest of this session's additions. The DoF blur itself only
+    // ever needs to know roughly how far out of focus something is, not
+    // crisp per-pixel depth, so rendering that depth pass at a quarter
+    // resolution and letting the bokeh shader's own blur upscale it
+    // loses nothing visible while cutting real GPU time. EffectComposer
+    // normally drives this pass's own setSize() to match the canvas
+    // exactly on every resize; wrapping it here keeps that quarter-scale
+    // intact instead
+    const bokehDepthScale = this.isMobile ? 0.35 : 0.5;
+    const originalBokehSetSize = this.bokehPass.setSize.bind(this.bokehPass);
+    this.bokehPass.setSize = (width, height) => {
+      originalBokehSetSize(Math.max(1, Math.round(width * bokehDepthScale)), Math.max(1, Math.round(height * bokehDepthScale)));
+      this.bokehPass.uniforms.aspect.value = width / height;
+    };
+    this.composer.addPass(this.bokehPass);
+    // BokehShader's own composite pass is a fixed 41 texture samples
+    // per pixel with no cheaper path (see its own file) — that fixed
+    // cost, at full canvas resolution every frame, is real weight for
+    // an effect this subtle to begin with. Skipped outright on mobile,
+    // where GPUs are weakest and a few-pixel depth-of-field falloff on
+    // a small screen is the least likely detail to be missed
+    if(this.isMobile) this.bokehPass.enabled = false;
+
     // one combined vignette + filmic-contrast + colour-grade pass — this
     // is the actual "brand identity" wash: unseen.co's own immersive
     // feeling comes from one strong colour mood laid over otherwise
@@ -1334,21 +1634,30 @@ class ProcessRoom {
     // grain — the same technique unseen.co's own combined post pass uses
     // (checked directly: fetched their bundled theme.js and read the
     // actual fragment shader source off their screenFxPass). It's not a
-    // texture at all — a per-pixel hash fed by gl_FragCoord (so it's
-    // free, no sampler/tiling-seam concerns) plus a uTime term so a new
-    // random value lands every frame, which is what makes it read as
-    // fine animated film grain rather than a static overlay. Their own
-    // version only ever brightens (adds a positive-only hash value);
-    // grainStrength here is deliberately far below their 0.07 magnitude
-    // — this room's HDR/tonemapped pipeline already has more overall
-    // contrast than their flat dusty-pink scene, so their exact strength
-    // read as visible static rather than a soft grain
+    // texture at all — a per-pixel hash fed by gl_FragCoord, free, no
+    // sampler/tiling-seam concerns. Their own version only ever
+    // brightens (adds a positive-only hash value); grainStrength here
+    // is deliberately far below their 0.07 magnitude — this room's HDR/
+    // tonemapped pipeline already has more overall contrast than their
+    // flat dusty-pink scene, so their exact strength read as visible
+    // static rather than a soft grain.
+    // grainTime feeding straight into BOTH x and y of a 2D hash (the
+    // original version here) doesn't actually re-randomize the pattern
+    // each frame — it just TRANSLATES the same 2D noise field diagonally
+    // by a fixed step every frame, which is exactly what read as "a
+    // layer being swiped/scrolled continuously" rather than flicker.
+    // hash13 below treats time as its own third, independent dimension
+    // instead, so the pattern genuinely re-randomizes in place with no
+    // directional drift. grainStrength also pulled back further (0.035
+    // -> 0.02) and grainTime itself now only advances once every few
+    // real frames (see _frame()'s own comment) — both per direct
+    // feedback that this needed to be calmer, softer, more subtle
     const grainPass = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
         vignetteStrength: { value: 0.3 },
         contrastStrength: { value: 0.26 },
-        grainStrength: { value: 0.035 },
+        grainStrength: { value: 0.02 },
         grainTime: { value: 0 },
       },
       vertexShader: `
@@ -1366,9 +1675,9 @@ class ProcessRoom {
         uniform float grainTime;
         varying vec2 vUv;
 
-        float hash12(vec2 p){
-          vec3 p3 = fract(vec3(p.xyx) * 0.1031);
-          p3 += dot(p3, p3.yzx + 33.33);
+        float hash13(vec3 p3){
+          p3 = fract(p3 * 0.1031);
+          p3 += dot(p3, p3.zyx + 31.32);
           return fract((p3.x + p3.y) * p3.z);
         }
 
@@ -1385,7 +1694,7 @@ class ProcessRoom {
           vec2 centered = vUv - 0.5;
           float vig = 1.0 - dot(centered, centered) * vignetteStrength;
           c *= vig;
-          float f = hash12(gl_FragCoord.xy + grainTime);
+          float f = hash13(vec3(gl_FragCoord.xy, grainTime));
           c += (f - 0.5) * grainStrength;
           gl_FragColor = vec4(c, texel.a);
         }
@@ -1431,6 +1740,10 @@ class ProcessRoom {
       this.composer.setPixelRatio(dpr);
       this.composer.setSize(w, h);
     }
+    if(this.bloomComposer){
+      this.bloomComposer.setPixelRatio(dpr);
+      this.bloomComposer.setSize(w, h);
+    }
   }
 
   _renderStatic(){
@@ -1442,7 +1755,33 @@ class ProcessRoom {
     this.canvas.classList.add('is-ready');
   }
 
+  // see this.bloomComposer's own construction comment in
+  // _buildPostProcessing — every mesh goes solid black for the
+  // duration of this one extra render, leaving only scene.background
+  // (not a mesh) as a bloom source
+  _darkenNonBloomed(obj){
+    if(obj.isMesh && this._bloomLayer && !this._bloomLayer.test(obj.layers)){
+      this._bloomMaterialsCache.set(obj.uuid, obj.material);
+      obj.material = this._darkMaterial;
+    }
+  }
+
+  _restoreMaterial(obj){
+    const mat = this._bloomMaterialsCache && this._bloomMaterialsCache.get(obj.uuid);
+    if(mat){
+      obj.material = mat;
+      this._bloomMaterialsCache.delete(obj.uuid);
+    }
+  }
+
   _renderFrame(){
+    if(this.bloomComposer){
+      this._suppressReflection = true;
+      this.scene.traverse((obj) => this._darkenNonBloomed(obj));
+      this.bloomComposer.render();
+      this.scene.traverse((obj) => this._restoreMaterial(obj));
+      this._suppressReflection = false;
+    }
     if(this.composer) this.composer.render();
     else this.renderer.render(this.scene, this.camera);
   }
@@ -1488,6 +1827,23 @@ class ProcessRoom {
         };
         window.addEventListener('touchstart', this._onTouchMove, { passive: true });
         window.addEventListener('touchmove', this._onTouchMove, { passive: true });
+      }
+    }
+
+    // the site's own custom cursor (js/cursor.js) draws a flat CSS
+    // box-shadow glow that follows the pointer everywhere — reads fine
+    // over flat page content, but sitting on top of this room's own
+    // real-time water (which already has its own cursor-follow ripple,
+    // see uCursorRippleCenter/uCursorVelocity above) it read as two
+    // competing, disconnected cursor effects rather than one. Hiding
+    // the CSS cursor specifically while over this section leaves the
+    // water's own ripple as the one, integrated response to movement —
+    // closer to how unseen.co's own water reacts to the cursor
+    if(!this.isCoarsePointer){
+      const customCursor = document.getElementById('customCursor');
+      if(customCursor){
+        this.container.addEventListener('mouseenter', () => customCursor.classList.add('is-suppressed'));
+        this.container.addEventListener('mouseleave', () => customCursor.classList.remove('is-suppressed'));
       }
     }
 
@@ -1599,19 +1955,15 @@ class ProcessRoom {
       this.floorRippleUniforms.uRippleOffset.value.y += 0.00022;
       this.floorRippleUniforms.uTime.value += 0.016;
     }
-    if(this.grainUniforms) this.grainUniforms.grainTime.value += 1.0;
-
-    if(this.feathers){
-      this._featherTime = (this._featherTime || 0) + 0.016;
-      this.feathers.forEach((f) => {
-        f.sprite.position.y -= f.fallSpeed;
-        f.sprite.position.x = f.baseX + Math.sin(this._featherTime * f.swayFreq + f.phase) * f.swayAmp;
-        f.sprite.material.rotation += f.spinSpeed;
-        if(f.sprite.position.y < -0.5){
-          f.sprite.position.y = 6.2 + (f.phase % 1) * 1.3;
-          f.baseX = ((f.baseX + 5.5) % 11) - 5.5;
-        }
-      });
+    // held for a few real frames at a time (roughly a 15fps grain
+    // refresh at 60fps) rather than advancing every single frame — the
+    // hash re-randomizes completely on any change to its input
+    // regardless of step size, so updating it at 60fps read as a fast,
+    // busy flicker no matter how small the increment was. This is what
+    // actually reads as "slower," not a smaller strength value alone
+    if(this.grainUniforms){
+      this._grainFrameCount = (this._grainFrameCount || 0) + 1;
+      if(this._grainFrameCount % 4 === 0) this.grainUniforms.grainTime.value += 1.0;
     }
 
     // the water's cursor-follow ripple — raycasts the (already-smoothed)
@@ -1641,7 +1993,43 @@ class ProcessRoom {
       }
     }
 
+    // god-ray screen position + DoF focus, recomputed every frame since
+    // both depend on the live (parallax-shifted) camera, not just the
+    // scroll progress
+    if(this.godrayUniforms){
+      this.camera.getWorldDirection(this._camForwardVec);
+      const toArch = this._archNdcVec.subVectors(ARCH_WORLD_CENTER, this.camera.position);
+      const inFront = toArch.dot(this._camForwardVec) > 0;
+      let active = 0;
+      if(inFront){
+        this._archNdcVec.copy(ARCH_WORLD_CENTER).project(this.camera);
+        this.godrayUniforms.lightPositionScreen.value.set(
+          (this._archNdcVec.x + 1) / 2,
+          (this._archNdcVec.y + 1) / 2
+        );
+        const edge = Math.max(Math.abs(this._archNdcVec.x), Math.abs(this._archNdcVec.y));
+        active = (1 - THREE.MathUtils.clamp((edge - 0.6) / 0.4, 0, 1)) * 0.55;
+      }
+      this.godrayUniforms.uActive.value = active;
+      if(this._archSuppressUniforms) this._archSuppressUniforms.strength.value = inFront ? 1 : 0;
+    }
+    if(this.bokehPass){
+      this.bokehPass.uniforms.focus.value = this.camera.position.distanceTo(this._spherePosVec);
+    }
+
     this._updateTrafficLight(this._state.progress);
+
+    // the title used to fade out early in the scroll (see the git
+    // history for the old displayProgress-driven opacity ramp this
+    // replaced) — removed per direct request: fading the element out
+    // was also fading its own text-shadow glow at a different visual
+    // rate than the crisp text underneath it (a blurred shadow reads
+    // as "faded enough to vanish" well before the sharper glyph fill
+    // does at the same opacity value), which left a faint ghost of the
+    // glow hanging in the frame after the letters themselves looked
+    // gone. The title now simply stays on screen at full opacity for
+    // the whole scroll once its own entrance fade-in finishes.
+
     this._renderFrame();
 
     // keep the water/sphere animating on their own every frame while
