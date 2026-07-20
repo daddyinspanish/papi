@@ -586,23 +586,28 @@ body, a{ cursor:none; }
 }
 /* the entrance reveal — each letter (js/hero-title.js wraps them into
    these spans on load) settles in on its own staggered delay, wobbling
-   through a skew/scale/blur overshoot before landing flat, so a wave
-   visibly passes left-to-right through the text rather than the whole
-   line just fading up at once. First choice here was a single SVG
-   feTurbulence/feDisplacementMap filter warping the whole line at once
-   (a "real" liquid refraction) — reverted after direct testing showed
+   through a skew/scale overshoot before landing flat, so a wave visibly
+   passes left-to-right through the text rather than the whole line just
+   fading up at once. First choice here was a single SVG feTurbulence/
+   feDisplacementMap filter warping the whole line at once (a "real"
+   liquid refraction) — reverted after direct testing showed
    filter:url(#id) referencing an SVG filter silently no-ops on plain
-   HTML text in this environment (confirmed against a bare test element:
-   plain filter:blur() worked, filter:url(#svgFilter) did not, on the
-   exact same element) — this letter-stagger approach uses only base
-   CSS properties with no cross-reference for that reason */
+   HTML text in this environment. Second choice added filter:blur() to
+   this same per-letter keyframe — reverted too, after a real device
+   screenshot showed mobile Safari compositing that blur() together
+   with this element's own INHERITED text-shadow glow into one big soft
+   rectangular halo the shape of the letter's layout box, rather than a
+   glow that hugs the actual glyph — filter forces a new compositing
+   layer, and text-shadow painted into that layer apparently rasterizes
+   against the box rather than the glyph outline on that engine. No
+   filter at all here now — just the transform wobble + opacity, which
+   doesn't force that layer/shadow interaction */
 .title-letter{
   display:inline-block;
 }
 @media (prefers-reduced-motion:no-preference){
   .title-letter{
     opacity:0;
-    filter:blur(11px);
     transform:translateY(16px) skewX(-9deg) scaleY(1.18);
   }
   #hero.is-visible .title-letter{
@@ -610,10 +615,10 @@ body, a{ cursor:none; }
   }
 }
 @keyframes titleLetterLiquidReveal{
-  0%{ opacity:0; filter:blur(11px); transform:translateY(16px) skewX(-9deg) scaleY(1.18); }
-  55%{ opacity:1; filter:blur(3px); transform:translateY(-4px) skewX(5deg) scaleY(.94); }
-  78%{ filter:blur(1px); transform:translateY(1.5px) skewX(-2deg) scaleY(1.03); }
-  100%{ opacity:1; filter:blur(0); transform:translateY(0) skewX(0) scaleY(1); }
+  0%{ opacity:0; transform:translateY(16px) skewX(-9deg) scaleY(1.18); }
+  55%{ opacity:1; transform:translateY(-4px) skewX(5deg) scaleY(.94); }
+  78%{ transform:translateY(1.5px) skewX(-2deg) scaleY(1.03); }
+  100%{ opacity:1; transform:translateY(0) skewX(0) scaleY(1); }
 }
 .process-room-title-line1{
   font-family:'Fraunces', serif;
