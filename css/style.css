@@ -536,6 +536,19 @@ body, a{ cursor:none; }
   height:100vh;
   height:100svh;
   height:calc(100 * var(--stable-vh, 1vh));
+  /* the outer .process-room-section above is deliberately frozen to
+     --stable-vh so the page's total scroll distance never jumps (see
+     its own comment). This inner sticky box has no such constraint —
+     it doesn't affect total document height, it just needs to always
+     cover whatever's currently visible. Pinning it to that same frozen
+     value backfires here: once the browser's chrome (Safari's URL bar,
+     Instagram's in-app header) auto-collapses mid-scroll, the real
+     visible viewport grows taller than this frozen box, and the page's
+     cream background shows through as a gap along the bottom edge.
+     100dvh tracks the CURRENT chrome state live, closing that gap;
+     unsupported browsers just ignore this line and keep the frozen
+     value above. */
+  height:100dvh;
   overflow:hidden;
   background:var(--paper);
   /* explicit rather than left to the browser's own default guess for
