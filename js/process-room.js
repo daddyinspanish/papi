@@ -66,18 +66,22 @@ import { UnrealBloomPass } from './vendor/examples/jsm/postprocessing/UnrealBloo
 import { BokehPass } from './vendor/examples/jsm/postprocessing/BokehPass.js';
 
 const CONFIG = {
-  // pulled back from an original 1.5/1.15 once this session's added
-  // post-processing (selective bloom's own render, god rays, and
-  // especially BokehPass's DoF composite — a fixed 41 texture samples
-  // per pixel, EVERY pixel, with no cheaper path) made every pass's
-  // real cost scale with the SQUARE of this number. On a retina
-  // display (devicePixelRatio 2, the common case this cap was actually
-  // limiting) 1.5 meant every one of those passes was doing (1.5/1)² ≈
-  // 2.25x the fill-rate work of native — not visible in a standard
-  // (non-retina) testing setup, but very much felt as sluggish scroll
-  // on the higher-DPI hardware this cap exists for in the first place
-  dprCap: 1.15,
-  dprCapMobile: 1.0,
+  // raised back up after direct feedback that the room read as visibly
+  // pixelated/blocky while scrolling or moving — that sluggishness the
+  // original 1.15/1.0 cut was chasing turned out to actually be the
+  // fixed-lerp-factor choppiness bug (see mouseLerp/progressLerp's own
+  // comment below, fixed via dt-correction in _frame()), not raw
+  // resolution — so there was real headroom being left on the table.
+  // dprCapMobile in particular was capping straight to 1.0 (literally
+  // CSS-pixel resolution, one rendered pixel per several real device
+  // pixels on any retina phone) which is the single biggest source of
+  // blockiness on exactly the hardware most of this feedback has come
+  // from. Even if this costs a lower actual frame rate on a heavier
+  // scene, the dt-corrected motion above stays smooth regardless — it's
+  // a fair trade of headroom for sharpness now that choppiness itself
+  // no longer depends on hitting a particular fps
+  dprCap: 1.5,
+  dprCapMobile: 1.5,
   shadowSize: 1536,
   shadowSizeMobile: 768,
   // this scene's own _frame() ran completely uncapped — every native
@@ -576,10 +580,11 @@ class ProcessRoom {
     // reflects its surroundings rather than a material guessing at it
     // via a prefiltered environment map. Built on Reflector's own
     // options.shader hook (rather than its flat default mirror shader)
-    // so the existing ripple normal-map distortion, the sphere's
-    // reactive ripple ring, and the cursor's directional wake all carry
-    // over unchanged, just layered on top of a genuine reflection
-    // instead of a flat dark colour
+    // so the existing ripple normal-map distortion and the sphere's own
+    // reactive ripple ring both carry over unchanged, just layered on
+    // top of a genuine reflection instead of a flat dark colour. The
+    // cursor's own directional wake that used to sit here — removed
+    // entirely per direct request
     const rippleMap = buildRippleNormalMap(256);
     const waterShader = {
       uniforms: {
@@ -590,13 +595,6 @@ class ProcessRoom {
         uRippleOffset: { value: new THREE.Vector2(0, 0) },
         uRippleCenter: { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) },
         uTime: { value: 0 },
-        // the cursor's own ripple centre, updated every frame in
-        // _frame() from a raycast of the cursor against this same floor
-        // mesh, plus its current world-space velocity — real flow, not
-        // just a mark sitting still under wherever the cursor happens
-        // to be
-        uCursorRippleCenter: { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) },
-        uCursorVelocity: { value: new THREE.Vector2(0, 0) },
         // how close (world units) the water sits to the room's own
         // wall footprint, used to fade toward a plain dark tone right
         // at the wall base — see the fragment shader's own comment
@@ -621,8 +619,6 @@ class ProcessRoom {
         uniform vec3 color;
         uniform vec2 uRippleOffset;
         uniform vec2 uRippleCenter;
-        uniform vec2 uCursorRippleCenter;
-        uniform vec2 uCursorVelocity;
         uniform float uTime;
         uniform float uRoomHalfWidth;
         uniform float uRoomBackZ;
@@ -695,31 +691,6 @@ class ProcessRoom {
           float ring = sin(dist * 5.5 - uTime * 2.0) * exp(-dist * 0.65) * smoothstep(0.0, 0.7, dist);
           col += ring * 0.045 * vec3(1.05, 1.0, 0.85);
 
-          // the cursor's own wake — a single soft directional smear
-          // trailing the cursor's current travel direction, not another
-          // sin()-based ring (a second ring just reads as "more rings,"
-          // not flow). Compressed ahead of the cursor, stretched into a
-          // trailing comet-tail behind it, with no oscillation — a real
-          // dragged wake is one smooth push, not a series of concentric
-          // bands. Strengthened and widened from the original 0.06/14.0/
-          // 1.3 — with the site's own CSS cursor glow now suppressed
-          // over this section (see _bindEvents' mouseenter/mouseleave),
-          // this wake is the ONLY visible cursor feedback left here, so
-          // it needs to read clearly on its own rather than as a subtle
-          // accent alongside that glow
-          vec2 toCursor = vWorldPos.xz - uCursorRippleCenter;
-          float speed = length(uCursorVelocity);
-          vec2 dir = speed > 0.0001 ? uCursorVelocity / speed : vec2(1.0, 0.0);
-          vec2 perp = vec2(-dir.y, dir.x);
-          float along = dot(toCursor, dir);
-          float across = dot(toCursor, perp);
-          float stretch = along > 0.0 ? 1.0 : 3.2;
-          vec2 warped = vec2(along / stretch, across * 1.6);
-          float distCur = length(warped);
-          float speedBoost = clamp(speed * 20.0, 0.0, 1.0);
-          float wake = exp(-distCur * 1.0) * speedBoost;
-          col += wake * 0.12 * vec3(1.05, 1.0, 0.9);
-
           gl_FragColor = vec4(col, 1.0);
 
           #include <tonemapping_fragment>
@@ -741,8 +712,13 @@ class ProcessRoom {
     // produce it — real cost, not worth paying for more sharpness than
     // a background water surface actually needs
     const floor = new Reflector(new THREE.PlaneGeometry(roomWidth * 1.3, roomDepth * 1.6), {
-      textureWidth: this.isMobile ? 384 : 768,
-      textureHeight: this.isMobile ? 256 : 512,
+      // raised alongside CONFIG.dprCap/dprCapMobile — the water fills
+      // roughly half the frame, so a low-res reflection target read as
+      // its own distinct source of blockiness, separate from the canvas
+      // resolution itself, especially as the reflected geometry moved
+      // during scroll/parallax
+      textureWidth: this.isMobile ? 512 : 1024,
+      textureHeight: this.isMobile ? 341 : 683,
       multisample: this.isMobile ? 0 : 4,
       // lightened from an original 0x241a10 (a much darker, warm-brown
       // value out of step with the room's own cool blue-gray palette)
@@ -821,7 +797,16 @@ class ProcessRoom {
     // a soft glassy haze instead of a sharp, distracting pattern — colour
     // and attenuationDistance both strengthened afterward to keep the
     // ball reading as clearly blue now that less of it is crisp
-    // transmission carrying the attenuation tint
+    // transmission carrying the attenuation tint.
+    // iridescence removed entirely (was 0.4) per direct feedback that
+    // the ball read as changing colour while scrolling — iridescence is
+    // a real physically-based effect that shifts colour with viewing
+    // angle by design, and this scene's own scroll-driven camera push
+    // plus mouse-parallax constantly changes that angle, so any nonzero
+    // value here was always going to read as an unwanted colour shift
+    // during exactly the interactions the user described. The blue now
+    // comes only from attenuationColor/color, which don't shift with
+    // viewing angle
     const sphereMat = new THREE.MeshPhysicalMaterial({
       color: 0x8fd0e8,
       roughness: 0.5,
@@ -831,8 +816,7 @@ class ProcessRoom {
       ior: 1.35,
       attenuationColor: 0x1f7fbf,
       attenuationDistance: 0.9,
-      iridescence: 0.4,
-      iridescenceIOR: 1.28,
+      iridescence: 0,
       envMapIntensity: 1.2,
     });
     this.sphereMat = sphereMat;
@@ -1609,23 +1593,6 @@ class ProcessRoom {
       }
     }
 
-    // the site's own custom cursor (js/cursor.js) draws a flat CSS
-    // box-shadow glow that follows the pointer everywhere — reads fine
-    // over flat page content, but sitting on top of this room's own
-    // real-time water (which already has its own cursor-follow ripple,
-    // see uCursorRippleCenter/uCursorVelocity above) it read as two
-    // competing, disconnected cursor effects rather than one. Hiding
-    // the CSS cursor specifically while over this section leaves the
-    // water's own ripple as the one, integrated response to movement —
-    // closer to how unseen.co's own water reacts to the cursor
-    if(!this.isCoarsePointer){
-      const customCursor = document.getElementById('customCursor');
-      if(customCursor){
-        this.container.addEventListener('mouseenter', () => customCursor.classList.add('is-suppressed'));
-        this.container.addEventListener('mouseleave', () => customCursor.classList.remove('is-suppressed'));
-      }
-    }
-
     this._measure();
     let ticking = false;
     window.addEventListener('scroll', () => {
@@ -1784,33 +1751,6 @@ class ProcessRoom {
     if(this.grainUniforms){
       this._grainFrameCount = (this._grainFrameCount || 0) + 1;
       if(this._grainFrameCount % 4 === 0) this.grainUniforms.grainTime.value += 1.0;
-    }
-
-    // the water's cursor-follow ripple — raycasts the (already-smoothed)
-    // cursor position against the floor mesh itself each frame, so the
-    // ripple centre tracks wherever the visitor's cursor actually lands
-    // on the water rather than a fixed spot. Skipped on touch (no real
-    // cursor to track) and under reduced motion, same guard as the
-    // mousemove listener that feeds this.mouse in the first place
-    if(!this.isCoarsePointer && !this.prefersReducedMotion && this.floorMesh && this.floorRippleUniforms){
-      if(!this._raycaster) this._raycaster = new THREE.Raycaster();
-      this._raycaster.setFromCamera({ x: this.mouse.x, y: -this.mouse.y }, this.camera);
-      const hit = this._raycaster.intersectObject(this.floorMesh)[0];
-      if(hit){
-        // velocity is just this frame's movement of the hit point
-        // itself — real direction/speed the cursor is actually
-        // dragging across the water, feeding the shader's wake warp
-        if(this._prevCursorHit){
-          this.floorRippleUniforms.uCursorVelocity.value.set(
-            hit.point.x - this._prevCursorHit.x,
-            hit.point.z - this._prevCursorHit.z
-          );
-        }
-        this._prevCursorHit = this._prevCursorHit || { x: 0, z: 0 };
-        this._prevCursorHit.x = hit.point.x;
-        this._prevCursorHit.z = hit.point.z;
-        this.floorRippleUniforms.uCursorRippleCenter.value.set(hit.point.x, hit.point.z);
-      }
     }
 
     // god-ray screen position + DoF focus, recomputed every frame since
