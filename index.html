@@ -89,25 +89,39 @@ window.scrollTo(0, 0);
 <main id="hero" aria-hidden="true">
 
   <!-- a simple 3D alcove (Three.js, js/process-room.js) — one arched
-       opening, a reflective floor, a glass hero object — lit almost
-       entirely by a real HDRI sky rather than hand-placed point
-       lights, with the camera now stopping at 4 waypoints as you
-       scroll (sphere/stairs/chairs/rock), one per process step — see
-       js/process-room.js's own _buildKeyframes/_updateProcessStep.
-       Tall-outer-section + sticky-inner-viewport pattern: scrolling
-       through the outer section's own height keeps the canvas pinned. -->
+       opening, a reflective floor, a glass hero object, a floating
+       rocket — lit almost entirely by a real HDRI sky rather than
+       hand-placed point lights, with the camera stopping at 4 waypoints
+       as you scroll (sphere/stairs/chairs/rocket), one per process step
+       — see js/process-room.js's own _buildKeyframes/_updateProcessStep.
+       GSAP ScrollTrigger (js/process-room.js's own _bindScrollTrigger)
+       pins .process-room-sticky for the scroll duration and reserves
+       its own scroll room automatically — no hand-sized outer-section
+       CSS height needed any more. -->
   <section class="process-room-section" id="processRoom">
     <div class="process-room-sticky">
+     <!-- everything visual lives in this inner wrapper, not
+          .process-room-sticky itself, on purpose: GSAP ScrollTrigger
+          pins .process-room-sticky directly (see process-room.js's own
+          _bindScrollTrigger), applying its own position/transform to
+          keep it fixed in the viewport while pinned. The Section 1 →
+          Section 2 dissolve itself doesn't touch this wrapper at all any
+          more — it fades real mesh materials + the renderer's own clear
+          alpha (see process-room.js's own _applyDissolve), so the canvas
+          stays a fully opaque DOM element throughout; what's "underneath"
+          only ever shows through genuine WebGL transparency. -->
+     <div class="process-room-visual">
       <canvas id="processRoomCanvas" aria-hidden="true"></canvas>
       <!-- a neon-sign-style quick nav, shown only during the wide
            establishing shot (see .process-neon-menu's own opacity,
            driven by process-room.js's _updateProcessStep alongside the
            "Welcome" text below — same lifecycle, same crossfade). Real
            <a> links (not JS-driven scroll) so they stay keyboard/
-           screen-reader navigable and work even if the 3D scene fails
-           to load; html{scroll-behavior:smooth} (index.html's own
-           <head>) already makes plain anchor jumps ease in rather than
-           snapping -->
+           screen-reader navigable and work even if the 3D scene fails to
+           load; process-room.js's own _bindEvents adds a click listener
+           for the eased jump (scrollIntoView, behavior:'smooth') rather
+           than relying on a sitewide CSS scroll-behavior — see that
+           listener's own comment for why -->
       <nav class="process-neon-menu" id="processNeonMenu" aria-label="Quick links">
         <a href="#liveDemoSection" class="process-neon-link">Our Projects</a>
         <span class="process-neon-dot" aria-hidden="true"></span>
@@ -126,6 +140,15 @@ window.scrollTo(0, 0);
         <span class="process-step-number" id="processStepNumber">Welcome</span>
         <span class="process-step-label" id="processStepLabel">Scroll to proceed</span>
       </div>
+     </div>
+     <!-- film-grain overlay for the Section 1 → Section 2 reveal —
+          per direct request, matching the textured/paper-grain dissolve
+          unseen.co's own "View our work" transition uses, rather than a
+          flat opacity crossfade alone. A sibling of .process-room-visual,
+          not a child: needs its OWN opacity curve (see process-room.js's
+          own _revealTrigger) that peaks mid-dissolve and returns to 0 at
+          both ends, independent of .process-room-visual's own fade. -->
+     <div class="process-room-grain" id="processRoomGrain" aria-hidden="true"></div>
     </div>
   </section>
 
@@ -512,6 +535,14 @@ window.scrollTo(0, 0);
 
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
+<!-- vendored locally (same "no CDN" convention as three.js below) —
+     process-room.js's own Section 1 → Section 2 cinematic transition
+     is a GSAP ScrollTrigger pin+scrub timeline, registered as plain
+     globals (window.gsap/window.ScrollTrigger) since it's loaded as a
+     classic script, not a module, ahead of process-room.js's own
+     <script type="module"> tag below -->
+<script src="js/vendor/gsap/gsap.min.js"></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js"></script>
 <!-- js/process-room.js's postprocessing/loader modules are vendored
      straight from Three.js's own examples/jsm (unmodified, so they stay
      easy to diff against upstream) — they all import from the bare

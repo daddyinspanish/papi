@@ -483,74 +483,33 @@ body, a{ cursor:none; }
 }
 
 /* ---- process room — a real 3D space (Three.js, js/process-room.js),
-   the site's hero itself: scrolling through the outer section's own
-   height keeps .process-room-sticky pinned in the viewport while the
-   camera travels a fixed path through the room. ---- */
+   the site's hero itself. Used to be a tall-outer-section +
+   position:sticky-inner-viewport pattern with a hand-computed CSS
+   height standing in for the real scroll distance (--stable-vh, see
+   git history) — that whole class of "how tall should the outer
+   section be, and does the sticky inner box's own height ever drift
+   out of sync with the real viewport" bug is gone now that GSAP
+   ScrollTrigger owns the pin (see process-room.js's own
+   _bindScrollTrigger): it pins .process-room-sticky directly via JS
+   and injects exactly the scroll space it needs (CONFIG.scrollMultiplier
+   × the viewport height, at pin time — always the REAL current
+   viewport, no frozen/stale value possible), so neither element needs
+   an explicit scroll-distance height in CSS at all any more. ---- */
 .process-room-section{
   position:relative;
-  /* a real 5-stop journey (a wide establishing shot, then 4 process-
-     step stops) plus one final exit phase — raised from an original
-     320vh (4 stops/3 segments) to 420vh (5 stops/4 segments) to 480vh
-     now, each raise keeping the earlier segments' own real scroll
-     distance intact rather than compressing everything to fit the old
-     total. The newest 60vh is CONFIG.throwStart's own share (see
-     process-room.js) — the crystal's own throw-at-camera animation,
-     which needs genuine scroll distance of its own to play out over,
-     same as every other stop here */
-  height:480vh;
-  /* svh ("small" viewport height) instead of plain vh for this and
-     every other scroll-distance-defining height on the page — plain
-     vh tracks the browser chrome's CURRENT collapsed/expanded state on
-     several in-app browsers (Instagram/Facebook/TikTok's own embedded
-     WebViews chief among them; iOS Safari itself only recalculates vh
-     once, on the first scroll of a session, but these apps' own chrome
-     keeps sliding in and out continuously as you scroll). At this
-     section's own multiplier, that live recompute doesn't just nudge
-     this section's own height — it swings the ENTIRE page's total
-     scrollable height by hundreds of pixels in real time while
-     scrolling, which reads as sections "jumping" further down the
-     page: the visitor's actual scrollY (a fixed pixel offset) keeps
-     landing on a completely different section every time the layout
-     above it re-settles. svh is pinned to the chrome's fully-expanded
-     (smallest) state and never changes as chrome auto-hides, so this
-     section's height — and the page's total height along with it —
-     stays put for the entire scroll. Old browsers without svh support
-     just ignore this line and keep the vh value above.
-
-     Turned out not to be enough on its own: some in-app browsers'
-     bundled WebKit predates real svh support, so the svh line above
-     silently never engages there and the original bug is right back.
-     --stable-vh (computed once by the inline script in index.html's
-     <head>, re-measured only on a genuine width change) is the
-     bulletproof final layer — plain arithmetic, no dependency on which
-     CSS units the browser happens to understand. Every other section
-     on the page with its own scroll-distance height reuses this same
-     --stable-vh rather than repeating this explanation. */
-  height:480svh;
-  height:calc(480 * var(--stable-vh, 1vh));
   background:var(--paper);
 }
 .process-room-sticky{
-  position:sticky;
-  top:0;
+  position:relative;
   height:100vh;
-  height:100svh;
-  height:calc(100 * var(--stable-vh, 1vh));
-  /* the outer .process-room-section above is deliberately frozen to
-     --stable-vh so the page's total scroll distance never jumps (see
-     its own comment). This inner sticky box has no such constraint —
-     it doesn't affect total document height, it just needs to always
-     cover whatever's currently visible. Pinning it to that same frozen
-     value backfires here: once the browser's chrome (Safari's URL bar,
-     Instagram's in-app header) auto-collapses mid-scroll, the real
-     visible viewport grows taller than this frozen box, and the page's
-     cream background shows through as a gap along the bottom edge.
-     100dvh tracks the CURRENT chrome state live, closing that gap;
-     unsupported browsers just ignore this line and keep the frozen
-     value above. */
   height:100dvh;
   overflow:hidden;
-  background:var(--paper);
+  /* NOT var(--paper) here (moved to .process-room-visual below) — this
+     element paints a background of its own for the whole time it's
+     pinned (position:fixed), and a background painted directly on IT
+     would still be there under the fade too, hiding whatever's supposed
+     to show through. Living on .process-room-visual instead means it
+     fades away together with the opacity animation. */
   /* explicit rather than left to the browser's own default guess for
      a full-bleed WebGL canvas: a single-finger vertical drag must
      always be free to scroll the page (this section has no left/right
@@ -558,6 +517,88 @@ body, a{ cursor:none; }
      mattered on mobile once this became the very first thing a visitor
      touches on page load */
   touch-action:pan-y;
+  /* only matters while genuinely pinned (position:fixed, applied by
+     GSAP ScrollTrigger) — keeps this above other fixed-position UI
+     elsewhere on the page (.site-header etc.) rather than an accident
+     of DOM order. Once the pin releases, this element is back to
+     ordinary in-flow content and z-index has no effect on how it
+     stacks against Section 2 — normal, non-overlapping document flow
+     already puts them in the right order as one scrolls out and the
+     other scrolls in underneath (see process-room.js's own
+     _revealTrigger, which drives that phase's actual fade) */
+  z-index:5;
+}
+/* the fade/scale target for the reveal phase — deliberately a separate
+   element from .process-room-sticky itself (see its own <div> comment
+   in index.html): GSAP ScrollTrigger applies its own position/transform
+   directly to .process-room-sticky to keep it pinned, and animating a
+   second, unrelated property on that same element every frame would
+   risk fighting GSAP's own pin styling */
+.process-room-visual{
+  position:absolute;
+  inset:0;
+  background:var(--paper);
+  will-change:opacity;
+}
+/* the film-grain dissolve overlay — see its own <div> comment in
+   index.html for why it's a sibling, not a child, of .process-room-
+   visual. The texture itself is a small tiled SVG feTurbulence noise
+   field (fractalNoise, no displacement — a flat grayscale grain pattern,
+   not the kind of filter that warps/displaces the element's own shape),
+   inlined as a data URI so there's no extra image request; mix-blend-
+   mode:overlay is what actually makes it read as film grain sitting
+   ON the scene rather than a flat gray fog laid over it — overlay
+   lightens already-light pixels and darkens already-dark ones, the same
+   way real grain interacts with an image. Opacity is driven entirely
+   from JS (process-room.js's own _revealTrigger) with a curve that
+   peaks mid-dissolve and returns to 0 at both ends, so it's only ever
+   visible during the actual transition. */
+.process-room-grain{
+  position:absolute;
+  inset:0;
+  z-index:2;
+  opacity:0;
+  pointer-events:none;
+  mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch' result='t'/%3E%3CfeColorMatrix in='t' type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:180px 180px;
+  will-change:opacity;
+}
+@media (prefers-reduced-motion:no-preference){
+  .process-room-grain{
+    /* the classic CSS film-grain trick — steps() jumps the background
+       position in hard cuts rather than easing between them, which is
+       what actually reads as flickering grain rather than a texture
+       smoothly sliding around */
+    animation:process-room-grain-jitter .5s steps(4) infinite;
+  }
+}
+@keyframes process-room-grain-jitter{
+  0%{ background-position:0 0; }
+  25%{ background-position:-15% 8%; }
+  50%{ background-position:6% -12%; }
+  75%{ background-position:-8% -6%; }
+  100%{ background-position:0 0; }
+}
+/* the Section 2 "what's underneath" preview during the dissolve — a
+   cloned #liveDemoSection (see process-room.js's own _buildSection2Ghost),
+   not the real one, so nothing about the real section's own layout/
+   scroll length ever changes because this exists. Combined selector
+   (.live-demo-section.process-room-section2-ghost) rather than relying
+   on this rule simply appearing later in the file — .live-demo-section
+   itself already sets position/z-index, and two class selectors always
+   out-specificity one regardless of source order, so this stays correct
+   even if these rules get reshuffled later. z-index:4 — below
+   .process-room-sticky's own 5 (so the dissolving room stays on top of
+   it, revealing it, not the other way around), above ordinary page
+   content */
+.live-demo-section.process-room-section2-ghost{
+  position:fixed;
+  inset:0;
+  z-index:4;
+  overflow:hidden;
+  pointer-events:none;
+  opacity:0;
 }
 #processRoomCanvas{
   position:absolute;
@@ -685,9 +726,17 @@ body, a{ cursor:none; }
   .process-step-label{ font-size:.66rem; letter-spacing:.28em; }
 }
 
-@media (prefers-reduced-motion:no-preference){
-  html{ scroll-behavior:smooth; }
-}
+/* html{scroll-behavior:smooth} used to live here, easing every plain
+   anchor-jump link sitewide (just the 3 neon-menu links currently) — but
+   GSAP ScrollTrigger explicitly documents a conflict with that CSS
+   property: it smooths EVERY scroll-position change page-wide, including
+   ScrollTrigger's own continuous scrub updates while pinned, which reads
+   as the pinned scene's scroll position visibly drifting/lagging behind
+   the real scrollbar instead of tracking it exactly. process-room.js's
+   own click handler on .process-neon-link now calls scrollIntoView({
+   behavior:'smooth'}) directly instead — that's a one-off, self-contained
+   animation per click rather than a standing page-wide property, so it
+   doesn't fight ScrollTrigger's own scroll handling the same way. */
 /* ============ TRADES — a small, continuously scrolling strip of the
    industries Papi designs for. Replaces the old showcase section (a
    huge scroll-jacked fan-card carousel, ~500 lines of CSS) entirely,

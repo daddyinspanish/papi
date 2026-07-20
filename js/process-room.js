@@ -71,16 +71,35 @@ import { UnrealBloomPass } from './vendor/examples/jsm/postprocessing/UnrealBloo
 import { BokehPass } from './vendor/examples/jsm/postprocessing/BokehPass.js';
 
 const CONFIG = {
-  // fraction of the section's own total scroll range spent on the
-  // 5-stop camera journey (wide shot + 4 process steps) before the
-  // final exit phase takes over — the camera holds frozen at stage 4's
-  // own framing for the remaining (1 - throwStart) while the crystal
-  // is thrown at it instead (see _cameraForProgress's own throwT and
-  // _frame's own rock-throw block). .process-room-section's own CSS
-  // height (480vh) is sized so this split gives the throw genuine
-  // scroll distance of its own, not a sliver carved out of the
-  // existing steps' pacing
-  throwStart: 420 / 480,
+  // total scroll distance for the whole Section 1 experience, as a
+  // multiple of the viewport height — GSAP ScrollTrigger (see
+  // _bindScrollTrigger) pins .process-room-sticky and reserves exactly
+  // this much scroll room itself at pin time, always measured off the
+  // REAL current viewport, so there's no separate CSS height to keep in
+  // sync with it (the old --stable-vh/sticky-release-timing class of
+  // bugs this used to have is gone along with that whole mechanism).
+  // Raised from 4.4 to fit the dissolve phase (see dollyEnd below) IN
+  // the same pin as the journey+dolly, rather than handing off to a
+  // second, unpinned trigger the way this used to work — matching
+  // unseen.co's own technique (confirmed by inspecting their site
+  // directly) of one persistent, never-moving canvas that dissolves to
+  // reveal the next page underneath it, rather than a canvas that
+  // itself scrolls away. journeyEnd/dollyEnd are rescaled so the
+  // journey+dolly's own real scroll DISTANCE stays exactly what it was
+  // at 4.4 — only the dissolve's own 1.0-viewport-height budget is new
+  scrollMultiplier: 5.4,
+  // fraction of the pin's own scrub spent on the 5-stop camera journey
+  // (wide shot + 4 process steps) before the forward-dolly hold takes
+  // over (see _cameraForProgress's own dollyT)
+  journeyEnd: 0.603,
+  // fraction where the forward dolly finishes and the dissolve itself
+  // begins — camera holds still from here on (already parked at
+  // revealCameraPos/Look via dollyT reaching 1); everything from here
+  // to progress 1.0 is _frame's own differential material fade
+  // (structure slow, props fast — see each mesh's own userData.fadeGroup)
+  // plus the Section 2 ghost preview fading in underneath (see
+  // _buildSection2Ghost)
+  dollyEnd: 0.815,
   // raised back up after direct feedback that the room read as visibly
   // pixelated/blocky while scrolling or moving — that sluggishness the
   // original 1.15/1.0 cut was chasing turned out to actually be the
@@ -303,6 +322,11 @@ class ProcessRoom {
   constructor(section, container, canvas){
     this.section = section;
     this.container = container;
+    // the fade/scale target for the reveal phase — NOT this.container
+    // itself, which GSAP ScrollTrigger pins directly (see
+    // _bindScrollTrigger); see this element's own comment in index.html
+    this.visual = container.querySelector('.process-room-visual');
+    this.grainEl = container.querySelector('.process-room-grain');
     this.canvas = canvas;
     this.enabled = false;
 
@@ -312,7 +336,16 @@ class ProcessRoom {
 
     let renderer;
     try{
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+      // alpha:true — needed for the Section 1 → Section 2 dissolve (see
+      // _bindScrollTrigger/_frame's own dissolve block): the canvas's
+      // own backing framebuffer has no alpha channel at all without
+      // this, so no amount of fading a material's opacity or nulling
+      // scene.background could ever make it read as transparent — the
+      // browser just paints whatever the RGB channels computed to,
+      // opaque, regardless. Harmless outside the dissolve: nothing else
+      // in this scene is ever transparent, so clearAlpha stays 1 and
+      // the canvas looks identical to before everywhere else
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
     }catch(e){
       return;
     }
@@ -354,7 +387,7 @@ class ProcessRoom {
     this._buildScene();
     this._buildChairPile();
     this._buildSpiralStairs();
-    this._buildFloatingRock();
+    this._buildRocket();
     this._buildKeyframes();
     this._buildEnvironment();
     this._buildPostProcessing();
@@ -364,7 +397,11 @@ class ProcessRoom {
     // this eased value rather than snapping straight to wherever the
     // scrollbar currently is, per direct feedback that the room's
     // motion felt too quick/abrupt
-    this._state = { progress: 0, displayProgress: 0, pinnedLow: false, pinnedHigh: false, rafId: null };
+    this._state = { progress: 0, displayProgress: 0, rafId: null };
+    // whether the GSAP pin (see _bindScrollTrigger) has genuinely
+    // released — see _applyDissolve's own comment for exactly why this
+    // exists and what bug it fixes
+    this._pinReleased = false;
 
     this._resize();
     this._bindEvents();
@@ -411,6 +448,15 @@ class ProcessRoom {
       // to genuinely tint the wall with the environment's true bounce
       // colour, not so much that the banding comes back
       envMapIntensity: 0.45,
+      // transparent:true (opacity stays 1 normally, so this looks
+      // identical to before at rest) — needed so the Section 1 →
+      // Section 2 dissolve (see _bindScrollTrigger/_frame) can actually
+      // fade this material's opacity; "structure" (walls, floor,
+      // platform) is the SLOW-fading group in that dissolve, meant to
+      // linger and ghost through longer than props like the sphere/
+      // chairs/rocket, the same way unseen.co's own architecture
+      // outlasts the rest of their scene during their own transition
+      transparent: true,
     });
 
     // back wall with the main arched opening plus a second, smaller
@@ -454,6 +500,7 @@ class ProcessRoom {
     backGeo = mergeVertices(backGeo);
     backGeo.computeVertexNormals();
     const backWall = new THREE.Mesh(backGeo, wallMat);
+    backWall.userData.fadeGroup = 'structure';
     // the extrude's own front face (local z = wallThickness) is the one
     // that should sit at the room's actual back plane, so the mesh is
     // pushed back by the extra thickness rather than sitting flush at it
@@ -549,6 +596,7 @@ class ProcessRoom {
         sideGeo = mergeVertices(sideGeo);
         sideGeo.computeVertexNormals();
         const sideWall = new THREE.Mesh(sideGeo, wallMat);
+        sideWall.userData.fadeGroup = 'structure';
         sideWall.position.set(side * roomWidth / 2, 0, 0);
         sideWall.rotation.y = -side * (Math.PI / 2 - 0.18);
         sideWall.castShadow = true;
@@ -582,6 +630,7 @@ class ProcessRoom {
         // sideWallFront, still far past [0,1] (see normalizeWallUV)
         normalizeWallUV(sideGeo, -sideWallBack, sideWallBack + sideWallFront, roomHeight);
         const sideWall = new THREE.Mesh(sideGeo, wallMat);
+        sideWall.userData.fadeGroup = 'structure';
         sideWall.position.set(side * roomWidth / 2, 0, 0);
         sideWall.rotation.y = -side * (Math.PI / 2 - 0.18);
         // see the windowed wall's own comment above — same reasoning
@@ -613,6 +662,15 @@ class ProcessRoom {
         uRippleOffset: { value: new THREE.Vector2(0, 0) },
         uRippleCenter: { value: new THREE.Vector2(SPHERE_POS.x, SPHERE_POS.z) },
         uTime: { value: 0 },
+        // Reflector's own default shader hard-codes alpha to 1.0 — fine
+        // normally (the floor is never meant to be see-through during
+        // regular viewing), but the Section 1 → Section 2 dissolve (see
+        // _bindScrollTrigger/_frame's own differential fade) needs the
+        // floor — "structure", same slow-fade group as the walls — to
+        // actually go transparent along with everything else. This is
+        // OUR OWN shader (not a vendored file), so wiring in a real
+        // opacity uniform is a plain, contained addition
+        opacity: { value: 1.0 },
       },
       vertexShader: `
         uniform mat4 textureMatrix;
@@ -633,6 +691,7 @@ class ProcessRoom {
         uniform vec2 uRippleOffset;
         uniform vec2 uRippleCenter;
         uniform float uTime;
+        uniform float opacity;
         varying vec4 vUv;
         varying vec2 vUv2;
         varying vec3 vWorldPos;
@@ -690,7 +749,7 @@ class ProcessRoom {
           float ring = sin(dist * 5.5 - uTime * 2.0) * exp(-dist * 0.65) * smoothstep(0.0, 0.7, dist);
           col += ring * 0.045 * vec3(1.05, 1.0, 0.85);
 
-          gl_FragColor = vec4(col, 1.0);
+          gl_FragColor = vec4(col, opacity);
 
           #include <tonemapping_fragment>
           #include <colorspace_fragment>
@@ -728,6 +787,8 @@ class ProcessRoom {
       shader: waterShader,
     });
     this.floorRippleUniforms = floor.material.uniforms;
+    floor.material.transparent = true;
+    floor.userData.fadeGroup = 'structure';
     floor.rotation.x = -Math.PI / 2;
     // the floor plane extends past the back wall's near face (it needs
     // to keep going to be visible through the arch/slit openings), which
@@ -826,6 +887,7 @@ class ProcessRoom {
     // from where the ball sits in it
     sphere.position.set(SPHERE_POS.x, SPHERE_POS.y, SPHERE_POS.z);
     sphere.castShadow = true;
+    sphere.userData.fadeGroup = 'props';
     group.add(sphere);
     this.sphere = sphere;
   }
@@ -871,6 +933,10 @@ class ProcessRoom {
     // camera's tightest zoom, only a narrow frustum stays in frame, and
     // depth is what buys the lateral room to reach into the corner
     group.position.set(4.0, 0, -5.0);
+    // "props" — the fast-fading group in the Section 1 → Section 2
+    // dissolve (see _bindScrollTrigger/_frame), stamped onto every mesh
+    // in this group at once rather than tagged one-by-one
+    group.traverse((o) => { if(o.isMesh) o.userData.fadeGroup = 'props'; });
     this.roomGroup.add(group);
 
     // a traffic light sits right on top of the post — its own colour
@@ -916,6 +982,7 @@ class ProcessRoom {
     group.add(red, yellow, green);
 
     group.position.set(x, y, z);
+    group.traverse((o) => { if(o.isMesh) o.userData.fadeGroup = 'props'; });
     this.roomGroup.add(group);
     this.trafficLightMats = { red: redMat, yellow: yellowMat, green: greenMat };
   }
@@ -1008,6 +1075,7 @@ class ProcessRoom {
     platform.position.set(px, platformH / 2, pz);
     platform.castShadow = true;
     platform.receiveShadow = true;
+    platform.userData.fadeGroup = 'structure';
     this.roomGroup.add(platform);
 
     // six chairs, each with its own colour, offset, and full XYZ
@@ -1042,6 +1110,7 @@ class ProcessRoom {
       const chair = buildChairGroup(color);
       chair.position.set(px + pos[0], platformH + pos[1], pz + pos[2]);
       chair.rotation.set(rot[0], rot[1], rot[2]);
+      chair.traverse((o) => { if(o.isMesh) o.userData.fadeGroup = 'props'; });
       this.roomGroup.add(chair);
     });
   }
@@ -1056,104 +1125,119 @@ class ProcessRoom {
   // transmissive material actually wants to catch distinct highlights
   // on (see the material comment). Bobs and slowly tumbles in _frame()
   // so "floating" actually reads as floating, not just suspended
-  _buildFloatingRock(){
-    // detail bumped 2→4 per direct feedback that it read as pixelated/
-    // blocky — at detail 2 each facet was large enough to show as an
-    // obviously flat, low-poly plane; 4 gives roughly 4x the triangle
-    // count, small enough facets that the silhouette reads as a real
-    // cut crystal rather than a chunky low-poly rock, while each facet
-    // is still large enough to catch its own distinct sparkle (going
-    // much higher than this would start smoothing back toward the
-    // sphere's own curved look, losing the facets entirely)
-    const geo = new THREE.IcosahedronGeometry(0.55, 4);
-    const pos = geo.attributes.position;
-    // IcosahedronGeometry is non-indexed — each triangle owns its own 3
-    // position entries, so a shared corner between faces exists as
-    // several separate buffer entries that all start at the identical
-    // coordinate. A per-entry random bump (a plain incrementing PRNG)
-    // gave each of those duplicates a DIFFERENT displacement, tearing
-    // the mesh open at every shared edge — the "spiky/shattered/black"
-    // result seen in testing. Hashing the bump off the vertex's own
-    // (x,y,z) instead makes every duplicate at the same original point
-    // resolve to the exact same bump, so the surface stays continuous
-    const hash3 = (x, y, z) => {
-      const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
-      return s - Math.floor(s);
-    };
-    const v = new THREE.Vector3();
-    for(let i = 0; i < pos.count; i++){
-      v.set(pos.getX(i), pos.getY(i), pos.getZ(i));
-      const n = v.clone().normalize();
-      const bump = 1 + (hash3(n.x, n.y, n.z) - 0.5) * 0.36;
-      v.copy(n.multiplyScalar(v.length() * bump));
-      pos.setXYZ(i, v.x, v.y, v.z);
-    }
-    geo.computeVertexNormals();
+  _buildRocket(){
+    // a rocket ship now, not a crystal — per direct request. Floats in
+    // place in the arch doorway (no throw-at-camera behaviour at all
+    // any more; that whole mechanic is gone, see _bindScrollTrigger's
+    // own reveal phase for how Section 1 → Section 2 works instead), a
+    // simple classic silhouette built from primitives: a tapered hull,
+    // a nose cone, three fins, and a two-layer additive-blended flame
+    // at the base standing in for thruster exhaust.
+    const rocket = new THREE.Group();
 
-    // a crystal now, not a stone — per direct request, matching the
-    // sphere's own colour family (same MeshPhysicalMaterial technique:
-    // transmission + attenuationColor is what actually makes something
-    // read as coloured glass/crystal rather than a tinted opaque
-    // surface, the same reason the sphere itself uses it). The old
-    // stepping-stone PBR maps (color/normal/ao/roughness) are gone
-    // entirely — a transmissive material doesn't want a rock-surface
-    // colour map fighting it underneath. Roughness pulled down well
-    // below the sphere's own 0.5: this geometry is faceted (flat-ish
-    // triangles meeting at hard angles, from the icosahedron bump above)
-    // rather than smoothly curved, and a lower roughness is what lets
-    // each individual facet catch the HDRI as its own distinct bright
-    // highlight — a real cut-gemstone sparkle — instead of one soft
-    // blurred highlight smeared across the whole shape the way the
-    // sphere's own higher roughness reads on a curved surface.
-    // emissive (new) is what actually pushes it toward "neon" rather
-    // than just "blue glass" — a real light-emitting glow rather than
-    // one that only ever reflects/transmits whatever's around it, and
-    // paired with rock.layers.enable(1) below it now genuinely feeds
-    // the selective-bloom pass (see _buildPostProcessing), the same
-    // system the traffic light's own lenses use for their glow — those
-    // never actually had layers.enable(1) called on them either, a
-    // real gap only found while wiring this up, fixed alongside it
-    const rockMat = new THREE.MeshPhysicalMaterial({
-      color: 0x8fd0e8,
-      roughness: 0.2,
-      metalness: 0,
-      transmission: 0.75,
-      thickness: 1.1,
-      ior: 1.5,
-      attenuationColor: 0x1f7fbf,
-      attenuationDistance: 0.9,
-      iridescence: 0,
-      envMapIntensity: 1.3,
-      emissive: 0x2f9dff,
-      emissiveIntensity: 0.55,
+    // body/nose/fins share one material — a plain painted-metal hull,
+    // not a glowing/transmissive one, so the neon stripe and flame
+    // below actually read as the light-emitting parts against it
+    const hullMat = new THREE.MeshPhysicalMaterial({
+      color: 0xeef2f7,
+      metalness: 0.55,
+      roughness: 0.32,
+      envMapIntensity: 1.2,
     });
-    this.rockMat = rockMat;
+    this.rocketHullMat = hullMat;
 
-    const rock = new THREE.Mesh(geo, rockMat);
-    rock.layers.enable(1);
-    // floating centred in the arch doorway itself, per direct request
-    // — was near the sphere (1.5, 1.25, 3.0), which also put it almost
-    // exactly on the straight-line camera path between the Discover
-    // and Plan stages (see _cameraForProgress's own history), causing
-    // the camera to clip straight through it mid-transition. archWidth/
-    // archHeight are 3.6/5.4 (see _buildScene), so y=2.7 is the
-    // opening's own true vertical centre; z sits inside the back wall's
-    // own thickness (the wall's front face is at -roomDepth/2, its back
-    // face wallThickness further at -roomDepth/2-wallThickness) rather
-    // than flush with either face, so it reads as genuinely suspended
-    // inside the doorway rather than resting on either side of it
-    rock.position.set(0, 2.7, -5.7);
-    rock.rotation.set(0.4, 0.8, 0.2);
-    rock.castShadow = true;
-    rock.receiveShadow = true;
-    this.roomGroup.add(rock);
-    this.floatingRock = rock;
-    this._rockBaseY = rock.position.y;
-    // captured once, at its true resting spot — the throw animation in
-    // _frame() lerps FROM this every time (not from whatever position
-    // the previous frame left it at), so scrolling back up mid-throw
-    // reverses cleanly along the same path instead of drifting
-    this._rockRestPos = rock.position.clone();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.8, 20), hullMat);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    rocket.add(body);
+
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.4, 20), hullMat);
+    nose.position.y = 0.6; // body top (0.4) + half the nose's own height (0.2)
+    nose.castShadow = true;
+    rocket.add(nose);
+
+    // neon accent ring — the same blue-glass identity family the
+    // crystal it replaces used to carry, so the rocket still reads as
+    // part of this world rather than a generic model dropped in.
+    // layers.enable(1) is what actually feeds the selective-bloom pass
+    // (see _buildPostProcessing) — plain colour/emissive alone doesn't
+    // bloom on its own, same gap already fixed for the traffic light's
+    // own lenses
+    const stripeMat = new THREE.MeshStandardMaterial({
+      color: 0x2f9dff,
+      emissive: 0x2f9dff,
+      emissiveIntensity: 1.4,
+      metalness: 0,
+      roughness: 0.4,
+    });
+    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(0.205, 0.205, 0.06, 20), stripeMat);
+    stripe.position.y = -0.05;
+    stripe.layers.enable(1);
+    rocket.add(stripe);
+
+    // fins — three flattened wedges at the base, spaced 120° apart,
+    // flared outward
+    const finGeo = new THREE.BoxGeometry(0.03, 0.32, 0.26);
+    for(let i = 0; i < 3; i++){
+      const fin = new THREE.Mesh(finGeo, hullMat);
+      const angle = (i / 3) * Math.PI * 2;
+      fin.position.set(Math.cos(angle) * 0.22, -0.32, Math.sin(angle) * 0.22);
+      fin.rotation.y = -angle;
+      fin.rotation.z = 0.35;
+      fin.castShadow = true;
+      rocket.add(fin);
+    }
+
+    // flame — two stacked, apex-down cones (a broader warm-orange outer
+    // layer, a smaller hot yellow-white core), additive-blended and
+    // depthWrite:false so they read as glowing light overlapping the
+    // hull rather than a flat-shaded solid object. openEnded (true) on
+    // both drops the flat circular cap a closed cone would otherwise
+    // render at the wide end, which would read as a solid disc rather
+    // than an open flare. Scale/opacity flicker is animated per-frame
+    // in _frame() (see this.rocketFlameOuter/Inner)
+    const flameOuterMat = new THREE.MeshBasicMaterial({
+      color: 0xff7a1a,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const flameOuter = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.5, 16, 1, true), flameOuterMat);
+    flameOuter.rotation.x = Math.PI; // flip so the wide base sits at the hull, apex trailing down/away
+    flameOuter.position.y = -0.4 - 0.25;
+    flameOuter.layers.enable(1);
+    rocket.add(flameOuter);
+
+    const flameInnerMat = new THREE.MeshBasicMaterial({
+      color: 0xffe27a,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const flameInner = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.32, 16, 1, true), flameInnerMat);
+    flameInner.rotation.x = Math.PI;
+    flameInner.position.y = -0.4 - 0.16;
+    flameInner.layers.enable(1);
+    rocket.add(flameInner);
+
+    // floating centred in the arch doorway itself — archWidth/archHeight
+    // are 3.6/5.4 (see _buildScene), so y=2.7 is the opening's own true
+    // vertical centre; z sits inside the back wall's own thickness (the
+    // wall's front face is at -roomDepth/2, its back face wallThickness
+    // further at -roomDepth/2-wallThickness) rather than flush with
+    // either face, so it reads as genuinely suspended inside the
+    // doorway rather than resting on either side of it
+    rocket.position.set(0, 2.7, -5.7);
+    rocket.rotation.y = 0.5;
+    rocket.traverse((o) => { if(o.isMesh) o.userData.fadeGroup = 'props'; });
+    this.roomGroup.add(rocket);
+    this.rocket = rocket;
+    this.rocketFlameOuter = flameOuter;
+    this.rocketFlameInner = flameInner;
+    this._rocketBaseY = rocket.position.y;
+    this._rocketTime = 0;
   }
 
   // no discrete lights at all — the whole room is lit by one real HDRI
@@ -1169,7 +1253,7 @@ class ProcessRoom {
   // reflections, only what's visible behind it. Overall darkness is
   // controlled globally by renderer.toneMappingExposure (see the
   // constructor); each material's own envMapIntensity (wallMat,
-  // floorMat, sphereMat, rockMat, platformMat, poleMat) controls how
+  // floorMat, sphereMat, rocketHullMat, platformMat, poleMat) controls how
   // much of its true colour the HDRI's own bounce reveals
   _buildEnvironment(){
     const pmrem = new THREE.PMREMGenerator(this.renderer);
@@ -1177,7 +1261,18 @@ class ProcessRoom {
     new RGBELoader().load('img/hdri/overcast_skylight.hdr', (hdrTex) => {
       const envMap = pmrem.fromEquirectangular(hdrTex).texture;
       this.scene.environment = envMap;
-      this.scene.background = new THREE.Color(0x05060b);
+      // scene.background left null on purpose (was a plain THREE.Color
+      // here) — a non-null background paints directly over every "empty"
+      // pixel (nothing else drawn there), completely overriding the
+      // renderer's own clear colour/alpha for them regardless of what
+      // either is set to. The Section 1 → Section 2 dissolve (see
+      // _applyDissolve) needs those pixels to actually go transparent as
+      // it progresses, which only renderer.setClearAlpha can do — so the
+      // SAME visual (that deep-space colour, visible through the arch)
+      // now comes from renderer.setClearColor/setClearAlpha instead,
+      // which _applyDissolve can vary over time and a plain Color never
+      // could
+      this.renderer.setClearColor(0x05060b, 1);
       hdrTex.dispose();
       pmrem.dispose();
       this._frame();
@@ -1285,7 +1380,20 @@ class ProcessRoom {
           varying vec2 vUv;
           void main(){
             vec4 base = texture2D(baseTexture, vUv);
-            ${this.bloomEnabled ? 'base += texture2D(bloomTexture, vUv);' : ''}
+            // rgb only — the bloom pass's own render target is the
+            // DARKENED scene (every non-bloom mesh swapped to solid
+            // opaque black, see _darkenNonBloomed), so its alpha is 1.0
+            // across nearly the whole frame regardless of what the real
+            // scene is doing. Adding the FULL vec4 (base += bloomTexture)
+            // was quietly adding that stray alpha into the final output
+            // too — invisible as long as the renderer was always fully
+            // opaque anyway, but a real bug once the Section 1 → 2
+            // dissolve (js/process-room.js's own _bindScrollTrigger)
+            // needs the alpha channel to actually mean something: it
+            // would have clamped most of the frame back to opaque no
+            // matter how transparent the real materials/background had
+            // faded to, everywhere bloom was contributing
+            ${this.bloomEnabled ? 'base.rgb += texture2D(bloomTexture, vUv).rgb;' : ''}
             gl_FragColor = base;
           }
         `,
@@ -1428,7 +1536,7 @@ class ProcessRoom {
         look: new THREE.Vector3(-3.8, 1.6, -4.2),
         label: 'Structure',
       },
-      { // 4 — Delivery: the floating crystal, suspended dead-centre in
+      { // 4 — Delivery: the floating rocket, suspended dead-centre in
         // the arch doorway — camera comes back to centre for this one
         // (unlike the off-axis Plan/Structure stops) so the room's own
         // symmetry frames it, the same way stage 1 frames the sphere
@@ -1437,6 +1545,16 @@ class ProcessRoom {
         label: 'Delivery',
       },
     ];
+    // where the camera dollies to during the forward-dolly hold (see
+    // _cameraForProgress's own dollyT) — a modest further push forward
+    // from stage 4's own pos (z 2.2 → 1.0, a gentle rise 2.0 → 2.2),
+    // same look target, kept comfortably short of the platform/stepping-
+    // stones nearer mid-room so it never dollies through geometry. The
+    // camera holds still here (dollyT stays at 1) through the whole
+    // dissolve that follows — the room fading out from around it is what
+    // carries the rest of the "moving into Section 2" read from here
+    this.revealCameraPos = new THREE.Vector3(0, 2.2, 1.0);
+    this.revealCameraLook = new THREE.Vector3(0, 2.6, -5.6);
   }
 
   _cameraForProgress(p){
@@ -1444,25 +1562,38 @@ class ProcessRoom {
     const last = stages.length - 1;
     const clampedP = THREE.MathUtils.clamp(p, 0, 1);
     // the 5-stop journey itself only ever plays out across
-    // [0, CONFIG.throwStart] of the section's own total scroll range —
-    // journeyP remaps that sub-range back to a plain 0..1 so the rest
-    // of this function doesn't need to know throwStart exists at all.
-    // Clamping to 1 (rather than letting it run past) is what actually
-    // freezes the camera at stage 4's own framing for the remainder —
-    // the crystal does the moving from here on, not the camera (see
-    // _frame's own rock-throw block, driven by throwT below)
-    const journeyP = Math.min(clampedP, CONFIG.throwStart) / CONFIG.throwStart;
+    // [0, CONFIG.journeyEnd] of the pin's own scrub — journeyP remaps
+    // that sub-range back to a plain 0..1 so the rest of this function
+    // doesn't need to know journeyEnd exists at all. Clamping to 1
+    // (rather than letting it run past) is what actually holds the
+    // journey at stage 4's own framing once dollyT (below) takes over
+    const journeyP = Math.min(clampedP, CONFIG.journeyEnd) / CONFIG.journeyEnd;
     const seg = journeyP * last;
     const i = Math.min(last - 1, Math.floor(seg));
     const localT = seg - i;
     const t = localT * localT * (3 - 2 * localT); // smoothstep
     const a = stages[i], b = stages[i + 1];
-    const pos = a.pos.clone().lerp(b.pos, t);
-    const look = a.look.clone().lerp(b.look, t);
-    const throwT = clampedP <= CONFIG.throwStart
+    let pos = a.pos.clone().lerp(b.pos, t);
+    let look = a.look.clone().lerp(b.look, t);
+    // dollyT (0→1, journeyEnd → dollyEnd) — camera continues dollying
+    // from stage 4's own framing toward revealCameraPos/Look
+    const dollyT = clampedP <= CONFIG.journeyEnd
       ? 0
-      : (clampedP - CONFIG.throwStart) / (1 - CONFIG.throwStart);
-    return { pos, look, seg, throwT };
+      : Math.min(1, (clampedP - CONFIG.journeyEnd) / (CONFIG.dollyEnd - CONFIG.journeyEnd));
+    if(dollyT > 0){
+      const de = dollyT * dollyT * (3 - 2 * dollyT); // smoothstep
+      pos = pos.lerp(this.revealCameraPos, de);
+      look = look.lerp(this.revealCameraLook, de);
+    }
+    // dissolveT (0→1, dollyEnd → 1) — the camera itself holds still
+    // through this whole range (dollyT is already pinned at 1); see
+    // _frame's own dissolve block for what this actually drives
+    // (material opacity, renderer clear alpha, the grain overlay, the
+    // Section 2 ghost preview)
+    const dissolveT = clampedP <= CONFIG.dollyEnd
+      ? 0
+      : Math.min(1, (clampedP - CONFIG.dollyEnd) / (1 - CONFIG.dollyEnd));
+    return { pos, look, seg, dissolveT };
   }
 
   _resize(){
@@ -1492,6 +1623,22 @@ class ProcessRoom {
     this._updateTrafficLight(0);
     this._updateProcessStep(seg);
     this.canvas.classList.add('is-ready');
+    // .process-room-visual's own var(--paper) background (see style.css)
+    // exists purely to cover the gap before this very first render — a
+    // real flash-of-unstyled-canvas risk since the canvas itself starts
+    // at opacity:0 until this same .is-ready class fades it in. Once
+    // that's happened it's never needed again for the rest of this
+    // room's life, dissolve included — and during the dissolve it's
+    // actively harmful: an opaque background sitting behind the canvas,
+    // inside the same box, paints over EVERYTHING regardless of z-index,
+    // hiding the Section 2 ghost preview that's supposed to show through
+    // as the canvas itself fades to transparent (confirmed directly: the
+    // dissolve was fading to solid opaque cream/black instead of ever
+    // revealing anything underneath, no matter how transparent the
+    // WebGL rendering itself genuinely was — readPixels on the canvas
+    // confirmed real (0,0,0,0) output, so the renderer was never the
+    // problem). Removed once, here, for good
+    if(this.visual) this.visual.style.background = 'none';
   }
 
   // see this.bloomComposer's own construction comment in
@@ -1539,7 +1686,11 @@ class ProcessRoom {
       lastResizeW = w; lastResizeH = h;
       this.isMobile = w < 860;
       clearTimeout(this._resizeT);
-      this._resizeT = setTimeout(() => { this._resize(); this._measure(); this._update(); }, 200);
+      // just the renderer/canvas's own pixel size here — the pin/scrub
+      // geometry itself (how much scroll room Section 1 needs) is
+      // ScrollTrigger's job, and it already listens for resize and
+      // recalculates its own pin boundaries on its own
+      this._resizeT = setTimeout(() => { this._resize(); }, 200);
     };
     window.addEventListener('resize', this._onResize);
 
@@ -1560,17 +1711,35 @@ class ProcessRoom {
       window.addEventListener('mousemove', this._onMouseMove, { passive: true });
     }
 
-    this._measure();
-    let ticking = false;
-    window.addEventListener('scroll', () => {
-      if(ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => { this._update(); ticking = false; });
-    }, { passive: true });
+    this._bindScrollTrigger();
 
-    if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => { this._measure(); this._update(); });
-    window.addEventListener('load', () => { this._measure(); this._update(); });
-    requestAnimationFrame(() => { this._measure(); this._update(); });
+    // used to be handled sitewide by html{scroll-behavior:smooth} — that
+    // CSS property is gone now (see its own removal comment in
+    // style.css: it fights GSAP ScrollTrigger's own scroll handling,
+    // reading as the pinned scene visibly lagging/drifting behind the
+    // real scroll position while scrubbing). scrollIntoView's own
+    // behavior:'smooth' option gives the same eased jump for these 3
+    // links specifically, as a one-off animation rather than a standing
+    // page-wide property, so it doesn't have that same conflict
+    if(this.neonMenuEl){
+      this.neonMenuEl.querySelectorAll('a[href^="#"]').forEach((link) => {
+        link.addEventListener('click', (e) => {
+          const target = document.querySelector(link.getAttribute('href'));
+          if(!target) return;
+          e.preventDefault();
+          target.scrollIntoView({ behavior: this.prefersReducedMotion ? 'auto' : 'smooth', block: 'start' });
+        });
+      });
+    }
+
+    // fonts finishing (or the window 'load' event) can change layout
+    // enough to shift where Section 1 actually starts/how tall Section
+    // 2 sits below it — ScrollTrigger.refresh() recalculates the pin's
+    // own start/end against current layout, same reason _measure() used
+    // to get re-run at these same points under the old scroll-math system
+    const refresh = () => { if(window.ScrollTrigger) window.ScrollTrigger.refresh(); };
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(refresh);
+    window.addEventListener('load', refresh);
 
     // the water ripple and sphere rotation used to only advance when
     // _frame() got woken by a scroll or mousemove event, so the water
@@ -1592,36 +1761,224 @@ class ProcessRoom {
     }
   }
 
-  _measure(){
-    this.sectionTop = this.section.offsetTop;
-    this.sectionHeight = this.section.offsetHeight;
-    this.viewportH = window.innerHeight;
+  // GSAP ScrollTrigger owns Section 1's whole scroll-driven experience —
+  // ONE pin, covering the room tour, the forward-dolly hold, AND the
+  // dissolve into Section 2, all in the same continuous scrub. This
+  // used to be split across two triggers (a pinned one for the tour,
+  // then a second, unpinned one tracking the natural scroll-away for
+  // the fade) specifically to dodge a real bug: fading .process-room-
+  // visual's opacity to 0 *while still pinned* just revealed the page's
+  // own plain background, not Section 2 — a pinned element is
+  // position:fixed, sitting on top of the viewport itself, and nothing
+  // else shares that space with it while it's pinned.
+  //
+  // Going back to a single, fully-pinned dissolve on purpose this time,
+  // per direct request to match unseen.co's own technique (confirmed by
+  // inspecting their site directly): their canvas never moves — it's
+  // pinned for the whole experience, and their NEXT page's content is
+  // already sitting in the exact same viewport space underneath it,
+  // revealed as the canvas's own rendered content dissolves away. Two
+  // things make that same trick work here without the old bug:
+  //
+  //  1. Real WebGL transparency, not a DOM opacity fade. The renderer
+  //     now has alpha:true (see the constructor), and _frame's own
+  //     dissolve block fades actual mesh materials — "structure" (walls,
+  //     floor, platform, tagged via userData.fadeGroup) slowly, "props"
+  //     (sphere, chairs, stairs, rocket, traffic light) fast — plus
+  //     renderer.setClearAlpha for the empty space around them. The
+  //     canvas itself stays fully opaque as a DOM element throughout;
+  //     what's "underneath" only ever shows through genuine per-pixel
+  //     transparency in what's actually rendered.
+  //  2. _buildSection2Ghost's own fixed-position CLONE of #liveDemoSection
+  //     is what's actually sitting underneath to be revealed — the REAL
+  //     #liveDemoSection is untouched and never repositioned (so nothing
+  //     else on the page shifts/jumps), it's still exactly where normal
+  //     document flow puts it, still off-screen below until the pin
+  //     genuinely releases. The ghost is a separate, non-interactive,
+  //     always-position:fixed preview that only ever fades in during the
+  //     dissolve and is hidden entirely the instant the real pin
+  //     releases (see this trigger's own onLeave/onEnterBack below) — by
+  //     then the REAL section has scrolled into that exact same spot
+  //     naturally, so the handoff is seamless.
+  //
+  // Skipped entirely under reduced motion, same as the mouse-parallax
+  // listener above — a pinned/scrubbed scene is itself a motion effect,
+  // and the room already just holds its first resting frame for these
+  // visitors (see _frame's own reduced-motion branch), so there's
+  // nothing here worth pinning/scrubbing scroll for either
+  // a non-interactive, always position:fixed CLONE of the real
+  // #liveDemoSection, used as the "what's underneath" preview during the
+  // dissolve (see _bindScrollTrigger's own comment for why this exists
+  // rather than repositioning the real section). Built once, appended to
+  // <body>, opacity/display driven entirely from _frame's own dissolve
+  // block + this trigger's onLeave/onEnterBack — the REAL section is
+  // never touched, so nothing about the rest of the page's layout or
+  // scroll length changes because this exists
+  _buildSection2Ghost(){
+    const real = document.getElementById('liveDemoSection');
+    if(!real) return;
+    const ghost = real.cloneNode(true);
+    ghost.removeAttribute('id');
+    ghost.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+    // iframes reload their own src from scratch on cloneNode (a real
+    // browser behaviour, not a bug here) — stripped outright rather than
+    // paying for a second network request, to sites this project doesn't
+    // control, every time this brief, non-interactive preview appears
+    ghost.querySelectorAll('iframe').forEach((el) => el.removeAttribute('src'));
+    // .live-demo-inner starts at opacity:0 in CSS — its own real
+    // scroll-driven entrance fade (js/live-demo.js's updateEntrance)
+    // only ever finds/updates the FIRST .live-demo-inner in the
+    // document, i.e. the real section's own, never this clone's copy of
+    // it. Left alone, the ghost's actual content stays invisible at
+    // opacity:0 forever regardless of the ghost wrapper's own opacity —
+    // confirmed directly as the dissolve fading to solid black instead
+    // of ever revealing the preview underneath. Forced to 1 here since
+    // the ghost doesn't participate in that scroll-driven reveal at all
+    // — it's either fully shown or fully hidden via the outer wrapper
+    const ghostInner = ghost.querySelector('.live-demo-inner');
+    if(ghostInner){
+      ghostInner.style.opacity = '1';
+      ghostInner.style.transform = 'none';
+    }
+    ghost.classList.add('process-room-section2-ghost');
+    ghost.setAttribute('aria-hidden', 'true');
+    ghost.style.display = 'none';
+    document.body.appendChild(ghost);
+    this.section2Ghost = ghost;
   }
 
-  _update(){
-    const scrollable = Math.max(1, this.sectionHeight - this.viewportH);
-    const raw = (window.scrollY - this.sectionTop) / scrollable;
-
-    if(raw < 0){
-      if(this._state.pinnedLow) return;
-      this._state.pinnedLow = true;
-      this._state.pinnedHigh = false;
-    } else if(raw > 1){
-      if(this._state.pinnedHigh) return;
-      this._state.pinnedHigh = true;
-      this._state.pinnedLow = false;
-    } else {
-      this._state.pinnedLow = false;
-      this._state.pinnedHigh = false;
-    }
-
-    this._state.progress = Math.max(0, Math.min(1, raw));
+  _bindScrollTrigger(){
+    if(this.prefersReducedMotion || !window.gsap || !window.ScrollTrigger) return;
+    this._buildSection2Ghost();
+    window.gsap.registerPlugin(window.ScrollTrigger);
+    this._scrollTrigger = window.ScrollTrigger.create({
+      trigger: this.section,
+      start: 'top top',
+      end: () => '+=' + Math.round(window.innerHeight * CONFIG.scrollMultiplier),
+      pin: this.container,
+      anticipatePin: 1,
+      scrub: true,
+      onUpdate: (self) => {
+        this._state.progress = self.progress;
+        this._wake();
+      },
+      // the ghost preview (see _buildSection2Ghost) is only ever
+      // meaningful while genuinely pinned — hide it outright the instant
+      // the pin releases (scrolling on past) so it can't linger as a
+      // permanent fixed overlay sitting on top of the rest of the page,
+      // and restore it if the visitor scrolls back up into the pin's
+      // own range from below. this._pinReleased is what actually makes
+      // that stick — see _applyDissolve's own comment for why setting
+      // display:none here alone isn't enough
+      onLeave: () => {
+        this._pinReleased = true;
+        if(this.section2Ghost) this.section2Ghost.style.display = 'none';
+      },
+      onEnterBack: () => {
+        this._pinReleased = false;
+        if(this.section2Ghost) this.section2Ghost.style.display = '';
+      },
+    });
+    // synced immediately — otherwise the room sits at progress 0 until
+    // the very first scroll/refresh event actually fires
+    this._state.progress = this._scrollTrigger.progress;
     this._wake();
   }
 
   _wake(){
     if(!this._state.rafId){
       this._state.rafId = requestAnimationFrame(this._frame.bind(this));
+    }
+  }
+
+  // the Section 1 → Section 2 dissolve itself — called every frame from
+  // _frame() with dissolveT (0..1, see _cameraForProgress). Early-exits
+  // once there's nothing left to do (dissolveT at rest AND it was
+  // already at rest last frame too) so this costs nothing for the vast
+  // majority of the experience; runs exactly one extra time on the way
+  // BACK to 0 (scrolling back up out of the dissolve) to reset
+  // everything cleanly rather than leaving it stuck mid-fade.
+  //
+  // Also bails immediately whenever this._pinReleased is true — this is
+  // the fix for a real bug reported directly ("lag when the next section
+  // appears" / "scroll doesn't work right after"): once the real
+  // ScrollTrigger pin releases, GSAP stops sending onUpdate events, so
+  // this._dissolveT stays frozen at whatever it last was (1, fully
+  // dissolved) — but the render loop itself keeps running for another
+  // ~300px past the section (see the IntersectionObserver's own
+  // rootMargin, for idle animations like the rocket's bob/flicker).
+  // Every one of those extra frames used to call this function again
+  // with that same stale dissolveT===1, and its own ghost-opacity logic
+  // below would set the ghost back to display:'' — undoing the pin's
+  // own onLeave handler (which sets display:'none' exactly once, right
+  // when the pin releases) on the very next frame. The visitor would
+  // scroll past the room straight into a full-viewport, frozen,
+  // non-interactive ghost preview sitting on top of the real Section 2
+  // for that whole stretch, which reads exactly like "the scroll isn't
+  // working" even though it genuinely is — nothing was visibly updating
+  // because a stale, disconnected overlay was stuck covering it
+  _applyDissolve(dissolveT){
+    if(this._pinReleased) return;
+    const wasDissolving = this._wasDissolving || false;
+    if(dissolveT <= 0 && !wasDissolving) return;
+    this._wasDissolving = dissolveT > 0;
+
+    // "structure" (walls, floor, platform — this room's own architecture,
+    // the closest equivalent here to unseen.co's own arches) fades
+    // slowly, over the dissolve's second half, so it lingers and ghosts
+    // through the longest. "props" (sphere, chairs, stairs, rocket,
+    // traffic light) fade fast, over the first half, gone well before
+    // the structure even starts to go
+    const structureFade = 1 - THREE.MathUtils.smoothstep(dissolveT, 0.4, 1.0);
+    const propsFade = 1 - THREE.MathUtils.smoothstep(dissolveT, 0.0, 0.55);
+    this.roomGroup.traverse((obj) => {
+      if(!obj.isMesh || !obj.material || !obj.userData.fadeGroup) return;
+      const fade = obj.userData.fadeGroup === 'structure' ? structureFade : propsFade;
+      // the floor (Reflector, a raw ShaderMaterial running OUR OWN
+      // waterShader — see its own opacity-uniform comment in _buildScene)
+      // doesn't read the standard Material.opacity property at all; only
+      // its own explicit uniforms.opacity does anything. Every other
+      // material tagged with a fadeGroup is a normal MeshStandardMaterial/
+      // MeshPhysicalMaterial/MeshBasicMaterial, which DOES respect
+      // .opacity directly — confirmed directly that setting only
+      // .opacity left the floor fully opaque throughout the whole
+      // dissolve regardless of what fade value was computed for it
+      if(obj.material.uniforms && obj.material.uniforms.opacity){
+        obj.material.uniforms.opacity.value = fade;
+        obj.material.transparent = true;
+        return;
+      }
+      if(!obj.material.transparent) obj.material.transparent = true;
+      obj.material.opacity = fade;
+    });
+
+    // the "empty" space — through the arch, wherever nothing is drawn —
+    // on the same slow curve as the rest of the structure. scene.
+    // background is permanently null (see _buildEnvironment) specifically
+    // so this actually has something to control
+    if(this.renderer) this.renderer.setClearAlpha(structureFade);
+
+    // film-grain dissolve (see .process-room-grain's own comment in
+    // style.css) — a parabola peaking at dissolveT 0.5 rather than
+    // following the room's own fade curve: it should read as part of the
+    // ACT of dissolving, visible only while the crossfade is actually
+    // happening, silent at both ends
+    if(this.grainEl){
+      this.grainEl.style.opacity = String(4 * dissolveT * (1 - dissolveT) * 0.5);
+    }
+
+    // the Section 2 ghost preview (see _buildSection2Ghost) — fades IN
+    // as the room fades out, tracking dissolveT directly (no easing of
+    // its own needed; it's arriving as the room leaves, not moving
+    // anywhere itself)
+    if(this.section2Ghost){
+      if(dissolveT > 0){
+        this.section2Ghost.style.display = '';
+        this.section2Ghost.style.opacity = String(dissolveT);
+      } else {
+        this.section2Ghost.style.display = 'none';
+        this.section2Ghost.style.opacity = '0';
+      }
     }
   }
 
@@ -1674,9 +2031,9 @@ class ProcessRoom {
       this.mouse.y += (this.mouseTarget.y - this.mouse.y) * mouseFactor;
       this._state.displayProgress += (this._state.progress - this._state.displayProgress) * progressFactor;
 
-      const { pos, look, seg, throwT } = this._cameraForProgress(this._state.displayProgress);
+      const { pos, look, seg, dissolveT } = this._cameraForProgress(this._state.displayProgress);
       this._updateProcessStep(seg);
-      this._throwT = throwT;
+      this._dissolveT = dissolveT;
       // a small position shift for depth-parallax, plus — the actual
       // unseen.co effect, confirmed by hovering their own corners
       // directly — a real camera ROTATION on top, not another lookAt
@@ -1699,88 +2056,33 @@ class ProcessRoom {
       this.camera.lookAt(look);
       this._updateProcessStep(seg);
       // reduced motion holds the room at its very first resting frame
-      // (progress locked to 0 above) — the throw is itself a motion
-      // effect, so it stays off here the same way every other
-      // animation in this file already does under this preference
-      this._throwT = 0;
+      // (progress locked to 0 above) — the dolly/dissolve is itself a
+      // motion effect, so it stays off here the same way every other
+      // animation in this file already does under this preference (see
+      // _bindScrollTrigger, which never even creates the pin for these
+      // visitors in the first place)
+      this._dissolveT = 0;
     }
-
     if(this.sphere) this.sphere.rotation.y += 0.0018;
-    if(this.floatingRock){
-      const throwT = this._throwT || 0;
-      if(throwT > 0){
-        // thrown directly at the (now-frozen, see _cameraForProgress)
-        // camera, per direct request — eased with the same smoothstep
-        // curve every other stage transition in this file already
-        // uses, for the same reason: constant-speed motion reads as
-        // mechanical, easing reads as a real thrown object. Scale
-        // climbs alongside position — at this camera's fixed distance/
-        // FOV, position change alone undersells "hurtling toward the
-        // lens"; growing the mesh itself on top of that perspective
-        // growth is what actually reads as an object closing distance
-        // fast rather than just drifting closer
-        const te = throwT * throwT * (3 - 2 * throwT);
-        // target z (1.8) stays in front of the camera's own fixed
-        // z (2.2) at every te, on purpose — a target AT or PAST the
-        // camera crosses behind it partway through the throw (camera
-        // looks down -z, so anything with a larger z than the camera's
-        // own is out of frustum entirely), confirmed directly as the
-        // crystal vanishing outright for the back half of the throw,
-        // a second, different way to end up with nothing on screen
-        // from the same root cause as the clamp below
-        const targetPos = new THREE.Vector3(
-          THREE.MathUtils.lerp(this._rockRestPos.x, 0, te),
-          THREE.MathUtils.lerp(this._rockRestPos.y, 2.0, te),
-          THREE.MathUtils.lerp(this._rockRestPos.z, 1.8, te)
-        );
-        const scale = THREE.MathUtils.lerp(1, 7, te);
-        // a naive lerp toward a point this close to the camera, on a
-        // mesh that's ALSO growing this fast, overtakes the camera's
-        // own position partway through the throw — confirmed directly:
-        // the camera ends up fully inside the crystal, which (being an
-        // ordinary backface-culled mesh) then renders as nothing at
-        // all for a real stretch of the animation, well before the
-        // veil is opaque enough to cover for it. Clamping the rock's
-        // own distance from the camera to never go below its own
-        // scaled radius (+15% margin) keeps the camera looking at its
-        // near surface instead of winding up inside it — by the end of
-        // the throw the clamp is doing most of the work (the naive
-        // target alone would already be nearly on top of the camera),
-        // holding the crystal just far enough in front to stay
-        // genuinely visible while its own scale by then is large
-        // enough to fill past the camera's own FOV regardless
-        const camPos = this.camera.position;
-        const toRock = targetPos.clone().sub(camPos);
-        const minDist = 0.65 * scale * 1.15;
-        if(toRock.length() < minDist) toRock.setLength(minDist);
-        this.floatingRock.position.copy(camPos).add(toRock);
-        this.floatingRock.scale.setScalar(scale);
-        // spin accelerates into the throw rather than holding the
-        // idle tumble's own fixed rate — a thrown object tumbling
-        // faster as it closes distance is what sells "thrown", not
-        // "drifting". Frozen once throwT actually reaches 1 rather
-        // than left running forever — nothing was ever capping this,
-        // so the crystal kept spinning indefinitely at full speed for
-        // as long as the render loop kept running (up to 300px past
-        // the section, via the IntersectionObserver's own rootMargin),
-        // which is genuinely visible motion with nothing stopping it,
-        // not just a moot off-screen detail
-        if(throwT < 1){
-          this.floatingRock.rotation.y += 0.02 + te * 0.14;
-          this.floatingRock.rotation.x += 0.014 + te * 0.09;
-        }
-      } else {
-        this._rockTime = (this._rockTime || 0) + 0.016;
-        this.floatingRock.position.y = this._rockBaseY + Math.sin(this._rockTime * 0.6) * 0.08;
-        this.floatingRock.rotation.y += 0.0011;
-        this.floatingRock.rotation.x += 0.0006;
-        // scale/x/z only ever get touched by the throw branch above —
-        // reset explicitly on the way back in (scrolling back up after
-        // a throw) rather than assuming they're still at rest, since
-        // nothing else restores them
-        this.floatingRock.scale.setScalar(1);
-        this.floatingRock.position.x = this._rockRestPos.x;
-        this.floatingRock.position.z = this._rockRestPos.z;
+    if(this.rocket){
+      // floats in place always — no throw, no scroll-position dependence
+      // at all, per direct request ("actually floating in place")
+      this._rocketTime = (this._rocketTime || 0) + 0.016;
+      this.rocket.position.y = this._rocketBaseY + Math.sin(this._rocketTime * 0.6) * 0.08;
+      this.rocket.rotation.y += 0.0016;
+      this.rocket.rotation.z = Math.sin(this._rocketTime * 0.5) * 0.05;
+      // flame flicker — two sine blends at different rates/phases so the
+      // outer/inner cones don't pulse in lockstep, which is what
+      // actually reads as "fire" rather than a uniform pulsing glow
+      if(this.rocketFlameOuter){
+        const flicker = 0.85 + Math.sin(this._rocketTime * 9.0) * 0.1 + Math.sin(this._rocketTime * 23.0) * 0.05;
+        this.rocketFlameOuter.scale.set(1, flicker, 1);
+        this.rocketFlameOuter.material.opacity = 0.55 * flicker;
+      }
+      if(this.rocketFlameInner){
+        const flicker = 0.85 + Math.sin(this._rocketTime * 13.0 + 1.7) * 0.12 + Math.sin(this._rocketTime * 31.0) * 0.05;
+        this.rocketFlameInner.scale.set(1, flicker, 1);
+        this.rocketFlameInner.material.opacity = 0.75 * flicker;
       }
     }
     if(this.floorRippleUniforms){
@@ -1808,7 +2110,31 @@ class ProcessRoom {
     // gone. The title now simply stays on screen at full opacity for
     // the whole scroll once its own entrance fade-in finishes.
 
-    this._renderFrame();
+    // called LAST, deliberately — after every other per-object update
+    // above (the rocket's own idle bob/flicker chief among them, which
+    // unconditionally overwrites its flame materials' own .opacity every
+    // frame for the flicker effect). Applying the dissolve fade before
+    // that let the flicker silently stomp right back over it — confirmed
+    // directly as the flame staying at full brightness through the whole
+    // dissolve, the one thing on screen that never faded. Running this
+    // last means the dissolve always has final say over every material's
+    // opacity, whatever any other per-frame animation set moments earlier
+    this._applyDissolve(this._dissolveT || 0);
+
+    // skipped once genuinely released (see _applyDissolve's own comment)
+    // — camera is frozen, every material is faded to 0, the ghost is
+    // hidden, so there's nothing left that a render could show
+    // differently. The render loop itself still keeps running for the
+    // IntersectionObserver's own ~300px bleed (idle animations like the
+    // rocket's bob/flicker still update their own position/rotation
+    // underneath, harmlessly, in case the visitor scrolls back up), but
+    // actually compositing that into a full render — RenderPass, the
+    // separate bloom pass, the DoF pass, the colour-grade pass, OutputPass,
+    // all of it — for a frame that's invisible either way was real,
+    // pointless GPU cost sitting right at the exact moment the visitor
+    // is trying to scroll through into Section 2, which is exactly where
+    // it would read as "lag"
+    if(!this._pinReleased) this._renderFrame();
 
     // keep the water/sphere animating on their own every frame while
     // the section is on screen, instead of only advancing in response
@@ -1826,6 +2152,13 @@ class ProcessRoom {
   if(!section || !container || !canvas) return;
 
   window.Papi = window.Papi || {};
-  const room = new ProcessRoom(section, container, canvas);
+  let room;
+  try {
+    room = new ProcessRoom(section, container, canvas);
+  } catch(e) {
+    window.__processRoomError = e;
+    console.error('ProcessRoom init failed:', e);
+    throw e;
+  }
   window.Papi.processRoom = room;
 })();

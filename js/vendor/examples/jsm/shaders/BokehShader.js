@@ -136,7 +136,24 @@ const BokehShader = {
 			col += texture2D( tColor, vUv.xy + ( vec2(  0.0,   0.4  ) * aspectcorrect ) * dofblur4 );
 
 			gl_FragColor = col / 41.0;
-			gl_FragColor.a = 1.0;
+			// PATCHED, deviating from upstream three.js on purpose (every
+			// other vendored file here is left byte-for-byte unmodified) —
+			// this unconditionally forced full opacity regardless of the
+			// scene's own alpha, which silently broke process-room.js's own
+			// Section 1 → Section 2 dissolve (see _applyDissolve): every
+			// other pass in the chain (RenderPass, the bloom-mix ShaderPass,
+			// the colour-grade ShaderPass, OutputPass) correctly preserves
+			// alpha, confirmed directly by reading pixels back at each stage
+			// — this was the one pass silently stomping it back to 1.0,
+			// which is why the dissolve was fading to solid opaque black
+			// instead of ever revealing anything underneath no matter how
+			// transparent the actual scene/materials genuinely were.
+			// gl_FragColor.a already holds the correct value: the same
+			// weighted-average-of-41-samples blur this line already applies
+			// to rgb applies identically to alpha, since col accumulates
+			// all four channels together above — removing the hardcoded
+			// override just lets that already-correct value stand instead
+			// of overwriting it
 
 		}`
 
