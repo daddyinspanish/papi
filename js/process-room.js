@@ -948,10 +948,89 @@ class ProcessRoom {
       group.add(tread);
     }
     const postH = steps * riseStep + 0.4;
-    // its own material (not stepMat) — the traffic light's pole should
-    // read as the same colour as the walls, per direct request, without
-    // recolouring the stair treads it also happens to double as
-    const poleMat = new THREE.MeshStandardMaterial({ color: 0xbfdce6, roughness: 0.9, metalness: 0.02, envMapIntensity: 0.45 });
+    // a liquid "lava lamp" material for the stair's own centre pole —
+    // per direct request. A self-contained ShaderMaterial (same
+    // convention already used for the floor's own water shader above
+    // and the dissolve pass later in this file) rather than a real
+    // refractive glass tube: several soft metaball blobs drift and bob
+    // up/down the pole's own height, in real-world units (uRadius/
+    // uHeight — the tube's circumference is much smaller than its
+    // height, so blending the two axes in raw UV space would squash
+    // every blob into a thin horizontal smear), blended into a warm
+    // glow colour against a cooler liquid base, lit by a plain
+    // diffuse+fresnel approximation using the new key light's own
+    // direction (see _buildEnvironment) rather than the full PBR model
+    // a generic material would use
+    const poleRadius = innerR * 0.65;
+    const lavaUniforms = {
+      uTime: { value: 0 },
+      uRadius: { value: poleRadius },
+      uHeight: { value: postH },
+      uLightDir: { value: new THREE.Vector3(3.5, 10, 4).normalize() },
+    };
+    const poleMat = new THREE.ShaderMaterial({
+      uniforms: lavaUniforms,
+      vertexShader: `
+        varying vec2 vUv;
+        varying vec3 vNormalW;
+        varying vec3 vWorldPos;
+        void main(){
+          vUv = uv;
+          vNormalW = normalize(mat3(modelMatrix) * normal);
+          vWorldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform float uRadius;
+        uniform float uHeight;
+        uniform vec3 uLightDir;
+        varying vec2 vUv;
+        varying vec3 vNormalW;
+        varying vec3 vWorldPos;
+
+        float hash(float n){ return fract(sin(n) * 43758.5453123); }
+
+        void main(){
+          const int N = 6;
+          float field = 0.0;
+          float circumference = 6.28318 * uRadius;
+          for(int i = 0; i < N; i++){
+            float fi = float(i);
+            float speed = mix(0.08, 0.16, hash(fi));
+            float phase = hash(fi + 10.0) * 6.28318;
+            // bounces back and forth along the tube's own height rather
+            // than rising and instantly wrapping — reads as a real
+            // bobbing blob hitting the top/bottom of a sealed tube
+            float travel = abs(fract(uTime * speed + hash(fi) * 4.0) * 2.0 - 1.0);
+            float by = mix(0.08, 0.92, travel);
+            float bx = 0.5 + 0.5 * sin(uTime * 0.25 + phase);
+            float du = vUv.x - bx;
+            du -= floor(du + 0.5); // wrap around the circumference
+            float dv = vUv.y - by;
+            float dist = length(vec2(du * circumference, dv * uHeight));
+            float r = mix(0.16, 0.26, hash(fi + 20.0));
+            field += pow(r / max(dist, 0.001), 4.0);
+          }
+          float t = smoothstep(0.8, 1.4, field);
+
+          vec3 liquidColor = mix(vec3(0.05, 0.02, 0.12), vec3(0.16, 0.05, 0.22), vUv.y);
+          vec3 blobColor = vec3(1.0, 0.42, 0.12);
+          vec3 base = mix(liquidColor, blobColor, t);
+
+          vec3 N2 = normalize(vNormalW);
+          float diff = max(dot(N2, normalize(uLightDir)), 0.0);
+          vec3 viewDir = normalize(cameraPosition - vWorldPos);
+          float fresnel = pow(1.0 - max(dot(N2, viewDir), 0.0), 3.0);
+
+          vec3 lit = base * (0.35 + diff * 0.65) + vec3(1.0) * fresnel * 0.35;
+          vec3 emissive = blobColor * t * 0.55;
+          gl_FragColor = vec4(lit + emissive, 1.0);
+        }
+      `,
+    });
+    this.lavaPoleUniforms = lavaUniforms;
     const post = new THREE.Mesh(
       new THREE.CylinderGeometry(innerR * 0.65, innerR * 0.65, postH, 16),
       poleMat
@@ -1272,12 +1351,24 @@ class ProcessRoom {
     });
     this.rocketHullMat = hullMat;
 
+    // red nose cone + red fins — per direct request, the classic toy-
+    // rocket accent colour (a red "point" up top, red panels down by the
+    // fire), same metalness/roughness as the hull so they read as
+    // painted metal too, just a different paint colour
+    const redMat = new THREE.MeshPhysicalMaterial({
+      color: 0xc23b2e,
+      metalness: 0.5,
+      roughness: 0.35,
+      envMapIntensity: 1.2,
+    });
+    this.rocketRedMat = redMat;
+
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.8, 20), hullMat);
     body.castShadow = true;
     body.receiveShadow = true;
     rocket.add(body);
 
-    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.4, 20), hullMat);
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.4, 20), redMat);
     nose.position.y = 0.6; // body top (0.4) + half the nose's own height (0.2)
     nose.castShadow = true;
     rocket.add(nose);
@@ -1305,7 +1396,7 @@ class ProcessRoom {
     // flared outward
     const finGeo = new THREE.BoxGeometry(0.03, 0.32, 0.26);
     for(let i = 0; i < 3; i++){
-      const fin = new THREE.Mesh(finGeo, hullMat);
+      const fin = new THREE.Mesh(finGeo, redMat);
       const angle = (i / 3) * Math.PI * 2;
       fin.position.set(Math.cos(angle) * 0.22, -0.32, Math.sin(angle) * 0.22);
       fin.rotation.y = -angle;
@@ -1382,6 +1473,33 @@ class ProcessRoom {
   // floorMat, sphereMat, rocketHullMat, platformMat, poleMat) controls how
   // much of its true colour the HDRI's own bounce reveals
   _buildEnvironment(){
+    // one real light on top of the HDRI's own ambient fill — per direct
+    // request ("make it look like it's from a real engine"): environment-
+    // map lighting alone never puts a genuine specular highlight or a
+    // real cast shadow anywhere, which is what actually reads as
+    // "rendered" rather than flatly ambient-lit. A single soft
+    // directional "skylight," angled down through the room rather than
+    // a hard direct sun (matching the HDRI's own overcast mood) — every
+    // mesh's own castShadow/receiveShadow flags set throughout this file
+    // (renderer.shadowMap already enabled in the constructor) have had
+    // nothing to actually cast from until now
+    const keyLight = new THREE.DirectionalLight(0xfff2e0, 1.2);
+    keyLight.position.set(3.5, 10, 4);
+    keyLight.target.position.set(0, 0.5, 0);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(1024, 1024);
+    keyLight.shadow.camera.near = 1;
+    keyLight.shadow.camera.far = 26;
+    keyLight.shadow.camera.left = -9;
+    keyLight.shadow.camera.right = 9;
+    keyLight.shadow.camera.top = 9;
+    keyLight.shadow.camera.bottom = -9;
+    keyLight.shadow.bias = -0.0015;
+    keyLight.shadow.radius = 3;
+    this.scene.add(keyLight);
+    this.scene.add(keyLight.target);
+    this.keyLight = keyLight;
+
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     pmrem.compileEquirectangularShader();
     new RGBELoader().load('img/hdri/overcast_skylight.hdr', (hdrTex) => {
@@ -2149,8 +2267,27 @@ class ProcessRoom {
       // guard, the instant "back to top" was clicked this would have
       // immediately yanked the real page scroll back toward dollyEndY
       // on its own, well before the reverse animation itself was ready
-      // to move it there
-      if(!this._pinReleased && !this._reversing && this._scrollTrigger){
+      // to move it there.
+      //
+      // !this._dissolveStarted matters just as much on the way there — a
+      // real, confirmed race: _bindEnterButton's own click handler jumps
+      // scrollY straight to the Section 2 landing spot BEFORE the wipe
+      // even starts, but this._pinReleased doesn't flip true until
+      // _completeDissolveHandoff runs a full ~1s later, once the wipe
+      // finishes. window.scrollTo's own 'scroll' event fires
+      // asynchronously, so for that whole ~1s window this listener saw
+      // !this._pinReleased still true AND scrollY sitting (correctly,
+      // deliberately) past dollyEndY — and snapped it right back down,
+      // undoing the jump the visitor never actually saw happen (the room
+      // was still covering the screen) but landed on once the wipe
+      // finished anyway: confirmed directly as Section 2 settling ~1000px
+      // short of where it should be, showing blank page background
+      // instead. This._dissolveStarted is true for that entire window
+      // (set the instant the button is clicked, only cleared again once
+      // the reverse trip fully completes), so excluding it here means
+      // this corrective snap only ever fires during genuine, un-scripted
+      // scrolling — exactly what it was built for
+      if(!this._pinReleased && !this._reversing && !this._dissolveStarted && this._scrollTrigger){
         const dollyEndY = this._scrollTrigger.start + CONFIG.dollyEnd * (this._scrollTrigger.end - this._scrollTrigger.start);
         if(window.scrollY > dollyEndY + 1) window.scrollTo(0, Math.round(dollyEndY));
       }
@@ -2328,19 +2465,21 @@ class ProcessRoom {
     this._wake();
   }
 
-  // primes this.dissolvePass's own uniforms for a given point (t, 0..1)
-  // through a directional wipe — see _runWipe below for the tween that
-  // drives t, and the shader itself (_buildPostProcessing) for how
-  // uDirection/uProgress combine with the noise field + fluid warp to
-  // turn this into an organically-edged, rippled reveal rather than a
-  // straight line. Split out from _runWipe so _playReverse can prime the
-  // very first (fully-hidden) frame BEFORE its own synchronous render,
-  // rather than rendering one frame too early at the wrong progress
+  // primes the wipe for a given point (t, 0..1) — per direct request,
+  // a plain linear (hard-edge) wipe for now via CSS clip-path rather
+  // than the noise-dissolve shader (this.dissolvePass stays untouched/
+  // inert, uProgress left at 0, so the room renders normally right up
+  // to the clip edge) — simpler while more animation directions get
+  // figured out together. 'forward' clips away from the BOTTOM edge
+  // upward (uncovering whatever's behind starting at the bottom of the
+  // screen); 'reverse' un-clips from the TOP edge downward (the visible
+  // region is always the top slice, growing down). Split out from
+  // _runWipe so _playReverse can prime the very first (fully-clipped)
+  // frame BEFORE its own synchronous render, rather than rendering one
+  // frame too early at the wrong progress
   _setWipeUniforms(direction, t){
-    if(this.dissolvePass){
-      this.dissolvePass.uniforms.uDirection.value = direction === 'forward' ? 0 : 1;
-      this.dissolvePass.uniforms.uProgress.value = direction === 'forward' ? t : (1 - t);
-    }
+    const clippedFromBottom = direction === 'forward' ? t : (1 - t);
+    this.container.style.clipPath = `inset(0 0 ${(clippedFromBottom * 100).toFixed(2)}% 0)`;
     this._applyWipeGrain(t);
   }
 
@@ -2452,6 +2591,7 @@ class ProcessRoom {
     // screen for it to show differently, and it only ever needs to
     // reappear via _playReverse, which restores this itself
     this.container.style.visibility = 'hidden';
+    this.container.style.clipPath = '';
     this.container.classList.remove('process-room-sticky--manual-pin');
     this._pinReleased = true;
     this._locked = false;
@@ -2561,6 +2701,7 @@ class ProcessRoom {
   // parked at the Welcome framing (see _playReverse's own snap above)
   _completeReverseHandoff(){
     this._dissolveStarted = false;
+    this.container.style.clipPath = '';
     // drops the manual pin and hands scroll position back to GSAP —
     // scrollY lands at 0 (top of the pin's own range), so its next
     // native scroll-driven update re-establishes the real pin exactly
@@ -2707,7 +2848,9 @@ class ProcessRoom {
       // at all, per direct request ("actually floating in place")
       this._rocketTime = (this._rocketTime || 0) + 0.016;
       this.rocket.position.y = this._rocketBaseY + Math.sin(this._rocketTime * 0.6) * 0.08;
-      this.rocket.rotation.y += 0.0016;
+      // a real, visible spin now — per direct request (was 0.0016, a
+      // full rotation every ~65s, too slow to actually read as rotating)
+      this.rocket.rotation.y += 0.008;
       this.rocket.rotation.z = Math.sin(this._rocketTime * 0.5) * 0.05;
       // flame flicker — two sine blends at different rates/phases so the
       // outer/inner cones don't pulse in lockstep, which is what
@@ -2728,6 +2871,7 @@ class ProcessRoom {
       this.floorRippleUniforms.uRippleOffset.value.y += 0.00022;
       this.floorRippleUniforms.uTime.value += 0.016;
     }
+    if(this.lavaPoleUniforms) this.lavaPoleUniforms.uTime.value += 0.016;
 
     // DoF focus, recomputed every frame since it depends on the live
     // (parallax-shifted) camera, not just the scroll progress
