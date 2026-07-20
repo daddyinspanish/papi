@@ -77,6 +77,17 @@ const CONFIG = {
   dprCapMobile: 1.0,
   shadowSize: 1536,
   shadowSizeMobile: 768,
+  // this scene's own _frame() ran completely uncapped — every native
+  // vsync, unthrottled — which on a 120Hz ProMotion iPhone means the
+  // ENTIRE pipeline below (bloom's own full second scene render, the
+  // god-ray accumulation loop, real-time water reflection, shadow map,
+  // 4x MSAA) runs twice as often as on a plain 60Hz display for zero
+  // visual benefit (nothing here moves fast enough to need more than
+  // 60, let alone 30, updates a second) — far and away the single
+  // biggest lever on the reported "phone gets hot" issue. Desktop is
+  // capped too (120Hz monitors are common now), just less aggressively
+  renderFPS: 60,
+  renderFPSMobile: 30,
   // unseen.co's own cursor interaction (checked directly: hovering each
   // corner visibly swings the whole room, mirrored left/right) is a
   // real camera ROTATION driven by cursor position, not a position
@@ -994,9 +1005,20 @@ class ProcessRoom {
     // reflection re-render during those passes (this._suppressReflection
     // covers the bloom pass, scene.overrideMaterial covers BokehPass's)
     // leaves the texture holding its last real colour frame instead
+    // on mobile the reflection is also only refreshed every other frame
+    // — this Reflector re-renders the ENTIRE scene a second time from a
+    // mirrored camera whenever it does run, easily this room's single
+    // most expensive per-frame cost. Water ripples slowly enough that a
+    // reflection one frame stale (at 30fps mobile, ~33ms) is invisible,
+    // while halving how often that whole second scene render happens
+    this._reflectionFrameCount = 0;
     const originalOnBeforeRender = floor.onBeforeRender.bind(floor);
     floor.onBeforeRender = (renderer, scene, camera, ...rest) => {
       if(scene.overrideMaterial || this._suppressReflection) return;
+      if(this.isMobile){
+        this._reflectionFrameCount++;
+        if(this._reflectionFrameCount % 2 !== 0) return;
+      }
       originalOnBeforeRender(renderer, scene, camera, ...rest);
     };
 
@@ -1238,13 +1260,19 @@ class ProcessRoom {
     const light = new THREE.SpotLight(0xfff2df, 55, 13, 0.5, 0.6, 2);
     light.position.set(-0.4, 7.0, pile.z + 2.8);
     light.target = target;
-    light.castShadow = true;
-    const mapSize = this.isMobile ? 512 : 1024;
-    light.shadow.mapSize.set(mapSize, mapSize);
-    light.shadow.camera.near = 2;
-    light.shadow.camera.far = 14;
-    light.shadow.bias = -0.0015;
-    light.shadow.radius = 3;
+    // the shadow map itself (not just its resolution) is skipped on
+    // mobile — a real-time PCF soft-shadow render is a genuine extra
+    // pass over the shadow-casting geometry every frame. The light
+    // still lights the wall/pile normally, just without the cast
+    // shadow detail — a reasonable trade on a phone GPU
+    light.castShadow = !this.isMobile;
+    if(light.castShadow){
+      light.shadow.mapSize.set(1024, 1024);
+      light.shadow.camera.near = 2;
+      light.shadow.camera.far = 14;
+      light.shadow.bias = -0.0015;
+      light.shadow.radius = 3;
+    }
     this.roomGroup.add(light);
   }
 
@@ -1356,7 +1384,12 @@ class ProcessRoom {
     // target (not a blur/sharpen trick) is the actual fix
     const renderTarget = new THREE.WebGLRenderTarget(w, h, {
       type: THREE.HalfFloatType,
-      samples: 4,
+      // 4x MSAA quadruples the fill-rate cost of every pass sharing this
+      // target on every edge pixel in the scene — real money on a phone
+      // GPU. Off entirely on mobile; motion (this room is barely ever
+      // fully static there anyway) hides the aliasing it would otherwise
+      // catch
+      samples: this.isMobile ? 0 : 4,
     });
     this.composer = new EffectComposer(this.renderer, renderTarget);
     this.composer.setSize(w, h);
@@ -1396,22 +1429,32 @@ class ProcessRoom {
     // something else changed the same session, but reverting it was
     // what made the artifact go away, so this keeps the material-swap
     // version despite its real per-frame cost)
-    this._bloomLayer = new THREE.Layers();
-    this._bloomLayer.set(1);
-    this._darkMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    this._bloomMaterialsCache = new Map();
-    const bloomRenderTarget = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType });
-    this.bloomComposer = new EffectComposer(this.renderer, bloomRenderTarget);
-    this.bloomComposer.renderToScreen = false;
-    this.bloomComposer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.22, 0.2, 0.8);
-    this.bloomComposer.addPass(this.bloomPass);
+    // bloom skipped entirely on mobile — see _renderFrame's own comment.
+    // Not built at all there (rather than built-but-never-rendered):
+    // an unrendered WebGLRenderTarget holds whatever garbage the GPU
+    // happened to have in that memory, not guaranteed black, which
+    // bloomMixPass would otherwise be silently adding into every frame
+    this.bloomEnabled = !this.isMobile;
+    let bloomTextureRef = null;
+    if(this.bloomEnabled){
+      this._bloomLayer = new THREE.Layers();
+      this._bloomLayer.set(1);
+      this._darkMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+      this._bloomMaterialsCache = new Map();
+      const bloomRenderTarget = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType });
+      this.bloomComposer = new EffectComposer(this.renderer, bloomRenderTarget);
+      this.bloomComposer.renderToScreen = false;
+      this.bloomComposer.addPass(new RenderPass(this.scene, this.camera));
+      this.bloomPass = new UnrealBloomPass(new THREE.Vector2(w, h), 0.22, 0.2, 0.8);
+      this.bloomComposer.addPass(this.bloomPass);
+      bloomTextureRef = this.bloomComposer.renderTarget2.texture;
+    }
 
     const bloomMixPass = new ShaderPass(
       new THREE.ShaderMaterial({
         uniforms: {
           baseTexture: { value: null },
-          bloomTexture: { value: this.bloomComposer.renderTarget2.texture },
+          bloomTexture: { value: bloomTextureRef },
         },
         vertexShader: `
           varying vec2 vUv;
@@ -1422,10 +1465,12 @@ class ProcessRoom {
         `,
         fragmentShader: `
           uniform sampler2D baseTexture;
-          uniform sampler2D bloomTexture;
+          ${this.bloomEnabled ? 'uniform sampler2D bloomTexture;' : ''}
           varying vec2 vUv;
           void main(){
-            gl_FragColor = texture2D(baseTexture, vUv) + texture2D(bloomTexture, vUv);
+            vec4 base = texture2D(baseTexture, vUv);
+            ${this.bloomEnabled ? 'base += texture2D(bloomTexture, vUv);' : ''}
+            gl_FragColor = base;
           }
         `,
       }),
@@ -1775,7 +1820,13 @@ class ProcessRoom {
   }
 
   _renderFrame(){
-    if(this.bloomComposer){
+    // bloom is a genuinely SEPARATE full scene render (see
+    // _buildPostProcessing's own comment) — skipped entirely on mobile,
+    // where it's the single most expensive thing in this whole pipeline
+    // for a subtle glow on a couple of small bright points. bloomMixPass
+    // still runs (see below) and just adds nothing, since the render
+    // target it reads from was never written to this frame
+    if(this.bloomComposer && !this.isMobile){
       this._suppressReflection = true;
       this.scene.traverse((obj) => this._darkenNonBloomed(obj));
       this.bloomComposer.render();
@@ -1912,8 +1963,21 @@ class ProcessRoom {
     }
   }
 
-  _frame(){
+  _frame(ts){
     this._state.rafId = null;
+
+    // FPS cap — see CONFIG.renderFPS's own comment for why this exists.
+    // requestAnimationFrame itself still fires at the display's native
+    // rate; skipped ticks just re-schedule without doing any of the
+    // actual (expensive) work below
+    const interval = 1000 / (this.isMobile ? CONFIG.renderFPSMobile : CONFIG.renderFPS);
+    if(this._lastRenderTs && ts - this._lastRenderTs < interval){
+      if(this._inView && !this.prefersReducedMotion){
+        this._state.rafId = requestAnimationFrame(this._frame.bind(this));
+      }
+      return;
+    }
+    this._lastRenderTs = ts;
 
     if(!this.prefersReducedMotion){
       this.mouse.x += (this.mouseTarget.x - this.mouse.x) * CONFIG.mouseLerp;
