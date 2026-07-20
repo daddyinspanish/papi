@@ -350,13 +350,6 @@ class ProcessRoom {
     this.stepLabelEl = document.getElementById('processStepLabel');
     this.neonMenuEl = document.getElementById('processNeonMenu');
     this._lastStageIndex = -1;
-    // the exit-transition veil (see _updateVeil) — body-level, not
-    // inside this room's own sticky, so it's queried here the same way
-    // but updated from its own always-on scroll listener in
-    // _bindEvents rather than the 3D render loop, since it needs to
-    // keep working after this section itself has scrolled past and
-    // un-pinned (see that listener's own comment for why)
-    this.veilEl = document.getElementById('heroVeil');
 
     this._buildScene();
     this._buildChairPile();
@@ -994,56 +987,6 @@ class ProcessRoom {
     }
   }
 
-  // the exit-transition veil's own opacity — deliberately NOT part of
-  // the render loop above (see this.veilEl's own query-time comment):
-  // computed purely from window.scrollY against two fixed page-space
-  // boundaries, so it keeps working via its own scroll listener (see
-  // _bindEvents) even once this section has scrolled past and its
-  // sticky has un-pinned, which is exactly when the second half of
-  // this needs to keep running. smoothstep both legs for the same
-  // "ease into/out of" feel as everything else in this file
-  _updateVeil(){
-    if(!this.veilEl) return;
-    const scrollable = Math.max(1, this.sectionHeight - this.viewportH);
-    const throwStartY = this.sectionTop + scrollable * CONFIG.throwStart;
-    // .process-room-sticky physically un-pins at this exact scrollY —
-    // live-demo-section only ever starts scrolling up into the actual
-    // viewport past this point, not before, regardless of the veil's
-    // own opacity (position:sticky, not a z-index trick — there's
-    // nothing "behind" the veil to bleed through until the page has
-    // genuinely scrolled the sticky out of the way)
-    const releaseY = this.sectionTop + scrollable;
-    // the veil's own peak sits PAST releaseY on purpose — not right at
-    // it — per direct request: the transition should already show the
-    // next section bleeding through as the blue builds, rather than
-    // hitting a fully solid wall first and only revealing live-demo
-    // afterward. Peaking here instead means live-demo has already
-    // scrolled a real distance up into view (the sticky's released by
-    // this point) while the veil is still near its own peak, so the
-    // two genuinely cross-dissolve rather than a hard cut through a
-    // solid colour
-    const peakY = releaseY + this.viewportH * 0.35;
-    const clearY = peakY + this.viewportH * 0.55;
-    // capped well under 1 — even at its own peak the veil never goes
-    // fully solid, so whatever's behind it (the crystal, already
-    // filling the frame with its own blue by the time this ramps up —
-    // see _frame's own throw block — during fade-in; live-demo during
-    // fade-out) always still bleeds through at least a little, start
-    // to finish
-    const maxOpacity = 0.72;
-    const smoothstep = (edge0, edge1, x) => {
-      const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-      return t * t * (3 - 2 * t);
-    };
-    const y = window.scrollY;
-    const shape = y <= throwStartY
-      ? 0
-      : y <= peakY
-        ? smoothstep(throwStartY, peakY, y)
-        : 1 - smoothstep(peakY, clearY, y);
-    this.veilEl.style.opacity = (shape * maxOpacity).toFixed(3);
-  }
-
   // a square plinth in the front-left corner with a whole tossed-
   // together pile of chairs on top, each at its own odd angle — a bit
   // of scattered, lived-in detail against the room's otherwise pared-
@@ -1596,7 +1539,7 @@ class ProcessRoom {
       lastResizeW = w; lastResizeH = h;
       this.isMobile = w < 860;
       clearTimeout(this._resizeT);
-      this._resizeT = setTimeout(() => { this._resize(); this._measure(); this._update(); this._updateVeil(); }, 200);
+      this._resizeT = setTimeout(() => { this._resize(); this._measure(); this._update(); }, 200);
     };
     window.addEventListener('resize', this._onResize);
 
@@ -1619,21 +1562,15 @@ class ProcessRoom {
 
     this._measure();
     let ticking = false;
-    // _updateVeil rides this exact same listener rather than getting
-    // its own — this one already runs unconditionally for the page's
-    // whole lifetime (unlike _frame's own rAF loop, which stops once
-    // this section scrolls out of IntersectionObserver range), which
-    // is exactly what the veil's own fade-out (playing out well after
-    // this section has scrolled past and un-pinned) needs
     window.addEventListener('scroll', () => {
       if(ticking) return;
       ticking = true;
-      requestAnimationFrame(() => { this._update(); this._updateVeil(); ticking = false; });
+      requestAnimationFrame(() => { this._update(); ticking = false; });
     }, { passive: true });
 
-    if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => { this._measure(); this._update(); this._updateVeil(); });
-    window.addEventListener('load', () => { this._measure(); this._update(); this._updateVeil(); });
-    requestAnimationFrame(() => { this._measure(); this._update(); this._updateVeil(); });
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => { this._measure(); this._update(); });
+    window.addEventListener('load', () => { this._measure(); this._update(); });
+    requestAnimationFrame(() => { this._measure(); this._update(); });
 
     // the water ripple and sphere rotation used to only advance when
     // _frame() got woken by a scroll or mousemove event, so the water
@@ -1821,9 +1758,17 @@ class ProcessRoom {
         // spin accelerates into the throw rather than holding the
         // idle tumble's own fixed rate — a thrown object tumbling
         // faster as it closes distance is what sells "thrown", not
-        // "drifting"
-        this.floatingRock.rotation.y += 0.02 + te * 0.14;
-        this.floatingRock.rotation.x += 0.014 + te * 0.09;
+        // "drifting". Frozen once throwT actually reaches 1 rather
+        // than left running forever — nothing was ever capping this,
+        // so the crystal kept spinning indefinitely at full speed for
+        // as long as the render loop kept running (up to 300px past
+        // the section, via the IntersectionObserver's own rootMargin),
+        // which is genuinely visible motion with nothing stopping it,
+        // not just a moot off-screen detail
+        if(throwT < 1){
+          this.floatingRock.rotation.y += 0.02 + te * 0.14;
+          this.floatingRock.rotation.x += 0.014 + te * 0.09;
+        }
       } else {
         this._rockTime = (this._rockTime || 0) + 0.016;
         this.floatingRock.position.y = this._rockBaseY + Math.sin(this._rockTime * 0.6) * 0.08;

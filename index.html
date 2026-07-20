@@ -465,18 +465,6 @@ window.scrollTo(0, 0);
   <span class="cursor-dot"></span>
 </div>
 
-<!-- the hero's own exit transition — a full-viewport blue veil that
-     fades in as the crystal is "thrown" at the camera on the last
-     stretch of the hero's own scroll, then fades back out over the
-     first stretch of the live-demo section beneath it. position:fixed
-     at the body level on purpose (not nested inside the hero's own
-     sticky) — a transformed/positioned ancestor hijacks position:fixed
-     centering, the same class of bug already hit once with the fan-
-     card expand — driven entirely by js/process-room.js's own
-     _updateVeil, independent of the hero's 3D render loop so it keeps
-     working after the hero itself has scrolled past and un-pinned -->
-<div class="hero-veil" id="heroVeil" aria-hidden="true"></div>
-
 <!-- ============ NEWSLETTER POPUP — triggered once, the first time the
      visitor scrolls past the live-demo section ============ -->
 <div class="newsletter-popup" id="newsletterPopup" aria-hidden="true">

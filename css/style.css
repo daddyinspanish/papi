@@ -493,10 +493,9 @@ body, a{ cursor:none; }
      320vh (4 stops/3 segments) to 420vh (5 stops/4 segments) to 480vh
      now, each raise keeping the earlier segments' own real scroll
      distance intact rather than compressing everything to fit the old
-     total. The newest 60vh is CONFIG.THROW_START's own share (see
-     process-room.js) — the crystal's own throw-at-camera animation
-     and the hero-veil's blue crossfade into the live demos below,
-     which need genuine scroll distance of their own to play out over,
+     total. The newest 60vh is CONFIG.throwStart's own share (see
+     process-room.js) — the crystal's own throw-at-camera animation,
+     which needs genuine scroll distance of its own to play out over,
      same as every other stop here */
   height:480vh;
   /* svh ("small" viewport height) instead of plain vh for this and
@@ -742,25 +741,6 @@ body, a{ cursor:none; }
 }
 @media (prefers-reduced-motion:reduce){
   .trades-track{ animation:none; }
-}
-
-/* ===================================================================
-   HERO VEIL — the crystal-throw exit transition into the live demos
-=================================================================== */
-/* full-viewport, fixed at the body level (not nested inside the hero's
-   own transformed .process-room-sticky — see this element's own HTML
-   comment for why). Opacity alone is driven every frame by
-   process-room.js's _updateVeil, straight off window.scrollY — no CSS
-   transition here for the same reason .process-step has none: the
-   underlying value is already a continuous, smooth function of scroll
-   position, so a second transition on top would only add lag */
-.hero-veil{
-  position:fixed;
-  inset:0;
-  z-index:1500;
-  pointer-events:none;
-  opacity:0;
-  background:radial-gradient(120% 100% at 50% 45%, #7addff 0%, #2f9dff 45%, #06172b 100%);
 }
 
 /* ===================================================================
