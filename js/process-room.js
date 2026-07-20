@@ -2456,6 +2456,15 @@ class ProcessRoom {
     this._pinReleased = true;
     this._locked = false;
     if(window.Papi && window.Papi.unlockScroll) window.Papi.unlockScroll();
+    // NOT calling ScrollTrigger.refresh() here — tried it, and it's
+    // actively harmful: GSAP's refresh() recalculates this (still-
+    // registered, just disabled) trigger's own pin geometry and, in
+    // doing so, adjusts the real scrollY to match — confirmed directly
+    // as a real regression, landing scrollY ~600px short of the jump
+    // target above the instant refresh() ran. There's only this one
+    // ScrollTrigger instance on the whole page (confirmed directly —
+    // ScrollTrigger.getAll().length === 1), so there's nothing else
+    // for a refresh to correct anyway
     // reveals the rocket + "back to top" row together (see
     // .process-arrival's own comment in index.html) — the rocket's own
     // "landing" in Section 2 and the only way back into the room both
@@ -2562,6 +2571,10 @@ class ProcessRoom {
     this._reversing = false;
     this._locked = false;
     if(window.Papi && window.Papi.unlockScroll) window.Papi.unlockScroll();
+    // NOT calling ScrollTrigger.refresh() here either — see
+    // _completeDissolveHandoff's own comment; confirmed the same way,
+    // refresh() actively repositions scrollY against this trigger's own
+    // recalculated geometry rather than just passively re-measuring it
     this._wake();
   }
 
