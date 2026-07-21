@@ -562,24 +562,29 @@ body, a{ cursor:none; }
   background:var(--paper);
   will-change:opacity;
 }
-/* the film-grain dissolve overlay — see its own <div> comment in
-   index.html for why it's a sibling, not a child, of .process-room-
-   visual. The texture itself is a small tiled SVG feTurbulence noise
-   field (fractalNoise, no displacement — a flat grayscale grain pattern,
-   not the kind of filter that warps/displaces the element's own shape),
-   inlined as a data URI so there's no extra image request; mix-blend-
-   mode:overlay is what actually makes it read as film grain sitting
-   ON the scene rather than a flat gray fog laid over it — overlay
-   lightens already-light pixels and darkens already-dark ones, the same
-   way real grain interacts with an image. Opacity is driven entirely
-   from JS (process-room.js's own _revealTrigger) with a curve that
-   peaks mid-dissolve and returns to 0 at both ends, so it's only ever
-   visible during the actual transition. */
+/* the film-grain overlay — see its own <div> comment in index.html for
+   why it's a sibling, not a child, of .process-room-visual. The texture
+   itself is a small tiled SVG feTurbulence noise field (fractalNoise,
+   no displacement — a flat grayscale grain pattern, not the kind of
+   filter that warps/displaces the element's own shape), inlined as a
+   data URI so there's no extra image request; mix-blend-mode:overlay is
+   what actually makes it read as film grain sitting ON the scene rather
+   than a flat gray fog laid over it — overlay lightens already-light
+   pixels and darkens already-dark ones, the same way real grain
+   interacts with an image. Opacity baseline raised (0.05→0.12) — per
+   direct request, after a direct unseen.co comparison: 0.05 barely
+   registered at all, while unseen's own grain is genuinely visible
+   texture sitting on top of the whole frame, not just a faint hint of
+   one. Still a persistent, constant baseline across the whole hero
+   (not only during the Section 1 → Section 2 transition); JS (see
+   process-room.js's own _applyWipeGrain) still boosts it further on top
+   of this baseline for that transition, peaking mid-wipe and easing
+   back down to the baseline (never all the way to invisible) once done. */
 .process-room-grain{
   position:absolute;
   inset:0;
   z-index:2;
-  opacity:0;
+  opacity:0.12;
   pointer-events:none;
   mix-blend-mode:overlay;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch' result='t'/%3E%3CfeColorMatrix in='t' type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -704,14 +709,15 @@ body, a{ cursor:none; }
 }
 /* stage 4 (Delivery) only — per direct request, ONLY this step's text
    moves, not the other three: centred text sat right on top of the
-   rocket for this one stage specifically, the two reading as one
-   illegible jumble. process-room.js's own _updateProcessStep toggles
-   this class on/off exactly when the Delivery stage is the nearest one.
-   Anchored from its own TOP edge (not translateY(-50%)) so it grows
-   downward from a fixed point above the rocket's own tip rather than
-   growing from centre and potentially still dipping into it */
+   eye for this one stage specifically (previously the rocket — see
+   process-room.js's own _buildEye), the two reading as one illegible
+   jumble. process-room.js's own _updateProcessStep toggles this class
+   on/off exactly when the Delivery stage is the nearest one. Anchored
+   from its own TOP edge (not translateY(-50%)) so it grows downward
+   from a fixed point above the eye's own top rather than growing from
+   centre and potentially still dipping into it */
 .process-step--raised{
-  top:20%;
+  top:16%;
   transform:translateX(-50%);
 }
 .process-step-number{
@@ -743,13 +749,13 @@ body, a{ cursor:none; }
    holding on the Delivery step). opacity/transform driven from JS every
    frame exactly like .process-step, not a CSS transition — see that
    element's own comment for why */
-/* top:68% — per direct request, below the rocket (whose flame tip sits
-   around 64% of the frame in this framing) rather than between the
-   step text and the rocket */
+/* top:60% — below the eye (previously the rocket — see
+   process-room.js's own _buildEye), which has no trailing flame to
+   clear any more, so this sits closer than the old 68% did */
 .process-enter-btn{
   position:absolute;
   left:50%;
-  top:68%;
+  top:60%;
   transform:translate(-50%, 8px);
   z-index:4;
   opacity:0;
@@ -775,7 +781,7 @@ body, a{ cursor:none; }
 .process-enter-btn:active{ transform:translate(-50%, 8px) scale(0.98); }
 @media (max-width:860px){
   .process-enter-btn{
-    top:66%;
+    top:58%;
     font-size:.72rem;
     padding:.8rem 1.7rem;
   }
