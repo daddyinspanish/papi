@@ -2530,31 +2530,33 @@ body, a{ cursor:none; }
   padding:1rem 2.4rem;
   white-space:nowrap;
   overflow:hidden;
-  /* per direct request: "feel premium, instead of it just being
-     white" — same brushed-metal band technique as the title above
-     (cream/white highlights alternating with the brand's own blue
-     tones, not a flat fill), plus a fine light edge and a soft aqua
-     glow alongside the drop shadow so it reads as burnished metal
-     catching light rather than a plain white pill */
-  color:#0a1116;
-  background:linear-gradient(120deg,
-    #fbf7ef 0%,
-    var(--gold-soft) 24%,
-    var(--gold) 46%,
-    #fdfefe 58%,
-    var(--gold-deep) 74%,
-    var(--gold-soft) 90%,
-    #fbf7ef 100%);
-  background-size:240% 100%;
-  background-position:0% 50%;
-  border:1px solid rgba(255,255,255,.65);
-  box-shadow:0 8px 30px rgba(0,0,0,.28), 0 0 22px rgba(154,205,228,.28);
+  /* per direct request: still read as "white" even with the brushed-
+     metal band gradient (the light cream/white stops dominated at a
+     glance) — rebuilt on the same dark-glass base as .process-hero-
+     start below (so the two CTAs feel like a matched pair) with an
+     aqua gradient glow behind it, PLUS the metallic shine sweeping
+     across on top — gradient, glow, and metallic shine together
+     instead of any one of them alone */
+  color:var(--cream);
+  background-color:rgba(10,16,20,.55);
+  background-image:linear-gradient(120deg,
+    rgba(154,205,228,0) 0%,
+    rgba(154,205,228,.5) 22%,
+    rgba(255,255,255,.55) 40%,
+    var(--gold) 55%,
+    rgba(154,205,228,.5) 72%,
+    rgba(154,205,228,0) 100%);
+  background-size:100% 100%, 240% 100%;
+  background-position:0 0, 0% 50%;
+  background-repeat:no-repeat;
+  border:1px solid rgba(154,205,228,.65);
+  box-shadow:0 8px 30px rgba(0,0,0,.35), 0 0 34px rgba(105,168,203,.5), inset 0 1px 0 rgba(255,255,255,.2);
   animation:processHeroCtaShine 6.5s ease-in-out infinite;
-  transition:transform .25s var(--ease-out), box-shadow .25s var(--ease-out);
+  transition:transform .25s var(--ease-out), box-shadow .25s var(--ease-out), background-color .25s ease;
 }
 @keyframes processHeroCtaShine{
-  0%, 100%{ background-position:0% 50%; }
-  50%{ background-position:100% 50%; }
+  0%, 100%{ background-position:0 0, 0% 50%; }
+  50%{ background-position:0 0, 100% 50%; }
 }
 /* a brighter glint sweeping across on hover — the extra "catching the
    light" cue a flat button can't give, reinforcing the premium feel
@@ -2573,7 +2575,8 @@ body, a{ cursor:none; }
 }
 .process-hero-cta:hover{
   transform:translateX(-50%) translateY(-2px) scale(1.03);
-  box-shadow:0 12px 38px rgba(0,0,0,.34), 0 0 30px rgba(154,205,228,.4);
+  background-color:rgba(16,24,30,.6);
+  box-shadow:0 12px 38px rgba(0,0,0,.4), 0 0 44px rgba(105,168,203,.65), inset 0 1px 0 rgba(255,255,255,.28);
 }
 .process-hero-cta:active{ transform:translateX(-50%) translateY(0) scale(.98); }
 
