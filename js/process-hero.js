@@ -20,11 +20,20 @@
   // ===================================================================
   // 1. hotspot positioning
   // ===================================================================
-  // the photo's own real pixel size (img/hero/process-hero-bg.jpg) —
-  // hardcoded rather than measured from the loaded <img> because this
-  // is a CSS background-image, not an <img> element with its own
-  // naturalWidth/naturalHeight to read
-  const IMG_W = 1536, IMG_H = 1024;
+  // two ENTIRELY separate background photos, each with its own real
+  // pixel size — hardcoded rather than measured from a loaded <img>
+  // because these are CSS background-images, not <img> elements with
+  // their own naturalWidth/naturalHeight to read. The mobile photo
+  // (per direct request: "make sure to keep the same settings for
+  // desktop different, and for mobile separate so they both can
+  // function") is its own portrait-framed render — not a crop of the
+  // desktop one — because the desktop photo's wide landscape framing
+  // was cropping 2 of the 4 hotspot markers off-screen on a phone's
+  // tall/narrow viewport. Same breakpoint as the CSS media query below
+  // that swaps the actual background-image.
+  const MOBILE_BREAKPOINT = 860;
+  const IMG_DESKTOP = { w: 1536, h: 1024 };
+  const IMG_MOBILE  = { w: 941, h: 1672 };
   const hotspots = Array.from(hero.querySelectorAll('.process-hotspot'));
 
   // BUG FIX (per direct request: "align the dots to actually be over
@@ -39,19 +48,24 @@
   // (whichever axis needs the bigger multiplier to fill), same
   // centered crop offset, so a hotspot's real on-screen position is
   // derived from the photo's own TRUE current rendered scale/position
-  // rather than a percentage that only happens to line up once
+  // rather than a percentage that only happens to line up once —
+  // re-evaluated on every call so crossing the mobile breakpoint mid-
+  // session (resize, rotate) picks up the other photo's own image size
+  // and its own data-mobile-px/data-mobile-py marker coordinates
   function positionHotspots(){
     const rect = hero.getBoundingClientRect();
     const containerW = rect.width, containerH = rect.height;
     if(!containerW || !containerH) return;
-    const scale = Math.max(containerW / IMG_W, containerH / IMG_H);
-    const renderedW = IMG_W * scale, renderedH = IMG_H * scale;
+    const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+    const img = isMobile ? IMG_MOBILE : IMG_DESKTOP;
+    const scale = Math.max(containerW / img.w, containerH / img.h);
+    const renderedW = img.w * scale, renderedH = img.h * scale;
     const offsetX = (containerW - renderedW) / 2;
     const offsetY = (containerH - renderedH) / 2;
 
     hotspots.forEach(hotspot => {
-      const px = parseFloat(hotspot.dataset.px);
-      const py = parseFloat(hotspot.dataset.py);
+      const px = parseFloat(isMobile ? hotspot.dataset.mobilePx : hotspot.dataset.px);
+      const py = parseFloat(isMobile ? hotspot.dataset.mobilePy : hotspot.dataset.py);
       const left = offsetX + px * scale;
       const top = offsetY + py * scale;
       hotspot.style.left = `${left}px`;
@@ -69,6 +83,7 @@
   // shouldn't be treated as a real layout change worth repositioning
   // for. Height changes that DO matter (rotating a phone, resizing a
   // real window) still come with a real width change alongside them.
+  // A width change also naturally covers crossing MOBILE_BREAKPOINT.
   let lastResizeW = window.innerWidth;
   window.addEventListener('resize', () => {
     const w = window.innerWidth;

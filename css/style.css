@@ -2558,9 +2558,11 @@ body, a{ cursor:none; }
   0%, 100%{ background-position:0 0, 0% 50%; }
   50%{ background-position:0 0, 100% 50%; }
 }
-/* a brighter glint sweeping across on hover — the extra "catching the
-   light" cue a flat button can't give, reinforcing the premium feel
-   right at the moment someone's about to click */
+/* per direct request: "make that button have the shine sweep actually
+   move" — it previously only swept once, on hover; this now sweeps
+   continuously on a loop (a long pause at each end so it reads as an
+   occasional glint, not a constant strobe), then speeds up as an extra
+   "catching the light" cue right when someone's about to click */
 .process-hero-cta::before{
   content:'';
   position:absolute;
@@ -2568,10 +2570,15 @@ body, a{ cursor:none; }
   background:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.8) 50%, transparent 58%);
   transform:translateX(-140%);
   pointer-events:none;
+  animation:processHeroCtaGlint 3.4s ease-in-out infinite;
+}
+@keyframes processHeroCtaGlint{
+  0%{ transform:translateX(-140%); }
+  35%{ transform:translateX(140%); }
+  100%{ transform:translateX(140%); }
 }
 .process-hero-cta:hover::before{
-  transform:translateX(140%);
-  transition:transform .7s ease;
+  animation-duration:1.1s;
 }
 .process-hero-cta:hover{
   transform:translateX(-50%) translateY(-2px) scale(1.03);
@@ -2755,6 +2762,21 @@ body, a{ cursor:none; }
 }
 
 @media (max-width:860px){
+  /* per direct request: a SEPARATE photo for mobile, not the desktop
+     one stretched/cropped — the desktop image (1536×1024 landscape)
+     was cropping 2 of the 4 hotspot markers off-screen on a phone's
+     tall/narrow viewport no matter how the box was sized. This is its
+     own portrait-framed render (941×1672) with all 4 platforms already
+     composed to fit a tall viewport, so process-hero.js's own
+     positionHotspots() reads its own data-mobile-px/data-mobile-py
+     marker coordinates (and this image's own 941×1672 size) instead of
+     the desktop ones once the viewport crosses this same breakpoint —
+     desktop and mobile each keep their own independent image + marker
+     coordinates + camera-free framing, not a shared cover-fit hack */
+  .process-hero{
+    background-image:url('../img/hero/process-hero-bg-mobile.jpg');
+    min-height:100svh;
+  }
   .process-hero-title{ max-width:12ch; }
   .process-hero-cta{
     bottom:4.6rem;
@@ -2762,24 +2784,17 @@ body, a{ cursor:none; }
     font-size:.68rem;
     letter-spacing:.1em;
   }
+  /* per direct request: "make [Start a project] show on mobile on the
+     top right corner" — it was pinned bottom-right to avoid crowding
+     the (now-removed) short-hero crop; the new portrait mobile photo
+     doesn't need that crop anymore, so this just inherits the same
+     top-right spot the desktop button already uses, sized down */
   .process-hero-start{
-    top:auto;
-    bottom:1.4rem;
-    right:1.4rem;
-    padding:.6rem 1.2rem;
-    font-size:.72rem;
+    top:1.1rem;
+    right:1.1rem;
+    padding:.55rem 1.1rem;
+    font-size:.68rem;
   }
   .process-hotspot-label{ display:none; }
   .process-reveal-card{ padding:0 1.25rem; }
-  /* BUG FIX: this photo is a wide landscape (1536×1024) but a phone
-     viewport is tall/narrow — background-size:cover at min-height:100vh
-     was zooming in hard enough to crop BOTH side platforms (Discover/
-     book on the far left, Delivery/checkmark on the far right)
-     off-screen entirely, silently breaking 2 of the 4 "each clickable"
-     hotspots on the exact devices most visitors actually use. A shorter
-     box crops much less of the image's own width at the same cover
-     zoom — still not the full photo, but keeps every hotspot's own
-     marker inside frame at real phone aspect ratios (confirmed against
-     375×812) */
-  .process-hero{ min-height:72vh; }
 }

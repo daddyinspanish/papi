@@ -116,32 +116,37 @@ window.scrollTo(0, 0);
 
     <a href="#quoteSection" class="process-hero-start">Start a project</a>
 
-    <!-- data-px/data-py below are the EXACT pixel-detected centers of
-         this photo's own baked-in light markers (found by scanning for
-         the brightest pixel in each marker's rough region against the
-         real source file — not eyeballed), in the image's own natural
-         1536×1024 pixel space. A flat CSS percentage can't stay
-         pixel-aligned with a background-size:cover image once the
-         container's aspect ratio differs from the photo's own (it
-         always does, at some viewport size) — see process-hero.js's
-         own positionHotspots(), which re-derives each hotspot's real
-         on-screen left/top from these natural coordinates plus the
-         image's actual current cover-fit scale/crop every time the
-         viewport resizes, so this stays exactly on the marker at any
-         window size rather than just approximately close at one -->
-    <button type="button" class="process-hotspot" data-step="discover" data-px="202" data-py="611">
+    <!-- data-px/data-py are the EXACT pixel-detected centers of the
+         DESKTOP photo's (process-hero-bg.jpg, 1536×1024) own baked-in
+         light markers; data-mobile-px/data-mobile-py are the same for
+         the separate MOBILE photo (process-hero-bg-mobile.jpg,
+         941×1672 — a different portrait-framed render, not just a
+         crop, so it needed its own marker pass) — both found by
+         scanning for the brightest pixel in each marker's rough region
+         against the real source file, not eyeballed. A flat CSS
+         percentage can't stay pixel-aligned with a background-size:
+         cover image once the container's aspect ratio differs from the
+         photo's own (it always does, at some viewport size) — see
+         process-hero.js's own positionHotspots(), which picks whichever
+         pair matches the current breakpoint and re-derives each
+         hotspot's real on-screen left/top from those natural
+         coordinates plus that image's actual current cover-fit scale/
+         crop every time the viewport resizes or crosses the mobile
+         breakpoint, so this stays exactly on the marker at any window
+         size rather than just approximately close at one -->
+    <button type="button" class="process-hotspot" data-step="discover" data-px="202" data-py="611" data-mobile-px="229" data-mobile-py="1337">
       <span class="process-hotspot-dot"></span>
       <span class="process-hotspot-label">Discover</span>
     </button>
-    <button type="button" class="process-hotspot" data-step="steps" data-px="422" data-py="594">
+    <button type="button" class="process-hotspot" data-step="steps" data-px="422" data-py="594" data-mobile-px="369" data-mobile-py="1027">
       <span class="process-hotspot-dot"></span>
       <span class="process-hotspot-label">Steps</span>
     </button>
-    <button type="button" class="process-hotspot" data-step="structure" data-px="873" data-py="591">
+    <button type="button" class="process-hotspot" data-step="structure" data-px="873" data-py="591" data-mobile-px="736" data-mobile-py="983">
       <span class="process-hotspot-dot"></span>
       <span class="process-hotspot-label">Structure</span>
     </button>
-    <button type="button" class="process-hotspot" data-step="delivery" data-px="1169" data-py="598">
+    <button type="button" class="process-hotspot" data-step="delivery" data-px="1169" data-py="598" data-mobile-px="596" data-mobile-py="1217">
       <span class="process-hotspot-dot"></span>
       <span class="process-hotspot-label">Delivery</span>
     </button>
