@@ -88,79 +88,71 @@ window.scrollTo(0, 0);
      ============ -->
 <main id="hero" aria-hidden="true">
 
-  <!-- a simple 3D alcove (Three.js, js/process-room.js) — one arched
-       opening, a reflective floor, a glass hero object, a floating
-       rocket — lit almost entirely by a real HDRI sky rather than
-       hand-placed point lights, with the camera stopping at 4 waypoints
-       as you scroll (sphere/stairs/chairs/rocket), one per process step
-       — see js/process-room.js's own _buildKeyframes/_updateProcessStep.
-       GSAP ScrollTrigger (js/process-room.js's own _bindScrollTrigger)
-       pins .process-room-sticky for the scroll duration and reserves
-       its own scroll room automatically — no hand-sized outer-section
-       CSS height needed any more. -->
-  <section class="process-room-section" id="processRoom">
-    <div class="process-room-sticky">
-     <!-- everything visual lives in this inner wrapper, not
-          .process-room-sticky itself, on purpose: GSAP ScrollTrigger
-          pins .process-room-sticky directly (see process-room.js's own
-          _bindScrollTrigger), applying its own position/transform to
-          keep it fixed in the viewport while pinned. The Section 1 →
-          Section 2 dissolve itself doesn't touch this wrapper at all any
-          more — it fades real mesh materials + the renderer's own clear
-          alpha (see process-room.js's own _applyDissolve), so the canvas
-          stays a fully opaque DOM element throughout; what's "underneath"
-          only ever shows through genuine WebGL transparency. -->
-     <div class="process-room-visual">
-      <canvas id="processRoomCanvas" aria-hidden="true"></canvas>
-      <!-- a neon-sign-style quick nav, shown only during the wide
-           establishing shot (see .process-neon-menu's own opacity,
-           driven by process-room.js's _updateProcessStep alongside the
-           "Welcome" text below — same lifecycle, same crossfade). Real
-           <a> links (not JS-driven scroll) so they stay keyboard/
-           screen-reader navigable and work even if the 3D scene fails to
-           load; process-room.js's own _bindEvents adds a click listener
-           for the eased jump (scrollIntoView, behavior:'smooth') rather
-           than relying on a sitewide CSS scroll-behavior — see that
-           listener's own comment for why -->
-      <nav class="process-neon-menu" id="processNeonMenu" aria-label="Quick links">
-        <a href="#liveDemoSection" class="process-neon-link">Our Projects</a>
-        <span class="process-neon-dot" aria-hidden="true"></span>
-        <a href="#comparisonSection" class="process-neon-link">Results</a>
-        <span class="process-neon-dot" aria-hidden="true"></span>
-        <a href="#quoteSection" class="process-neon-link">Get Started</a>
-      </nav>
-      <!-- purely decorative overlay, kept in sync with the camera's
-           own 5-stage position by process-room.js every frame (a wide
-           establishing "Welcome" shot, then the 4 numbered process
-           steps) — the process itself isn't described anywhere else on
-           the page, so this is the only copy of it, but it's tightly
-           coupled to a 3D scene with no static fallback, same
-           treatment as the canvas itself -->
-      <div class="process-step" id="processStep" aria-hidden="true">
-        <span class="process-step-number" id="processStepNumber">Welcome</span>
-        <span class="process-step-label" id="processStepLabel">Scroll to proceed</span>
+  <!-- new hero: a photographed background (img/hero/process-hero-bg.jpg)
+       with js/process-hero-slime.js's own liquid-glass metaball layer
+       floating on top of it (same technique as js/hero-slime.js, see
+       that file's own header — a leaner copy, no letter-tracking).
+       Headline + two CTAs sit in normal document flow, real text this
+       time (see #hero's own comment above this section). The 4 small
+       dot markers already baked into the photo (over the book/stairs/
+       chairs/checkmark) each get a real, keyboard-reachable button on
+       top (.process-hotspot) — --hx/--hy on each one are also read
+       directly by js/process-hero.js to anchor the reveal panel's own
+       radial gradient at whichever one was actually clicked. -->
+  <section id="processRoom" class="process-hero">
+    <canvas id="processHeroSlime" class="process-hero-slime" aria-hidden="true"></canvas>
+
+    <div class="process-hero-copy">
+      <h1 class="process-hero-title">Building Websites<br>that Matter</h1>
+    </div>
+
+    <!-- pulled out of .process-hero-copy's centered flow and pinned to
+         its own spot near the bottom (per direct request: it was sitting
+         too close to the Structure hotspot right under the title) —
+         positioned with real legroom above the section's own bottom
+         edge rather than flush against it, so it doesn't read as
+         crowding the next section either -->
+    <a href="#liveDemoSection" class="process-hero-cta">View our work</a>
+
+    <a href="#quoteSection" class="process-hero-start">Start a project</a>
+
+    <!-- data-px/data-py below are the EXACT pixel-detected centers of
+         this photo's own baked-in light markers (found by scanning for
+         the brightest pixel in each marker's rough region against the
+         real source file — not eyeballed), in the image's own natural
+         1536×1024 pixel space. A flat CSS percentage can't stay
+         pixel-aligned with a background-size:cover image once the
+         container's aspect ratio differs from the photo's own (it
+         always does, at some viewport size) — see process-hero.js's
+         own positionHotspots(), which re-derives each hotspot's real
+         on-screen left/top from these natural coordinates plus the
+         image's actual current cover-fit scale/crop every time the
+         viewport resizes, so this stays exactly on the marker at any
+         window size rather than just approximately close at one -->
+    <button type="button" class="process-hotspot" data-step="discover" data-px="202" data-py="611">
+      <span class="process-hotspot-dot"></span>
+      <span class="process-hotspot-label">Discover</span>
+    </button>
+    <button type="button" class="process-hotspot" data-step="steps" data-px="422" data-py="594">
+      <span class="process-hotspot-dot"></span>
+      <span class="process-hotspot-label">Steps</span>
+    </button>
+    <button type="button" class="process-hotspot" data-step="structure" data-px="873" data-py="591">
+      <span class="process-hotspot-dot"></span>
+      <span class="process-hotspot-label">Structure</span>
+    </button>
+    <button type="button" class="process-hotspot" data-step="delivery" data-px="1169" data-py="598">
+      <span class="process-hotspot-dot"></span>
+      <span class="process-hotspot-label">Delivery</span>
+    </button>
+
+    <div class="process-reveal" id="processReveal" aria-hidden="true">
+      <div class="process-reveal-card">
+        <button type="button" class="process-reveal-close" aria-label="Close">&times;</button>
+        <span class="process-reveal-index" id="processRevealIndex">01</span>
+        <h2 class="process-reveal-title" id="processRevealTitle">Discover</h2>
+        <p class="process-reveal-text" id="processRevealText"></p>
       </div>
-      <!-- shown only once the room's own scroll journey + forward dolly
-           finish (camera parked at revealCameraPos/Look — see
-           process-room.js's own _updateEnterButton), replacing the old
-           "keep scrolling to dissolve" mechanic per direct request: the
-           Section 1 → Section 2 transition is click-triggered now, like
-           unseen.co's own click/route-driven transition, rather than
-           something you scroll past. process-room.js's own
-           _bindEnterButton adds the click listener that actually starts
-           the dissolve tween -->
-      <button type="button" class="process-enter-btn" id="processEnterBtn" tabindex="-1">
-        <span>View Our Work</span>
-      </button>
-     </div>
-     <!-- film-grain overlay for the Section 1 → Section 2 reveal —
-          per direct request, matching the textured/paper-grain dissolve
-          unseen.co's own "View our work" transition uses, rather than a
-          flat opacity crossfade alone. A sibling of .process-room-visual,
-          not a child: needs its OWN opacity curve (see process-room.js's
-          own _revealTrigger) that peaks mid-dissolve and returns to 0 at
-          both ends, independent of .process-room-visual's own fade. -->
-     <div class="process-room-grain" id="processRoomGrain" aria-hidden="true"></div>
     </div>
   </section>
 
@@ -578,27 +570,8 @@ window.scrollTo(0, 0);
 
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
-<!-- vendored locally (same "no CDN" convention as three.js below) —
-     process-room.js's own Section 1 → Section 2 cinematic transition
-     is a GSAP ScrollTrigger pin+scrub timeline, registered as plain
-     globals (window.gsap/window.ScrollTrigger) since it's loaded as a
-     classic script, not a module, ahead of process-room.js's own
-     <script type="module"> tag below -->
-<script src="js/vendor/gsap/gsap.min.js"></script>
-<script src="js/vendor/gsap/ScrollTrigger.min.js"></script>
-<!-- js/process-room.js's postprocessing/loader modules are vendored
-     straight from Three.js's own examples/jsm (unmodified, so they stay
-     easy to diff against upstream) — they all import from the bare
-     "three" specifier, which this import map resolves to our single
-     local core build rather than needing a bundler -->
-<script type="importmap">
-{
-  "imports": {
-    "three": "./js/vendor/three.module.min.js"
-  }
-}
-</script>
-<script type="module" src="js/process-room.js?v=20260722e"></script>
+<script type="module" src="js/process-hero-slime.js"></script>
+<script src="js/process-hero.js"></script>
 <script src="js/title-dock.js"></script>
 <script src="js/testimonials.js"></script>
 <script src="js/comparison-chart.js"></script>

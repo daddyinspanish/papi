@@ -2345,3 +2345,438 @@ body, a{ cursor:none; }
   border-radius:5px;
   background:#7addff;
 }
+
+/* ===================================================================
+   Process Hero — the new photographed hero (img/hero/process-hero-bg.jpg)
+   with js/process-hero-slime.js's liquid-glass layer floating over it,
+   4 clickable process-step hotspots, headline, and two CTAs. Replaces
+   the old 3D Process Room scene, which was moved out to a separate
+   sandbox project per direct request (see index.html's own comment on
+   #processRoom for the full context).
+=================================================================== */
+.process-hero{
+  position:relative;
+  width:100%;
+  min-height:100svh;
+  min-height:100vh;
+  overflow:hidden;
+  background:#0c1013 url('../img/hero/process-hero-bg.jpg') center center / cover no-repeat;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+}
+/* a soft dark vignette over the photo — the image is already fairly
+   dark/moody on its own, but headline/button legibility (especially
+   the lighter sky visible through the archway) needs a little more
+   controlled contrast than the raw photo alone guarantees */
+.process-hero::before{
+  content:'';
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background:radial-gradient(ellipse at 50% 42%, rgba(4,6,10,.18) 0%, rgba(4,6,10,.5) 68%, rgba(4,6,10,.72) 100%);
+  pointer-events:none;
+}
+.process-hero-slime{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  display:block;
+  z-index:2;
+  pointer-events:none;
+}
+
+.process-hero-copy{
+  position:relative;
+  z-index:5;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  gap:clamp(1.6rem, 3.4vw, 2.4rem);
+  padding:0 1.5rem;
+}
+.process-hero-title{
+  font-family:'Fraunces', serif;
+  font-weight:400;
+  font-style:italic;
+  font-size:clamp(2.4rem, 6vw, 4.4rem);
+  line-height:1.08;
+  max-width:16ch;
+  transition:opacity .45s ease, filter .45s ease, transform .45s ease;
+  /* per direct request: "radiate a metallic aqua tone... not
+     necessarily feel as a stand alone blue... premium" — a brushed-
+     metal look reads as alternating light/dark bands of the SAME hue
+     catching light, not a flat fill, so this bands cream/white
+     highlights between the site's own blue tones (--gold/--gold-soft/
+     --gold-deep — historical var names, brand is actually blue, see
+     :root) rather than using solid aqua, which is what keeps it
+     feeling like a premium metal finish instead of "a blue title" */
+  color:var(--gold-soft); /* fallback for browsers without text-clip gradients */
+  background:linear-gradient(115deg,
+    #eef8fa 0%,
+    var(--gold-soft) 16%,
+    var(--gold) 34%,
+    #f5fdff 50%,
+    var(--gold-deep) 66%,
+    var(--gold-soft) 84%,
+    #eef8fa 100%);
+  background-size:220% 100%;
+  background-position:0% 50%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 4px 40px rgba(4,8,12,.4), 0 0 30px rgba(154,205,228,.3);
+  animation:processHeroTitleShine 7s ease-in-out infinite;
+}
+@keyframes processHeroTitleShine{
+  0%, 100%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+}
+/* per direct request: "dissolve the title" while a step is open — a
+   soft fade/blur/lift out, not just a plain opacity cut */
+.process-hero-title.is-dissolved{
+  opacity:0;
+  filter:blur(10px);
+  transform:translateY(-8px) scale(1.02);
+  pointer-events:none;
+}
+/* per direct request: "make it glitch appear back when someone clicks
+   out of the step" — RGB-split + horizontal slice jitter settling back
+   to the normal title; transition:none so the plain fade above doesn't
+   fight the keyframes while this class is active */
+.process-hero-title.is-glitching-in{
+  transition:none;
+  /* steps(8,end) hard-cuts between the 8 keyframe segments below instead
+     of smoothly tweening them — steps(1,end) was tried first and was
+     wrong: with only 1 step for the WHOLE duration it collapses every
+     keyframe in between into a single start→end jump, skipping the
+     entire jitter sequence (confirmed by tracing computed styles frame
+     by frame — it snapped straight to settled almost immediately) */
+  animation:processHeroTitleGlitchIn .65s steps(8, end) both;
+}
+@keyframes processHeroTitleGlitchIn{
+  0%{
+    opacity:0;
+    transform:translate3d(0,0,0);
+    text-shadow:none;
+    clip-path:inset(0 0 0 0);
+    filter:blur(10px);
+  }
+  8%{
+    opacity:1;
+    filter:blur(0);
+    transform:translate3d(-6px,0,0);
+    text-shadow:-3px 0 var(--gold-soft), 3px 0 #ff5c7a;
+    clip-path:inset(8% 0 62% 0);
+  }
+  18%{
+    transform:translate3d(5px,0,0);
+    clip-path:inset(58% 0 6% 0);
+    text-shadow:4px 0 var(--gold-soft), -4px 0 #ff5c7a;
+  }
+  28%{
+    transform:translate3d(-4px,0,0);
+    clip-path:inset(18% 0 44% 0);
+  }
+  38%{
+    transform:translate3d(3px,0,0);
+    clip-path:inset(0 0 72% 0);
+    text-shadow:-2px 0 var(--gold-soft), 2px 0 #ff5c7a;
+  }
+  50%{
+    transform:translate3d(-2px,0,0);
+    clip-path:inset(64% 0 4% 0);
+  }
+  62%{
+    transform:translate3d(0,0,0);
+    clip-path:inset(0 0 0 0);
+    text-shadow:2px 0 var(--gold-soft), -2px 0 #ff5c7a;
+  }
+  78%{
+    text-shadow:-1px 0 var(--gold-soft), 1px 0 #ff5c7a;
+  }
+  100%{
+    opacity:1;
+    transform:translate3d(0,0,0);
+    text-shadow:none;
+    clip-path:inset(0 0 0 0);
+    filter:blur(0);
+  }
+}
+.process-hero-cta{
+  /* pulled out of .process-hero-copy's centered column (per direct
+     request: it sat too close to the Structure hotspot right under
+     the title) and given its own fixed spot near the bottom — clamp()
+     keeps real legroom above the section's own bottom edge instead of
+     sitting flush against it, without ever crowding the section below */
+  position:absolute;
+  left:50%;
+  bottom:clamp(3.2rem, 9vh, 5.6rem);
+  transform:translateX(-50%);
+  z-index:5;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Inter', sans-serif;
+  font-size:.82rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  text-decoration:none;
+  border-radius:999px;
+  padding:1rem 2.4rem;
+  white-space:nowrap;
+  overflow:hidden;
+  /* per direct request: "feel premium, instead of it just being
+     white" — same brushed-metal band technique as the title above
+     (cream/white highlights alternating with the brand's own blue
+     tones, not a flat fill), plus a fine light edge and a soft aqua
+     glow alongside the drop shadow so it reads as burnished metal
+     catching light rather than a plain white pill */
+  color:#0a1116;
+  background:linear-gradient(120deg,
+    #fbf7ef 0%,
+    var(--gold-soft) 24%,
+    var(--gold) 46%,
+    #fdfefe 58%,
+    var(--gold-deep) 74%,
+    var(--gold-soft) 90%,
+    #fbf7ef 100%);
+  background-size:240% 100%;
+  background-position:0% 50%;
+  border:1px solid rgba(255,255,255,.65);
+  box-shadow:0 8px 30px rgba(0,0,0,.28), 0 0 22px rgba(154,205,228,.28);
+  animation:processHeroCtaShine 6.5s ease-in-out infinite;
+  transition:transform .25s var(--ease-out), box-shadow .25s var(--ease-out);
+}
+@keyframes processHeroCtaShine{
+  0%, 100%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+}
+/* a brighter glint sweeping across on hover — the extra "catching the
+   light" cue a flat button can't give, reinforcing the premium feel
+   right at the moment someone's about to click */
+.process-hero-cta::before{
+  content:'';
+  position:absolute;
+  inset:-60% -30%;
+  background:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.8) 50%, transparent 58%);
+  transform:translateX(-140%);
+  pointer-events:none;
+}
+.process-hero-cta:hover::before{
+  transform:translateX(140%);
+  transition:transform .7s ease;
+}
+.process-hero-cta:hover{
+  transform:translateX(-50%) translateY(-2px) scale(1.03);
+  box-shadow:0 12px 38px rgba(0,0,0,.34), 0 0 30px rgba(154,205,228,.4);
+}
+.process-hero-cta:active{ transform:translateX(-50%) translateY(0) scale(.98); }
+
+/* contrasting on purpose — solid cream is already the primary CTA
+   above, so this one inverts to a translucent outline against the
+   photo instead of competing for the same "solid light pill" read */
+.process-hero-start{
+  position:absolute;
+  top:clamp(1.4rem, 3vw, 2.4rem);
+  right:clamp(1.4rem, 3vw, 2.4rem);
+  z-index:6;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Inter', sans-serif;
+  font-size:.78rem;
+  font-weight:600;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--cream);
+  text-decoration:none;
+  background:rgba(12,16,20,.35);
+  border:1px solid rgba(243,237,226,.55);
+  border-radius:999px;
+  padding:.7rem 1.5rem;
+  backdrop-filter:none;
+  transition:background .25s ease, border-color .25s ease, transform .25s var(--ease-out);
+}
+.process-hero-start:hover{
+  background:rgba(243,237,226,.12);
+  border-color:var(--cream);
+  transform:translateY(-1px);
+}
+
+/* ---- clickable hotspots — real left/top (in px) are computed and
+   kept in sync by process-hero.js's own positionHotspots(), which
+   re-derives each one's true on-screen position from the background
+   photo's actual current cover-fit scale/crop (see that function's
+   own comment, and index.html's matching comment on the data-px/
+   data-py attributes) every time the viewport resizes, so these stay
+   exactly on the photo's own baked-in light markers at any window
+   size rather than a flat percentage that only lines up at one ---- */
+.process-hotspot{
+  position:absolute;
+  z-index:5;
+  transform:translate(-50%, -50%);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:.5rem;
+  background:none;
+  border:none;
+  padding:.75rem;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.process-hotspot-dot{
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:var(--cream);
+  box-shadow:0 0 0 0 rgba(243,237,226,.55);
+  animation:processHotspotPulse 2.6s ease-in-out infinite;
+}
+@keyframes processHotspotPulse{
+  0%, 100%{ box-shadow:0 0 0 0 rgba(243,237,226,.4); }
+  50%{ box-shadow:0 0 0 10px rgba(243,237,226,0); }
+}
+.process-hotspot-label{
+  font-family:'Inter', sans-serif;
+  font-size:.72rem;
+  font-weight:600;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--cream);
+  opacity:0;
+  transform:translateY(-4px);
+  transition:opacity .25s ease, transform .25s ease;
+  white-space:nowrap;
+}
+.process-hotspot:hover .process-hotspot-label,
+.process-hotspot:focus-visible .process-hotspot-label,
+.process-hotspot.is-active .process-hotspot-label{
+  opacity:1;
+  transform:translateY(0);
+}
+.process-hotspot:hover .process-hotspot-dot,
+.process-hotspot.is-active .process-hotspot-dot{
+  background:var(--gold-soft);
+}
+
+/* ---- reveal panel — a full-bleed radial gradient anchored at
+   --reveal-x/--reveal-y (set by js/process-hero.js to whichever
+   hotspot was actually clicked), so the light reads as spreading
+   outward FROM that exact point, plus the step's own title/copy
+   fading and sliding in on top. One shared panel, re-targeted per
+   click, rather than 4 separate overlays stacking ---- */
+.process-reveal{
+  position:absolute;
+  inset:0;
+  z-index:8;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  /* BUG FIX: a bare "circle at X Y" defaults to farthest-corner sizing
+     — when X/Y sits near an edge (most of these hotspots do), the
+     distance to the FAR corner is huge, so the bright early colour
+     stops (0%-46%) still spread most of the way across the section
+     regardless of which corner they're anchored to, reading as "always
+     centered" rather than "sourced from wherever was clicked." A fixed
+     pixel radius keeps the bright zone visually anchored right at that
+     point instead of scaling with how off-center it happens to be */
+  background:radial-gradient(circle 640px at var(--reveal-x, 50%) var(--reveal-y, 50%), rgba(31,106,138,.55) 0%, rgba(8,12,16,.86) 46%, rgba(4,6,9,.96) 78%);
+  transition:opacity .6s var(--ease-in-out), visibility 0s linear .6s;
+}
+.process-reveal.is-visible{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transition:opacity .6s var(--ease-in-out), visibility 0s linear 0s;
+}
+.process-reveal-card{
+  position:relative;
+  max-width:min(90vw, 30rem);
+  text-align:center;
+  padding:0 1.5rem;
+  transform:translateY(14px);
+  opacity:0;
+  transition:opacity .55s var(--ease-out) .1s, transform .55s var(--ease-out) .1s;
+}
+.process-reveal.is-visible .process-reveal-card{
+  opacity:1;
+  transform:translateY(0);
+}
+.process-reveal-close{
+  position:absolute;
+  top:-2.6rem;
+  right:0;
+  width:2.2rem;
+  height:2.2rem;
+  border-radius:50%;
+  border:1px solid rgba(243,237,226,.4);
+  background:rgba(255,255,255,.06);
+  color:var(--cream);
+  font-size:1.3rem;
+  line-height:1;
+  cursor:pointer;
+  transition:background .2s ease, border-color .2s ease;
+}
+.process-reveal-close:hover{ background:rgba(255,255,255,.14); border-color:var(--cream); }
+.process-reveal-index{
+  display:block;
+  font-family:'Space Grotesk', sans-serif;
+  font-size:.85rem;
+  font-weight:600;
+  letter-spacing:.2em;
+  color:var(--gold-soft);
+  margin-bottom:.9rem;
+}
+.process-reveal-title{
+  font-family:'Fraunces', serif;
+  font-style:italic;
+  font-weight:400;
+  font-size:clamp(2rem, 4.5vw, 3rem);
+  color:var(--cream);
+  margin-bottom:1.1rem;
+}
+.process-reveal-text{
+  font-family:'Inter', sans-serif;
+  font-size:1rem;
+  line-height:1.6;
+  color:rgba(243,237,226,.82);
+}
+
+@media (max-width:860px){
+  .process-hero-title{ max-width:12ch; }
+  .process-hero-cta{
+    bottom:4.6rem;
+    padding:.75rem 1.5rem;
+    font-size:.68rem;
+    letter-spacing:.1em;
+  }
+  .process-hero-start{
+    top:auto;
+    bottom:1.4rem;
+    right:1.4rem;
+    padding:.6rem 1.2rem;
+    font-size:.72rem;
+  }
+  .process-hotspot-label{ display:none; }
+  .process-reveal-card{ padding:0 1.25rem; }
+  /* BUG FIX: this photo is a wide landscape (1536×1024) but a phone
+     viewport is tall/narrow — background-size:cover at min-height:100vh
+     was zooming in hard enough to crop BOTH side platforms (Discover/
+     book on the far left, Delivery/checkmark on the far right)
+     off-screen entirely, silently breaking 2 of the 4 "each clickable"
+     hotspots on the exact devices most visitors actually use. A shorter
+     box crops much less of the image's own width at the same cover
+     zoom — still not the full photo, but keeps every hotspot's own
+     marker inside frame at real phone aspect ratios (confirmed against
+     375×812) */
+  .process-hero{ min-height:72vh; }
+}
