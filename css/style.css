@@ -2781,18 +2781,27 @@ body, a{ cursor:none; }
   color:rgba(243,237,226,.82);
 }
 
-@media (max-width:860px){
-  /* per direct request: a SEPARATE photo for mobile, not the desktop
-     one stretched/cropped — the desktop image (1536×1024 landscape)
-     was cropping 2 of the 4 hotspot markers off-screen on a phone's
-     tall/narrow viewport no matter how the box was sized. This is its
-     own portrait-framed render (941×1672) with all 4 platforms already
-     composed to fit a tall viewport, so process-hero.js's own
-     positionHotspots() reads its own data-mobile-px/data-mobile-py
-     marker coordinates (and this image's own 941×1672 size) instead of
-     the desktop ones once the viewport crosses this same breakpoint —
-     desktop and mobile each keep their own independent image + marker
-     coordinates + camera-free framing, not a shared cover-fit hack */
+/* per direct request: "if the phone is flipped to landscape it changes
+   to the desktop layout" — this ONLY applies in portrait now. The
+   mobile photo is framed tall/narrow specifically for a portrait phone
+   screen; a phone rotated to landscape is a wide/short viewport again
+   (e.g. 812×375), so it gets the SAME desktop image + layout as a real
+   desktop instead of the portrait photo squeezed sideways and cropped.
+   process-hero.js's own positionHotspots() mirrors this exact query
+   (via matchMedia) so the hotspot coordinates switch in lockstep with
+   this background-image swap — never one without the other. */
+@media (max-width:860px) and (orientation:portrait){
+  /* a SEPARATE photo for mobile, not the desktop one stretched/cropped
+     — the desktop image (1536×1024 landscape) was cropping 2 of the 4
+     hotspot markers off-screen on a phone's tall/narrow viewport no
+     matter how the box was sized. This is its own portrait-framed
+     render (941×1672) with all 4 platforms already composed to fit a
+     tall viewport, so positionHotspots() reads its own data-mobile-px/
+     data-mobile-py marker coordinates (and this image's own 941×1672
+     size) instead of the desktop ones once the viewport crosses this
+     same breakpoint AND is portrait — desktop/landscape and portrait-
+     mobile each keep their own independent image + marker coordinates
+     + camera-free framing, not a shared cover-fit hack */
   .process-hero{
     background-image:url('../img/hero/process-hero-bg-mobile.jpg');
     min-height:100svh;

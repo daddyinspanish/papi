@@ -29,9 +29,20 @@
   // function") is its own portrait-framed render — not a crop of the
   // desktop one — because the desktop photo's wide landscape framing
   // was cropping 2 of the 4 hotspot markers off-screen on a phone's
-  // tall/narrow viewport. Same breakpoint as the CSS media query below
-  // that swaps the actual background-image.
-  const MOBILE_BREAKPOINT = 860;
+  // tall/narrow viewport.
+  //
+  // per direct request: "if the phone is flipped to landscape it
+  // changes to the desktop layout" — the mobile photo is only correct
+  // for a tall/narrow PORTRAIT phone screen; rotate that same phone to
+  // landscape and it's a wide/short viewport again, so it should get
+  // the desktop image/layout just like a real desktop would, not the
+  // portrait photo squeezed sideways. mobileQuery is the exact same
+  // "(max-width:860px) and (orientation:portrait)" the CSS uses to
+  // swap the actual background-image — reading it via matchMedia
+  // (rather than re-deriving the same condition from window.innerWidth/
+  // innerHeight by hand) guarantees this can never drift out of sync
+  // with what's actually rendered.
+  const mobileQuery = window.matchMedia('(max-width:860px) and (orientation:portrait)');
   const IMG_DESKTOP = { w: 1536, h: 1024 };
   const IMG_MOBILE  = { w: 941, h: 1672 };
   const hotspots = Array.from(hero.querySelectorAll('.process-hotspot'));
@@ -56,7 +67,7 @@
     const rect = hero.getBoundingClientRect();
     const containerW = rect.width, containerH = rect.height;
     if(!containerW || !containerH) return;
-    const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+    const isMobile = mobileQuery.matches;
     const img = isMobile ? IMG_MOBILE : IMG_DESKTOP;
     const scale = Math.max(containerW / img.w, containerH / img.h);
     const renderedW = img.w * scale, renderedH = img.h * scale;
@@ -82,8 +93,10 @@
   // address-bar-collapse resize changes innerHeight only, and
   // shouldn't be treated as a real layout change worth repositioning
   // for. Height changes that DO matter (rotating a phone, resizing a
-  // real window) still come with a real width change alongside them.
-  // A width change also naturally covers crossing MOBILE_BREAKPOINT.
+  // real window) still come with a real width change alongside them,
+  // which is also what flips mobileQuery's own orientation check —
+  // portrait/landscape rotation always swaps width and height wholesale,
+  // never a width-only nudge this guard would need to special-case.
   let lastResizeW = window.innerWidth;
   window.addEventListener('resize', () => {
     const w = window.innerWidth;
