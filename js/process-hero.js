@@ -102,24 +102,27 @@
   const revealText = document.getElementById('processRevealText');
   const heroTitle = hero.querySelector('.process-hero-title');
 
+  // per direct request: "make sure the steps do not come out as
+  // double digits" — single digit (1/2/3/4), not the old zero-padded
+  // 01/02/03/04
   const STEPS = {
     discover: {
-      index: '01',
+      index: '1',
       title: 'Discover',
       text: 'We start by learning your business inside and out — your goals, your customers, what’s working and what isn’t.',
     },
     steps: {
-      index: '02',
+      index: '2',
       title: 'Steps',
       text: 'A clear, honest roadmap from first sketch to final launch, so you always know exactly what happens next.',
     },
     structure: {
-      index: '03',
+      index: '3',
       title: 'Structure',
       text: 'Real, considered architecture beneath every page — built to hold up as your business grows, not just look good on day one.',
     },
     delivery: {
-      index: '04',
+      index: '4',
       title: 'Delivery',
       text: 'A finished site that’s fast, easy to manage, and ready to start bringing in business from day one.',
     },

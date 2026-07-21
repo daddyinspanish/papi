@@ -2746,13 +2746,33 @@ body, a{ cursor:none; }
   color:var(--gold-soft);
   margin-bottom:.9rem;
 }
+/* per direct request: "make the titles inside the steps to have the
+   same metallic aqua tone" — identical technique to .process-hero-
+   title above (shares its processHeroTitleShine keyframe), so the
+   reveal panel's own title reads as the same premium brushed metal,
+   not a separate flat cream fill */
 .process-reveal-title{
   font-family:'Fraunces', serif;
   font-style:italic;
   font-weight:400;
   font-size:clamp(2rem, 4.5vw, 3rem);
-  color:var(--cream);
   margin-bottom:1.1rem;
+  color:var(--gold-soft);
+  background:linear-gradient(115deg,
+    #eef8fa 0%,
+    var(--gold-soft) 16%,
+    var(--gold) 34%,
+    #f5fdff 50%,
+    var(--gold-deep) 66%,
+    var(--gold-soft) 84%,
+    #eef8fa 100%);
+  background-size:220% 100%;
+  background-position:0% 50%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 4px 30px rgba(4,8,12,.35);
+  animation:processHeroTitleShine 7s ease-in-out infinite;
 }
 .process-reveal-text{
   font-family:'Inter', sans-serif;
