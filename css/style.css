@@ -2454,8 +2454,19 @@ body, a{ cursor:none; }
   animation:processHeroHintGlow 2.6s ease-in-out infinite;
 }
 @keyframes processHeroHintGlow{
-  0%, 100%{ text-shadow:0 0 6px rgba(154,205,228,.25); }
-  50%{ text-shadow:0 0 18px rgba(154,205,228,.9); }
+  0%, 100%{
+    color:var(--gold-soft);
+    text-shadow:0 0 4px rgba(154,205,228,.2);
+  }
+  50%{
+    /* per direct report: "is not doing the pulse" — the shadow-only
+       version was too subtle to actually read as a pulse against the
+       photo; this now swings the text's own color brighter too
+       (color, not opacity, so it still can't fight the is-hidden
+       fade above), a much bigger, unmistakable difference */
+    color:#f2fbff;
+    text-shadow:0 0 16px rgba(154,205,228,1), 0 0 32px rgba(154,205,228,.6);
+  }
 }
 .process-hero-hint.is-hidden{
   opacity:0;
@@ -2842,7 +2853,22 @@ body, a{ cursor:none; }
   .process-hero-copy{
     padding-top:clamp(5.5rem, 21vh, 7.5rem);
   }
-  .process-hero-title{ max-width:12ch; }
+  /* per direct request: "Building Websites" then enter, "that Matter"
+     on mobile — the shared <br> already splits it there, but the old
+     12ch max-width was narrow enough that "Building Websites" itself
+     wrapped again into "Building" / "Websites", giving 3 lines instead
+     of 2. Shrinking the font size (rather than just widening max-width)
+     is what actually lets the full "Building Websites" line fit */
+  .process-hero-title{
+    max-width:20ch;
+    font-size:clamp(1.9rem, 8.6vw, 2.6rem);
+  }
+  /* per direct request: hint sat too close under the title — pushed it
+     further down, more toward the center of the blank space above the
+     hotspots, on top of the flex gap already between the two */
+  .process-hero-hint{
+    margin-top:1.6rem;
+  }
   .process-hero-cta{
     bottom:4.6rem;
     padding:.75rem 1.5rem;
