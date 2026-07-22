@@ -142,6 +142,22 @@
     },
   };
 
+  // per direct request: "have number 1 bigger in pulsing, and then
+  // switch the bigger pulsing to every other number as they interact"
+  // — exactly one hotspot carries the bigger/faster "is-emphasized"
+  // pulse at a time (see its own keyframes in style.css), starting at
+  // #1 (discover, the first hotspot in DOM order) so a first-time
+  // visitor has an obvious "start here" cue instead of 4 identical
+  // dots. Advances to the next hotspot in sequence every time ANY step
+  // is opened, so the cue keeps walking 1→2→3→4→1... as they explore,
+  // rather than staying stuck highlighting whichever one they already
+  // used.
+  let emphasisIndex = 0;
+  function updateEmphasis(){
+    hotspots.forEach((h, i) => h.classList.toggle('is-emphasized', i === emphasisIndex));
+  }
+  updateEmphasis();
+
   let activeKey = null;
   let glitchTimeout = null;
 
@@ -171,6 +187,10 @@
     // to Interact" hint has done its job the moment someone actually
     // opens a step, so it steps out of the way alongside the title
     if(heroHint) heroHint.classList.add('is-hidden');
+
+    // move the "bigger pulsing" cue on to the next number in sequence
+    emphasisIndex = (emphasisIndex + 1) % hotspots.length;
+    updateEmphasis();
   }
 
   function hideReveal(){

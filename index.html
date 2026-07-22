@@ -139,20 +139,28 @@ window.scrollTo(0, 0);
          crop every time the viewport resizes or crosses the mobile
          breakpoint, so this stays exactly on the marker at any window
          size rather than just approximately close at one -->
+    <!-- per direct request: "add numbers to the dots... do not want
+         people to get confused" — each dot's own number matches its
+         step order (Discover=1 ... Delivery=4). #1 starts as the
+         bigger, more emphasized pulse (see .is-emphasized in
+         style.css); process-hero.js's own updateEmphasis() moves that
+         emphasis to the next number each time any step is opened, so
+         the "which one's next" cue walks 1→2→3→4→1... as they interact,
+         rather than every dot pulsing identically forever -->
     <button type="button" class="process-hotspot" data-step="discover" data-px="202" data-py="611" data-mobile-px="208" data-mobile-py="1323">
-      <span class="process-hotspot-dot"></span>
+      <span class="process-hotspot-dot"><span class="process-hotspot-number">1</span></span>
       <span class="process-hotspot-label">Discover</span>
     </button>
     <button type="button" class="process-hotspot" data-step="steps" data-px="422" data-py="594" data-mobile-px="594" data-mobile-py="1107">
-      <span class="process-hotspot-dot"></span>
+      <span class="process-hotspot-dot"><span class="process-hotspot-number">2</span></span>
       <span class="process-hotspot-label">Steps</span>
     </button>
     <button type="button" class="process-hotspot" data-step="structure" data-px="873" data-py="591" data-mobile-px="84" data-mobile-py="1059">
-      <span class="process-hotspot-dot"></span>
+      <span class="process-hotspot-dot"><span class="process-hotspot-number">3</span></span>
       <span class="process-hotspot-label">Structure</span>
     </button>
     <button type="button" class="process-hotspot" data-step="delivery" data-px="1169" data-py="598" data-mobile-px="588" data-mobile-py="894">
-      <span class="process-hotspot-dot"></span>
+      <span class="process-hotspot-dot"><span class="process-hotspot-number">4</span></span>
       <span class="process-hotspot-label">Delivery</span>
     </button>
 

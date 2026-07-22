@@ -2677,24 +2677,67 @@ body, a{ cursor:none; }
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
 }
+/* per direct request: "add numbers to the dots... do not want people
+   to get confused" — sized up from the old plain 10px dot so a digit
+   actually reads inside it, centered via flex */
 .process-hotspot-dot{
-  width:10px;
-  height:10px;
+  width:20px;
+  height:20px;
   border-radius:50%;
   background:var(--cream);
   box-shadow:0 0 0 0 rgba(243,237,226,.55);
   animation:processHotspotPulse 2.6s ease-in-out infinite;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  transition:width .3s var(--ease-out), height .3s var(--ease-out);
+}
+.process-hotspot-number{
+  font-family:'Inter', sans-serif;
+  font-size:.66rem;
+  font-weight:800;
+  color:#0a1116;
+  line-height:1;
+  pointer-events:none;
+  user-select:none;
+  transition:font-size .3s var(--ease-out);
 }
 @keyframes processHotspotPulse{
   0%, 100%{ box-shadow:0 0 0 0 rgba(243,237,226,.4); }
   50%{ box-shadow:0 0 0 10px rgba(243,237,226,0); }
 }
+/* per direct request: "have number 1 bigger in pulsing, and then
+   switch the bigger pulsing to every other number as they interact"
+   — process-hero.js's own updateEmphasis() keeps exactly one hotspot
+   in this state at a time, starting at #1, moving to the next number
+   in sequence each time any step is opened, so the "which one's next"
+   cue visibly walks 1→2→3→4→1... instead of every dot pulsing
+   identically forever */
+.process-hotspot.is-emphasized .process-hotspot-dot{
+  width:30px;
+  height:30px;
+  animation-name:processHotspotPulseBig;
+  animation-duration:1.8s;
+  animation-timing-function:ease-in-out;
+  animation-iteration-count:infinite;
+}
+.process-hotspot.is-emphasized .process-hotspot-number{
+  font-size:.86rem;
+}
+@keyframes processHotspotPulseBig{
+  0%, 100%{ box-shadow:0 0 0 0 rgba(154,205,228,.6); }
+  50%{ box-shadow:0 0 0 15px rgba(154,205,228,0); }
+}
 /* per direct request: "make the dots stop pulsing when the viewer is
    in section 2, and when they get back to section 1 they start
    glowing again" — process-hero.js's own IntersectionObserver toggles
    this class purely off real scroll intersection (not a viewport-size
-   media query), so it applies identically on desktop and mobile */
-.process-hero.is-scrolled-away .process-hotspot-dot{
+   media query), so it applies identically on desktop and mobile. The
+   second, more specific selector guarantees this wins over the
+   emphasized dot's own animation shorthand-equivalent above regardless
+   of source order (both would otherwise tie on specificity) */
+.process-hero.is-scrolled-away .process-hotspot-dot,
+.process-hero.is-scrolled-away .process-hotspot.is-emphasized .process-hotspot-dot{
   animation-play-state:paused;
 }
 .process-hotspot-label{
