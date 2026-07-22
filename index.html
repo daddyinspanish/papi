@@ -104,6 +104,11 @@ window.scrollTo(0, 0);
 
     <div class="process-hero-copy">
       <h1 class="process-hero-title">Building Websites<br>that Matter</h1>
+      <!-- per direct request: a global hint (same on desktop + mobile)
+           that fades out the moment a hotspot is opened and fades back
+           in once that step is closed — see process-hero.js's own
+           showStep()/hideReveal() for the class toggle -->
+      <p class="process-hero-hint" id="processHeroHint">Touch Dot to Interact</p>
     </div>
 
     <!-- pulled out of .process-hero-copy's centered flow and pinned to

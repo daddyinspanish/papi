@@ -114,6 +114,7 @@
   const revealTitle = document.getElementById('processRevealTitle');
   const revealText = document.getElementById('processRevealText');
   const heroTitle = hero.querySelector('.process-hero-title');
+  const heroHint = hero.querySelector('.process-hero-hint');
 
   // per direct request: "make sure the steps do not come out as
   // double digits" — single digit (1/2/3/4), not the old zero-padded
@@ -166,6 +167,10 @@
       heroTitle.classList.remove('is-glitching-in');
       heroTitle.classList.add('is-dissolved');
     }
+    // per direct request: "once touched it fades away" — the "Touch Dot
+    // to Interact" hint has done its job the moment someone actually
+    // opens a step, so it steps out of the way alongside the title
+    if(heroHint) heroHint.classList.add('is-hidden');
   }
 
   function hideReveal(){
@@ -191,6 +196,10 @@
       clearTimeout(glitchTimeout);
       glitchTimeout = setTimeout(() => heroTitle.classList.remove('is-glitching-in'), 650);
     }
+    // per direct request: "when they leave out of step, it fades back
+    // in" — plain fade, no glitch (that's the title's own distinct
+    // treatment), matching the hint's own simple fade-out on open
+    if(heroHint) heroHint.classList.remove('is-hidden');
   }
 
   if(reveal && hotspots.length){
