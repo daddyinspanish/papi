@@ -436,6 +436,36 @@ import * as THREE from './vendor/three.module.min.js';
     stepPoints(16.6667, 0, 1);
     renderOnce(0, CONFIG.slimeSize);
   } else {
-    rafId = requestAnimationFrame(loop);
+    // BUG FIX (per direct report: "something is making my phone hot
+    // when I have this website open"): this render loop was running
+    // at 60fps FOREVER, with no pause once the hero section scrolled
+    // out of view or the browser tab itself was backgrounded — on a
+    // long page like this one, a visitor scrolls past the hero almost
+    // immediately, and the GPU kept rendering this canvas behind
+    // whatever they were actually looking at for the rest of the
+    // session, burning battery/heat for zero visual benefit. Pause the
+    // loop whenever the canvas isn't actually on-screen or the tab
+    // isn't actually visible, and resume the instant it is again.
+    let isHeroVisible = true;
+    function startLoop(){
+      if(rafId !== null) return;
+      lastTs = null; // avoids one giant dt spike counting the paused gap as elapsed time
+      rafId = requestAnimationFrame(loop);
+    }
+    function stopLoop(){
+      if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+    }
+    function syncLoop(){
+      if(isHeroVisible && !document.hidden) startLoop(); else stopLoop();
+    }
+    if('IntersectionObserver' in window){
+      const io = new IntersectionObserver((entries)=>{
+        isHeroVisible = entries[0].isIntersecting;
+        syncLoop();
+      }, { threshold: 0 });
+      io.observe(canvas);
+    }
+    document.addEventListener('visibilitychange', syncLoop);
+    startLoop();
   }
 })();
