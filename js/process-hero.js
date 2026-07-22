@@ -246,4 +246,24 @@
   }
   bindSmoothScroll('.process-hero-cta');
   bindSmoothScroll('.process-hero-start');
+
+  // ===================================================================
+  // 4. pause the hotspot dots' pulse once the hero scrolls out of view
+  // ===================================================================
+  // per direct request: "make the dots stop pulsing when the viewer is
+  // in section 2, and when they get back to section 1 they start
+  // glowing again" — style.css's own processHotspotPulse keyframe runs
+  // "infinite" with nothing to ever stop it, so it kept animating
+  // (box-shadow, which forces a repaint each cycle) for the rest of the
+  // session even once the hero itself was long scrolled past. Toggling
+  // one class here — driven by real intersection, not a viewport-size
+  // media query — is what makes this apply identically on desktop and
+  // mobile, matching the exact same off-screen-pause treatment already
+  // applied to the hero's own WebGL canvas (js/process-hero-slime.js).
+  if('IntersectionObserver' in window){
+    const heroVisibilityIO = new IntersectionObserver((entries) => {
+      hero.classList.toggle('is-scrolled-away', !entries[0].isIntersecting);
+    }, { threshold: 0 });
+    heroVisibilityIO.observe(hero);
+  }
 })();

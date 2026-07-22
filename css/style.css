@@ -2689,6 +2689,14 @@ body, a{ cursor:none; }
   0%, 100%{ box-shadow:0 0 0 0 rgba(243,237,226,.4); }
   50%{ box-shadow:0 0 0 10px rgba(243,237,226,0); }
 }
+/* per direct request: "make the dots stop pulsing when the viewer is
+   in section 2, and when they get back to section 1 they start
+   glowing again" — process-hero.js's own IntersectionObserver toggles
+   this class purely off real scroll intersection (not a viewport-size
+   media query), so it applies identically on desktop and mobile */
+.process-hero.is-scrolled-away .process-hotspot-dot{
+  animation-play-state:paused;
+}
 .process-hotspot-label{
   font-family:'Inter', sans-serif;
   font-size:.72rem;

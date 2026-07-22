@@ -112,6 +112,57 @@
     window.addEventListener('load', ()=> setTimeout(loadAllCards, 400));
   }
 
+  // ---- pause/resume both iframes based on whether this section is
+  // actually in view — per direct request: "pause them once the
+  // viewer is past the live demo section, and when they scroll back
+  // they get unpaused". Two entire external websites keep running
+  // their own JS indefinitely once loaded, with nothing above ever
+  // stopping them — display:none/visibility:hidden does NOT reliably
+  // stop an iframe's own scripts from continuing to run in the
+  // background, so blanking each iframe's src is the only real way to
+  // actually stop that work once the visitor has moved on.
+  //
+  // This intentionally does NOT touch anything before the section's
+  // first-ever visit: loadAllCards() above already deliberately starts
+  // loading both sites well ahead of scroll arrival so neither one
+  // ever shows its "Loading live site…" placeholder right as it
+  // scrolls in. The section starts off-screen below the fold, so this
+  // observer's very first reading is "not intersecting" — reacting to
+  // that would blank the iframes before the visitor ever arrives and
+  // bring back exactly the loading flash this was built to avoid. The
+  // hasBeenVisible guard makes sure pausing only ever happens on a
+  // real "was visible, now scrolled away" transition.
+  if('IntersectionObserver' in window){
+    let hasBeenVisible = false;
+    const visibilityIO = new IntersectionObserver((entries)=>{
+      const isVisible = entries[0].isIntersecting;
+      if(isVisible){
+        hasBeenVisible = true;
+        cards.forEach(card=>{
+          const iframe = card.querySelector('iframe');
+          if(!iframe || !iframe.dataset.src) return;
+          if(iframe.getAttribute('src') === 'about:blank'){
+            card.classList.remove('is-loaded');
+            iframe.addEventListener('load', ()=> card.classList.add('is-loaded'), { once:true });
+            iframe.src = iframe.dataset.src;
+          }
+        });
+        return;
+      }
+      if(!hasBeenVisible) return;
+      cards.forEach(card=>{
+        const iframe = card.querySelector('iframe');
+        if(!iframe) return;
+        const src = iframe.getAttribute('src');
+        if(src && src !== 'about:blank'){
+          iframe.src = 'about:blank';
+          card.classList.remove('is-loaded');
+        }
+      });
+    }, { threshold: 0 });
+    visibilityIO.observe(section);
+  }
+
   // ---- whichever card sits centered in the stack gets the active dot ----
   let activeIndex = 0;
   function updateActive(){
