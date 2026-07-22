@@ -2474,7 +2474,14 @@ body, a{ cursor:none; }
 /* per direct request: "make it glitch appear back when someone clicks
    out of the step" — RGB-split + horizontal slice jitter settling back
    to the normal title; transition:none so the plain fade above doesn't
-   fight the keyframes while this class is active */
+   fight the keyframes while this class is active.
+   Per a later direct request ("a different glitch form after every
+   step, to add style") this is now 4 distinct variants — process-
+   hero.js's own hideReveal() cycles through .is-glitch-a/-b/-c/-d in
+   sequence (one per .process-hero-title element, so it's always
+   exactly one variant class at a time) rather than always replaying
+   the same one. Base rule below only sets the shared timing; each
+   modifier class supplies its own animation-name. */
 .process-hero-title.is-glitching-in{
   transition:none;
   /* steps(8,end) hard-cuts between the 8 keyframe segments below instead
@@ -2483,8 +2490,14 @@ body, a{ cursor:none; }
      keyframe in between into a single start→end jump, skipping the
      entire jitter sequence (confirmed by tracing computed styles frame
      by frame — it snapped straight to settled almost immediately) */
-  animation:processHeroTitleGlitchIn .65s steps(8, end) both;
+  animation-duration:.65s;
+  animation-timing-function:steps(8, end);
+  animation-fill-mode:both;
 }
+.process-hero-title.is-glitching-in.is-glitch-a{ animation-name:processHeroTitleGlitchIn; }
+.process-hero-title.is-glitching-in.is-glitch-b{ animation-name:processHeroTitleGlitchVertical; }
+.process-hero-title.is-glitching-in.is-glitch-c{ animation-name:processHeroTitleGlitchFlicker; }
+.process-hero-title.is-glitching-in.is-glitch-d{ animation-name:processHeroTitleGlitchBlocks; }
 @keyframes processHeroTitleGlitchIn{
   0%{
     opacity:0;
@@ -2532,6 +2545,160 @@ body, a{ cursor:none; }
     text-shadow:none;
     clip-path:inset(0 0 0 0);
     filter:blur(0);
+  }
+}
+/* variant B — vertical shards + skew, instead of variant A's
+   horizontal slice/RGB-jitter, so it reads as a distinctly different
+   "form" of glitch rather than the same effect replaying */
+@keyframes processHeroTitleGlitchVertical{
+  0%{
+    opacity:0;
+    transform:translate3d(0,0,0) skewX(0deg);
+    text-shadow:none;
+    clip-path:inset(0 0 0 0);
+    filter:blur(10px);
+  }
+  10%{
+    opacity:1;
+    filter:blur(0);
+    transform:translate3d(0,-4px,0) skewX(6deg);
+    text-shadow:0 -3px var(--gold-soft), 0 3px #ff5c7a;
+    clip-path:inset(0 68% 0 0);
+  }
+  22%{
+    transform:translate3d(0,3px,0) skewX(-5deg);
+    clip-path:inset(0 4% 0 62%);
+    text-shadow:0 4px var(--gold-soft), 0 -4px #ff5c7a;
+  }
+  34%{
+    transform:translate3d(0,-2px,0) skewX(3deg);
+    clip-path:inset(0 40% 0 18%);
+  }
+  46%{
+    transform:translate3d(0,2px,0) skewX(-2deg);
+    clip-path:inset(0 72% 0 0);
+    text-shadow:0 -2px var(--gold-soft), 0 2px #ff5c7a;
+  }
+  60%{
+    transform:translate3d(0,0,0) skewX(0deg);
+    clip-path:inset(0 0 0 64%);
+  }
+  75%{
+    clip-path:inset(0 0 0 0);
+    text-shadow:0 2px var(--gold-soft), 0 -2px #ff5c7a;
+  }
+  88%{
+    text-shadow:0 -1px var(--gold-soft), 0 1px #ff5c7a;
+  }
+  100%{
+    opacity:1;
+    transform:translate3d(0,0,0) skewX(0deg);
+    text-shadow:none;
+    clip-path:inset(0 0 0 0);
+    filter:blur(0);
+  }
+}
+/* variant C — power-flicker/strobe: brightness + opacity flicker
+   instead of positional jitter, no clip-path movement at all, so it
+   reads as a "signal cutting out" rather than a "shattering" glitch */
+@keyframes processHeroTitleGlitchFlicker{
+  0%{
+    opacity:0;
+    filter:blur(10px) brightness(1);
+    transform:scale(1);
+    text-shadow:none;
+  }
+  10%{
+    opacity:1;
+    filter:blur(0) brightness(2.2);
+    transform:scale(1.03);
+  }
+  22%{
+    opacity:.2;
+    filter:brightness(.4);
+    transform:scale(.99);
+  }
+  34%{
+    opacity:1;
+    filter:brightness(1.8) hue-rotate(8deg);
+    text-shadow:0 0 14px var(--gold-soft);
+  }
+  46%{
+    opacity:.35;
+    filter:brightness(.5) hue-rotate(-6deg);
+  }
+  60%{
+    opacity:1;
+    filter:brightness(1.4);
+    text-shadow:0 0 10px rgba(154,205,228,.8);
+  }
+  75%{
+    opacity:.6;
+    filter:brightness(1);
+  }
+  88%{
+    opacity:1;
+    text-shadow:none;
+  }
+  100%{
+    opacity:1;
+    filter:blur(0) brightness(1);
+    transform:scale(1);
+    text-shadow:none;
+  }
+}
+/* variant D — blocky corruption sweep: bigger, chunkier clip-path
+   jump-cuts than variant A's fine scanlines, plus a contrast punch on
+   each cut, so it reads as heavier digital corruption rather than a
+   fine RGB-split jitter */
+@keyframes processHeroTitleGlitchBlocks{
+  0%{
+    opacity:0;
+    transform:translate3d(0,0,0);
+    clip-path:inset(0 0 0 0);
+    filter:blur(10px) contrast(1);
+    text-shadow:none;
+  }
+  9%{
+    opacity:1;
+    filter:blur(0) contrast(1.6);
+    transform:translate3d(8px,0,0);
+    clip-path:inset(0 0 82% 0);
+    text-shadow:6px 0 var(--gold), -6px 0 #ff5c7a;
+  }
+  20%{
+    transform:translate3d(-7px,0,0);
+    clip-path:inset(76% 0 0 0);
+  }
+  31%{
+    transform:translate3d(6px,0,0);
+    clip-path:inset(30% 0 46% 0);
+    filter:contrast(1.9);
+  }
+  42%{
+    transform:translate3d(-5px,0,0);
+    clip-path:inset(0 0 0 0);
+    text-shadow:-4px 0 var(--gold), 4px 0 #ff5c7a;
+  }
+  55%{
+    transform:translate3d(4px,0,0);
+    clip-path:inset(48% 0 12% 0);
+    filter:contrast(1.3);
+  }
+  68%{
+    transform:translate3d(0,0,0);
+    clip-path:inset(0 0 0 0);
+  }
+  82%{
+    text-shadow:2px 0 var(--gold), -2px 0 #ff5c7a;
+    filter:contrast(1.1);
+  }
+  100%{
+    opacity:1;
+    transform:translate3d(0,0,0);
+    clip-path:inset(0 0 0 0);
+    filter:blur(0) contrast(1);
+    text-shadow:none;
   }
 }
 /* per direct request: locked/dim until all 4 steps below have been

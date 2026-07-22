@@ -109,6 +109,14 @@
     });
   }
 
+  // per direct request: "a different glitch form after every step, to
+  // add style" — 4 distinct keyframe variants live in style.css
+  // (.is-glitch-a/-b/-c/-d, each pointing at its own @keyframes);
+  // cycles through them in sequence rather than always replaying the
+  // same one, same cyclic-index pattern as updateEmphasis() above
+  const GLITCH_VARIANTS = ['is-glitch-a', 'is-glitch-b', 'is-glitch-c', 'is-glitch-d'];
+  let glitchVariantIndex = 0;
+
   let activeKey = null;
   let glitchTimeout = null;
 
@@ -166,14 +174,20 @@
     // state rather than double-animating a plain fade-in underneath it
     if(heroTitle){
       heroTitle.classList.remove('is-dissolved');
+      // clear whichever variant (if any) is still on from a previous
+      // run before forcing the reflow below, so a rapid re-open/close
+      // can't leave two variant classes stacked on the element at once
+      GLITCH_VARIANTS.forEach(v => heroTitle.classList.remove(v));
       // force a reflow between removing/re-adding the class so the
       // animation restarts even if it's re-triggered before the
       // previous run finished (rapid open/close) — reading offsetWidth
       // is the standard, side-effect-free way to force this
       void heroTitle.offsetWidth;
-      heroTitle.classList.add('is-glitching-in');
+      const variant = GLITCH_VARIANTS[glitchVariantIndex];
+      glitchVariantIndex = (glitchVariantIndex + 1) % GLITCH_VARIANTS.length;
+      heroTitle.classList.add('is-glitching-in', variant);
       clearTimeout(glitchTimeout);
-      glitchTimeout = setTimeout(() => heroTitle.classList.remove('is-glitching-in'), 650);
+      glitchTimeout = setTimeout(() => heroTitle.classList.remove('is-glitching-in', variant), 650);
     }
     // per direct request: "when they leave out of step, it fades back
     // in" — plain fade, no glitch (that's the title's own distinct
