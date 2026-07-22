@@ -2805,6 +2805,16 @@ body, a{ cursor:none; }
   .process-hero{
     background-image:url('../img/hero/process-hero-bg-mobile.jpg');
     min-height:100svh;
+    /* per direct request: move the title toward the top so it stops
+       cutting into the dot hotspots — the mobile photo's own 4 markers
+       all sit in the middle-to-lower portion of the frame, so pinning
+       the copy block near the top (instead of true vertical center,
+       which put "Websites"/"that Matter" right through the Delivery
+       dot and its pole) leaves every hotspot's own tap target clear */
+    justify-content:flex-start;
+  }
+  .process-hero-copy{
+    padding-top:clamp(5.5rem, 21vh, 7.5rem);
   }
   .process-hero-title{ max-width:12ch; }
   .process-hero-cta{
