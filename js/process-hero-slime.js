@@ -30,18 +30,26 @@ import * as THREE from './vendor/three.module.min.js';
     noiseStrength: 0.16,
     mouseForce: 0.16,
     mouseRadius: 0.42,
-    // raised from 0.5 (was a subtle accent over a photo) to 0.88 — this
-    // is the hero's whole visual now, not a disturbance layered over
-    // one, so it needs to actually read as opaque glass
-    opacity: 0.88,
-    highlightIntensity: 0.65,
+    // per direct request: "does not read liquid anymore, feels like a
+    // white blob" — 0.88 made the body itself nearly opaque, which
+    // reads as painted plastic, not glass; glass is legible BECAUSE you
+    // see the dark behind it through the body and only the rim/
+    // highlights go bright (see bodyAlphaFloor in the fragment shader
+    // below, which does the actual heavy lifting here — this uOpacity
+    // is just the outer multiplier on top of that)
+    opacity: 0.62,
+    highlightIntensity: 0.78,
     edgeSoftness: 0.004,
     mobileQuality: 0.55,
     mobileWidth: 640,
     stretchAmount: 5.5,
     compressAmount: 1.8,
-    colorMid:    [0.97, 0.955, 0.92],
-    colorBright: [1.00, 0.995, 0.985],
+    // shifted cooler (was warm cream [0.97,.955,.92]/[1,.995,.985]) —
+    // a warm near-white tint over dark is what read as a "white blob";
+    // a cool pale-blue tint reads as clear glass/water instead, and
+    // matches the site's own established aqua accent (rgba(154,205,228))
+    colorMid:    [0.86, 0.92, 0.98],
+    colorBright: [0.97, 0.99, 1.00],
     maxDt: 1000/24,
     introDurationMs: 1400,
     introSizeBoost: 2.0,
@@ -193,21 +201,25 @@ import * as THREE from './vendor/three.module.min.js';
       color += vec3(0.82, 0.93, 1.0) * spec * (1.6 + uHighlightIntensity);
       color += vec3(1.0, 0.95, 0.82) * sheen * 0.22;
       color = mix(color, vec3(0.8, 0.91, 1.0), rimGlow * 0.62);
-      // was (0.55 + 0.45*diff) — over the old bright photo a dim body
-      // still read fine; over the new plain-dark hero bg the same dim
-      // body just disappeared into the black, so the floor's raised to
-      // keep it reading as lit glass rather than a gray smudge
-      color *= (0.72 + 0.28*diff);
+      color *= (0.6 + 0.4*diff);
 
       float lum = dot(color, vec3(0.299, 0.587, 0.114));
       vec3 goldRef = mix(vec3(0.90, 0.87, 0.80), vec3(1.0, 0.98, 0.94), lum);
-      color = mix(color, goldRef, 0.08);
+      // was 0.08 — even a little of that warm gold reference read as
+      // "cream/white" once it was the only thing filling the body;
+      // knocked way down so it's just a faint metallic hint at the
+      // highlights, not a wash over the whole shape
+      color = mix(color, goldRef, 0.03);
 
-      // was 0.10/0.92 — same reasoning as the diff floor above: a
-      // near-transparent body over black just read as murky gray, not
-      // glass. Raised so this is now the hero's actual visual, not a
-      // faint disturbance layered over a photo.
-      float bodyAlphaFloor = 0.45;
+      // per direct request: "does not read liquid anymore, feels like
+      // a white blob... adjust it so it reads as clear glass" — 0.45
+      // made the whole body read as solid opaque fill. Real glass
+      // reads AS glass specifically because the body stays mostly
+      // see-through (the dark hero bg shows through it) while only the
+      // rim/fresnel edge and specular hotspots go bright/opaque —
+      // that contrast between "mostly transparent body" and "bright
+      // edge" is what actually sells it as glass rather than plastic.
+      float bodyAlphaFloor = 0.16;
       float bodyAlpha = mix(bodyAlphaFloor, 0.95, rimGlow);
 
       gl_FragColor = vec4(color, edge*uOpacity*bodyAlpha);
