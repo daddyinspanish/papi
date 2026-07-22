@@ -2347,12 +2347,15 @@ body, a{ cursor:none; }
 }
 
 /* ===================================================================
-   Process Hero — the new photographed hero (img/hero/process-hero-bg.jpg)
-   with js/process-hero-slime.js's liquid-glass layer floating over it,
-   4 clickable process-step hotspots, headline, and two CTAs. Replaces
-   the old 3D Process Room scene, which was moved out to a separate
-   sandbox project per direct request (see index.html's own comment on
-   #processRoom for the full context).
+   Process Hero — per direct request: "remove the background but keep
+   the elements in place" — the photographed room photo is gone. What
+   used to be a subtle liquid-glass accent floating OVER that photo
+   (js/process-hero-slime.js) is now tuned up to BE the hero visual,
+   over a plain dark radial-gradient base (still has some depth to it,
+   not a flat single color) plus a faint film-grain layer so the dark
+   areas read as textured rather than empty. 4 clickable process-step
+   hotspots (now in a line, see .process-hotspot-line below), headline,
+   and two CTAs sit on top.
 =================================================================== */
 .process-hero{
   position:relative;
@@ -2360,23 +2363,11 @@ body, a{ cursor:none; }
   min-height:100svh;
   min-height:100vh;
   overflow:hidden;
-  background:#0c1013 url('../img/hero/process-hero-bg.jpg') center center / cover no-repeat;
+  background:radial-gradient(ellipse at 50% 38%, #131b21 0%, #0a0e12 60%, #05070a 100%);
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
-}
-/* a soft dark vignette over the photo — the image is already fairly
-   dark/moody on its own, but headline/button legibility (especially
-   the lighter sky visible through the archway) needs a little more
-   controlled contrast than the raw photo alone guarantees */
-.process-hero::before{
-  content:'';
-  position:absolute;
-  inset:0;
-  z-index:1;
-  background:radial-gradient(ellipse at 50% 42%, rgba(4,6,10,.18) 0%, rgba(4,6,10,.5) 68%, rgba(4,6,10,.72) 100%);
-  pointer-events:none;
 }
 .process-hero-slime{
   position:absolute;
@@ -2543,6 +2534,27 @@ body, a{ cursor:none; }
     filter:blur(0);
   }
 }
+/* per direct request: locked/dim until all 4 steps below have been
+   opened — process-hero.js's own markLoaded() removes .is-locked and
+   adds .is-unlocked (one-shot pop, see processHeroCtaUnlock) the
+   instant the 4th step is opened. The click-through guard that blocks
+   this while locked lives in process-hero.js itself (pointer-events
+   alone doesn't stop a keyboard Enter on a focused <a>). */
+.process-hero-cta.is-locked{
+  opacity:.32;
+  filter:grayscale(.55);
+  box-shadow:none;
+  animation:none;
+}
+.process-hero-cta.is-locked::before{ display:none; }
+.process-hero-cta.is-unlocked{
+  animation:processHeroCtaUnlock .7s var(--ease-out), processHeroCtaShine 6.5s ease-in-out infinite;
+}
+@keyframes processHeroCtaUnlock{
+  0%{ transform:translateX(-50%) scale(.86); box-shadow:0 0 0 rgba(212,175,110,0); }
+  55%{ transform:translateX(-50%) scale(1.08); box-shadow:0 8px 30px rgba(0,0,0,.35), 0 0 50px rgba(212,175,110,.85); }
+  100%{ transform:translateX(-50%) scale(1); }
+}
 .process-hero-cta{
   /* pulled out of .process-hero-copy's centered column (per direct
      request: it sat too close to the Structure hotspot right under
@@ -2655,25 +2667,54 @@ body, a{ cursor:none; }
   transform:translateY(-1px);
 }
 
-/* ---- clickable hotspots — real left/top (in px) are computed and
-   kept in sync by process-hero.js's own positionHotspots(), which
-   re-derives each one's true on-screen position from the background
-   photo's actual current cover-fit scale/crop (see that function's
-   own comment, and index.html's matching comment on the data-px/
-   data-py attributes) every time the viewport resizes, so these stay
-   exactly on the photo's own baked-in light markers at any window
-   size rather than a flat percentage that only lines up at one ---- */
-.process-hotspot{
-  position:absolute;
+/* ---- the 4 steps, now a plain line instead of pinned to photo
+   markers (per direct request — see index.html's own comment on
+   #processHotspotLine for the full "loads as you click, unlocks the
+   CTA" behavior). .process-hotspot itself is just a centering box
+   around its own dot — the label is pulled out via position:absolute
+   below (see .process-hotspot-label) so it never affects the box's
+   own height, which is what keeps every dot's center sitting exactly
+   on .process-hotspot-track's own vertical center for free ---- */
+.process-hotspot-line{
+  position:relative;
   z-index:5;
-  transform:translate(-50%, -50%);
   display:flex;
-  flex-direction:column;
   align-items:center;
-  gap:.5rem;
+  justify-content:space-between;
+  width:min(90vw, 32rem);
+  margin-top:clamp(2.6rem, 7vh, 4.2rem);
+}
+.process-hotspot-track{
+  position:absolute;
+  left:0;
+  right:0;
+  top:50%;
+  height:2px;
+  transform:translateY(-50%);
+  background:rgba(243,237,226,.16);
+  border-radius:999px;
+  overflow:hidden;
+  z-index:0;
+  pointer-events:none;
+}
+.process-hotspot-track-fill{
+  position:absolute;
+  inset:0;
+  transform:scaleX(0);
+  transform-origin:0 50%;
+  background:linear-gradient(90deg, var(--gold-soft), var(--gold), rgba(154,205,228,.9));
+  box-shadow:0 0 14px rgba(212,175,110,.55);
+  transition:transform .7s var(--ease-out);
+}
+.process-hotspot{
+  position:relative;
+  z-index:2;
+  display:flex;
+  align-items:center;
+  justify-content:center;
   background:none;
   border:none;
-  padding:.75rem;
+  padding:.9rem;
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
 }
@@ -2728,6 +2769,16 @@ body, a{ cursor:none; }
   0%, 100%{ box-shadow:0 0 0 0 rgba(154,205,228,.6); }
   50%{ box-shadow:0 0 0 15px rgba(154,205,228,0); }
 }
+/* per direct request: each dot "loads" (permanently) the moment it's
+   clicked — process-hero.js's own markLoaded() adds this class and
+   swaps the number for a checkmark, once per step, forever (not just
+   while its reveal panel is open — that's .is-active below) */
+.process-hotspot.is-loaded .process-hotspot-dot{
+  background:var(--gold);
+}
+.process-hotspot.is-loaded .process-hotspot-number{
+  color:#241b0a;
+}
 /* per direct request: "make the dots stop pulsing when the viewer is
    in section 2, and when they get back to section 1 they start
    glowing again" — process-hero.js's own IntersectionObserver toggles
@@ -2740,7 +2791,17 @@ body, a{ cursor:none; }
 .process-hero.is-scrolled-away .process-hotspot.is-emphasized .process-hotspot-dot{
   animation-play-state:paused;
 }
+/* pulled out of the button's own flex flow (position:absolute) so its
+   height never counts toward .process-hotspot's box — that's what
+   keeps every dot's own vertical center landing exactly on
+   .process-hotspot-track's center regardless of whether a label is
+   currently visible */
 .process-hotspot-label{
+  position:absolute;
+  top:100%;
+  left:50%;
+  margin-top:.6rem;
+  transform:translate(-50%, -4px);
   font-family:'Inter', sans-serif;
   font-size:.72rem;
   font-weight:600;
@@ -2748,15 +2809,15 @@ body, a{ cursor:none; }
   text-transform:uppercase;
   color:var(--cream);
   opacity:0;
-  transform:translateY(-4px);
   transition:opacity .25s ease, transform .25s ease;
   white-space:nowrap;
+  pointer-events:none;
 }
 .process-hotspot:hover .process-hotspot-label,
 .process-hotspot:focus-visible .process-hotspot-label,
 .process-hotspot.is-active .process-hotspot-label{
   opacity:1;
-  transform:translateY(0);
+  transform:translate(-50%, 0);
 }
 .process-hotspot:hover .process-hotspot-dot,
 .process-hotspot.is-active .process-hotspot-dot{
@@ -2869,40 +2930,14 @@ body, a{ cursor:none; }
   color:rgba(243,237,226,.82);
 }
 
-/* per direct request: "if the phone is flipped to landscape it changes
-   to the desktop layout" — this ONLY applies in portrait now. The
-   mobile photo is framed tall/narrow specifically for a portrait phone
-   screen; a phone rotated to landscape is a wide/short viewport again
-   (e.g. 812×375), so it gets the SAME desktop image + layout as a real
-   desktop instead of the portrait photo squeezed sideways and cropped.
-   process-hero.js's own positionHotspots() mirrors this exact query
-   (via matchMedia) so the hotspot coordinates switch in lockstep with
-   this background-image swap — never one without the other. */
+/* mobile portrait tweaks — kept scoped to portrait only (matches this
+   site's established convention: rotate to landscape and a phone just
+   gets the same layout as a real desktop, never a sideways-squeezed
+   portrait layout) even though there's no longer a separate mobile
+   photo driving that distinction */
 @media (max-width:860px) and (orientation:portrait){
-  /* a SEPARATE photo for mobile, not the desktop one stretched/cropped
-     — the desktop image (1536×1024 landscape) was cropping 2 of the 4
-     hotspot markers off-screen on a phone's tall/narrow viewport no
-     matter how the box was sized. This is its own portrait-framed
-     render (941×1672) with all 4 platforms already composed to fit a
-     tall viewport, so positionHotspots() reads its own data-mobile-px/
-     data-mobile-py marker coordinates (and this image's own 941×1672
-     size) instead of the desktop ones once the viewport crosses this
-     same breakpoint AND is portrait — desktop/landscape and portrait-
-     mobile each keep their own independent image + marker coordinates
-     + camera-free framing, not a shared cover-fit hack */
   .process-hero{
-    background-image:url('../img/hero/process-hero-bg-mobile.jpg');
     min-height:100svh;
-    /* per direct request: move the title toward the top so it stops
-       cutting into the dot hotspots — the mobile photo's own 4 markers
-       all sit in the middle-to-lower portion of the frame, so pinning
-       the copy block near the top (instead of true vertical center,
-       which put "Websites"/"that Matter" right through the Delivery
-       dot and its pole) leaves every hotspot's own tap target clear */
-    justify-content:flex-start;
-  }
-  .process-hero-copy{
-    padding-top:clamp(5.5rem, 21vh, 7.5rem);
   }
   /* per direct request: "Building Websites" then enter, "that Matter"
      on mobile — the shared <br> already splits it there, but the old

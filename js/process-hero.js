@@ -2,14 +2,13 @@
    Papi — Process Hero interactions
    Three independent jobs, kept in one file since they all share the
    same hero markup:
-   1. positionHotspots() — keeps each .process-hotspot pinned exactly
-      on top of this photo's own baked-in light markers, at any
-      viewport size (see its own comment below for the actual math).
-   2. The 4-step reveal panel — click a hotspot, its own radial
+   1. The 4-step reveal panel — click a hotspot, its own radial
       gradient + copy fades in (anchored at that exact hotspot);
       the shared .process-hero-title dissolves out while it's open
-      and glitches back in once it's dismissed.
-   3. Smooth-scrolling for both hero CTAs, replacing the browser's
+      and glitches back in once it's dismissed. Also handles the
+      "line that loads as you click, unlocks the CTA" mechanic (see
+      markLoaded() below).
+   2. Smooth-scrolling for both hero CTAs, replacing the browser's
       own instant anchor-jump with a real scrollIntoView so it reads
       as a natural, eased scroll rather than a snap.
 =================================================================== */
@@ -17,97 +16,10 @@
   const hero = document.querySelector('.process-hero');
   if(!hero) return;
 
-  // ===================================================================
-  // 1. hotspot positioning
-  // ===================================================================
-  // two ENTIRELY separate background photos, each with its own real
-  // pixel size — hardcoded rather than measured from a loaded <img>
-  // because these are CSS background-images, not <img> elements with
-  // their own naturalWidth/naturalHeight to read. The mobile photo
-  // (per direct request: "make sure to keep the same settings for
-  // desktop different, and for mobile separate so they both can
-  // function") is its own portrait-framed render — not a crop of the
-  // desktop one — because the desktop photo's wide landscape framing
-  // was cropping 2 of the 4 hotspot markers off-screen on a phone's
-  // tall/narrow viewport.
-  //
-  // per direct request: "if the phone is flipped to landscape it
-  // changes to the desktop layout" — the mobile photo is only correct
-  // for a tall/narrow PORTRAIT phone screen; rotate that same phone to
-  // landscape and it's a wide/short viewport again, so it should get
-  // the desktop image/layout just like a real desktop would, not the
-  // portrait photo squeezed sideways. mobileQuery is the exact same
-  // "(max-width:860px) and (orientation:portrait)" the CSS uses to
-  // swap the actual background-image — reading it via matchMedia
-  // (rather than re-deriving the same condition from window.innerWidth/
-  // innerHeight by hand) guarantees this can never drift out of sync
-  // with what's actually rendered.
-  const mobileQuery = window.matchMedia('(max-width:860px) and (orientation:portrait)');
-  const IMG_DESKTOP = { w: 1536, h: 1024 };
-  const IMG_MOBILE  = { w: 941, h: 1672 };
   const hotspots = Array.from(hero.querySelectorAll('.process-hotspot'));
 
-  // BUG FIX (per direct request: "align the dots to actually be over
-  // the visual dots that are on the image itself"): a flat CSS
-  // percentage position looks right at whatever one viewport size it
-  // was eyeballed against, then drifts at any other size/aspect ratio
-  // — background-size:cover scales the photo up until it fills the
-  // container in BOTH directions, cropping whichever axis overflows,
-  // and how much gets cropped (and where the crop is centered) changes
-  // continuously with the container's own aspect ratio. This
-  // reproduces that exact same cover-fit math in JS: same scale
-  // (whichever axis needs the bigger multiplier to fill), same
-  // centered crop offset, so a hotspot's real on-screen position is
-  // derived from the photo's own TRUE current rendered scale/position
-  // rather than a percentage that only happens to line up once —
-  // re-evaluated on every call so crossing the mobile breakpoint mid-
-  // session (resize, rotate) picks up the other photo's own image size
-  // and its own data-mobile-px/data-mobile-py marker coordinates
-  function positionHotspots(){
-    const rect = hero.getBoundingClientRect();
-    const containerW = rect.width, containerH = rect.height;
-    if(!containerW || !containerH) return;
-    const isMobile = mobileQuery.matches;
-    const img = isMobile ? IMG_MOBILE : IMG_DESKTOP;
-    const scale = Math.max(containerW / img.w, containerH / img.h);
-    const renderedW = img.w * scale, renderedH = img.h * scale;
-    const offsetX = (containerW - renderedW) / 2;
-    const offsetY = (containerH - renderedH) / 2;
-
-    hotspots.forEach(hotspot => {
-      const px = parseFloat(isMobile ? hotspot.dataset.mobilePx : hotspot.dataset.px);
-      const py = parseFloat(isMobile ? hotspot.dataset.mobilePy : hotspot.dataset.py);
-      const left = offsetX + px * scale;
-      const top = offsetY + py * scale;
-      hotspot.style.left = `${left}px`;
-      hotspot.style.top = `${top}px`;
-      // stashed for the reveal panel's own gradient anchor below —
-      // avoids re-deriving the same math again on click
-      hotspot.dataset.screenX = left;
-      hotspot.dataset.screenY = top;
-    });
-  }
-  positionHotspots();
-  // width-only guard, matching the same pattern used elsewhere on this
-  // site (see faq.js/live-demo.js/etc.'s own matching comment) — an iOS
-  // address-bar-collapse resize changes innerHeight only, and
-  // shouldn't be treated as a real layout change worth repositioning
-  // for. Height changes that DO matter (rotating a phone, resizing a
-  // real window) still come with a real width change alongside them,
-  // which is also what flips mobileQuery's own orientation check —
-  // portrait/landscape rotation always swaps width and height wholesale,
-  // never a width-only nudge this guard would need to special-case.
-  let lastResizeW = window.innerWidth;
-  window.addEventListener('resize', () => {
-    const w = window.innerWidth;
-    if(Math.abs(w - lastResizeW) <= 10) return;
-    lastResizeW = w;
-    clearTimeout(window.__papiProcessHeroResizeT);
-    window.__papiProcessHeroResizeT = setTimeout(positionHotspots, 150);
-  });
-
   // ===================================================================
-  // 2. reveal panel + headline dissolve/glitch
+  // 1. reveal panel + headline dissolve/glitch
   // ===================================================================
   const reveal = document.getElementById('processReveal');
   const revealIndex = document.getElementById('processRevealIndex');
@@ -158,14 +70,61 @@
   }
   updateEmphasis();
 
+  // per direct request: "have them in a line, that loads every time you
+  // click on one, until the last one loads the website then releases
+  // the view our work button" — completedSteps tracks distinct steps
+  // ever opened (a Set, so re-opening one doesn't double-count); each
+  // new one grows .process-hotspot-track-fill by another quarter, and
+  // marks that dot permanently "loaded" (gold fill + checkmark). Once
+  // all 4 are in, the CTA's own .is-locked class lifts.
+  const completedSteps = new Set();
+  const trackFill = document.getElementById('processTrackFill');
+  const cta = document.getElementById('processHeroCta');
+
+  function markLoaded(key, hotspotEl){
+    if(completedSteps.has(key)) return;
+    completedSteps.add(key);
+    hotspotEl.classList.add('is-loaded');
+    const numEl = hotspotEl.querySelector('.process-hotspot-number');
+    if(numEl) numEl.textContent = '✓';
+    if(trackFill) trackFill.style.transform = `scaleX(${completedSteps.size / hotspots.length})`;
+    if(completedSteps.size >= hotspots.length && cta && cta.classList.contains('is-locked')){
+      cta.classList.remove('is-locked');
+      cta.classList.add('is-unlocked');
+    }
+  }
+  // blocks the locked CTA from firing on click OR keyboard Enter —
+  // pointer-events:none in the CSS already stops a mouse click, but a
+  // focused <a> still activates on Enter regardless of pointer-events,
+  // so this guard is what actually closes that gap. Registered before
+  // bindSmoothScroll's own click listener further down (same element),
+  // so stopImmediatePropagation here also blocks that handler from
+  // ever firing while still locked.
+  if(cta){
+    cta.addEventListener('click', (e) => {
+      if(cta.classList.contains('is-locked')){
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    });
+  }
+
   let activeKey = null;
   let glitchTimeout = null;
 
   function showStep(key, hotspotEl){
     const data = STEPS[key];
     if(!data || !reveal) return;
-    reveal.style.setProperty('--reveal-x', `${hotspotEl.dataset.screenX}px`);
-    reveal.style.setProperty('--reveal-y', `${hotspotEl.dataset.screenY}px`);
+    // live position instead of a cached dataset value — cheap enough
+    // to compute on every click, and removes any need to keep a
+    // separate resize listener in sync with it
+    const heroRect = hero.getBoundingClientRect();
+    const dotEl = hotspotEl.querySelector('.process-hotspot-dot') || hotspotEl;
+    const dotRect = dotEl.getBoundingClientRect();
+    reveal.style.setProperty('--reveal-x', `${dotRect.left + dotRect.width / 2 - heroRect.left}px`);
+    reveal.style.setProperty('--reveal-y', `${dotRect.top + dotRect.height / 2 - heroRect.top}px`);
+
+    markLoaded(key, hotspotEl);
 
     revealIndex.textContent = data.index;
     revealTitle.textContent = data.title;
@@ -243,7 +202,7 @@
   }
 
   // ===================================================================
-  // 3. smooth-scrolling hero CTAs (per direct request: "when we scroll
+  // 2. smooth-scrolling hero CTAs (per direct request: "when we scroll
   // on the start a project can we slowly scroll... and not just snap
   // them", "when we click show our work are you able to stick scroll
   // into the live demo section, just like ... scrolling ... naturally")
@@ -268,7 +227,7 @@
   bindSmoothScroll('.process-hero-start');
 
   // ===================================================================
-  // 4. pause the hotspot dots' pulse once the hero scrolls out of view
+  // 3. pause the hotspot dots' pulse once the hero scrolls out of view
   // ===================================================================
   // per direct request: "make the dots stop pulsing when the viewer is
   // in section 2, and when they get back to section 1 they start

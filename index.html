@@ -88,19 +88,18 @@ window.scrollTo(0, 0);
      ============ -->
 <main id="hero" aria-hidden="true">
 
-  <!-- new hero: a photographed background (img/hero/process-hero-bg.jpg)
-       with js/process-hero-slime.js's own liquid-glass metaball layer
-       floating on top of it (same technique as js/hero-slime.js, see
-       that file's own header — a leaner copy, no letter-tracking).
+  <!-- per direct request: "remove the background but keep the elements
+       in place" — the photographed room photo is gone; js/process-hero-
+       slime.js's own liquid-glass metaball layer (previously a subtle
+       accent floating over that photo) is now tuned up to BE the hero
+       visual over a plain dark base, plus a faint film-grain layer
+       (.process-room-grain, same technique used elsewhere on the site)
+       so the dark areas still read as textured, not flat/boring.
        Headline + two CTAs sit in normal document flow, real text this
-       time (see #hero's own comment above this section). The 4 small
-       dot markers already baked into the photo (over the book/stairs/
-       chairs/checkmark) each get a real, keyboard-reachable button on
-       top (.process-hotspot) — --hx/--hy on each one are also read
-       directly by js/process-hero.js to anchor the reveal panel's own
-       radial gradient at whichever one was actually clicked. -->
+       time (see #hero's own comment above this section). -->
   <section id="processRoom" class="process-hero">
     <canvas id="processHeroSlime" class="process-hero-slime" aria-hidden="true"></canvas>
+    <div class="process-room-grain" aria-hidden="true"></div>
 
     <div class="process-hero-copy">
       <h1 class="process-hero-title">Building Websites<br>that Matter</h1>
@@ -108,7 +107,42 @@ window.scrollTo(0, 0);
            that fades out the moment a hotspot is opened and fades back
            in once that step is closed — see process-hero.js's own
            showStep()/hideReveal() for the class toggle -->
-      <p class="process-hero-hint" id="processHeroHint">Touch Dot to Interact</p>
+      <p class="process-hero-hint" id="processHeroHint">Touch Each Dot to Unlock</p>
+    </div>
+
+    <!-- per direct request: "instead of the dots in the position the
+         image had them, have them in a line, that loads every time you
+         click on one, until the last one loads the website then
+         releases the view our work button" — no more image-anchored
+         data-px/data-py (there's no photo left to anchor to); these 4
+         sit in a plain flex line now. Clicking one permanently marks it
+         "loaded" (see process-hero.js's own markLoaded()) and grows
+         .process-hotspot-track-fill by another quarter; once all 4 are
+         loaded, .process-hero-cta's own .is-locked class is lifted. The
+         #1-bigger/cycling-pulse "which one's next" cue (.is-emphasized,
+         still driven by process-hero.js's own updateEmphasis()) is
+         unchanged and still nudges people through 1→2→3→4 in order,
+         it's just this completion-tracking/unlock layer that's new. -->
+    <div class="process-hotspot-line" id="processHotspotLine">
+      <div class="process-hotspot-track" aria-hidden="true">
+        <div class="process-hotspot-track-fill" id="processTrackFill"></div>
+      </div>
+      <button type="button" class="process-hotspot" data-step="discover">
+        <span class="process-hotspot-dot"><span class="process-hotspot-number">1</span></span>
+        <span class="process-hotspot-label">Discover</span>
+      </button>
+      <button type="button" class="process-hotspot" data-step="steps">
+        <span class="process-hotspot-dot"><span class="process-hotspot-number">2</span></span>
+        <span class="process-hotspot-label">Steps</span>
+      </button>
+      <button type="button" class="process-hotspot" data-step="structure">
+        <span class="process-hotspot-dot"><span class="process-hotspot-number">3</span></span>
+        <span class="process-hotspot-label">Structure</span>
+      </button>
+      <button type="button" class="process-hotspot" data-step="delivery">
+        <span class="process-hotspot-dot"><span class="process-hotspot-number">4</span></span>
+        <span class="process-hotspot-label">Delivery</span>
+      </button>
     </div>
 
     <!-- pulled out of .process-hero-copy's centered flow and pinned to
@@ -116,53 +150,13 @@ window.scrollTo(0, 0);
          too close to the Structure hotspot right under the title) —
          positioned with real legroom above the section's own bottom
          edge rather than flush against it, so it doesn't read as
-         crowding the next section either -->
-    <a href="#liveDemoSection" class="process-hero-cta">View our work</a>
+         crowding the next section either. Starts locked (dim, inert —
+         see .process-hero-cta.is-locked in style.css) until all 4 steps
+         above have been opened at least once; process-hero.js's own
+         markLoaded() lifts the lock and plays a one-shot unlock pop. -->
+    <a href="#liveDemoSection" class="process-hero-cta is-locked" id="processHeroCta">View our work</a>
 
     <a href="#quoteSection" class="process-hero-start">Start a project</a>
-
-    <!-- data-px/data-py are the EXACT pixel-detected centers of the
-         DESKTOP photo's (process-hero-bg.jpg, 1536×1024) own baked-in
-         light markers; data-mobile-px/data-mobile-py are the same for
-         the separate MOBILE photo (process-hero-bg-mobile.jpg,
-         941×1672 — a different portrait-framed render, not just a
-         crop, so it needed its own marker pass) — both found by
-         scanning for the brightest pixel in each marker's rough region
-         against the real source file, not eyeballed. A flat CSS
-         percentage can't stay pixel-aligned with a background-size:
-         cover image once the container's aspect ratio differs from the
-         photo's own (it always does, at some viewport size) — see
-         process-hero.js's own positionHotspots(), which picks whichever
-         pair matches the current breakpoint and re-derives each
-         hotspot's real on-screen left/top from those natural
-         coordinates plus that image's actual current cover-fit scale/
-         crop every time the viewport resizes or crosses the mobile
-         breakpoint, so this stays exactly on the marker at any window
-         size rather than just approximately close at one -->
-    <!-- per direct request: "add numbers to the dots... do not want
-         people to get confused" — each dot's own number matches its
-         step order (Discover=1 ... Delivery=4). #1 starts as the
-         bigger, more emphasized pulse (see .is-emphasized in
-         style.css); process-hero.js's own updateEmphasis() moves that
-         emphasis to the next number each time any step is opened, so
-         the "which one's next" cue walks 1→2→3→4→1... as they interact,
-         rather than every dot pulsing identically forever -->
-    <button type="button" class="process-hotspot" data-step="discover" data-px="202" data-py="611" data-mobile-px="208" data-mobile-py="1323">
-      <span class="process-hotspot-dot"><span class="process-hotspot-number">1</span></span>
-      <span class="process-hotspot-label">Discover</span>
-    </button>
-    <button type="button" class="process-hotspot" data-step="steps" data-px="422" data-py="594" data-mobile-px="594" data-mobile-py="1107">
-      <span class="process-hotspot-dot"><span class="process-hotspot-number">2</span></span>
-      <span class="process-hotspot-label">Steps</span>
-    </button>
-    <button type="button" class="process-hotspot" data-step="structure" data-px="873" data-py="591" data-mobile-px="84" data-mobile-py="1059">
-      <span class="process-hotspot-dot"><span class="process-hotspot-number">3</span></span>
-      <span class="process-hotspot-label">Structure</span>
-    </button>
-    <button type="button" class="process-hotspot" data-step="delivery" data-px="1169" data-py="598" data-mobile-px="588" data-mobile-py="894">
-      <span class="process-hotspot-dot"><span class="process-hotspot-number">4</span></span>
-      <span class="process-hotspot-label">Delivery</span>
-    </button>
 
     <div class="process-reveal" id="processReveal" aria-hidden="true">
       <div class="process-reveal-card">

@@ -1,13 +1,17 @@
 /* ===================================================================
    Papi — Process Hero Slime
    A leaner variant of js/hero-slime.js's own metaball glass shader
-   (see that file's own header for the full technique writeup), reused
-   here as a purely decorative, cursor-reactive liquid layer floating
-   over the new Process hero's own background photo. This copy drops
-   everything hero-slime.js only needed for the OLD "Papi" word-riding
-   intro (requestPointSizes/getInwardPush/getPoints/etc.) — nothing
-   here needs to track letters, so it's just: metaball physics + shader
-   + resize + a self-triggered reveal.
+   (see that file's own header for the full technique writeup). Used
+   to be a purely decorative, cursor-reactive liquid layer floating
+   OVER the Process hero's own background photo; per direct request
+   ("remove the background but keep the elements in place") that photo
+   is gone, and this is now tuned up to BE the hero's main visual —
+   bigger blobs, more of them, much higher opacity — over a plain dark
+   base instead of a subtle accent sitting on top of a busy photo. This
+   copy still drops everything hero-slime.js only needed for the OLD
+   "Papi" word-riding intro (requestPointSizes/getInwardPush/getPoints/
+   etc.) — nothing here needs to track letters, so it's just: metaball
+   physics + shader + resize + a self-triggered reveal.
 =================================================================== */
 import * as THREE from './vendor/three.module.min.js';
 
@@ -16,25 +20,21 @@ import * as THREE from './vendor/three.module.min.js';
   if(!canvas) return;
 
   const CONFIG = {
-    numControlPoints: 6,
-    slimeSize: 0.115,
+    numControlPoints: 8,
+    slimeSize: 0.15,
     movementSpeed: 0.22,
     viscosity: 0.93,
     damping: 0.94,
     elasticity: 0.11,
     surfaceTension: 0.10,
     noiseStrength: 0.16,
-    // a touch stronger than the top hero's own 0.12/0.38 — this canvas
-    // sits over a much busier photographed background, so the cursor's
-    // own "moving ripple" needs a slightly bigger, more noticeable pull
-    // to still read against that detail
     mouseForce: 0.16,
     mouseRadius: 0.42,
-    // lower ceiling than the top hero (was 0.92) — this is an accent
-    // floating over a real photo, not the whole visual, so it should
-    // read as a subtle glassy disturbance rather than covering the art
-    opacity: 0.5,
-    highlightIntensity: 0.5,
+    // raised from 0.5 (was a subtle accent over a photo) to 0.88 — this
+    // is the hero's whole visual now, not a disturbance layered over
+    // one, so it needs to actually read as opaque glass
+    opacity: 0.88,
+    highlightIntensity: 0.65,
     edgeSoftness: 0.004,
     mobileQuality: 0.55,
     mobileWidth: 640,
@@ -193,14 +193,22 @@ import * as THREE from './vendor/three.module.min.js';
       color += vec3(0.82, 0.93, 1.0) * spec * (1.6 + uHighlightIntensity);
       color += vec3(1.0, 0.95, 0.82) * sheen * 0.22;
       color = mix(color, vec3(0.8, 0.91, 1.0), rimGlow * 0.62);
-      color *= (0.55 + 0.45*diff);
+      // was (0.55 + 0.45*diff) — over the old bright photo a dim body
+      // still read fine; over the new plain-dark hero bg the same dim
+      // body just disappeared into the black, so the floor's raised to
+      // keep it reading as lit glass rather than a gray smudge
+      color *= (0.72 + 0.28*diff);
 
       float lum = dot(color, vec3(0.299, 0.587, 0.114));
       vec3 goldRef = mix(vec3(0.90, 0.87, 0.80), vec3(1.0, 0.98, 0.94), lum);
       color = mix(color, goldRef, 0.08);
 
-      float bodyAlphaFloor = 0.10;
-      float bodyAlpha = mix(bodyAlphaFloor, 0.92, rimGlow);
+      // was 0.10/0.92 — same reasoning as the diff floor above: a
+      // near-transparent body over black just read as murky gray, not
+      // glass. Raised so this is now the hero's actual visual, not a
+      // faint disturbance layered over a photo.
+      float bodyAlphaFloor = 0.45;
+      float bodyAlpha = mix(bodyAlphaFloor, 0.95, rimGlow);
 
       gl_FragColor = vec4(color, edge*uOpacity*bodyAlpha);
     }
