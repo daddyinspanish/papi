@@ -3,13 +3,26 @@
    Per direct request: "Animate the camera moving forward in 3D while
    scrolling. The movement should feel like a cinematic dolly shot with
    smooth easing. From section to section." A lightweight, reusable
-   scroll-linked depth effect: each major section sits pushed back in Z
-   space (and fractionally smaller) while it's still below or above the
-   viewport's center, and eases forward to its natural size/depth right
-   as it reaches center — so scrolling through the page reads like a
-   camera dollying forward past a sequence of frames, not a flat 2D
-   scroll. Reversible both ways (tied directly to scroll position, same
-   convention as live-demo.js's own updateEntrance), not a one-shot.
+   scroll-linked depth effect: each major section sits fractionally
+   smaller while it's still below or above the viewport's center, and
+   eases up to its natural size right as it reaches center — so
+   scrolling through the page reads like a camera dollying forward past
+   a sequence of frames, not a flat 2D scroll. Reversible both ways
+   (tied directly to scroll position, same convention as live-demo.js's
+   own updateEntrance), not a one-shot.
+
+   This was originally a real CSS 3D effect — `perspective` on <body>
+   plus `translateZ` per section. Per a follow-up bug report ("the form
+   section is coming on top of the FAQ" on mobile), that broke: CSS
+   `perspective` projects from its OWN box's center (50% 50%), and
+   body's box is the full document height, not the viewport — so a
+   section far down a tall page gets visually dragged toward the
+   document's vertical midpoint by translateZ, independent of scroll
+   position, which is exactly what pulled the quote section up on top
+   of FAQ. Plain `scale()` + `translateY()` are anchored to each
+   element's own box instead, so there's no shared vanishing point for
+   sections to fight over — same forward-motion feel, no cross-section
+   coupling.
 
    Pure compositor-only work (only ever sets `transform`, computed from
    each section's own layout-only offsetTop/offsetHeight) — cheap even
@@ -56,10 +69,9 @@
       // falling off toward 0 the further a section is from center in
       // either direction (still approaching, or already receding)
       const closeness = 1 - smoothstep(0, 1, Math.min(dist, 1));
-      const depth = (1 - closeness) * -260;
-      const scale = 0.95 + closeness * 0.05;
+      const scale = 0.92 + closeness * 0.08;
       const y = extraY ? (1 - closeness) * extraY : 0;
-      el.style.transform = `translateZ(${depth.toFixed(1)}px) translateY(${y.toFixed(1)}px) scale(${scale.toFixed(4)})`;
+      el.style.transform = `translateY(${y.toFixed(1)}px) scale(${scale.toFixed(4)})`;
     });
   }
 

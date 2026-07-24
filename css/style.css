@@ -78,12 +78,7 @@ html,body{
    on-screen. Putting it on body alone avoids both: only one element
    ends up with explicit overflow (no competing scroll container), and
    it isn't the root element (no fixed-position bug). */
-/* per direct request: "Animate the camera moving forward in 3D while
-   scrolling... a cinematic dolly shot with smooth easing" — perspective
-   here establishes the shared 3D viewing context js/scroll-dolly.js's
-   per-section translateZ relies on to read as real forward/backward
-   depth instead of a flat scale change. */
-body{ overflow-x:hidden; perspective:1600px; }
+body{ overflow-x:hidden; }
 
 /* will-change promotes each dolly-driven section to its own compositor
    layer up front, so the very first frame the transform actually
