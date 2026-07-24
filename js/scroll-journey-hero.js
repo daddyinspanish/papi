@@ -37,6 +37,20 @@
    dolly", per direct request) — window.PapiDolly.lock/unlock hands
    that element's transform ownership back and forth so the two never
    write to it in the same frame.
+
+   TITLE GLITCH-DISSOLVE — per direct request: "animate 'Building
+   Websites that Matter' into something that turns like a glitch
+   numbers that are like the matrix as the numbers in the back scale,
+   so it can be one immersive flow." The title used to just sit there
+   doing nothing until the plain opacity fade at the very end of the
+   pin — visually disconnected from the matrix-rain canvas scaling up
+   right next to it. Now each character of the title is individually
+   swappable (split into spans once, up front) and, as the SAME pin
+   scrubs, progressively flickers into a random matrix digit and fades
+   away, staggered left-to-right like the rain's own falling columns —
+   timed to finish right as the canvas itself scales up, so the title
+   reads as dissolving INTO the same rain rather than fading on its
+   own, unconnected from it.
 =================================================================== */
 (function(){
   if(!window.gsap || !window.ScrollTrigger) return;
@@ -47,6 +61,59 @@
   if(!processRoom || !matrixCanvas || !heroCopy) return;
 
   gsap.registerPlugin(ScrollTrigger);
+
+  // ---- split the title into individually-swappable characters, once,
+  // up front — harmless even under reduced motion (same text, same
+  // layout, just wrapped in spans), so this stays a single top-level
+  // step rather than being duplicated per matchMedia breakpoint below.
+  // Spaces are left as plain text nodes (never glitched into a digit,
+  // which would visually read as a stray floating number) ----
+  const titleEl = heroCopy.querySelector('.process-hero-title');
+  const GLITCH_DIGITS = '0123456789';
+  let titleChars = [];
+  if(titleEl){
+    const lines = titleEl.innerHTML.split(/<br\s*\/?>/i);
+    titleEl.innerHTML = lines
+      .map((line) => Array.from(line).map((ch) => (ch === ' ' ? ' ' : `<span class="hero-title-char" data-char="${ch}">${ch}</span>`)).join(''))
+      .join('<br>');
+    titleChars = Array.from(titleEl.querySelectorAll('.hero-title-char'));
+  }
+
+  function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+
+  // maps the pin's own 0-1 progress into a local glitch window that
+  // leads/overlaps the canvas-scale tween just below (0.4-0.75) so the
+  // title has fully dissolved right as the canvas's own zoom is really
+  // taking off. Per-character stagger (a sweep, not every letter
+  // glitching in lockstep) is driven purely by index — no separate
+  // timer loop, matching this site's "everything driven by scroll"
+  // convention already used by js/hero-matrix.js's own per-frame
+  // digit randomization.
+  const GLITCH_START = 0.28, GLITCH_END = 0.7;
+  const STAGGER_SPAN = 2.5; // how many characters' worth of overlap are "in flight" at once
+  function updateTitleGlitch(progress){
+    if(!titleChars.length) return;
+    const raw = clamp01((progress - GLITCH_START) / (GLITCH_END - GLITCH_START));
+    const n = titleChars.length;
+    titleChars.forEach((span, i) => {
+      const start = i / n;
+      const end = start + STAGGER_SPAN / n;
+      const t = clamp01((raw - start) / (end - start));
+      if(t <= 0){
+        span.textContent = span.dataset.char;
+        span.style.opacity = '1';
+        span.classList.remove('is-glitching');
+        return;
+      }
+      if(t >= 1){
+        span.style.opacity = '0';
+        return;
+      }
+      span.classList.add('is-glitching');
+      span.textContent = Math.random() < t ? GLITCH_DIGITS[(Math.random() * 10) | 0] : span.dataset.char;
+      span.style.opacity = String(1 - t * 0.35);
+    });
+  }
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(prefersReducedMotion) return;
@@ -76,6 +143,7 @@
         onEnter: () => window.PapiDolly && window.PapiDolly.lock('processRoom'),
         onEnterBack: () => window.PapiDolly && window.PapiDolly.lock('processRoom'),
         onLeaveBack: () => window.PapiDolly && window.PapiDolly.unlock('processRoom'),
+        onUpdate: (self) => updateTitleGlitch(self.progress),
       },
     });
 

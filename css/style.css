@@ -2446,6 +2446,26 @@ body, a{ cursor:none; }
   0%, 100%{ background-position:0% 50%; }
   50%{ background-position:100% 50%; }
 }
+/* per direct request: "animate 'Building Websites that Matter' into
+   something that turns like a glitch numbers that are like the matrix
+   as the numbers in the back scale, so it can be one immersive flow" —
+   js/scroll-journey-hero.js splits the title into these spans and
+   scrubs them between their real letter and a random matrix digit as
+   the hero's own portal pin scrolls. is-glitching overrides the
+   title's own gradient text-fill (see .process-hero-title above) with
+   a flat aqua matching js/hero-matrix.js's own head-character color,
+   so a glitching character visually pops out of the metallic gradient
+   and reads as becoming one of the falling digits behind it, instead
+   of just fading out on its own. */
+.hero-title-char{
+  display:inline-block;
+}
+.hero-title-char.is-glitching{
+  background:none;
+  -webkit-text-fill-color:#8ff2ff;
+  color:#8ff2ff;
+  text-shadow:0 0 6px rgba(143,242,255,.85), 0 0 16px rgba(122,221,255,.6);
+}
 /* per direct request: "dissolve the title" while a step is open — a
    soft fade/blur/lift out, not just a plain opacity cut */
 .process-hero-title.is-dissolved{

@@ -54,11 +54,6 @@
   // lazy-load, swipe) is built from this array
   const DEMOS = [
     {
-      name: 'Atlas Relocation Co.',
-      industry: 'Moving & Relocation',
-      url: 'https://moving-website-three.vercel.app',
-    },
-    {
       name: 'Velocity Tire Co.',
       industry: 'Tires & Auto Performance',
       url: 'https://velocity-tire-co.vercel.app',
@@ -67,6 +62,11 @@
       name: 'Haverstone Remodeling',
       industry: 'Home Remodeling',
       url: 'https://haverstone-remodeling.vercel.app',
+    },
+    {
+      name: 'Atlas Relocation Co.',
+      industry: 'Moving & Relocation',
+      url: 'https://moving-website-three.vercel.app',
     },
   ];
 
@@ -117,17 +117,36 @@
     cards[clamped].scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
   }
 
-  // ---- start every card's iframe loading once the section is within
-  // a generous lead distance of the viewport — see this file's header
-  // comment for why this is proximity-gated now instead of firing
-  // unconditionally on every page load ----
-  function loadAllCards(){
-    cards.forEach(card=>{
-      const iframe = card.querySelector('iframe');
-      if(!iframe || !iframe.dataset.src) return;
-      iframe.addEventListener('load', ()=> card.classList.add('is-loaded'), { once:true });
-      iframe.src = iframe.dataset.src;
-    });
+  // ---- start a single card's iframe loading once the section is
+  // within a generous lead distance of the viewport — see this file's
+  // header comment for why this is proximity-gated now instead of
+  // firing unconditionally on every page load ----
+  //
+  // FURTHER BUG FIX: per follow-up report, "if i want to refresh it the
+  // second time, that is when i get the black screen" — this used to
+  // load ALL 3 demos' iframes at once (loadAllCards()), even though the
+  // swipeable stack only ever shows ONE of them at a time. Two full
+  // external websites were sitting fully loaded in memory the entire
+  // time doing nothing but running their own background JS, for every
+  // single visit. That's 3x the memory footprint the fix above already
+  // targeted, for no visible benefit — and matches the "not the first
+  // refresh, but the one after" pattern exactly: WebKit doesn't
+  // necessarily reclaim 100% of a heavy page's peak memory the instant
+  // it navigates away, so a second reload's own peak, stacked on
+  // whatever the first reload's process hadn't fully released yet, is
+  // what tips it over the ceiling. Loading only the active card (and
+  // the next one on-demand, right as the visitor actually swipes
+  // toward it — see updateActive() below) cuts the steady-state
+  // footprint to one external site instead of three.
+  function loadCard(i){
+    const card = cards[i];
+    if(!card) return;
+    const iframe = card.querySelector('iframe');
+    if(!iframe || !iframe.dataset.src) return;
+    const src = iframe.getAttribute('src');
+    if(src && src !== 'about:blank') return; // already loading/loaded
+    iframe.addEventListener('load', ()=> card.classList.add('is-loaded'), { once:true });
+    iframe.src = iframe.dataset.src;
   }
   function startPreloadWatch(){
     // 150% of the viewport height ahead is comfortably more lead time
@@ -139,7 +158,7 @@
     const preloadIO = new IntersectionObserver((entries) => {
       if(!entries[0].isIntersecting) return;
       preloadIO.disconnect();
-      loadAllCards();
+      loadCard(activeIndex);
     }, { rootMargin: '0px 0px 150% 0px' });
     preloadIO.observe(section);
   }
@@ -164,11 +183,12 @@
     }
   } else {
     // no IntersectionObserver support — fall back to the old
-    // unconditional page-load timer rather than never loading at all
+    // unconditional page-load timer rather than never loading at all,
+    // still only the active card rather than all of them
     if(document.readyState === 'complete'){
-      setTimeout(loadAllCards, 400);
+      setTimeout(()=> loadCard(activeIndex), 400);
     } else {
-      window.addEventListener('load', ()=> setTimeout(loadAllCards, 400));
+      window.addEventListener('load', ()=> setTimeout(()=> loadCard(activeIndex), 400));
     }
   }
 
@@ -183,30 +203,26 @@
   // actually stop that work once the visitor has moved on.
   //
   // This intentionally does NOT touch anything before the section's
-  // first-ever visit: loadAllCards() above already deliberately starts
-  // loading both sites well ahead of scroll arrival so neither one
-  // ever shows its "Loading live site…" placeholder right as it
-  // scrolls in. The section starts off-screen below the fold, so this
-  // observer's very first reading is "not intersecting" — reacting to
-  // that would blank the iframes before the visitor ever arrives and
-  // bring back exactly the loading flash this was built to avoid. The
-  // hasBeenVisible guard makes sure pausing only ever happens on a
-  // real "was visible, now scrolled away" transition.
+  // first-ever visit: startPreloadWatch()/loadCard() above already
+  // deliberately starts loading the active card well ahead of scroll
+  // arrival so it never shows its "Loading live site…" placeholder
+  // right as it scrolls in. The section starts off-screen below the
+  // fold, so this observer's very first reading is "not intersecting"
+  // — reacting to that would blank the iframe before the visitor ever
+  // arrives and bring back exactly the loading flash this was built to
+  // avoid. The hasBeenVisible guard makes sure pausing only ever
+  // happens on a real "was visible, now scrolled away" transition.
+  //
+  // Only re-loads cards[activeIndex] on return, not every card — see
+  // loadCard()'s own comment for why this only ever keeps one demo's
+  // iframe alive at a time now.
   if('IntersectionObserver' in window){
     let hasBeenVisible = false;
     const visibilityIO = new IntersectionObserver((entries)=>{
       const isVisible = entries[0].isIntersecting;
       if(isVisible){
         hasBeenVisible = true;
-        cards.forEach(card=>{
-          const iframe = card.querySelector('iframe');
-          if(!iframe || !iframe.dataset.src) return;
-          if(iframe.getAttribute('src') === 'about:blank'){
-            card.classList.remove('is-loaded');
-            iframe.addEventListener('load', ()=> card.classList.add('is-loaded'), { once:true });
-            iframe.src = iframe.dataset.src;
-          }
-        });
+        loadCard(activeIndex);
         return;
       }
       if(!hasBeenVisible) return;
@@ -223,7 +239,13 @@
     visibilityIO.observe(section);
   }
 
-  // ---- whichever card sits centered in the stack gets the active dot ----
+  // ---- whichever card sits centered in the stack gets the active dot,
+  // and — per the memory-footprint fix above — is the one whose iframe
+  // actually gets loaded. Firing loadCard() here means a swipe toward a
+  // not-yet-loaded neighbor starts it loading right as the drag begins
+  // (updateActive() runs on every scroll frame during the swipe, well
+  // before it settles on the new card), not only once the swipe has
+  // already finished. ----
   let activeIndex = 0;
   function updateActive(){
     if(n <= 1) return;
@@ -238,6 +260,7 @@
     if(closest === activeIndex) return;
     activeIndex = closest;
     dots.forEach((dot, i)=> dot.classList.toggle('is-active', i === activeIndex));
+    loadCard(activeIndex);
   }
   if(dots[0]) dots[0].classList.add('is-active');
 
