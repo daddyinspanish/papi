@@ -139,10 +139,15 @@ window.scrollTo(0, 0);
           </svg>
         </a>
         <a href="#" class="process-hero-social-link" aria-label="Papi on TikTok">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M9 18V5l10-2v13"/>
-            <circle cx="6" cy="18" r="3"/>
-            <circle cx="16" cy="16" r="3"/>
+          <!-- per direct report: "one of them looks like a music
+               symbol, it's supposed to be TikTok" — that was a generic
+               two-eighth-notes glyph (any "music" icon, not specific to
+               any platform); this is the actual TikTok logo mark
+               itself (single fill path, so it stays recognizable),
+               just recolored to currentColor so it still sits inside
+               the same monochrome glass-pill treatment as the other two -->
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M16.6 5.82c-.9-.78-1.47-1.9-1.53-3.16h-2.62v13.02c0 1.4-1.14 2.54-2.54 2.54a2.54 2.54 0 0 1 0-5.08c.24 0 .47.03.69.1V10.6a5.2 5.2 0 0 0-.69-.05 5.17 5.17 0 0 0-5.17 5.17 5.17 5.17 0 0 0 5.17 5.17 5.17 5.17 0 0 0 5.17-5.17V9.01a7.66 7.66 0 0 0 4.32 1.33V7.71c-.94 0-1.87-.32-2.6-.9-.14-.11-.27-.25-.4-.99z"/>
           </svg>
         </a>
         <a href="#" class="process-hero-social-link" aria-label="Papi on YouTube">
@@ -202,7 +207,15 @@ window.scrollTo(0, 0);
   </div>
   <div class="live-demo-inner">
     <p class="live-demo-eyebrow">See It Live</p>
-    <h2 class="live-demo-title">Not a screenshot. <em>The real site.</em></h2>
+    <!-- per direct request: "make the word Screenshot be animated like
+         a white flash, so it can look like someone just took a
+         picture" — js/live-demo.js's own visibilityIO adds
+         .is-flashing to this span the first time the section actually
+         scrolls into view (same "arrival" moment that also triggers
+         the live-demo cards' own TV-power-on animation below), so the
+         word itself flashes bright white once, like a camera catching
+         the moment you arrive, then settles back to its normal color. -->
+    <h2 class="live-demo-title">Not a <span class="live-demo-flash-word" id="liveDemoFlashWord">screenshot</span>. <em>The real site.</em></h2>
     <p class="live-demo-sub">Scroll inside the window below — it's the actual live website, not a mockup.</p>
     <div class="live-demo-stack" id="liveDemoStack"></div>
     <div class="live-demo-controls" id="liveDemoControls">
