@@ -47,9 +47,11 @@
     fontSizeMobile: 13,
     mobileWidth: 640,
     // per direct request: "make sure that you can speed up the matrix
-    // effect" — roughly 1.7x the old 0.28-0.72 range. renderFPS bumped
-    // alongside it (22 -> 28) so the larger per-frame y-jump this
-    // implies still reads as smooth motion rather than choppy steps.
+    // effect" — roughly 1.7x the old 0.28-0.72 range. Speeds below are
+    // "rows per ideal 60fps frame" — renderFrame() below scales the
+    // actual step by real elapsed time (see BUG FIX further down), so
+    // this reads as smooth motion at any render cadence instead of
+    // choppy steps.
     speedMin: 0.48,
     speedMax: 1.25,
     streamMin: 6,
@@ -127,7 +129,7 @@
   }
   watchDpr();
 
-  function renderFrame(){
+  function renderFrame(steps){
     ctx.clearRect(0, 0, W, H);
     const maxRow = H / rowH;
 
@@ -150,7 +152,7 @@
         ctx.fillText(ch, col.x, py);
       }
 
-      col.y += col.speed;
+      col.y += col.speed * steps;
       if(col.y - col.length > maxRow){
         col.y = -randRange(0, 20);
         col.speed = randRange(CONFIG.speedMin, CONFIG.speedMax);
@@ -164,7 +166,7 @@
   if(prefersReducedMotion){
     // one static frame, no falling motion, matching this site's usual
     // reduced-motion treatment elsewhere
-    renderFrame();
+    renderFrame(0);
     return;
   }
 
@@ -173,14 +175,33 @@
   // on-screen or the tab itself isn't visible, so this doesn't keep
   // burning CPU/battery for the rest of the session once scrolled past.
   const RENDER_INTERVAL = 1000 / CONFIG.renderFPS;
+  // BUG FIX: per report, "the speed of the matrix is very choppy now" —
+  // renderFrame() used to advance every column by a fixed `col.speed`
+  // per CALL, not per unit of real time. requestAnimationFrame doesn't
+  // fire at exact RENDER_INTERVAL boundaries (e.g. a 28fps target
+  // doesn't divide evenly into a real 60Hz/120Hz display's frame
+  // timing), so the actual gap between renders already varied a little
+  // frame to frame — harmless at the old, smaller speed values, but the
+  // larger step size from speeding the rain up made that same timing
+  // variance read as visible stutter. `steps` below is real elapsed time
+  // expressed in units of "one ideal 60fps frame", so however long
+  // actually passed since the last render, the rain covers the
+  // proportionally correct distance — smooth regardless of jitter in
+  // exactly when a throttled frame fires. Capped so resuming after the
+  // tab/hero was hidden for a while doesn't jump the rain forward in one
+  // big leap.
+  const REFERENCE_FRAME_MS = 1000 / 60;
+  const MAX_STEPS = 4;
   let lastRenderTs = 0;
   let rafId = null;
   let isHeroVisible = true;
 
   function loop(ts){
     if(ts - lastRenderTs >= RENDER_INTERVAL){
+      const dt = lastRenderTs ? ts - lastRenderTs : REFERENCE_FRAME_MS;
       lastRenderTs = ts;
-      renderFrame();
+      const steps = Math.min(dt / REFERENCE_FRAME_MS, MAX_STEPS);
+      renderFrame(steps);
     }
     rafId = requestAnimationFrame(loop);
   }

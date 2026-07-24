@@ -30,6 +30,20 @@
    which would reflect this same transform already applied and create a
    feedback loop against itself frame to frame.
 
+   BUG FIX: per report, "the last sections... look like they are out of
+   place, there is space between all of them" — the scale-down half of
+   this effect (0.92 -> 1.0 as a section approached viewport center) was
+   the cause. `scale()` shrinks a box toward its own center WITHOUT
+   changing its layout footprint, so any section that wasn't at the
+   exact instant of full center-arrival (which is almost always true,
+   since only one section is ever centered at a time) pulled its own
+   edges inward, revealing a strip of the plain page background between
+   it and its neighbor — worse wherever the neighboring sections'
+   background colors didn't match (e.g. the FAQ section's flat black
+   next to the quote section's animated blue gradient). Removed the
+   scale entirely below; only the plain arrival fade/translate a
+   section already has on its own content remains.
+
    Per the GSAP ScrollTrigger cinematic journey built on top of this
    (js/scroll-journey-*.js): #liveDemoSection and #ourProcessSection are
    no longer listed below at all — their whole depth-motion is now
@@ -109,15 +123,16 @@
     const viewportCenter = window.scrollY + vh / 2;
     SECTIONS.forEach(({ id, el, extraY })=>{
       if(locked.has(id)) return;
+      if(!extraY){ el.style.transform = ''; return; }
       const mid = el.offsetTop + el.offsetHeight / 2;
       const dist = Math.abs(viewportCenter - mid) / (vh * 0.9);
-      // 1 right at viewport center (fully "arrived" — neutral, sharp),
-      // falling off toward 0 the further a section is from center in
-      // either direction (still approaching, or already receding)
+      // 1 right at viewport center (fully "arrived"), falling off
+      // toward 0 the further a section is from center in either
+      // direction (still approaching, or already receding) — translate
+      // only, no scale (see the BUG FIX note up top for why)
       const closeness = 1 - smoothstep(0, 1, Math.min(dist, 1));
-      const scale = 0.92 + closeness * 0.08;
-      const y = extraY ? (1 - closeness) * extraY : 0;
-      el.style.transform = `translateY(${y.toFixed(1)}px) scale(${scale.toFixed(4)})`;
+      const y = (1 - closeness) * extraY;
+      el.style.transform = `translateY(${y.toFixed(1)}px)`;
     });
   }
 
