@@ -51,6 +51,17 @@
    timed to finish right as the canvas itself scales up, so the title
    reads as dissolving INTO the same rain rather than fading on its
    own, unconnected from it.
+
+   BUG FIX (follow-up request): "instead of the numbers just moving
+   towards the right side, make the effect make the characters fall
+   like the matrix effect. also make sure the title scales as well
+   like the matrix in the background." Two changes: each character now
+   gets its own downward translateY (quadratic ease-in, a gravity feel)
+   as it glitches out, instead of only flickering/fading in place —
+   reads as dropping into the rain below rather than just sliding
+   sideways. And the title element itself now scales up in the SAME
+   0.4-0.75 window as the matrix canvas's own scale tween just below,
+   so the two zoom in lockstep instead of only the background moving.
 =================================================================== */
 (function(){
   if(!window.gsap || !window.ScrollTrigger) return;
@@ -91,6 +102,11 @@
   // digit randomization.
   const GLITCH_START = 0.28, GLITCH_END = 0.7;
   const STAGGER_SPAN = 2.5; // how many characters' worth of overlap are "in flight" at once
+  // how far a character falls once fully dissolved, in its own font-size
+  // units (em) so it scales with the title's own clamp()'d font-size —
+  // t*t (quadratic ease-in) reads as gravity picking up speed, not a
+  // constant-velocity slide
+  const FALL_DISTANCE_EM = 1.8;
   function updateTitleGlitch(progress){
     if(!titleChars.length) return;
     const raw = clamp01((progress - GLITCH_START) / (GLITCH_END - GLITCH_START));
@@ -102,16 +118,19 @@
       if(t <= 0){
         span.textContent = span.dataset.char;
         span.style.opacity = '1';
+        span.style.transform = '';
         span.classList.remove('is-glitching');
         return;
       }
       if(t >= 1){
         span.style.opacity = '0';
+        span.style.transform = `translateY(${FALL_DISTANCE_EM}em)`;
         return;
       }
       span.classList.add('is-glitching');
       span.textContent = Math.random() < t ? GLITCH_DIGITS[(Math.random() * 10) | 0] : span.dataset.char;
       span.style.opacity = String(1 - t * 0.35);
+      span.style.transform = `translateY(${(t * t * FALL_DISTANCE_EM).toFixed(3)}em)`;
     });
   }
 
@@ -157,6 +176,23 @@
       duration: 0.35,
       ease: 'none',
     }, 0.4);
+
+    // per direct follow-up request ("make sure the title scales as
+    // well like the matrix in the background") — same 0.4-0.75 window
+    // as the canvas tween just above, so the title zooms in lockstep
+    // with it rather than only the background moving. A smaller target
+    // than the canvas's own 2.6/1.6 (this is foreground text already
+    // mid-dissolve via updateTitleGlitch, not a background layer —
+    // scaling it as aggressively would fight the falling-away motion
+    // instead of reading as one continuous zoom)
+    if(titleEl){
+      tl.to(titleEl, {
+        scale: isDesktop ? 1.8 : 1.4,
+        transformOrigin: '50% 50%',
+        duration: 0.35,
+        ease: 'none',
+      }, 0.4);
+    }
 
     // hero text fades ONLY in the last 22% — not a whole-section
     // crossfade, per direct request. Stays faded once the pin releases
