@@ -122,10 +122,20 @@ body, a{ cursor:none; }
    forever, with "Papi" floating inside it — see js/hero-slime.js's own
    header — now confined to .hero-visual-col instead of the whole
    section (see below). */
+/* BUG FIX: per report, "a big white bar sitting on the very top of the
+   entire page" in mobile Safari on load. Root cause: this was still
+   background:#ffffff, a leftover from a much older hero design (see
+   the file-header comment above about "the hero background is a
+   static white+bokeh now") that never got updated when the hero moved
+   to today's all-dark theme. It stayed invisible for a long time since
+   #processRoom (this element's only child) fully covers it at the same
+   height — but js/scroll-journey-hero.js's GSAP pin now replaces
+   #processRoom with a transparent .pin-spacer inside this exact
+   element, which is what finally exposed the stale white underneath. */
 #hero{
   position:relative;
   width:100%;
-  background:#ffffff;
+  background:#07060a;
   visibility:hidden;
   opacity:0;
   transition:opacity 1.6s var(--ease-in-out);
