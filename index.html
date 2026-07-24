@@ -303,38 +303,30 @@ window.scrollTo(0, 0);
   </div>
 </section>
 
-<!-- ============ TRADES — a small, continuously scrolling strip of the
-     industries Papi designs for, sitting right below the live demos.
-     Replaces the old fan-of-preview-cards showcase section entirely
-     (removed per direct request) — keeps only the scrolling trade-name
-     list from that section, now a compact ambient strip instead of its
-     own tall scroll-jacked section. Pure CSS marquee, no JS at all —
-     see .trades-track's own comment in style.css for how the seamless
-     loop works. Trade names listed twice (second copy aria-hidden) is
-     the standard marquee technique, not a mistake. ============ -->
+<!-- ============ TRADES — the industries Papi designs for, sitting right
+     below the live demos. REWORKED per direct follow-up request ("are we
+     able to make an effect for the Industries we design for, rather than
+     a scroll?") from a continuously auto-scrolling marquee to a
+     staggered fade-in grid of chips: each one rises/fades in on its own
+     slight delay as the section enters view (reusing js/scroll-reveal.js's
+     existing one-shot IntersectionObserver — the same [data-reveal]
+     mechanism already used sitewide, not a new system), then just sits
+     still. No auto-playing motion at all once revealed, which also
+     sidesteps the marquee's own inherent readability trade-off (words
+     endlessly sliding by are harder to actually read than a settled
+     grid). Wraps naturally via flex-wrap, so it reflows into more rows
+     on narrow/mobile widths with no separate mobile-specific markup. ============ -->
 <section class="trades-section" id="tradesSection">
   <p class="trades-label" data-reveal="fade">Industries we design for</p>
-  <div class="trades-track">
-    <div class="trades-track-group">
-      <span class="trades-item">Roofing</span>
-      <span class="trades-item">Dentists</span>
-      <span class="trades-item">Plumbers</span>
-      <span class="trades-item">Electricians</span>
-      <span class="trades-item">Real Estate</span>
-      <span class="trades-item">Law Firms</span>
-      <span class="trades-item">Restaurants</span>
-      <span class="trades-item">Fitness Studios</span>
-    </div>
-    <div class="trades-track-group" aria-hidden="true">
-      <span class="trades-item">Roofing</span>
-      <span class="trades-item">Dentists</span>
-      <span class="trades-item">Plumbers</span>
-      <span class="trades-item">Electricians</span>
-      <span class="trades-item">Real Estate</span>
-      <span class="trades-item">Law Firms</span>
-      <span class="trades-item">Restaurants</span>
-      <span class="trades-item">Fitness Studios</span>
-    </div>
+  <div class="trades-grid">
+    <span class="trades-chip" data-reveal data-reveal-delay="0">Roofing</span>
+    <span class="trades-chip" data-reveal data-reveal-delay="70">Dentists</span>
+    <span class="trades-chip" data-reveal data-reveal-delay="140">Plumbers</span>
+    <span class="trades-chip" data-reveal data-reveal-delay="210">Electricians</span>
+    <span class="trades-chip" data-reveal data-reveal-delay="280">Real Estate</span>
+    <span class="trades-chip" data-reveal data-reveal-delay="350">Law Firms</span>
+    <span class="trades-chip" data-reveal data-reveal-delay="420">Restaurants</span>
+    <span class="trades-chip" data-reveal data-reveal-delay="490">Fitness Studios</span>
   </div>
 </section>
 
