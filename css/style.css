@@ -83,7 +83,7 @@ body{ overflow-x:hidden; }
 /* will-change promotes each dolly-driven section to its own compositor
    layer up front, so the very first frame the transform actually
    changes doesn't cause a paint hitch */
-#processRoom, #liveDemoSection, #ourProcessSection, #tradesSection,
+#processRoom, #liveDemoSection, #ourProcessSection,
 #comparisonSection, #testimonialsSection, #faqSection, #quoteSection{
   will-change:transform;
 }
@@ -909,99 +909,13 @@ body, a{ cursor:none; }
    behavior:'smooth'}) directly instead — that's a one-off, self-contained
    animation per click rather than a standing page-wide property, so it
    doesn't fight ScrollTrigger's own scroll handling the same way. */
-/* ============ TRADES — the industries Papi designs for. Replaces the
-   old showcase section (a huge scroll-jacked fan-card carousel, ~500
-   lines of CSS) entirely, per direct request — keeps only the trade-
-   name list. REWORKED per direct follow-up request ("are we able to
-   make an effect for the Industries we design for, rather than a
-   scroll?") from a continuously auto-scrolling marquee to a settled,
-   wrapping grid of chips that stagger-reveal once via
-   js/scroll-reveal.js's existing [data-reveal] system (see index.html's
-   own comment on this section for the full reasoning). Same dark solid
-   tone as the live-demo and comparison sections either side of it, so
-   the whole stretch still reads as one continuous dark zone. ============ */
-.trades-section{
-  position:relative;
-  z-index:1;
-  /* per direct request: "there also seems to be waves around some
-     sections, looks like they are like gradient layers, please remove
-     that from all sections" — was a radial-gradient ellipse peaking at
-     top-center; every section down the page had its own copy of this,
-     so scrolling past each one's own bright-center/dark-edge boundary
-     read as a repeating wave. Flattened to the same solid tone the old
-     gradient's own darkest stop already used, so the overall darkness
-     is unchanged but there's no curvature left to read as a wave */
-  background:#07060a;
-  padding:clamp(1.6rem, 4vw, 2.4rem) 0;
-}
-.trades-label{
-  text-align:center;
-  font-size:.7rem;
-  font-weight:600;
-  letter-spacing:.32em;
-  text-transform:uppercase;
-  color:rgba(243,237,226,.45);
-  margin:0 0 clamp(1rem, 2.5vw, 1.4rem);
-}
-/* flex-wrap (not the marquee's old width:max-content single row) is
-   what makes this reflow into more rows on narrow/mobile widths for
-   free, with no separate mobile breakpoint needed */
-.trades-grid{
-  display:flex;
-  flex-wrap:wrap;
-  align-items:center;
-  justify-content:center;
-  gap:clamp(.55rem, 2vw, .85rem);
-  max-width:56rem;
-  margin:0 auto;
-  padding:0 clamp(1.2rem, 5vw, 2rem);
-}
-/* per direct request: "make the industry marque, the words be more
-   brighter and NEON" — bright cyan with a layered text-shadow glow
-   (tight inner + soft wide outer, the standard neon-sign technique).
-   Per direct follow-up feedback ("the words are flickering too much...
-   make sure that's less distracting") this stays a steady glow, no
-   flicker keyframe — reads as bright/neon without adding motion.
-   Each chip gets its own pill outline now (border+tint background)
-   since, unwrapped from the marquee's single scrolling line, a plain
-   word floating on its own read as less deliberate than a contained
-   shape — no backdrop-filter per this project's own established rule
-   against it, just a flat rgba tint. */
-.trades-chip{
-  font-family:'Fraunces', serif;
-  font-style:italic;
-  font-weight:400;
-  font-size:clamp(.95rem, 2.4vw, 1.25rem);
-  color:#8ff2ff;
-  text-shadow:
-    0 0 4px rgba(143,242,255,.9),
-    0 0 12px rgba(122,221,255,.75),
-    0 0 26px rgba(122,221,255,.5),
-    0 0 46px rgba(87,180,255,.35);
-  white-space:nowrap;
-  padding:.5rem clamp(1rem, 3vw, 1.4rem);
-  border:1px solid rgba(143,242,255,.32);
-  border-radius:999px;
-  background:rgba(143,242,255,.06);
-  transition:border-color .3s ease, background-color .3s ease, transform .3s ease;
-}
-/* hover:hover excludes touchscreens, where a "hover" state would
-   otherwise stick after a tap with nothing to un-hover it */
-@media (hover:hover) and (pointer:fine){
-  .trades-chip:hover{
-    border-color:rgba(143,242,255,.65);
-    background-color:rgba(143,242,255,.12);
-    transform:translateY(-2px);
-  }
-}
-
 /* ===================================================================
    SCROLL REVEAL — per direct request: "add more creative animation to
    every section so it feels like an immersive flow." js/scroll-
    reveal.js toggles .is-revealed once each [data-reveal] element
    scrolls into view (one-shot, via IntersectionObserver). Plain
    data-reveal is a fade+rise; data-reveal="fade" is opacity-only (for
-   things like the trades label, where a rising label reads oddly);
+   an eyebrow/label, where a rising label reads oddly);
    data-reveal-delay (ms, applied as an inline transition-delay by the
    JS itself) staggers a group of these within the same section.
    Per direct follow-up feedback ("animations feel too stacked, make
@@ -1989,10 +1903,10 @@ body, a{ cursor:none; }
 
 /* the business/industry field — a native <select> (its options scroll
    on both a phone's native wheel picker and a desktop dropdown) rather
-   than a free-text field, so a visitor picks their trade from the same
-   list the trades-section strip uses instead of typing it out. Selects
-   don't support :placeholder-shown, so the floated-label state is
-   driven by a .has-value class toggled in quote-form.js instead. */
+   than a free-text field, so a visitor picks their trade from a fixed
+   list instead of typing it out. Selects don't support
+   :placeholder-shown, so the floated-label state is driven by a
+   .has-value class toggled in quote-form.js instead. */
 .quote-field--select select{
   appearance:none;
   -webkit-appearance:none;

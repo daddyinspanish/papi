@@ -64,7 +64,6 @@
   // descend" used to).
   const SECTIONS = [
     { id: 'processRoom' },
-    { id: 'tradesSection' },
     { id: 'comparisonSection' },
     { id: 'testimonialsSection' },
     { id: 'faqSection' },
