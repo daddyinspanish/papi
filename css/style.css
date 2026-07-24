@@ -2260,6 +2260,11 @@ body, a{ cursor:none; }
      edges, which matters much less here where the card itself needs
      to be as wide as possible (see .live-demo-card below) */
   padding:.5rem clamp(1rem, 4vw, 3rem) 1.5rem;
+  /* local perspective for js/scroll-journey-hero.js's browser-frame
+     entrance (translateZ/rotationX on .live-demo-browser) — kept HERE,
+     local to this one stack, never on <body> (see .process-stage's own
+     comment on the perspective bug that caused earlier this session) */
+  perspective:1200px;
 }
 .live-demo-stack::-webkit-scrollbar{ display:none; }
 
@@ -2463,6 +2468,33 @@ body, a{ cursor:none; }
   flex-direction:column;
   align-items:center;
   justify-content:center;
+}
+/* per direct request for a GSAP ScrollTrigger cinematic hero->live-demo
+   portal — see js/scroll-journey-hero.js's own long comment for why
+   this is a lightweight clone of just the browser chrome bar (no
+   iframe) appended inside #processRoom itself, rather than the real
+   .live-demo-browser element. Visual values match .live-demo-browser's
+   own CSS exactly for a seamless look. */
+.process-portal-ghost{
+  position:absolute;
+  inset:0;
+  margin:auto;
+  z-index:6;
+  width:min(90vw, 900px);
+  height:min(65vh, 540px);
+  display:flex;
+  flex-direction:column;
+  border-radius:16px;
+  overflow:hidden;
+  background:#0d0d10;
+  border:1px solid rgba(122,221,255,.16);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
+  pointer-events:none;
+  will-change:transform, clip-path;
+}
+.process-portal-ghost-body{
+  flex:1;
+  background:#0d0d10;
 }
 /* per direct request: a falling-numbers matrix rain running
    continuously as the hero's whole background visual (js/hero-
@@ -2985,6 +3017,65 @@ body, a{ cursor:none; }
   color:rgba(243,237,226,.68);
   font-size:1rem;
   line-height:1.5;
+}
+
+/* per direct request for a GSAP ScrollTrigger cinematic journey — the
+   pinned 400vh depth-travel stage for the 4 process steps (see
+   js/scroll-journey-process.js, which builds the 4 .process-panel
+   children from window.PapiSteps and drives their transform every
+   scroll frame). perspective lives HERE, local to this one stage —
+   never on <body> — after perspective on <body> caused a real bug
+   earlier this session (translateZ projected from the document's
+   vertical midpoint instead of the viewport, dragging the quote
+   section up on top of FAQ on mobile). Panel typography reuses the
+   existing .process-reveal-icon/-index/-title/-text classes directly
+   (same premium metallic-title treatment, no new type rules needed) —
+   only the card chrome itself (background/border/shadow, matching
+   .live-demo-browser's own values for consistency) is new here. */
+.process-stage{
+  position:relative;
+  width:100%;
+  max-width:1100px;
+  height:clamp(360px, 48vh, 480px);
+  margin-top:clamp(2rem, 5vh, 3.5rem);
+  perspective:1400px;
+}
+.process-stage-glow{
+  position:absolute;
+  inset:-20% -10%;
+  z-index:0;
+  pointer-events:none;
+  background:radial-gradient(circle at 50% 50%, rgba(122,221,255,.16), transparent 65%);
+  opacity:.55;
+  will-change:transform, opacity;
+}
+.process-panel{
+  /* centered via inset:0 + margin:auto (pure layout, no transform) —
+     js/scroll-journey-process.js's own GSAP tweens (xPercent/z/
+     rotationY/scale) are the ONLY transform this element ever gets;
+     centering it via a CSS transform:translate(-50%,-50%) instead would
+     get silently overwritten the first time GSAP touches the inline
+     transform (inline style always wins over a stylesheet rule for the
+     same property), breaking the anchor point entirely */
+  position:absolute;
+  inset:0;
+  margin:auto;
+  height:fit-content;
+  z-index:1;
+  width:min(88vw, 26rem);
+  padding:2.2rem 1.8rem;
+  border-radius:16px;
+  background:#0d0d10;
+  border:1px solid rgba(122,221,255,.16);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
+  text-align:center;
+  transform-style:preserve-3d;
+  will-change:transform, opacity;
+}
+@media (prefers-reduced-motion:reduce){
+  .process-panel{ position:static; margin:0 auto 1.5rem; }
+  .process-stage{ height:auto; perspective:none; }
+  .process-stage-glow{ display:none; }
 }
 
 /* ---- the 4 steps, now a plain line instead of pinned to photo

@@ -29,20 +29,41 @@
    on mobile, and deliberately NOT read from getBoundingClientRect,
    which would reflect this same transform already applied and create a
    feedback loop against itself frame to frame.
+
+   Per the GSAP ScrollTrigger cinematic journey built on top of this
+   (js/scroll-journey-*.js): #liveDemoSection and #ourProcessSection are
+   no longer listed below at all — their whole depth-motion is now
+   permanently owned by those pinned GSAP timelines instead, so this
+   script never touches them (two scripts writing `transform` to the
+   same element the same frame would fight, last-write-wins, and show up
+   as visible jitter). #processRoom stays here — its own plain arrival
+   dolly still plays right up until js/scroll-journey-hero.js's pin
+   engages near the hero's end ("keep the existing camera dolly", per
+   direct request) — but that file calls PapiDolly.lock('processRoom')
+   for the duration of its own pin so the two never write to the same
+   element in the same frame either.
 =================================================================== */
 (function(){
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // shared lock registry — see the header comment above. Exposed even
+  // when reduced-motion is on (this script returns early right after,
+  // but a journey file could still call lock/unlock harmlessly).
+  const locked = new Set();
+  window.PapiDolly = {
+    lock(id){ locked.add(id); },
+    unlock(id){ locked.delete(id); },
+  };
+
   if(prefersReducedMotion) return;
 
-  // extraY: per direct request, the Live Demo -> Our Process handoff
-  // specifically should feel like "camera descend" rather than the
-  // plain forward dolly every other section gets — this section starts
-  // shifted up above its own resting spot and eases DOWN into place as
-  // it arrives, on top of the shared depth/scale effect below.
+  // extraY: an optional per-section extra vertical nudge on top of the
+  // shared depth/scale effect below (not currently used by any entry,
+  // kept as a supported option for a future section that wants its own
+  // distinct arrival feel, same as ourProcessSection's old "camera
+  // descend" used to).
   const SECTIONS = [
     { id: 'processRoom' },
-    { id: 'liveDemoSection' },
-    { id: 'ourProcessSection', extraY: -70 },
     { id: 'tradesSection' },
     { id: 'comparisonSection' },
     { id: 'testimonialsSection' },
@@ -62,7 +83,8 @@
 
   function update(){
     const viewportCenter = window.scrollY + vh / 2;
-    SECTIONS.forEach(({ el, extraY })=>{
+    SECTIONS.forEach(({ id, el, extraY })=>{
+      if(locked.has(id)) return;
       const mid = el.offsetTop + el.offsetHeight / 2;
       const dist = Math.abs(viewportCenter - mid) / (vh * 0.9);
       // 1 right at viewport center (fully "arrived" — neutral, sharp),

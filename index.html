@@ -263,6 +263,20 @@ window.scrollTo(0, 0);
         <span class="process-hotspot-label">Delivery</span>
       </button>
     </div>
+
+    <!-- per direct request for a GSAP ScrollTrigger cinematic journey:
+         "turn the four process steps into one pinned scroll-controlled
+         sequence... objects should visibly travel through depth" —
+         js/scroll-journey-process.js builds 4 .process-panel elements
+         here from window.PapiSteps (js/process-hero.js's own single
+         source of truth for the step copy/icons — no content duplicated
+         in this markup) and pins this whole section for ~400vh, moving
+         each panel through z/rotationY/scale/opacity as you scroll. The
+         hotspot dots above stay in place, now doubling as a live
+         progress indicator during the pin. -->
+    <div class="process-stage" id="processStage" data-reveal>
+      <div class="process-stage-glow" aria-hidden="true"></div>
+    </div>
   </div>
 
   <!-- per direct request: "make the steps swipeable... allow for them
@@ -655,6 +669,19 @@ window.scrollTo(0, 0);
 <script src="js/cursor.js"></script>
 <script src="js/scroll-reveal.js"></script>
 <script src="js/scroll-dolly.js"></script>
+<!-- per direct request for a GSAP ScrollTrigger cinematic journey across
+     Hero -> Live Demo -> How It's Built. gsap.min.js/ScrollTrigger.min.js
+     were already vendored locally from an earlier (since-reverted) 3D
+     process-room build — reused here rather than re-downloaded, no new
+     dependency. Loaded after scroll-dolly.js (which the journey files
+     coordinate with via window.PapiDolly) and after live-demo.js earlier
+     above (whose cards the hero/live-demo journey files need to already
+     exist in the DOM), before init.js. -->
+<script src="js/vendor/gsap/gsap.min.js"></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js"></script>
+<script src="js/scroll-journey-hero.js"></script>
+<script src="js/scroll-journey-livedemo.js"></script>
+<script src="js/scroll-journey-process.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>
