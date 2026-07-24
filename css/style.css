@@ -49,7 +49,18 @@
 
 html,body{
   min-height:100%;
-  background:var(--ink);
+  /* BUG FIX: per report, "on mobile there's a white/black gap at the
+     bottom of the steps section" — js/scroll-dolly.js's extraY depth
+     carry (see that file's own comment) translateY's sections like
+     .comparison-section without changing their layout box, which
+     briefly reveals whatever's behind them for however many px they've
+     shifted — that's THIS element, body, showing through. --ink used
+     to be a close-but-not-quite #0b0b0c, one shade lighter than every
+     section's own #07060a; against near-black that tiny difference
+     still read as a visible seam. Matching it exactly means any such
+     gap (this one or a future one) is invisible regardless of cause,
+     same fix already used once for the faq-section background seam. */
+  background:#07060a;
   color:var(--cream);
   font-family:'Inter', system-ui, sans-serif;
   /* mobile Safari's own rubber-band/momentum overscroll can visibly
@@ -1858,6 +1869,12 @@ body, a{ cursor:none; }
   position:relative;
   opacity:0;
   will-change:opacity, transform;
+  border-radius:23px;
+  /* same blue-tinted border as .newsletter-popup-card/.process-panel —
+     wrapped around the tabs+stack pair here (rather than on each
+     separately) so there's one border, not a visible seam where two
+     borders would otherwise meet at the tabs/stack boundary */
+  border:1px solid rgba(122,221,255,.16);
   /* a plain, static shadow for depth — not a "container background",
      just enough definition that the card doesn't look like it's
      floating flat against the page */
@@ -1872,7 +1889,7 @@ body, a{ cursor:none; }
   position:relative;
   z-index:1;
   display:flex;
-  background:#f0f2f6;
+  background:#08080b;
   border-radius:23px 23px 0 0;
   overflow:hidden;
 }
@@ -1886,14 +1903,14 @@ body, a{ cursor:none; }
   font-weight:600;
   font-size:.86rem;
   letter-spacing:.01em;
-  color:#8b96ac;
+  color:var(--cream-dim);
   cursor:none;
   transition:color .25s var(--ease-out), background .25s var(--ease-out), border-color .25s var(--ease-out);
 }
 .quote-form-tab.is-active{
-  color:#0f1f3d;
-  background:#fff;
-  border-bottom-color:#1f6a8a;
+  color:var(--cream);
+  background:#0d0d10;
+  border-bottom-color:#7addff;
 }
 
 .quote-form-stack{
@@ -1911,7 +1928,7 @@ body, a{ cursor:none; }
      more white card, not a gap into whatever is behind the section. */
   align-items:flex-start;
   height:0;
-  background:#fff;
+  background:#0d0d10;
   overflow-x:auto;
   scroll-snap-type:x mandatory;
   -webkit-overflow-scrolling:touch;
@@ -1928,24 +1945,24 @@ body, a{ cursor:none; }
 .quote-form{
   position:relative;
   z-index:1;
-  background:#fff;
+  background:#0d0d10;
   padding:clamp(1.6rem, 3vw, 2.4rem);
   display:flex;
   flex-direction:column;
   gap:1.3rem;
 }
 
-/* a metallic gold sweep for a premium feel — darker bronze/gold stops
-   (not just bright yellow) so it still reads clearly against the
-   form's white background, with a brighter highlight band passing
-   through periodically like light catching brushed metal */
+/* a bright blue sweep for a premium feel — brightens toward the
+   middle (not darker bronze/gold stops) so it still reads clearly
+   against the form's now-dark background, with a highlight band
+   passing through periodically like light catching brushed metal */
 .quote-form-title{
   font-family:'Fraunces', serif;
   font-weight:600;
   font-size:clamp(1.3rem, 2.6vw, 1.7rem);
   text-align:center;
   margin:0 0 -.3rem;
-  background:linear-gradient(100deg, #1f6a8a 0%, #37afd4 25%, #d8f6ff 50%, #37afd4 75%, #1f6a8a 100%);
+  background:linear-gradient(100deg, #3fd2ff 0%, #d8f6ff 25%, #fff 50%, #d8f6ff 75%, #3fd2ff 100%);
   background-size:250% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -1978,9 +1995,9 @@ body, a{ cursor:none; }
   min-width:0;
   font-family:'Inter', sans-serif;
   font-size:1rem;
-  color:#0f1f3d;
-  background:#f7faff;
-  border:1.5px solid rgba(15,31,61,.12);
+  color:var(--cream);
+  background:rgba(243,237,226,.05);
+  border:1.5px solid rgba(243,237,226,.14);
   border-radius:12px;
   padding:1.1rem .9rem .5rem;
   transition:border-color .3s var(--ease-out), box-shadow .3s var(--ease-out), background .3s var(--ease-out);
@@ -1991,28 +2008,32 @@ body, a{ cursor:none; }
 .quote-field textarea:focus,
 .quote-field select:focus{
   outline:none;
-  border-color:#1f6a8a;
-  background:#fff;
-  box-shadow:0 0 0 4px rgba(202,153,20,.16);
+  border-color:#7addff;
+  background:rgba(243,237,226,.08);
+  /* was rgba(202,153,20,.16) — a literal gold leftover the site-wide
+     gold->blue migration missed (everywhere else went through the
+     var(--gold...) tokens, this was a bare rgba()); R/B-swapped to
+     match the same systematic transform used for every other color */
+  box-shadow:0 0 0 4px rgba(20,153,202,.16);
 }
 .quote-field label{
   position:absolute;
   left:.95rem;
   top:.95rem;
   font-size:1rem;
-  color:#8b96ac;
+  color:var(--cream-dim);
   pointer-events:none;
   transform-origin:left top;
   transition:transform .22s var(--ease-out), color .22s var(--ease-out), top .22s var(--ease-out);
 }
-.quote-field label span{ color:#a8b2c4; }
+.quote-field label span{ color:rgba(207,199,184,.7); }
 .quote-field input:focus + label,
 .quote-field input:not(:placeholder-shown) + label,
 .quote-field textarea:focus + label,
 .quote-field textarea:not(:placeholder-shown) + label{
   top:.4rem;
   transform:scale(.72);
-  color:#1f6a8a;
+  color:#7addff;
 }
 
 /* the business/industry field — a native <select> (its options scroll
@@ -2025,19 +2046,19 @@ body, a{ cursor:none; }
   appearance:none;
   -webkit-appearance:none;
   cursor:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b96ac' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23cfc7b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat:no-repeat;
   background-position:right .9rem center;
   background-size:16px;
   padding-right:2.2rem;
 }
-.quote-field--select select:invalid{ color:#8b96ac; }
-.quote-field--select select.has-value{ color:#0f1f3d; }
+.quote-field--select select:invalid{ color:var(--cream-dim); }
+.quote-field--select select.has-value{ color:var(--cream); }
 .quote-field--select select:focus + label,
 .quote-field--select select.has-value + label{
   top:.4rem;
   transform:scale(.72);
-  color:#1f6a8a;
+  color:#7addff;
 }
 
 /* the preferred-call-date field — a native date input so tapping it
@@ -2052,12 +2073,16 @@ body, a{ cursor:none; }
    it on its own; only overflow:hidden directly on the input forces
    that shadow content back inside the border-box, which is what
    showed up as the control spilling out past the form's edge. */
-.quote-field--date input{ color:#0f1f3d; overflow:hidden; }
+/* color-scheme:dark so the native calendar-icon/day-month-year chrome
+   (browser-drawn, not something this stylesheet can reach directly)
+   renders light-on-dark instead of assuming a light field and drawing
+   itself barely-visible dark-on-dark */
+.quote-field--date input{ color:var(--cream); overflow:hidden; color-scheme:dark; }
 .quote-field--date input:focus + label,
 .quote-field--date input.has-value + label{
   top:.4rem;
   transform:scale(.72);
-  color:#1f6a8a;
+  color:#7addff;
 }
 
 .quote-submit{
@@ -2072,16 +2097,20 @@ body, a{ cursor:none; }
   background:linear-gradient(120deg, #1f6a8a, #3fd2ff, #69a8cb, #1f6a8a);
   background-size:300% 100%;
   animation:quoteBgSweep 8s ease-in-out infinite;
-  color:#1a1408;
+  color:#0a0908;
   font-size:1rem;
   font-weight:700;
   letter-spacing:.01em;
   cursor:none;
   overflow:hidden;
   transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
-  box-shadow:0 16px 34px -14px rgba(138,106,31,.6);
+  /* was rgba(138,106,31,.6)/(.7) — another bare-rgba gold leftover the
+     var(--gold...) migration missed (see the .quote-field:focus
+     box-shadow fix above); R/B-swapped the same way for a glow that
+     matches the button's own blue gradient */
+  box-shadow:0 16px 34px -14px rgba(31,106,138,.6);
 }
-.quote-submit:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -14px rgba(138,106,31,.7); }
+.quote-submit:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -14px rgba(31,106,138,.7); }
 .quote-submit:active{ transform:translateY(0) scale(.98); }
 .quote-submit-check{
   display:none;
@@ -2132,7 +2161,19 @@ body, a{ cursor:none; }
    slides up + fades in on its own, with nothing dimming or blocking
    the rest of the page — no backdrop element at all anymore, and
    js/newsletter-popup.js no longer calls lockScroll()/unlockScroll().
-=================================================================== */
+
+   RECOLORED per direct request: "white is not a good color for the
+   theme of the website" — was a plain white card (a leftover from
+   before this site moved to its current dark theme), which read as a
+   jarring, disconnected flash against every dark section around it.
+   Now reuses the exact card language already established elsewhere on
+   this site (.process-panel/.live-demo-browser: #0d0d10 + a faint
+   blue-tinted border + the same AO-style shadow) rather than inventing
+   a new one, so it reads as one more piece of the same system instead
+   of a foreign popup. .quote-form below gets the identical treatment
+   so the popup and the main form read as the same component in two
+   places, per the same request. */
+
 .newsletter-popup{
   position:fixed;
   right:1.25rem;
@@ -2153,10 +2194,11 @@ body, a{ cursor:none; }
   position:relative;
   max-height:calc(100vh - 2.5rem);
   overflow-y:auto;
-  background:#fff;
+  background:#0d0d10;
+  border:1px solid rgba(122,221,255,.16);
   border-radius:16px;
   padding:clamp(1.2rem, 3vw, 1.5rem);
-  box-shadow:0 24px 60px -16px rgba(0,0,0,.5), 0 4px 18px -4px rgba(0,0,0,.22);
+  box-shadow:0 24px 60px -16px rgba(0,0,0,.6), 0 4px 18px -4px rgba(0,0,0,.35), inset 0 1px 30px rgba(0,0,0,.28);
 }
 .newsletter-popup-close{
   position:absolute;
@@ -2169,18 +2211,18 @@ body, a{ cursor:none; }
   justify-content:center;
   border-radius:50%;
   border:none;
-  background:rgba(15,31,61,.06);
-  color:#0f1f3d;
+  background:rgba(243,237,226,.08);
+  color:var(--cream);
   cursor:none;
   transition:background .2s var(--ease-out);
 }
-.newsletter-popup-close:hover{ background:rgba(15,31,61,.12); }
+.newsletter-popup-close:hover{ background:rgba(243,237,226,.16); }
 .newsletter-popup-eyebrow{
   font-size:.66rem;
   font-weight:700;
   letter-spacing:.18em;
   text-transform:uppercase;
-  color:#1f6a8a;
+  color:#7addff;
   margin-bottom:.5rem;
   padding-right:1.5rem; /* room for the close button */
 }
@@ -2189,13 +2231,14 @@ body, a{ cursor:none; }
   font-weight:500;
   font-size:clamp(1.15rem, 3vw, 1.3rem);
   line-height:1.25;
-  color:#0f1f3d;
+  color:var(--cream);
   margin-bottom:.6rem;
 }
-/* same metallic gold sweep as .quote-form-title, tuned for the same
-   white backdrop */
+/* same bright blue sweep as .quote-form-title, tuned for this same
+   dark backdrop (brightens toward the middle rather than darkening —
+   the inverse of what reads well on a light card) */
 .newsletter-popup-highlight{
-  background:linear-gradient(100deg, #1f6a8a 0%, #37afd4 25%, #d8f6ff 50%, #37afd4 75%, #1f6a8a 100%);
+  background:linear-gradient(100deg, #3fd2ff 0%, #d8f6ff 25%, #fff 50%, #d8f6ff 75%, #3fd2ff 100%);
   background-size:250% 100%;
   -webkit-background-clip:text;
   background-clip:text;
@@ -2205,7 +2248,7 @@ body, a{ cursor:none; }
 .newsletter-popup-sub{
   font-size:.82rem;
   line-height:1.45;
-  color:rgba(15,31,61,.66);
+  color:rgba(243,237,226,.66);
   margin-bottom:1.1rem;
 }
 .newsletter-popup-card .quote-form{
