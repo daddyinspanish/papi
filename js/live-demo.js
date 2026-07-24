@@ -46,6 +46,11 @@
       industry: 'Tires & Auto Performance',
       url: 'https://velocity-tire-co.vercel.app',
     },
+    {
+      name: 'Haverstone Remodeling',
+      industry: 'Home Remodeling',
+      url: 'https://haverstone-remodeling.vercel.app',
+    },
   ];
 
   const n = DEMOS.length;

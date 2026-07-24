@@ -94,78 +94,34 @@ window.scrollTo(0, 0);
        accent floating over that photo) is now tuned up to BE the hero
        visual over a plain dark base, plus a faint film-grain layer
        (.process-room-grain, same technique used elsewhere on the site)
-       so the dark areas still read as textured, not flat/boring.
-       Headline + two CTAs sit in normal document flow, real text this
-       time (see #hero's own comment above this section). -->
+       so the dark areas still read as textured, not flat/boring. Per a
+       later direct request, js/hero-matrix.js's own falling-number rain
+       now runs continuously behind the liquid glass too, so the hero
+       never sits still even between cursor movements.
+       Headline + CTA sit in normal document flow, real text this
+       time (see #hero's own comment above this section). The 4-step
+       interactive dot line that used to live here has moved to its own
+       #ourProcessSection right after Live Demos (per direct request:
+       "so people are more interacting with how things are made" once
+       they've already seen real proof) — this hero is now just the
+       title + CTA + ambient background. -->
   <section id="processRoom" class="process-hero">
+    <canvas id="processHeroMatrix" class="process-hero-matrix" aria-hidden="true"></canvas>
     <canvas id="processHeroSlime" class="process-hero-slime" aria-hidden="true"></canvas>
     <div class="process-room-grain" aria-hidden="true"></div>
 
     <div class="process-hero-copy">
       <h1 class="process-hero-title">Building Websites<br>that Matter</h1>
-      <!-- per direct request: a global hint (same on desktop + mobile)
-           that fades out the moment a hotspot is opened and fades back
-           in once that step is closed — see process-hero.js's own
-           showStep()/hideReveal() for the class toggle -->
-      <p class="process-hero-hint" id="processHeroHint">Touch Each Dot to Unlock</p>
+      <!-- per direct request: "move the view our work button above" —
+           now sits right under the title, in-flow (inherits
+           .process-hero-copy's own flex gap), always active — the
+           lock-until-4-steps-done gating this used to have doesn't
+           make sense anymore now that the steps live in their own
+           section further down the page -->
+      <a href="#liveDemoSection" class="process-hero-cta">View our work</a>
     </div>
-
-    <!-- per direct request: "instead of the dots in the position the
-         image had them, have them in a line, that loads every time you
-         click on one, until the last one loads the website then
-         releases the view our work button" — no more image-anchored
-         data-px/data-py (there's no photo left to anchor to); these 4
-         sit in a plain flex line now. Clicking one permanently marks it
-         "loaded" (see process-hero.js's own markLoaded()) and grows
-         .process-hotspot-track-fill by another quarter; once all 4 are
-         loaded, .process-hero-cta's own .is-locked class is lifted. The
-         #1-bigger/cycling-pulse "which one's next" cue (.is-emphasized,
-         still driven by process-hero.js's own updateEmphasis()) is
-         unchanged and still nudges people through 1→2→3→4 in order,
-         it's just this completion-tracking/unlock layer that's new. -->
-    <div class="process-hotspot-line" id="processHotspotLine">
-      <div class="process-hotspot-track" aria-hidden="true">
-        <div class="process-hotspot-track-fill" id="processTrackFill"></div>
-      </div>
-      <button type="button" class="process-hotspot" data-step="discover">
-        <span class="process-hotspot-dot"><span class="process-hotspot-number">1</span></span>
-        <span class="process-hotspot-label">Discover</span>
-      </button>
-      <button type="button" class="process-hotspot" data-step="steps">
-        <span class="process-hotspot-dot"><span class="process-hotspot-number">2</span></span>
-        <span class="process-hotspot-label">Steps</span>
-      </button>
-      <button type="button" class="process-hotspot" data-step="structure">
-        <span class="process-hotspot-dot"><span class="process-hotspot-number">3</span></span>
-        <span class="process-hotspot-label">Structure</span>
-      </button>
-      <button type="button" class="process-hotspot" data-step="delivery">
-        <span class="process-hotspot-dot"><span class="process-hotspot-number">4</span></span>
-        <span class="process-hotspot-label">Delivery</span>
-      </button>
-    </div>
-
-    <!-- pulled out of .process-hero-copy's centered flow and pinned to
-         its own spot near the bottom (per direct request: it was sitting
-         too close to the Structure hotspot right under the title) —
-         positioned with real legroom above the section's own bottom
-         edge rather than flush against it, so it doesn't read as
-         crowding the next section either. Starts locked (dim, inert —
-         see .process-hero-cta.is-locked in style.css) until all 4 steps
-         above have been opened at least once; process-hero.js's own
-         markLoaded() lifts the lock and plays a one-shot unlock pop. -->
-    <a href="#liveDemoSection" class="process-hero-cta is-locked" id="processHeroCta">View our work</a>
 
     <a href="#quoteSection" class="process-hero-start">Start a project</a>
-
-    <div class="process-reveal" id="processReveal" aria-hidden="true">
-      <div class="process-reveal-card">
-        <button type="button" class="process-reveal-close" aria-label="Close">&times;</button>
-        <span class="process-reveal-index" id="processRevealIndex">1</span>
-        <h2 class="process-reveal-title" id="processRevealTitle">Discover</h2>
-        <p class="process-reveal-text" id="processRevealText"></p>
-      </div>
-    </div>
   </section>
 
 </main>
@@ -224,6 +180,59 @@ window.scrollTo(0, 0);
       <button type="button" class="live-demo-arrow" id="liveDemoNext" aria-label="Next demo">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
       </button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ OUR PROCESS — the 4-step interactive dot line that
+     used to live inside the hero itself (per direct request: "move the
+     Step process right after the live Demo, so people are more
+     interacting with how things are made" — real proof first, then how
+     it actually gets built). Same mechanics as before: click a dot,
+     its own radial-gradient reveal panel opens with that step's copy;
+     each one clicked permanently marks itself "loaded" (gold fill +
+     checkmark) and grows the connecting track another quarter — purely
+     a self-contained "you've explored this" indicator now, since the
+     hero's own CTA moved up and out of this gating loop entirely (see
+     process-hero.js's own markLoaded(), which no longer touches any
+     CTA at all). js/process-hero.js still drives all of this; it just
+     targets #ourProcessSection instead of the hero for the
+     hotspots/reveal-anchor/pulse-pause logic now. ============ -->
+<section class="our-process-section" id="ourProcessSection">
+  <div class="our-process-inner">
+    <p class="our-process-eyebrow">How It's Built</p>
+    <h2 class="our-process-title">Here's exactly <em>how we build it.</em></h2>
+    <p class="our-process-sub">Tap each step to see what actually happens along the way.</p>
+
+    <div class="process-hotspot-line" id="processHotspotLine">
+      <div class="process-hotspot-track" aria-hidden="true">
+        <div class="process-hotspot-track-fill" id="processTrackFill"></div>
+      </div>
+      <button type="button" class="process-hotspot" data-step="discover">
+        <span class="process-hotspot-dot"><span class="process-hotspot-number">1</span></span>
+        <span class="process-hotspot-label">Discover</span>
+      </button>
+      <button type="button" class="process-hotspot" data-step="steps">
+        <span class="process-hotspot-dot"><span class="process-hotspot-number">2</span></span>
+        <span class="process-hotspot-label">Steps</span>
+      </button>
+      <button type="button" class="process-hotspot" data-step="structure">
+        <span class="process-hotspot-dot"><span class="process-hotspot-number">3</span></span>
+        <span class="process-hotspot-label">Structure</span>
+      </button>
+      <button type="button" class="process-hotspot" data-step="delivery">
+        <span class="process-hotspot-dot"><span class="process-hotspot-number">4</span></span>
+        <span class="process-hotspot-label">Delivery</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="process-reveal" id="processReveal" aria-hidden="true">
+    <div class="process-reveal-card">
+      <button type="button" class="process-reveal-close" aria-label="Close">&times;</button>
+      <span class="process-reveal-index" id="processRevealIndex">1</span>
+      <h2 class="process-reveal-title" id="processRevealTitle">Discover</h2>
+      <p class="process-reveal-text" id="processRevealText"></p>
     </div>
   </div>
 </section>
@@ -582,6 +591,7 @@ window.scrollTo(0, 0);
 
 <script src="js/debug-hud.js"></script>
 <script src="js/accent.js"></script>
+<script src="js/hero-matrix.js"></script>
 <script type="module" src="js/process-hero-slime.js"></script>
 <script src="js/process-hero.js"></script>
 <script src="js/title-dock.js"></script>

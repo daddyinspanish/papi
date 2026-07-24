@@ -2369,6 +2369,21 @@ body, a{ cursor:none; }
   align-items:center;
   justify-content:center;
 }
+/* per direct request: a falling-numbers matrix rain running
+   continuously behind the liquid glass (js/hero-matrix.js) — z-index
+   sits below both .process-hero-slime and .process-room-grain (both
+   z-index:2) so the glass and grain layer visibly sit on top of it,
+   and below .process-hero-copy (z-index:5) so it never competes with
+   the title/CTA for legibility */
+.process-hero-matrix{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  display:block;
+  z-index:1;
+  pointer-events:none;
+}
 .process-hero-slime{
   position:absolute;
   inset:0;
@@ -2426,43 +2441,6 @@ body, a{ cursor:none; }
   0%, 100%{ background-position:0% 50%; }
   50%{ background-position:100% 50%; }
 }
-/* per direct request: a global (desktop + mobile) hint below the
-   title with its own pulsing glow — fades out the moment a hotspot is
-   opened (see process-hero.js's own showStep()) and fades back in
-   once that step is closed (hideReveal()). The pulse only animates
-   text-shadow, never opacity, so it never fights the JS-toggled
-   is-hidden fade below */
-.process-hero-hint{
-  font-family:'Inter', sans-serif;
-  font-size:.72rem;
-  font-weight:600;
-  letter-spacing:.2em;
-  text-transform:uppercase;
-  color:var(--gold-soft);
-  margin:0;
-  opacity:1;
-  transition:opacity .5s ease;
-  animation:processHeroHintGlow 2.6s ease-in-out infinite;
-}
-@keyframes processHeroHintGlow{
-  0%, 100%{
-    color:var(--gold-soft);
-    text-shadow:0 0 4px rgba(154,205,228,.2);
-  }
-  50%{
-    /* per direct report: "is not doing the pulse" — the shadow-only
-       version was too subtle to actually read as a pulse against the
-       photo; this now swings the text's own color brighter too
-       (color, not opacity, so it still can't fight the is-hidden
-       fade above), a much bigger, unmistakable difference */
-    color:#f2fbff;
-    text-shadow:0 0 16px rgba(154,205,228,1), 0 0 32px rgba(154,205,228,.6);
-  }
-}
-.process-hero-hint.is-hidden{
-  opacity:0;
-  pointer-events:none;
-}
 /* per direct request: "dissolve the title" while a step is open — a
    soft fade/blur/lift out, not just a plain opacity cut */
 .process-hero-title.is-dissolved{
@@ -2472,16 +2450,24 @@ body, a{ cursor:none; }
   pointer-events:none;
 }
 /* per direct request: "make it glitch appear back when someone clicks
-   out of the step" — RGB-split + horizontal slice jitter settling back
-   to the normal title; transition:none so the plain fade above doesn't
-   fight the keyframes while this class is active.
+   out of the step" — originally an RGB-split + horizontal slice
+   jitter; transition:none so the plain fade above doesn't fight the
+   keyframes while this class is active.
    Per a later direct request ("a different glitch form after every
-   step, to add style") this is now 4 distinct variants — process-
+   step, to add style") this became 4 distinct variants — process-
    hero.js's own hideReveal() cycles through .is-glitch-a/-b/-c/-d in
    sequence (one per .process-hero-title element, so it's always
    exactly one variant class at a time) rather than always replaying
    the same one. Base rule below only sets the shared timing; each
-   modifier class supplies its own animation-name. */
+   modifier class supplies its own animation-name.
+   Per a still later direct request ("not something colorful, but more
+   so something that is spatial blurriness") every variant below had
+   its colored text-shadow (the RGB chromatic-aberration fringing) and
+   variant C's hue-rotate stripped out entirely — none of the 4 tint
+   the text away from its own normal gradient anymore. What used to be
+   color is now filter:blur() jumping between sharp and heavily
+   blurred at each of the 8 steps, so the "settling into focus" motion
+   IS the glitch, not a color flash. */
 .process-hero-title.is-glitching-in{
   transition:none;
   /* steps(8,end) hard-cuts between the 8 keyframe segments below instead
@@ -2502,47 +2488,46 @@ body, a{ cursor:none; }
   0%{
     opacity:0;
     transform:translate3d(0,0,0);
-    text-shadow:none;
     clip-path:inset(0 0 0 0);
-    filter:blur(10px);
+    filter:blur(14px);
   }
   8%{
     opacity:1;
-    filter:blur(0);
+    filter:blur(1px);
     transform:translate3d(-6px,0,0);
-    text-shadow:-3px 0 var(--gold-soft), 3px 0 #ff5c7a;
     clip-path:inset(8% 0 62% 0);
   }
   18%{
+    filter:blur(8px);
     transform:translate3d(5px,0,0);
     clip-path:inset(58% 0 6% 0);
-    text-shadow:4px 0 var(--gold-soft), -4px 0 #ff5c7a;
   }
   28%{
+    filter:blur(2px);
     transform:translate3d(-4px,0,0);
     clip-path:inset(18% 0 44% 0);
   }
   38%{
+    filter:blur(6px);
     transform:translate3d(3px,0,0);
     clip-path:inset(0 0 72% 0);
-    text-shadow:-2px 0 var(--gold-soft), 2px 0 #ff5c7a;
   }
   50%{
+    filter:blur(1px);
     transform:translate3d(-2px,0,0);
     clip-path:inset(64% 0 4% 0);
   }
   62%{
+    filter:blur(4px);
     transform:translate3d(0,0,0);
     clip-path:inset(0 0 0 0);
-    text-shadow:2px 0 var(--gold-soft), -2px 0 #ff5c7a;
   }
   78%{
-    text-shadow:-1px 0 var(--gold-soft), 1px 0 #ff5c7a;
+    filter:blur(1px);
   }
   100%{
     opacity:1;
     transform:translate3d(0,0,0);
-    text-shadow:none;
     clip-path:inset(0 0 0 0);
     filter:blur(0);
   }
@@ -2554,46 +2539,45 @@ body, a{ cursor:none; }
   0%{
     opacity:0;
     transform:translate3d(0,0,0) skewX(0deg);
-    text-shadow:none;
     clip-path:inset(0 0 0 0);
-    filter:blur(10px);
+    filter:blur(14px);
   }
   10%{
     opacity:1;
-    filter:blur(0);
+    filter:blur(7px);
     transform:translate3d(0,-4px,0) skewX(6deg);
-    text-shadow:0 -3px var(--gold-soft), 0 3px #ff5c7a;
     clip-path:inset(0 68% 0 0);
   }
   22%{
+    filter:blur(1px);
     transform:translate3d(0,3px,0) skewX(-5deg);
     clip-path:inset(0 4% 0 62%);
-    text-shadow:0 4px var(--gold-soft), 0 -4px #ff5c7a;
   }
   34%{
+    filter:blur(5px);
     transform:translate3d(0,-2px,0) skewX(3deg);
     clip-path:inset(0 40% 0 18%);
   }
   46%{
+    filter:blur(1px);
     transform:translate3d(0,2px,0) skewX(-2deg);
     clip-path:inset(0 72% 0 0);
-    text-shadow:0 -2px var(--gold-soft), 0 2px #ff5c7a;
   }
   60%{
+    filter:blur(3px);
     transform:translate3d(0,0,0) skewX(0deg);
     clip-path:inset(0 0 0 64%);
   }
   75%{
+    filter:blur(1px);
     clip-path:inset(0 0 0 0);
-    text-shadow:0 2px var(--gold-soft), 0 -2px #ff5c7a;
   }
   88%{
-    text-shadow:0 -1px var(--gold-soft), 0 1px #ff5c7a;
+    filter:blur(2px);
   }
   100%{
     opacity:1;
     transform:translate3d(0,0,0) skewX(0deg);
-    text-shadow:none;
     clip-path:inset(0 0 0 0);
     filter:blur(0);
   }
@@ -2604,134 +2588,107 @@ body, a{ cursor:none; }
 @keyframes processHeroTitleGlitchFlicker{
   0%{
     opacity:0;
-    filter:blur(10px) brightness(1);
+    filter:blur(12px) brightness(1);
     transform:scale(1);
-    text-shadow:none;
   }
   10%{
     opacity:1;
-    filter:blur(0) brightness(2.2);
+    filter:blur(6px) brightness(2.2);
     transform:scale(1.03);
   }
   22%{
     opacity:.2;
-    filter:brightness(.4);
+    filter:blur(9px) brightness(.4);
     transform:scale(.99);
   }
   34%{
     opacity:1;
-    filter:brightness(1.8) hue-rotate(8deg);
-    text-shadow:0 0 14px var(--gold-soft);
+    filter:blur(2px) brightness(1.8);
   }
   46%{
     opacity:.35;
-    filter:brightness(.5) hue-rotate(-6deg);
+    filter:blur(7px) brightness(.5);
   }
   60%{
     opacity:1;
-    filter:brightness(1.4);
-    text-shadow:0 0 10px rgba(154,205,228,.8);
+    filter:blur(1px) brightness(1.4);
   }
   75%{
     opacity:.6;
-    filter:brightness(1);
+    filter:blur(4px) brightness(1);
   }
   88%{
     opacity:1;
-    text-shadow:none;
+    filter:blur(1px) brightness(1);
   }
   100%{
     opacity:1;
     filter:blur(0) brightness(1);
     transform:scale(1);
-    text-shadow:none;
   }
 }
 /* variant D — blocky corruption sweep: bigger, chunkier clip-path
    jump-cuts than variant A's fine scanlines, plus a contrast punch on
    each cut, so it reads as heavier digital corruption rather than a
-   fine RGB-split jitter */
+   fine positional jitter */
 @keyframes processHeroTitleGlitchBlocks{
   0%{
     opacity:0;
     transform:translate3d(0,0,0);
     clip-path:inset(0 0 0 0);
-    filter:blur(10px) contrast(1);
-    text-shadow:none;
+    filter:blur(16px) contrast(1);
   }
   9%{
     opacity:1;
-    filter:blur(0) contrast(1.6);
+    filter:blur(2px) contrast(1.6);
     transform:translate3d(8px,0,0);
     clip-path:inset(0 0 82% 0);
-    text-shadow:6px 0 var(--gold), -6px 0 #ff5c7a;
   }
   20%{
+    filter:blur(9px) contrast(1.4);
     transform:translate3d(-7px,0,0);
     clip-path:inset(76% 0 0 0);
   }
   31%{
+    filter:blur(1px) contrast(1.9);
     transform:translate3d(6px,0,0);
     clip-path:inset(30% 0 46% 0);
-    filter:contrast(1.9);
   }
   42%{
+    filter:blur(6px) contrast(1.2);
     transform:translate3d(-5px,0,0);
     clip-path:inset(0 0 0 0);
-    text-shadow:-4px 0 var(--gold), 4px 0 #ff5c7a;
   }
   55%{
+    filter:blur(1px) contrast(1.3);
     transform:translate3d(4px,0,0);
     clip-path:inset(48% 0 12% 0);
-    filter:contrast(1.3);
   }
   68%{
+    filter:blur(3px) contrast(1.1);
     transform:translate3d(0,0,0);
     clip-path:inset(0 0 0 0);
   }
   82%{
-    text-shadow:2px 0 var(--gold), -2px 0 #ff5c7a;
-    filter:contrast(1.1);
+    filter:blur(1px) contrast(1.1);
   }
   100%{
     opacity:1;
     transform:translate3d(0,0,0);
     clip-path:inset(0 0 0 0);
     filter:blur(0) contrast(1);
-    text-shadow:none;
   }
 }
-/* per direct request: locked/dim until all 4 steps below have been
-   opened — process-hero.js's own markLoaded() removes .is-locked and
-   adds .is-unlocked (one-shot pop, see processHeroCtaUnlock) the
-   instant the 4th step is opened. The click-through guard that blocks
-   this while locked lives in process-hero.js itself (pointer-events
-   alone doesn't stop a keyboard Enter on a focused <a>). */
-.process-hero-cta.is-locked{
-  opacity:.32;
-  filter:grayscale(.55);
-  box-shadow:none;
-  animation:none;
-}
-.process-hero-cta.is-locked::before{ display:none; }
-.process-hero-cta.is-unlocked{
-  animation:processHeroCtaUnlock .7s var(--ease-out), processHeroCtaShine 6.5s ease-in-out infinite;
-}
-@keyframes processHeroCtaUnlock{
-  0%{ transform:translateX(-50%) scale(.86); box-shadow:0 0 0 rgba(212,175,110,0); }
-  55%{ transform:translateX(-50%) scale(1.08); box-shadow:0 8px 30px rgba(0,0,0,.35), 0 0 50px rgba(212,175,110,.85); }
-  100%{ transform:translateX(-50%) scale(1); }
-}
+/* per direct request: "move the view our work button above" — this
+   used to sit absolutely pinned near the section's bottom edge and
+   start locked/dim until all 4 steps (formerly also in this section)
+   were opened. Now it's just a normal in-flow third child of
+   .process-hero-copy, right under the title (inheriting that flex
+   column's own gap for spacing) — always active, no lock/unlock state
+   at all, since the steps it used to gate on live in their own section
+   further down the page now. */
 .process-hero-cta{
-  /* pulled out of .process-hero-copy's centered column (per direct
-     request: it sat too close to the Structure hotspot right under
-     the title) and given its own fixed spot near the bottom — clamp()
-     keeps real legroom above the section's own bottom edge instead of
-     sitting flush against it, without ever crowding the section below */
-  position:absolute;
-  left:50%;
-  bottom:clamp(3.2rem, 9vh, 5.6rem);
-  transform:translateX(-50%);
+  position:relative;
   z-index:5;
   display:inline-flex;
   align-items:center;
@@ -2797,11 +2754,11 @@ body, a{ cursor:none; }
   animation-duration:1.1s;
 }
 .process-hero-cta:hover{
-  transform:translateX(-50%) translateY(-2px) scale(1.03);
+  transform:translateY(-2px) scale(1.03);
   background-color:rgba(16,24,30,.6);
   box-shadow:0 12px 38px rgba(0,0,0,.4), 0 0 44px rgba(105,168,203,.65), inset 0 1px 0 rgba(255,255,255,.28);
 }
-.process-hero-cta:active{ transform:translateX(-50%) translateY(0) scale(.98); }
+.process-hero-cta:active{ transform:translateY(0) scale(.98); }
 
 /* contrasting on purpose — solid cream is already the primary CTA
    above, so this one inverts to a translucent outline against the
@@ -2834,14 +2791,69 @@ body, a{ cursor:none; }
   transform:translateY(-1px);
 }
 
+/* ===================================================================
+   OUR PROCESS — the interactive dot line + reveal panel moved out of
+   the hero (per direct request: "move the Step process right after
+   the live Demo, so people are more interacting with how things are
+   made" — real proof first, then how it's actually built). Same dark-
+   section pattern (and matching eyebrow/title color) as .live-demo-
+   section right above it, for visual continuity between the two.
+=================================================================== */
+.our-process-section{
+  position:relative;
+  z-index:1;
+  min-height:80vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 100%, #10151b 0%, #06080b 55%, #000 100%);
+  padding:clamp(4rem, 9vw, 6.5rem) 1.5rem;
+}
+.our-process-inner{
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  gap:clamp(1rem, 2.6vw, 1.6rem);
+}
+.our-process-eyebrow{
+  font-size:.76rem;
+  letter-spacing:.38em;
+  text-transform:uppercase;
+  color:#7addff;
+}
+.our-process-title{
+  font-family:'Fraunces', serif;
+  font-weight:400;
+  font-size:clamp(1.9rem, 4.4vw, 2.8rem);
+  line-height:1.15;
+  color:var(--cream);
+  max-width:26ch;
+}
+.our-process-title em{
+  font-style:italic;
+  color:#7addff;
+}
+.our-process-sub{
+  max-width:480px;
+  margin-top:-.4rem;
+  color:rgba(243,237,226,.68);
+  font-size:1rem;
+  line-height:1.5;
+}
+
 /* ---- the 4 steps, now a plain line instead of pinned to photo
    markers (per direct request — see index.html's own comment on
-   #processHotspotLine for the full "loads as you click, unlocks the
-   CTA" behavior). .process-hotspot itself is just a centering box
-   around its own dot — the label is pulled out via position:absolute
-   below (see .process-hotspot-label) so it never affects the box's
-   own height, which is what keeps every dot's center sitting exactly
-   on .process-hotspot-track's own vertical center for free ---- */
+   #processHotspotLine for the full "loads as you click" behavior).
+   .process-hotspot itself is just a centering box around its own dot
+   — the label is pulled out via position:absolute below (see
+   .process-hotspot-label) so it never affects the box's own height,
+   which is what keeps every dot's center sitting exactly on
+   .process-hotspot-track's own vertical center for free ---- */
 .process-hotspot-line{
   position:relative;
   z-index:5;
@@ -2849,7 +2861,7 @@ body, a{ cursor:none; }
   align-items:center;
   justify-content:space-between;
   width:min(90vw, 32rem);
-  margin-top:clamp(2.6rem, 7vh, 4.2rem);
+  margin-top:clamp(1.4rem, 3vh, 2.2rem);
 }
 .process-hotspot-track{
   position:absolute;
@@ -2953,9 +2965,11 @@ body, a{ cursor:none; }
    media query), so it applies identically on desktop and mobile. The
    second, more specific selector guarantees this wins over the
    emphasized dot's own animation shorthand-equivalent above regardless
-   of source order (both would otherwise tie on specificity) */
-.process-hero.is-scrolled-away .process-hotspot-dot,
-.process-hero.is-scrolled-away .process-hotspot.is-emphasized .process-hotspot-dot{
+   of source order (both would otherwise tie on specificity). Targets
+   .our-process-section now that the dots live there instead of the
+   hero (see index.html's own comment on #ourProcessSection). */
+.our-process-section.is-scrolled-away .process-hotspot-dot,
+.our-process-section.is-scrolled-away .process-hotspot.is-emphasized .process-hotspot-dot{
   animation-play-state:paused;
 }
 /* pulled out of the button's own flex flow (position:absolute) so its
@@ -3116,14 +3130,7 @@ body, a{ cursor:none; }
     max-width:20ch;
     font-size:clamp(1.9rem, 8.6vw, 2.6rem);
   }
-  /* per direct request: hint sat too close under the title — pushed it
-     further down, more toward the center of the blank space above the
-     hotspots, on top of the flex gap already between the two */
-  .process-hero-hint{
-    margin-top:1.6rem;
-  }
   .process-hero-cta{
-    bottom:4.6rem;
     padding:.75rem 1.5rem;
     font-size:.68rem;
     letter-spacing:.1em;

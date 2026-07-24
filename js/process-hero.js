@@ -1,22 +1,29 @@
 /* ===================================================================
-   Papi — Process Hero interactions
-   Three independent jobs, kept in one file since they all share the
-   same hero markup:
+   Papi — Process Hero + Our Process interactions
+   Three independent jobs, kept in one file since they used to share
+   one markup block (now split across two sections — see each job's
+   own comment for which root element it actually targets):
    1. The 4-step reveal panel — click a hotspot, its own radial
       gradient + copy fades in (anchored at that exact hotspot);
-      the shared .process-hero-title dissolves out while it's open
-      and glitches back in once it's dismissed. Also handles the
-      "line that loads as you click, unlocks the CTA" mechanic (see
-      markLoaded() below).
+      the hero's own .process-hero-title dissolves out while it's open
+      and glitches back in once it's dismissed. Per direct request
+      ("move the Step process right after the live Demo"), the dots/
+      reveal panel now live in their own #ourProcessSection further
+      down the page rather than inside the hero — this still reaches
+      into the hero just to dissolve/glitch its title, everything else
+      here targets stepsSection instead.
    2. Smooth-scrolling for both hero CTAs, replacing the browser's
       own instant anchor-jump with a real scrollIntoView so it reads
       as a natural, eased scroll rather than a snap.
+   3. Pausing the hotspot dots' pulse once #ourProcessSection scrolls
+      out of view.
 =================================================================== */
 (function(){
   const hero = document.querySelector('.process-hero');
-  if(!hero) return;
+  const stepsSection = document.querySelector('.our-process-section');
+  if(!hero && !stepsSection) return;
 
-  const hotspots = Array.from(hero.querySelectorAll('.process-hotspot'));
+  const hotspots = stepsSection ? Array.from(stepsSection.querySelectorAll('.process-hotspot')) : [];
 
   // ===================================================================
   // 1. reveal panel + headline dissolve/glitch
@@ -25,8 +32,7 @@
   const revealIndex = document.getElementById('processRevealIndex');
   const revealTitle = document.getElementById('processRevealTitle');
   const revealText = document.getElementById('processRevealText');
-  const heroTitle = hero.querySelector('.process-hero-title');
-  const heroHint = hero.querySelector('.process-hero-hint');
+  const heroTitle = hero ? hero.querySelector('.process-hero-title') : null;
 
   // per direct request: "make sure the steps do not come out as
   // double digits" — single digit (1/2/3/4), not the old zero-padded
@@ -71,15 +77,16 @@
   updateEmphasis();
 
   // per direct request: "have them in a line, that loads every time you
-  // click on one, until the last one loads the website then releases
-  // the view our work button" — completedSteps tracks distinct steps
-  // ever opened (a Set, so re-opening one doesn't double-count); each
-  // new one grows .process-hotspot-track-fill by another quarter, and
-  // marks that dot permanently "loaded" (gold fill + checkmark). Once
-  // all 4 are in, the CTA's own .is-locked class lifts.
+  // click on one" — completedSteps tracks distinct steps ever opened
+  // (a Set, so re-opening one doesn't double-count); each new one
+  // grows .process-hotspot-track-fill by another quarter and marks
+  // that dot permanently "loaded" (gold fill + checkmark). This used
+  // to also unlock the hero's own CTA once all 4 were done — per a
+  // later direct request the CTA moved up into the hero and is always
+  // active now, so this is purely a self-contained progress indicator,
+  // no longer wired to anything outside this section.
   const completedSteps = new Set();
   const trackFill = document.getElementById('processTrackFill');
-  const cta = document.getElementById('processHeroCta');
 
   function markLoaded(key, hotspotEl){
     if(completedSteps.has(key)) return;
@@ -88,25 +95,6 @@
     const numEl = hotspotEl.querySelector('.process-hotspot-number');
     if(numEl) numEl.textContent = '✓';
     if(trackFill) trackFill.style.transform = `scaleX(${completedSteps.size / hotspots.length})`;
-    if(completedSteps.size >= hotspots.length && cta && cta.classList.contains('is-locked')){
-      cta.classList.remove('is-locked');
-      cta.classList.add('is-unlocked');
-    }
-  }
-  // blocks the locked CTA from firing on click OR keyboard Enter —
-  // pointer-events:none in the CSS already stops a mouse click, but a
-  // focused <a> still activates on Enter regardless of pointer-events,
-  // so this guard is what actually closes that gap. Registered before
-  // bindSmoothScroll's own click listener further down (same element),
-  // so stopImmediatePropagation here also blocks that handler from
-  // ever firing while still locked.
-  if(cta){
-    cta.addEventListener('click', (e) => {
-      if(cta.classList.contains('is-locked')){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
-    });
   }
 
   // per direct request: "a different glitch form after every step, to
@@ -122,15 +110,15 @@
 
   function showStep(key, hotspotEl){
     const data = STEPS[key];
-    if(!data || !reveal) return;
+    if(!data || !reveal || !stepsSection) return;
     // live position instead of a cached dataset value — cheap enough
     // to compute on every click, and removes any need to keep a
     // separate resize listener in sync with it
-    const heroRect = hero.getBoundingClientRect();
+    const sectionRect = stepsSection.getBoundingClientRect();
     const dotEl = hotspotEl.querySelector('.process-hotspot-dot') || hotspotEl;
     const dotRect = dotEl.getBoundingClientRect();
-    reveal.style.setProperty('--reveal-x', `${dotRect.left + dotRect.width / 2 - heroRect.left}px`);
-    reveal.style.setProperty('--reveal-y', `${dotRect.top + dotRect.height / 2 - heroRect.top}px`);
+    reveal.style.setProperty('--reveal-x', `${dotRect.left + dotRect.width / 2 - sectionRect.left}px`);
+    reveal.style.setProperty('--reveal-y', `${dotRect.top + dotRect.height / 2 - sectionRect.top}px`);
 
     markLoaded(key, hotspotEl);
 
@@ -150,11 +138,6 @@
       heroTitle.classList.remove('is-glitching-in');
       heroTitle.classList.add('is-dissolved');
     }
-    // per direct request: "once touched it fades away" — the "Touch Dot
-    // to Interact" hint has done its job the moment someone actually
-    // opens a step, so it steps out of the way alongside the title
-    if(heroHint) heroHint.classList.add('is-hidden');
-
     // move the "bigger pulsing" cue on to the next number in sequence
     emphasisIndex = (emphasisIndex + 1) % hotspots.length;
     updateEmphasis();
@@ -189,10 +172,6 @@
       clearTimeout(glitchTimeout);
       glitchTimeout = setTimeout(() => heroTitle.classList.remove('is-glitching-in', variant), 650);
     }
-    // per direct request: "when they leave out of step, it fades back
-    // in" — plain fade, no glitch (that's the title's own distinct
-    // treatment), matching the hint's own simple fade-out on open
-    if(heroHint) heroHint.classList.remove('is-hidden');
   }
 
   if(reveal && hotspots.length){
@@ -227,6 +206,7 @@
   // nav); this matches that same pattern for both hero CTAs
   // ===================================================================
   function bindSmoothScroll(selector){
+    if(!hero) return;
     const link = hero.querySelector(selector);
     if(!link) return;
     link.addEventListener('click', (e) => {
@@ -241,22 +221,23 @@
   bindSmoothScroll('.process-hero-start');
 
   // ===================================================================
-  // 3. pause the hotspot dots' pulse once the hero scrolls out of view
+  // 3. pause the hotspot dots' pulse once #ourProcessSection scrolls
+  // out of view
   // ===================================================================
   // per direct request: "make the dots stop pulsing when the viewer is
   // in section 2, and when they get back to section 1 they start
   // glowing again" — style.css's own processHotspotPulse keyframe runs
   // "infinite" with nothing to ever stop it, so it kept animating
   // (box-shadow, which forces a repaint each cycle) for the rest of the
-  // session even once the hero itself was long scrolled past. Toggling
+  // session even once this section was long scrolled past. Toggling
   // one class here — driven by real intersection, not a viewport-size
   // media query — is what makes this apply identically on desktop and
-  // mobile, matching the exact same off-screen-pause treatment already
-  // applied to the hero's own WebGL canvas (js/process-hero-slime.js).
-  if('IntersectionObserver' in window){
-    const heroVisibilityIO = new IntersectionObserver((entries) => {
-      hero.classList.toggle('is-scrolled-away', !entries[0].isIntersecting);
+  // mobile. Now observes stepsSection (where the dots actually live)
+  // instead of the hero.
+  if(stepsSection && 'IntersectionObserver' in window){
+    const stepsVisibilityIO = new IntersectionObserver((entries) => {
+      stepsSection.classList.toggle('is-scrolled-away', !entries[0].isIntersecting);
     }, { threshold: 0 });
-    heroVisibilityIO.observe(hero);
+    stepsVisibilityIO.observe(stepsSection);
   }
 })();
