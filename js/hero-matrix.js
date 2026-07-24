@@ -178,34 +178,41 @@
   // burning CPU/battery for the rest of the session once scrolled past.
   //
   // BUG FIX: per report, "the speed of the matrix is very choppy now,"
-  // then later "make sure that on desktop things do not look choppy" —
-  // this used to throttle rendering to a fixed CONFIG.renderFPS (28)
-  // below the display's real refresh rate, on top of renderFrame()
-  // advancing every column by a fixed `col.speed` per CALL rather than
-  // per unit of real time. Two separate problems: (1) a 28fps target
-  // doesn't divide evenly into a real 60Hz/120Hz display's frame
-  // timing, so skipping most real frames to hit that target produced
-  // uneven gaps between the frames that DID render; (2) advancing by a
-  // fixed amount per call (rather than by real elapsed time) turned
-  // that gap variance directly into visible stutter, worse at higher
-  // speed. Rendering on every real animation frame (no throttle)
-  // removes the skipped-frame judder entirely, and `steps` below still
-  // scales the actual movement by real elapsed time — expressed in
-  // units of "one ideal 60fps frame" — so a still-dropped frame under
-  // real load (not an artificial throttle) doesn't desync the rain's
-  // total distance either. Capped so resuming after the tab/hero was
-  // hidden for a while doesn't jump the rain forward in one big leap.
+  // this file used to throttle rendering to a fixed CONFIG.renderFPS
+  // while ALSO advancing every column by a fixed `col.speed` per CALL
+  // rather than per unit of real time — with those two bugs stacked,
+  // the throttle's own uneven gap-to-gap timing (a 28fps target doesn't
+  // divide evenly into a real 60Hz/120Hz display's frame timing) read
+  // as visible stutter. `steps` below fixes that half: it scales the
+  // actual movement by real elapsed time (in units of "one ideal 60fps
+  // frame"), so however long actually passed between renders, the rain
+  // covers the proportionally correct distance — smooth at ANY render
+  // cadence, throttled or not.
+  //
+  // BUG FIX: per later, separate report — "make sure this website does
+  // not make phones hot" — a full re-render of every column, every
+  // single real display frame (up to 120Hz on newer phones), for the
+  // entire time the hero is on screen, is continuous, avoidable CPU/GPU
+  // work with no visual benefit for a background rain effect. Capping
+  // to a fixed target again is safe from the choppiness above now that
+  // `steps` decouples correctness from cadence — unlike the original
+  // 28fps bug, capping no longer costs any smoothness, just power.
+  // Mobile gets a lower target than desktop since phones are the
+  // specific concern.
   const REFERENCE_FRAME_MS = 1000 / 60;
   const MAX_STEPS = 4;
+  const RENDER_INTERVAL = 1000 / (window.innerWidth < CONFIG.mobileWidth ? 24 : 30);
   let lastRenderTs = 0;
   let rafId = null;
   let isHeroVisible = true;
 
   function loop(ts){
-    const dt = lastRenderTs ? ts - lastRenderTs : REFERENCE_FRAME_MS;
-    lastRenderTs = ts;
-    const steps = Math.min(dt / REFERENCE_FRAME_MS, MAX_STEPS);
-    renderFrame(steps);
+    if(ts - lastRenderTs >= RENDER_INTERVAL){
+      const dt = lastRenderTs ? ts - lastRenderTs : REFERENCE_FRAME_MS;
+      lastRenderTs = ts;
+      const steps = Math.min(dt / REFERENCE_FRAME_MS, MAX_STEPS);
+      renderFrame(steps);
+    }
     rafId = requestAnimationFrame(loop);
   }
   function startLoop(){
