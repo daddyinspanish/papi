@@ -1044,6 +1044,21 @@ body, a{ cursor:none; }
   padding:clamp(3.5rem, 8vw, 6rem) 0;
   overflow:hidden;
 }
+/* same ambient-drift convention as .comparison-section::before (see its
+   own comment) — different position/duration/delay so the two don't
+   read as an identical repeating pattern */
+.testimonials-section::before{
+  content:'';
+  position:absolute;
+  inset:-15% -10%;
+  z-index:0;
+  pointer-events:none;
+  background:radial-gradient(circle at 72% 30%, rgba(122,221,255,.08), transparent 60%);
+  opacity:.7;
+  animation:ambientGlowDrift 26s ease-in-out infinite;
+  animation-delay:-6s;
+  will-change:opacity;
+}
 
 /* opacity/transform driven directly, continuously, by scroll position
    in testimonials.js as the section enters from below — not a fixed-
@@ -1166,6 +1181,7 @@ body, a{ cursor:none; }
 
 .testimonial-card{
   position:relative;
+  overflow:hidden;
   flex:0 0 auto;
   width:min(80vw, 420px);
   scroll-snap-align:center;
@@ -1178,10 +1194,21 @@ body, a{ cursor:none; }
   border-radius:22px;
   background:linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
   border:1px solid rgba(122,221,255,.16);
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.6), inset 0 1px 30px rgba(0,0,0,.28);
   opacity:.5;
   transform:scale(.94);
   transition:opacity .35s var(--ease-out), transform .35s var(--ease-out), box-shadow .35s var(--ease-out);
+}
+/* same soft-reflection convention as .live-demo-browser::after (see its
+   own comment) — this element has no 3D preserve-3d to protect, so
+   overflow:hidden + a contained top-down gradient is safe here */
+.testimonial-card::after{
+  content:'';
+  position:absolute;
+  inset:0 0 auto 0;
+  height:35%;
+  background:linear-gradient(180deg, rgba(243,237,226,.05), transparent);
+  pointer-events:none;
 }
 .testimonial-card.is-active{
   opacity:1;
@@ -1305,8 +1332,47 @@ body, a{ cursor:none; }
      is unchanged but there's no curvature left to read as a wave */
   background:#07060a;
   padding:clamp(4rem, 10vw, 7rem) clamp(1.5rem, 5vw, 4.5rem);
+  /* contains the new ::before ambient glow's inset:-15% bleed within
+     this section's own box, so it never doubles up with a neighboring
+     section's own glow at the boundary */
+  overflow:hidden;
+}
+/* BUG FIX: per request for "very soft floating atmosphere... slow
+   volumetric lighting changes" carried continuously through the site —
+   a faint, slow-drifting radial glow, modeled on .process-stage-glow's
+   already-proven pattern (opacity/background-position only, no
+   filter:blur, so it stays compositor-cheap). Kept far fainter than
+   that one (a focal spotlight for an active step) since this is
+   ambient atmosphere, not a highlight — and deliberately NOT identical
+   across sections (different position/duration/delay per section) so
+   it doesn't reintroduce the "waves around every section" pattern
+   already removed once (see this section's own comment above): that
+   was a STATIC, identical gradient repeating section to section: this
+   one is animated and varies, which is what makes it read as ambient
+   drift rather than a repeating shape. */
+.comparison-section::before{
+  content:'';
+  position:absolute;
+  inset:-15% -10%;
+  z-index:0;
+  pointer-events:none;
+  background:radial-gradient(circle at 30% 22%, rgba(122,221,255,.09), transparent 62%);
+  opacity:.7;
+  animation:ambientGlowDrift 22s ease-in-out infinite;
+  will-change:opacity;
+}
+@keyframes ambientGlowDrift{
+  0%, 100%{ opacity:.5; transform:translate(0, 0); }
+  50%{ opacity:.9; transform:translate(2%, -2%); }
+}
+@media (prefers-reduced-motion:reduce){
+  .comparison-section::before,
+  .testimonials-section::before,
+  .faq-section::before{ animation:none; }
 }
 .comparison-inner{
+  position:relative;
+  z-index:1;
   max-width:900px;
   margin:0 auto;
   text-align:center;
@@ -1533,10 +1599,36 @@ body, a{ cursor:none; }
 =================================================================== */
 .faq-section{
   position:relative;
-  background:#000;
+  /* BUG FIX: per request to make the site feel like one continuous
+     world rather than separate sections — this was the one plain #000
+     seam in an otherwise identical #07060a background shared by the
+     hero/live-demo/process/comparison/testimonials sections. Matching
+     it removes the one visible "reset" between sections that isn't
+     the quote section's own intentional closing-chapter gradient. */
+  background:#07060a;
   padding:clamp(4rem, 10vw, 7rem) clamp(1.5rem, 5vw, 4.5rem);
+  /* contains the new ::before ambient glow's inset:-15% bleed within
+     this section's own box, same reasoning as .comparison-section */
+  overflow:hidden;
+}
+/* same ambient-drift convention as .comparison-section::before (see its
+   own comment) — different position/duration/delay so the three don't
+   read as an identical repeating pattern */
+.faq-section::before{
+  content:'';
+  position:absolute;
+  inset:-15% -10%;
+  z-index:0;
+  pointer-events:none;
+  background:radial-gradient(circle at 45% 75%, rgba(122,221,255,.07), transparent 58%);
+  opacity:.7;
+  animation:ambientGlowDrift 24s ease-in-out infinite;
+  animation-delay:-13s;
+  will-change:opacity;
 }
 .faq-inner{
+  position:relative;
+  z-index:1;
   max-width:760px;
   margin:0 auto;
 }
@@ -1623,9 +1715,17 @@ body, a{ cursor:none; }
      match when the rest of the palette moved off gold. Replaced with a
      darker blue instead, so the whole sweep stays strictly black→blue,
      no gold tint anywhere in it */
-  background:linear-gradient(120deg, #0a0908, #123344, #1f6a8a, #123344, #0a0908);
+  /* BUG FIX: per request for continuous, non-abrupt atmosphere between
+     sections — the peak stop was #1f6a8a; nudged one shade deeper
+     (#1a5975) and the cycle stretched 18s -> 26s so arriving here from
+     the now-matching #07060a faq background reads as a slow graduation
+     into this section's own light rather than a noticeably faster,
+     brighter loop starting right at the seam. Still the one section
+     allowed its own "living" quality — everywhere else got quieter to
+     match this, not the other way around. */
+  background:linear-gradient(120deg, #0a0908, #123344, #1a5975, #123344, #0a0908);
   background-size:400% 400%;
-  animation:quoteBgSweep 18s ease-in-out infinite;
+  animation:quoteBgSweep 26s ease-in-out infinite;
   padding:clamp(4rem, 10vw, 8rem) clamp(1.5rem, 5vw, 4rem);
   overflow:hidden;
 }
@@ -2227,12 +2327,25 @@ body, a{ cursor:none; }
   align-items:center;
 }
 .live-demo-browser{
+  position:relative;
   width:100%;
   border-radius:16px;
   overflow:hidden;
   background:#0d0d10;
   border:1px solid rgba(122,221,255,.16);
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.6), inset 0 1px 30px rgba(0,0,0,.28);
+}
+/* soft reflection: a static, low-opacity top-down gradient, never a
+   live blur/backdrop-filter — kept faint and top-only per "without
+   making the scene glossy". pointer-events:none so it never blocks
+   clicking/dragging inside the real iframe underneath. */
+.live-demo-browser::after{
+  content:'';
+  position:absolute;
+  inset:0 0 auto 0;
+  height:40%;
+  background:linear-gradient(180deg, rgba(243,237,226,.05), transparent);
+  pointer-events:none;
 }
 .live-demo-browser-bar{
   display:flex;
@@ -2455,6 +2568,22 @@ body, a{ cursor:none; }
   text-align:center;
   gap:clamp(1.6rem, 3.4vw, 2.4rem);
   padding:0 1.5rem;
+  /* BUG FIX: per request for "very soft floating atmosphere... slight
+     inertia on every animated object" — a barely-there drift, entirely
+     independent of js/scroll-journey-hero.js's own pin-scrubbed tweens
+     on this same element (which only ever touch `opacity` here, never
+     `transform` — see that file's own tl.to(heroCopy,...) call — so
+     this CSS transform and that JS opacity tween never fight over the
+     same property). Kept extremely small (3px) and slow (24s) so it
+     reads as ambient breathing, not motion. */
+  animation:heroCopyFloat 24s ease-in-out infinite;
+}
+@keyframes heroCopyFloat{
+  0%, 100%{ transform:translateY(0); }
+  50%{ transform:translateY(-3px); }
+}
+@media (prefers-reduced-motion:reduce){
+  .process-hero-copy{ animation:none; }
 }
 .process-hero-title{
   font-family:'Fraunces', serif;
@@ -3021,7 +3150,17 @@ body, a{ cursor:none; }
   border-radius:16px;
   background:#0d0d10;
   border:1px solid rgba(122,221,255,.16);
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
+  /* BUG FIX: per request to "strengthen depth... add subtle ambient
+     occlusion... without making the scene glossy" — the added `inset`
+     shadow is a standard CSS-only AO fake (darkens just inside the
+     edges, no `filter`). Shared with .live-demo-browser/.testimonial-
+     card below for a consistent card language. No ::after reflection
+     overlay on this element specifically: it uses transform-style:
+     preserve-3d for its GSAP rotationY tilt, and overflow:hidden (which
+     a reflection overlay would need for containment) forces preserve-3d
+     to flatten in every browser — skipped here to protect the 3D
+     depth effect, which matters more for this element. */
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.6), inset 0 1px 30px rgba(0,0,0,.28);
   text-align:center;
   transform-style:preserve-3d;
   will-change:transform, opacity;

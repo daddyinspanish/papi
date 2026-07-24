@@ -87,7 +87,7 @@
     tl.to(allBrowsers, {
       scale: isDesktop ? 0.7 : 0.85,
       duration: 1,
-      ease: 'none',
+      ease: 'sine.inOut',
     }, 0);
 
     // crossfade ONLY the internal content (browser chrome + iframe) —
@@ -95,7 +95,7 @@
     tl.to(allFrameWraps, {
       opacity: 0,
       duration: 0.5,
-      ease: 'none',
+      ease: 'sine.inOut',
     }, 0.15);
 
     // the emptied frame itself dissolves away in the tail of the range,
@@ -104,7 +104,7 @@
     tl.to(allBrowsers, {
       opacity: 0,
       duration: 0.4,
-      ease: 'none',
+      ease: 'sine.inOut',
     }, 0.6);
 
     // eyebrow/title/sub/dots fade out together with the cards, same
@@ -113,7 +113,7 @@
       tl.to(restOfSection, {
         opacity: 0,
         duration: 0.4,
-        ease: 'none',
+        ease: 'sine.inOut',
       }, 0.6);
     }
 
@@ -124,7 +124,7 @@
       tl.to(allCaptions, {
         opacity: 0,
         duration: 0.4,
-        ease: 'none',
+        ease: 'sine.inOut',
       }, 0.6);
     }
   });

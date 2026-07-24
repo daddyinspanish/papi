@@ -208,7 +208,7 @@
       scale: isDesktop ? 2.6 : 1.6,
       transformOrigin: '50% 50%',
       duration: 0.35,
-      ease: 'none',
+      ease: 'sine.inOut',
     }, 0.4);
 
     // per direct follow-up request ("make sure the title scales as
@@ -224,7 +224,7 @@
         scale: isDesktop ? 1.8 : 1.4,
         transformOrigin: '50% 50%',
         duration: 0.35,
-        ease: 'none',
+        ease: 'sine.inOut',
       }, 0.4);
     }
 
@@ -235,7 +235,7 @@
     tl.to(heroCopy, {
       opacity: 0,
       duration: 0.22,
-      ease: 'none',
+      ease: 'sine.inOut',
     }, 0.78);
 
     // gsap.matchMedia auto-reverts everything created in this context

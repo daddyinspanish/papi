@@ -72,16 +72,30 @@
   if(prefersReducedMotion) return;
 
   // extraY: an optional per-section extra vertical nudge on top of the
-  // shared depth/scale effect below (not currently used by any entry,
-  // kept as a supported option for a future section that wants its own
-  // distinct arrival feel, same as ourProcessSection's old "camera
-  // descend" used to).
+  // shared depth/scale effect below. Was unused by every entry (dead
+  // code, since `update()` no-ops entirely when a section has no
+  // extraY) until the BUG FIX below turned it on for four of them.
+  //
+  // BUG FIX: per request to make the site feel like one continuous
+  // world instead of separate sections — comparisonSection onward had
+  // ZERO scroll-tied motion at all (only a one-shot fade-in on their
+  // headings via scroll-reveal.js), the flattest, most "independent
+  // page" feeling part of the site. This reuses the exact translate-
+  // only, smoothstep-eased, IntersectionObserver/will-change-gated,
+  // resize-guarded mechanism already built and audited below — not a
+  // new pin, not a new bug surface — to carry a small depth nudge into
+  // each of these as they arrive/leave, same convention as processRoom's
+  // own arrival dolly already uses. Values step up slightly toward the
+  // end of the page so the last chapter reads marginally deeper than
+  // the first, never a scale (scale was removed here once already —
+  // see git history — for revealing background gaps between mismatched
+  // neighbor colors; translate-only never has that failure mode).
   const SECTIONS = [
     { id: 'processRoom' },
-    { id: 'comparisonSection' },
-    { id: 'testimonialsSection' },
-    { id: 'faqSection' },
-    { id: 'quoteSection' },
+    { id: 'comparisonSection', extraY: 14 },
+    { id: 'testimonialsSection', extraY: 16 },
+    { id: 'faqSection', extraY: 18 },
+    { id: 'quoteSection', extraY: 20 },
   ].map(cfg => Object.assign({}, cfg, { el: document.getElementById(cfg.id) }))
    .filter(cfg => cfg.el);
 

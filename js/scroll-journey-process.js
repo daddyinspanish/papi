@@ -61,6 +61,16 @@
 
   function clamp01(v){ return Math.max(0, Math.min(1, v)); }
   function lerp(a, b, t){ return a + (b - a) * t; }
+  // BUG FIX: per follow-up request ("remove any mechanical or linear
+  // movement... use smoother easing with longer acceleration and
+  // deceleration") — stateAt() below used t=ar directly, so a panel's
+  // blend between active/previous/next moved at constant speed relative
+  // to scroll distance from the active step. Easing t through this
+  // curve before every lerp() makes each panel decelerate as it settles
+  // into "active" and accelerate away from it, instead of moving at a
+  // flat rate the whole time — same start/end values, same scrub
+  // timing, just a softer curve in between.
+  function easeInOutCubic(t){ return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(prefersReducedMotion){
@@ -114,7 +124,8 @@
       t = clamp01(ar - 1);
     }
     const out = {};
-    Object.keys(states.active).forEach((k) => { out[k] = lerp(from[k], to[k], t); });
+    const et = easeInOutCubic(t);
+    Object.keys(states.active).forEach((k) => { out[k] = lerp(from[k], to[k], et); });
     return out;
   }
 
