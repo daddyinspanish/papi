@@ -137,31 +137,12 @@
   // bring back exactly the loading flash this was built to avoid. The
   // hasBeenVisible guard makes sure pausing only ever happens on a
   // real "was visible, now scrolled away" transition.
-  // per direct request: "make the word Screenshot be animated like a
-  // white flash... Make the live demos have an animation, like a tv
-  // screen turning on for when the user comes to the section" — both
-  // fire exactly once, the first time this section is actually
-  // scrolled into view (reusing the same visibilityIO transition
-  // below rather than a second observer). flashWord may not exist if
-  // the markup around it ever changes, hence the null guard.
-  const flashWord = document.getElementById('liveDemoFlashWord');
-  let hasPlayedArrival = false;
-  function playArrivalAnimation(){
-    if(hasPlayedArrival) return;
-    hasPlayedArrival = true;
-    if(flashWord) flashWord.classList.add('is-flashing');
-    cards.forEach((card, i)=>{
-      setTimeout(()=> card.classList.add('is-powering-on'), i * 110);
-    });
-  }
-
   if('IntersectionObserver' in window){
     let hasBeenVisible = false;
     const visibilityIO = new IntersectionObserver((entries)=>{
       const isVisible = entries[0].isIntersecting;
       if(isVisible){
         hasBeenVisible = true;
-        playArrivalAnimation();
         cards.forEach(card=>{
           const iframe = card.querySelector('iframe');
           if(!iframe || !iframe.dataset.src) return;

@@ -207,15 +207,7 @@ window.scrollTo(0, 0);
   </div>
   <div class="live-demo-inner">
     <p class="live-demo-eyebrow">See It Live</p>
-    <!-- per direct request: "make the word Screenshot be animated like
-         a white flash, so it can look like someone just took a
-         picture" — js/live-demo.js's own visibilityIO adds
-         .is-flashing to this span the first time the section actually
-         scrolls into view (same "arrival" moment that also triggers
-         the live-demo cards' own TV-power-on animation below), so the
-         word itself flashes bright white once, like a camera catching
-         the moment you arrive, then settles back to its normal color. -->
-    <h2 class="live-demo-title">Not a <span class="live-demo-flash-word" id="liveDemoFlashWord">screenshot</span>. <em>The real site.</em></h2>
+    <h2 class="live-demo-title">Not a screenshot. <em>The real site.</em></h2>
     <p class="live-demo-sub">Scroll inside the window below — it's the actual live website, not a mockup.</p>
     <div class="live-demo-stack" id="liveDemoStack"></div>
     <div class="live-demo-controls" id="liveDemoControls">
@@ -662,6 +654,7 @@ window.scrollTo(0, 0);
 <script src="js/newsletter-popup.js"></script>
 <script src="js/cursor.js"></script>
 <script src="js/scroll-reveal.js"></script>
+<script src="js/scroll-dolly.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>

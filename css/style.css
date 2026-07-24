@@ -78,7 +78,20 @@ html,body{
    on-screen. Putting it on body alone avoids both: only one element
    ends up with explicit overflow (no competing scroll container), and
    it isn't the root element (no fixed-position bug). */
-body{ overflow-x:hidden; }
+/* per direct request: "Animate the camera moving forward in 3D while
+   scrolling... a cinematic dolly shot with smooth easing" — perspective
+   here establishes the shared 3D viewing context js/scroll-dolly.js's
+   per-section translateZ relies on to read as real forward/backward
+   depth instead of a flat scale change. */
+body{ overflow-x:hidden; perspective:1600px; }
+
+/* will-change promotes each dolly-driven section to its own compositor
+   layer up front, so the very first frame the transform actually
+   changes doesn't cause a paint hitch */
+#processRoom, #liveDemoSection, #ourProcessSection, #tradesSection,
+#comparisonSection, #testimonialsSection, #faqSection, #quoteSection{
+  will-change:transform;
+}
 
 /* briefly locks scrolling — while the hero's background field grows
    to fill the screen, while the cube section has a face focused, and
@@ -2228,37 +2241,6 @@ body, a{ cursor:none; }
   font-style:italic;
   color:#7addff;
 }
-/* per direct request: "make the word Screenshot be animated like a
-   white flash, so it can look like someone just took a picture" —
-   js/live-demo.js adds .is-flashing the first time this section
-   scrolls into view (one-shot, same "arrival" moment that triggers
-   the cards' own TV-power-on below); the word itself blows out to
-   white with a heavy glow like it just caught a flash going off, then
-   settles back to its normal color. Hardcoded var(--cream) as the
-   start/end color (rather than a bare "none"/"inherit") since color
-   keyframes need real values on both ends to interpolate cleanly. */
-.live-demo-flash-word{
-  display:inline-block;
-}
-.live-demo-flash-word.is-flashing{
-  animation:liveDemoCameraFlash .8s ease-out both;
-}
-@media (prefers-reduced-motion:reduce){
-  .live-demo-flash-word.is-flashing{ animation:none; }
-}
-@keyframes liveDemoCameraFlash{
-  0%{ color:var(--cream); text-shadow:none; }
-  8%{
-    color:#fff;
-    text-shadow:0 0 20px #fff, 0 0 46px #fff, 0 0 80px rgba(255,255,255,.85);
-  }
-  25%{
-    color:#fff;
-    text-shadow:0 0 12px #fff, 0 0 28px rgba(255,255,255,.55);
-  }
-  50%{ color:var(--cream); text-shadow:none; }
-  100%{ color:var(--cream); text-shadow:none; }
-}
 .live-demo-sub{
   max-width:520px;
   margin-top:-.6rem;
@@ -2309,47 +2291,6 @@ body, a{ cursor:none; }
   background:#0d0d10;
   border:1px solid rgba(122,221,255,.16);
   box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
-  transform-origin:50% 50%;
-}
-/* per direct request: "make the live demos have an animation, like a
-   tv screen turning on for when the user comes to the section" —
-   js/live-demo.js adds .is-powering-on to each card (staggered ~110ms
-   apart) the first time #liveDemoSection scrolls into view. Classic
-   CRT power-on shape: collapses to a thin bright horizontal line,
-   snaps open vertically with a brightness/contrast overshoot, settles
-   with a small bounce — animated on the browser-chrome frame itself
-   (not the outer .live-demo-card, which also carries the name/industry
-   copy underneath that shouldn't be part of "the screen") */
-.live-demo-card.is-powering-on .live-demo-browser{
-  animation:liveDemoPowerOn .65s cubic-bezier(.2,.8,.2,1) both;
-}
-@keyframes liveDemoPowerOn{
-  0%{
-    transform:scaleY(.015) scaleX(1.05);
-    filter:brightness(4) contrast(2) saturate(0);
-    opacity:.35;
-  }
-  10%{
-    transform:scaleY(.015) scaleX(1.05);
-    filter:brightness(4) contrast(2) saturate(0);
-    opacity:.9;
-  }
-  38%{
-    transform:scaleY(1.03) scaleX(1);
-    filter:brightness(2.1) contrast(1.35) saturate(.6);
-    opacity:1;
-  }
-  65%{
-    transform:scaleY(.99) scaleX(1);
-    filter:brightness(1.25) contrast(1.08) saturate(.9);
-  }
-  100%{
-    transform:scaleY(1) scaleX(1);
-    filter:brightness(1) contrast(1) saturate(1);
-  }
-}
-@media (prefers-reduced-motion:reduce){
-  .live-demo-card.is-powering-on .live-demo-browser{ animation:none; }
 }
 .live-demo-browser-bar{
   display:flex;
