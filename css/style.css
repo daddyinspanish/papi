@@ -2397,8 +2397,27 @@ body, a{ cursor:none; }
 .process-hero{
   position:relative;
   width:100%;
-  min-height:100svh;
+  /* BUG FIX: per report, "instagram browser opens but nothing shows,
+     just a blank page." These three were declared 100svh THEN 100vh —
+     backwards: whichever is declared LAST wins when both are
+     supported, so the plain 100vh (unstable in Instagram's in-app
+     browser — see the long --stable-vh comment at the top of
+     index.html) was overriding the safer 100svh the whole time,
+     defeating it entirely. This is the hero GSAP pins via
+     js/scroll-journey-hero.js with start:'bottom bottom', which "pin
+     engages essentially at page load" per that file's own comment —
+     any bad/unstable height reading right when GSAP first measures
+     this element feeds straight into that pin. Reordered so each line
+     only IMPROVES on the one before: 100vh (universal baseline) ->
+     100svh (overrides it where supported, avoids mobile Safari's own
+     URL-bar jump) -> the JS-measured --stable-vh custom property
+     (overrides both, in every browser, once index.html's early inline
+     script sets it) — the same value already purpose-built for
+     exactly Instagram's in-app browser, previously computed and set
+     but never actually consumed anywhere. */
   min-height:100vh;
+  min-height:100svh;
+  min-height:calc(var(--stable-vh, 1vh) * 100);
   overflow:hidden;
   /* per direct request: "there also seems to be waves around some
      sections... please remove that from all sections" — flattened

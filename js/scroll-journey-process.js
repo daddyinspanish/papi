@@ -222,4 +222,27 @@
   window.addEventListener('load', () => {
     setTimeout(() => ScrollTrigger.refresh(), 600);
   });
+
+  // BUG FIX: per follow-up report, "in desktop after reaching how we
+  // build it, there seems to be an empty space in the bottom section."
+  // The one-shot refresh above only ever fires once, 600ms after
+  // 'load' — fine for the mobile Safari chrome-settle case it was
+  // written for, but desktop has no such single settle moment. Any
+  // later layout shift that changes the page's total height (a web
+  // font swapping in, a live-demo iframe finishing load, a testimonial
+  // image landing) after that one refresh already ran leaves every
+  // pin-spacer sized against stale measurements, showing up as dead
+  // scroll space once you're past the affected section. A
+  // ResizeObserver on <body> catches any such height change for the
+  // rest of the page's life (not just once) and asks GSAP to
+  // re-measure every pin against it, debounced so a burst of shifts
+  // (several images landing back to back) only triggers one refresh.
+  if('ResizeObserver' in window){
+    let resizeT = null;
+    const ro = new ResizeObserver(() => {
+      clearTimeout(resizeT);
+      resizeT = setTimeout(() => ScrollTrigger.refresh(), 200);
+    });
+    ro.observe(document.body);
+  }
 })();

@@ -46,20 +46,22 @@
     fontSize: 16,
     fontSizeMobile: 13,
     mobileWidth: 640,
-    // per direct request: "make sure that you can speed up the matrix
-    // effect" — roughly 1.7x the old 0.28-0.72 range. Speeds below are
-    // "rows per ideal 60fps frame" — renderFrame() below scales the
-    // actual step by real elapsed time (see BUG FIX further down), so
-    // this reads as smooth motion at any render cadence instead of
-    // choppy steps.
-    speedMin: 0.48,
-    speedMax: 1.25,
+    // BUG FIX: per follow-up report, "the speed of the matrix now seems
+    // like its raining... make sure its a bit smoother, a bit slower."
+    // The previous 0.48-1.25 (a 1.7x bump over the original 0.28-0.72)
+    // read as too fast/heavy once the timing fix below made it actually
+    // smooth — dialed back to a more modest bump over the original.
+    // Speeds below are "rows per ideal 60fps frame" — renderFrame()
+    // scales the actual step by real elapsed time (see BUG FIX further
+    // down), so this reads as smooth motion at any render cadence
+    // instead of choppy steps.
+    speedMin: 0.32,
+    speedMax: 0.8,
     streamMin: 6,
     streamMax: 16,
     headAlpha: 0.55,
     // per-row falloff behind the head — smaller value fades out faster
     tailFalloff: 0.80,
-    renderFPS: 28,
   };
 
   const CHARS = '0123456789';
@@ -174,22 +176,25 @@
   // slime.js): pause the render loop whenever the hero isn't actually
   // on-screen or the tab itself isn't visible, so this doesn't keep
   // burning CPU/battery for the rest of the session once scrolled past.
-  const RENDER_INTERVAL = 1000 / CONFIG.renderFPS;
-  // BUG FIX: per report, "the speed of the matrix is very choppy now" —
-  // renderFrame() used to advance every column by a fixed `col.speed`
-  // per CALL, not per unit of real time. requestAnimationFrame doesn't
-  // fire at exact RENDER_INTERVAL boundaries (e.g. a 28fps target
+  //
+  // BUG FIX: per report, "the speed of the matrix is very choppy now,"
+  // then later "make sure that on desktop things do not look choppy" —
+  // this used to throttle rendering to a fixed CONFIG.renderFPS (28)
+  // below the display's real refresh rate, on top of renderFrame()
+  // advancing every column by a fixed `col.speed` per CALL rather than
+  // per unit of real time. Two separate problems: (1) a 28fps target
   // doesn't divide evenly into a real 60Hz/120Hz display's frame
-  // timing), so the actual gap between renders already varied a little
-  // frame to frame — harmless at the old, smaller speed values, but the
-  // larger step size from speeding the rain up made that same timing
-  // variance read as visible stutter. `steps` below is real elapsed time
-  // expressed in units of "one ideal 60fps frame", so however long
-  // actually passed since the last render, the rain covers the
-  // proportionally correct distance — smooth regardless of jitter in
-  // exactly when a throttled frame fires. Capped so resuming after the
-  // tab/hero was hidden for a while doesn't jump the rain forward in one
-  // big leap.
+  // timing, so skipping most real frames to hit that target produced
+  // uneven gaps between the frames that DID render; (2) advancing by a
+  // fixed amount per call (rather than by real elapsed time) turned
+  // that gap variance directly into visible stutter, worse at higher
+  // speed. Rendering on every real animation frame (no throttle)
+  // removes the skipped-frame judder entirely, and `steps` below still
+  // scales the actual movement by real elapsed time — expressed in
+  // units of "one ideal 60fps frame" — so a still-dropped frame under
+  // real load (not an artificial throttle) doesn't desync the rain's
+  // total distance either. Capped so resuming after the tab/hero was
+  // hidden for a while doesn't jump the rain forward in one big leap.
   const REFERENCE_FRAME_MS = 1000 / 60;
   const MAX_STEPS = 4;
   let lastRenderTs = 0;
@@ -197,12 +202,10 @@
   let isHeroVisible = true;
 
   function loop(ts){
-    if(ts - lastRenderTs >= RENDER_INTERVAL){
-      const dt = lastRenderTs ? ts - lastRenderTs : REFERENCE_FRAME_MS;
-      lastRenderTs = ts;
-      const steps = Math.min(dt / REFERENCE_FRAME_MS, MAX_STEPS);
-      renderFrame(steps);
-    }
+    const dt = lastRenderTs ? ts - lastRenderTs : REFERENCE_FRAME_MS;
+    lastRenderTs = ts;
+    const steps = Math.min(dt / REFERENCE_FRAME_MS, MAX_STEPS);
+    renderFrame(steps);
     rafId = requestAnimationFrame(loop);
   }
   function startLoop(){
