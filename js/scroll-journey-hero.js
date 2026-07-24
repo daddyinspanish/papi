@@ -82,6 +82,14 @@
     // centered rect, ready to reveal. transformPerspective is set
     // directly on the ghost itself (not an ancestor) so this doesn't
     // need — or fight with — any perspective set elsewhere on the page.
+    // BUG FIX: opacity:0 is essential here, not optional — without it
+    // this small, clipped starting state is still a fully-painted dark
+    // rounded rectangle sitting permanently in the middle of the hero
+    // (centered via inset:0+margin:auto in CSS), visible from the very
+    // first frame the page loads, long before the visitor has scrolled
+    // anywhere near the portal reveal. Fading it in as PART of the same
+    // reveal tween below is what actually keeps it invisible until the
+    // moment it's meant to appear.
     gsap.set(ghost, {
       transformPerspective: 1200,
       transformOrigin: '50% 50%',
@@ -89,6 +97,7 @@
       scale: isDesktop ? 0.82 : 0.9,
       rotationX: isDesktop ? 8 : 0,
       clipPath: 'inset(38% 38% round 16px)',
+      opacity: 0,
     });
 
     const tl = gsap.timeline({
@@ -121,9 +130,11 @@
       ease: 'none',
     }, 0.6);
 
-    // the ghost browser reveals through the clip-path mask and settles
-    // out of its pushed-back/tilted entrance, same last-40% window
+    // the ghost browser fades in, reveals through the clip-path mask,
+    // and settles out of its pushed-back/tilted entrance, same last-
+    // 40% window
     tl.to(ghost, {
+      opacity: 1,
       clipPath: 'inset(0% 0% round 16px)',
       z: 0,
       scale: 1,
