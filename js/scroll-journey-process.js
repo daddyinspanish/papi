@@ -77,12 +77,23 @@
     hidden:   { xPercent: 0,   z: -400, rotationY: 0,   scale: 0.7,  opacity: 0   },
   };
   // mobile: per direct request, "remove heavy Z-depth and use shorter
-  // slide/scale transitions" — no z/rotationY at all, smaller travel
+  // slide/scale transitions" — no z/rotationY at all, smaller travel.
+  // BUG FIX: per follow-up report, "you can barely read things because
+  // one step is seen behind the other" — on a narrow mobile screen,
+  // panels are wide relative to the viewport, so even a large %
+  // shift still leaves real overlap while a panel is mid-transition
+  // (this is a continuous scrub, not a set of 4 discrete snaps — most
+  // of the scroll range IS "mid-transition"). Combined with the
+  // z-index fix above (so the active panel's own opaque background
+  // now properly sits in front of, not beside, its neighbors), pushed
+  // this further still: previous/next are nearly off-screen (±92%)
+  // and faint enough (0.14) to read as a background hint rather than
+  // competing, readable text.
   const MOBILE_STATE = {
-    active:   { xPercent: 0,   rotationY: 0, scale: 1,    opacity: 1   },
-    previous: { xPercent: -30, rotationY: 0, scale: 0.9,  opacity: 0.4 },
-    next:     { xPercent: 30,  rotationY: 0, scale: 0.9,  opacity: 0.4 },
-    hidden:   { xPercent: 0,   rotationY: 0, scale: 0.8,  opacity: 0   },
+    active:   { xPercent: 0,   rotationY: 0, scale: 1,    opacity: 1    },
+    previous: { xPercent: -92, rotationY: 0, scale: 0.8,  opacity: 0.14 },
+    next:     { xPercent: 92,  rotationY: 0, scale: 0.8,  opacity: 0.14 },
+    hidden:   { xPercent: 0,   rotationY: 0, scale: 0.72, opacity: 0    },
   };
 
   // blends smoothly between the named states based on r = signed
@@ -124,9 +135,20 @@
     const activeFloat = progress * (n - 1);
 
     panels.forEach((panel, i) => {
-      const s = stateAt(states, i - activeFloat);
+      const r = i - activeFloat;
+      const s = stateAt(states, r);
       gsap.set(panel, s);
       panel.style.pointerEvents = s.opacity > 0.05 ? 'auto' : 'none';
+      // BUG FIX: per report, "you can barely read things because one
+      // step is seen behind the other" — every panel shared the same
+      // CSS z-index, so they painted in plain DOM order regardless of
+      // which one was actually "active," meaning a later panel could
+      // visually sit on TOP of the active one's text instead of
+      // cleanly behind it. Ranking z-index by closeness to active here
+      // guarantees whichever panel is most "in front" conceptually is
+      // also literally on top, so its own opaque background properly
+      // occludes neighbors instead of both showing through at once.
+      panel.style.zIndex = String(Math.round((1 - Math.min(Math.abs(r), 1)) * 10) + 1);
     });
 
     const activeIndex = Math.max(0, Math.min(n - 1, Math.round(activeFloat)));
@@ -180,5 +202,24 @@
     });
     liveTrigger = trigger;
     render(states, trigger.progress);
+  });
+
+  // BUG FIX: per report, "on mobile when reaching the last section,
+  // there is a big black space after that section reaches the very
+  // bottom." Mobile Safari's address bar auto-hides shortly after the
+  // page settles, growing the real usable viewport — but GSAP's pin
+  // spacers (across all three scroll-journey files, which is why this
+  // lives here as the last one to load, once everything is already
+  // pinned) are sized once, from whatever viewport height was current
+  // when each pin was first set up. If that measurement happened while
+  // Safari's chrome was still visible, every pin spacer ends up
+  // oversized relative to the real, settled viewport, and that excess
+  // shows up as dead scroll space after the final section. One
+  // ScrollTrigger.refresh() after a real settle delay re-measures
+  // every pin against the final viewport — same "wait for it to
+  // settle" convention already used for --stable-vh elsewhere on this
+  // site, just applied to GSAP's own measurements instead.
+  window.addEventListener('load', () => {
+    setTimeout(() => ScrollTrigger.refresh(), 600);
   });
 })();

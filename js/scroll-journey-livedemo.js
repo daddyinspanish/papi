@@ -38,6 +38,26 @@
   const allFrameWraps = allBrowsers
     .map((browser) => browser.querySelector('.live-demo-frame-wrap'))
     .filter(Boolean);
+  // BUG FIX: per report, "after i scroll from one live demo onto the
+  // next section, the title of the live demo stays there while
+  // everything else fades out" — this dissolve only ever touched the
+  // browser cards themselves; the eyebrow/title/sub/dots above them
+  // were never part of it, so they just sat there fully opaque for the
+  // whole pin (including after the cards had already dissolved away),
+  // then abruptly vanished the instant the pin released. Fading them
+  // out together with the cards makes the whole section dissolve as
+  // one cohesive moment instead of leaving stranded text behind.
+  const restOfSection = ['.live-demo-eyebrow', '.live-demo-title', '.live-demo-sub', '.live-demo-controls']
+    .map((sel) => document.querySelector(sel))
+    .filter(Boolean);
+  // FURTHER BUG FIX (found during full-site verification pass, same bug
+  // class as above but one level deeper): each .live-demo-card renders
+  // its own name/industry/"Visit full site" caption (js/live-demo.js)
+  // as SIBLINGS of .live-demo-browser, not children of it — so the
+  // allBrowsers/allFrameWraps tweens above never touched them either.
+  // Without this, the active card's company name+link visibly hung in
+  // place after the browser frame itself had already dissolved away.
+  const allCaptions = Array.from(document.querySelectorAll('.live-demo-card .live-demo-name, .live-demo-card .live-demo-industry, .live-demo-card .live-demo-visit'));
   if(!liveDemoSection || !allBrowsers.length || !allFrameWraps.length) return;
 
   gsap.registerPlugin(ScrollTrigger);
@@ -86,5 +106,26 @@
       duration: 0.4,
       ease: 'none',
     }, 0.6);
+
+    // eyebrow/title/sub/dots fade out together with the cards, same
+    // tail window, so nothing gets left behind on screen
+    if(restOfSection.length){
+      tl.to(restOfSection, {
+        opacity: 0,
+        duration: 0.4,
+        ease: 'none',
+      }, 0.6);
+    }
+
+    // each card's own name/industry/visit-link caption, same tail
+    // window as the browser it belongs to — see FURTHER BUG FIX note
+    // above for why this needed its own tween
+    if(allCaptions.length){
+      tl.to(allCaptions, {
+        opacity: 0,
+        duration: 0.4,
+        ease: 'none',
+      }, 0.6);
+    }
   });
 })();

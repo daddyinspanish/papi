@@ -2270,11 +2270,6 @@ body, a{ cursor:none; }
      edges, which matters much less here where the card itself needs
      to be as wide as possible (see .live-demo-card below) */
   padding:.5rem clamp(1rem, 4vw, 3rem) 1.5rem;
-  /* local perspective for js/scroll-journey-hero.js's browser-frame
-     entrance (translateZ/rotationX on .live-demo-browser) — kept HERE,
-     local to this one stack, never on <body> (see .process-stage's own
-     comment on the perspective bug that caused earlier this session) */
-  perspective:1200px;
 }
 .live-demo-stack::-webkit-scrollbar{ display:none; }
 
@@ -2478,33 +2473,6 @@ body, a{ cursor:none; }
   flex-direction:column;
   align-items:center;
   justify-content:center;
-}
-/* per direct request for a GSAP ScrollTrigger cinematic hero->live-demo
-   portal — see js/scroll-journey-hero.js's own long comment for why
-   this is a lightweight clone of just the browser chrome bar (no
-   iframe) appended inside #processRoom itself, rather than the real
-   .live-demo-browser element. Visual values match .live-demo-browser's
-   own CSS exactly for a seamless look. */
-.process-portal-ghost{
-  position:absolute;
-  inset:0;
-  margin:auto;
-  z-index:6;
-  width:min(90vw, 900px);
-  height:min(65vh, 540px);
-  display:flex;
-  flex-direction:column;
-  border-radius:16px;
-  overflow:hidden;
-  background:#0d0d10;
-  border:1px solid rgba(122,221,255,.16);
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.6);
-  pointer-events:none;
-  will-change:transform, clip-path;
-}
-.process-portal-ghost-body{
-  flex:1;
-  background:#0d0d10;
 }
 /* per direct request: a falling-numbers matrix rain running
    continuously as the hero's whole background visual (js/hero-
@@ -3081,6 +3049,14 @@ body, a{ cursor:none; }
   text-align:center;
   transform-style:preserve-3d;
   will-change:transform, opacity;
+}
+/* BUG FIX: per report, on mobile "you can barely read things because
+   one step is seen behind the other" — a narrower panel here gives
+   js/scroll-journey-process.js's own wider ±78% mobile xPercent shift
+   more room to actually clear the active panel's text instead of
+   still sitting mostly underneath it */
+@media (max-width:640px){
+  .process-panel{ width:min(80vw, 20rem); }
 }
 @media (prefers-reduced-motion:reduce){
   .process-panel{ position:static; margin:0 auto 1.5rem; }
