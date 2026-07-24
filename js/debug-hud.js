@@ -12,8 +12,16 @@
 =================================================================== */
 (function(){
   const params = new URLSearchParams(location.search);
-  if(params.has('debug')) localStorage.setItem('papiDebug', params.get('debug') === '1' ? '1' : '0');
-  const enabled = localStorage.getItem('papiDebug') === '1';
+  // some in-app browsers sandbox storage access and throw here instead
+  // of just returning null — every other localStorage call on this site
+  // is already wrapped the same way (see js/newsletter-popup.js); this
+  // was the one unguarded holdout, and an uncaught throw this early in
+  // the script list is a needless risk for a purely optional feature.
+  let enabled = false;
+  try {
+    if(params.has('debug')) localStorage.setItem('papiDebug', params.get('debug') === '1' ? '1' : '0');
+    enabled = localStorage.getItem('papiDebug') === '1';
+  } catch(e){ /* treat as disabled if storage is blocked */ }
   if(!enabled){
     window.PapiDebug = { log(){} };
     return;

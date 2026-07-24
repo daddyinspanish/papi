@@ -54,6 +54,36 @@ window.scrollTo(0, 0);
     setTimeout(function(){ lastW = window.innerWidth; setStableVh(); }, 200);
   });
 })();
+
+// SAFETY NET: per report, "opening the site from Instagram's in-app
+// browser — the loading bar completes but nothing is ever shown."
+// #hero is opacity:0/visibility:hidden by default and only revealed by
+// js/init.js (the last of ~15 script tags at the end of body), once
+// fonts are ready or its own 900ms safety timeout fires. That works
+// fine everywhere this has been tested, but it has exactly one single
+// point of failure: if ANYTHING earlier in that long script chain hard-
+// hangs the main thread (rather than merely throwing, which — per spec
+// — only aborts that one script tag and lets the rest continue), or if
+// init.js's own request is the one thing that fails to load in some
+// in-app browser's own caching/network layer, init.js's code simply
+// never runs and the page is blank forever. This runs from the very
+// first inline script in <head> — already-executing regardless of what
+// happens to any later script — and forces the same reveal on a long
+// (4s, well past init.js's own 900ms normal path) delay if it hasn't
+// happened by itself yet. Idempotent and inert on every normal load.
+setTimeout(function(){
+  var hero = document.getElementById('hero');
+  if(!hero || hero.classList.contains('is-visible')) return;
+  hero.classList.add('is-visible');
+  hero.removeAttribute('aria-hidden');
+  var brandMark = document.getElementById('brandMark');
+  if(brandMark){
+    var spans = brandMark.querySelectorAll('span');
+    for(var i = 0; i < spans.length; i++) spans[i].style.opacity = '1';
+  }
+  if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
+  if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
+}, 4000);
 </script>
 <title>Papi — Business-Ready Websites, Built With Purpose</title>
 <meta name="description" content="Papi builds business-ready websites designed to build trust, communicate clearly, and guide visitors to their next step.">
