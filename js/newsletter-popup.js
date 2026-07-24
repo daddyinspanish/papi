@@ -16,10 +16,19 @@
    it, or already subscribed) never gets it again on a later visit —
    the friendlier default for a discount popup versus re-nagging every
    session.
+
+   REDESIGNED per direct request: "I do not want the pop up to just
+   pop up and cover the screen... something immersive, doesnt take the
+   entire page, sleek, small." No more full-page backdrop element or
+   scroll lock — this is a small corner card now (see its own CSS
+   comment), so the visitor can keep scrolling/interacting with the
+   rest of the page while it's up. Click-outside-to-close replaces the
+   old backdrop-click handler, since there's no backdrop element left
+   to click on.
 =================================================================== */
 (function(){
   const popup = document.getElementById('newsletterPopup');
-  const backdrop = document.getElementById('newsletterBackdrop');
+  const card = document.querySelector('.newsletter-popup-card');
   const closeBtn = document.getElementById('newsletterClose');
   const form = document.getElementById('newsletterForm');
   const successEl = document.getElementById('newsletterSuccess');
@@ -34,14 +43,12 @@
     shown = true;
     popup.classList.add('is-visible');
     popup.setAttribute('aria-hidden', 'false');
-    window.Papi && window.Papi.lockScroll && window.Papi.lockScroll();
     try { localStorage.setItem(STORAGE_KEY, '1'); } catch(e){ /* private-mode storage can throw — losing the "seen" flag just means it might show again, not a functional break */ }
   }
   function close(){
     if(!shown) return;
     popup.classList.remove('is-visible');
     popup.setAttribute('aria-hidden', 'true');
-    window.Papi && window.Papi.unlockScroll && window.Papi.unlockScroll();
   }
 
   let alreadySeen = false;
@@ -68,9 +75,16 @@
   }
 
   if(closeBtn) closeBtn.addEventListener('click', close);
-  if(backdrop) backdrop.addEventListener('click', close);
   window.addEventListener('keydown', (e)=>{
     if(e.key === 'Escape' && popup.classList.contains('is-visible')) close();
+  });
+  // click-outside-to-close — the popup no longer has a backdrop element
+  // to catch this the old way, since it's a small corner card that
+  // doesn't block the rest of the page
+  document.addEventListener('click', (e)=>{
+    if(!popup.classList.contains('is-visible')) return;
+    if(card && card.contains(e.target)) return;
+    close();
   });
 
   // same fetch-with-native-fallback submit pattern as quote-form.js

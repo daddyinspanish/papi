@@ -80,11 +80,25 @@ html,body{
    it isn't the root element (no fixed-position bug). */
 body{ overflow-x:hidden; }
 
-/* will-change promotes each dolly-driven section to its own compositor
-   layer up front, so the very first frame the transform actually
-   changes doesn't cause a paint hitch */
-#processRoom, #liveDemoSection, #ourProcessSection,
-#comparisonSection, #testimonialsSection, #faqSection, #quoteSection{
+/* will-change promotes a dolly-driven section to its own compositor
+   layer, so the first frame its transform actually changes doesn't
+   cause a paint hitch.
+   BUG FIX: per report, "when i refresh it the second time... black
+   screen" — this used to be permanent, on all 7 sections, for the
+   entire page's lifetime (including #liveDemoSection/#ourProcessSection,
+   which is actually stale now — js/scroll-dolly.js's own header
+   comment notes those two are no longer dolly-driven at all, their
+   depth motion moved to the GSAP pins in js/scroll-journey-*.js
+   instead, so promoting them here was doing nothing useful, just
+   holding 2 extra full-viewport-sized GPU layers in memory for
+   nothing). The remaining 5 are still real, but now js/scroll-dolly.js
+   itself toggles this via IntersectionObserver (.js-will-change) only
+   while a section is actually near the viewport, instead of holding
+   every one of them in its own GPU layer for the whole session —
+   substantially less standing GPU memory, which is one plausible
+   contributor to a heavy page tipping over Safari's per-tab memory
+   ceiling on a reload. */
+.js-will-change{
   will-change:transform;
 }
 
@@ -2005,54 +2019,51 @@ body, a{ cursor:none; }
 
 /* ===================================================================
    NEWSLETTER POPUP — shown once, the first time the visitor scrolls
-   past the before/after section (see js/newsletter-popup.js). The form
+   past the live-demo section (see js/newsletter-popup.js). The form
    itself reuses .quote-field/.quote-submit/.quote-form wholesale (a
    white-background card, same as the quote form further down the
    page) rather than a second parallel set of input styles.
+
+   REDESIGNED per direct request: "I do not want the pop up to just
+   pop up and cover the screen... something that is immersive, doesnt
+   take the entire page, something sleek, small, but powerful." Was a
+   full-viewport dark backdrop + centered modal; now a small card
+   anchored to the bottom-right corner (bottom sheet on mobile) that
+   slides up + fades in on its own, with nothing dimming or blocking
+   the rest of the page — no backdrop element at all anymore, and
+   js/newsletter-popup.js no longer calls lockScroll()/unlockScroll().
 =================================================================== */
 .newsletter-popup{
   position:fixed;
-  inset:0;
+  right:1.25rem;
+  bottom:1.25rem;
   z-index:900;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:1.5rem;
+  width:min(360px, calc(100vw - 2.5rem));
   opacity:0;
   pointer-events:none;
-  transition:opacity .35s var(--ease-out);
+  transform:translateY(20px);
+  transition:opacity .4s var(--ease-out), transform .4s var(--ease-out);
 }
 .newsletter-popup.is-visible{
   opacity:1;
   pointer-events:auto;
-}
-.newsletter-popup-backdrop{
-  position:absolute;
-  inset:0;
-  background:rgba(5,4,2,.72);
+  transform:translateY(0);
 }
 .newsletter-popup-card{
   position:relative;
-  z-index:1;
-  width:min(440px, 100%);
-  max-height:88vh;
+  max-height:calc(100vh - 2.5rem);
   overflow-y:auto;
   background:#fff;
-  border-radius:20px;
-  padding:clamp(1.8rem, 4vw, 2.6rem);
-  box-shadow:0 60px 120px -30px rgba(0,0,0,.6);
-  transform:translateY(24px) scale(.96);
-  transition:transform .35s var(--ease-out);
-}
-.newsletter-popup.is-visible .newsletter-popup-card{
-  transform:translateY(0) scale(1);
+  border-radius:16px;
+  padding:clamp(1.2rem, 3vw, 1.5rem);
+  box-shadow:0 24px 60px -16px rgba(0,0,0,.5), 0 4px 18px -4px rgba(0,0,0,.22);
 }
 .newsletter-popup-close{
   position:absolute;
-  top:1rem;
-  right:1rem;
-  width:32px;
-  height:32px;
+  top:.65rem;
+  right:.65rem;
+  width:28px;
+  height:28px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -2065,21 +2076,21 @@ body, a{ cursor:none; }
 }
 .newsletter-popup-close:hover{ background:rgba(15,31,61,.12); }
 .newsletter-popup-eyebrow{
-  font-size:.72rem;
+  font-size:.66rem;
   font-weight:700;
-  letter-spacing:.2em;
+  letter-spacing:.18em;
   text-transform:uppercase;
   color:#1f6a8a;
-  margin-bottom:.7rem;
+  margin-bottom:.5rem;
+  padding-right:1.5rem; /* room for the close button */
 }
 .newsletter-popup-title{
   font-family:'Fraunces', serif;
   font-weight:500;
-  font-size:clamp(1.5rem, 4vw, 1.9rem);
+  font-size:clamp(1.15rem, 3vw, 1.3rem);
   line-height:1.25;
   color:#0f1f3d;
-  margin-bottom:.9rem;
-  max-width:32ch;
+  margin-bottom:.6rem;
 }
 /* same metallic gold sweep as .quote-form-title, tuned for the same
    white backdrop */
@@ -2092,14 +2103,31 @@ body, a{ cursor:none; }
   animation:quoteFormTitleShine 6s ease-in-out infinite;
 }
 .newsletter-popup-sub{
-  font-size:.94rem;
-  line-height:1.55;
+  font-size:.82rem;
+  line-height:1.45;
   color:rgba(15,31,61,.66);
-  margin-bottom:1.6rem;
+  margin-bottom:1.1rem;
 }
 .newsletter-popup-card .quote-form{
   background:none;
   padding:0;
+}
+/* tighter field spacing than the full-size .quote-form uses, so the
+   compact card doesn't feel cramped edge-to-edge but still reads as
+   "small" rather than a full form page */
+.newsletter-popup-card .quote-field{ margin-bottom:.85rem; }
+.newsletter-popup-card .quote-submit{ padding:.75rem 1.1rem; font-size:.85rem; }
+
+@media (max-width:640px){
+  /* a compact bottom sheet rather than a corner card at phone widths —
+     still nowhere near covering the page, just anchored to the bottom
+     edge with margins on both sides */
+  .newsletter-popup{
+    right:.75rem;
+    left:.75rem;
+    bottom:.75rem;
+    width:auto;
+  }
 }
 
 /* ===================================================================

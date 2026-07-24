@@ -62,6 +62,21 @@
    sideways. And the title element itself now scales up in the SAME
    0.4-0.75 window as the matrix canvas's own scale tween just below,
    so the two zoom in lockstep instead of only the background moving.
+
+   FURTHER BUG FIX (follow-up request): "make sure that the last
+   numbers do not scale all the way, instead the numbers just falls
+   into the matrix effect." The title-level scale tween above and the
+   per-character fall above were compounding: a character dissolving
+   late in the stagger was ALSO still riding the parent's own
+   ever-growing zoom right as it fell away, so the very last numbers
+   visibly ballooned in size instead of just dropping. Each character
+   now gets a counter-scale the moment it starts glitching — 1 divided
+   by whatever the parent's current zoom factor is — which cancels the
+   inherited growth for that one character, so once a letter starts
+   dissolving it holds its own natural size and only falls/fades/
+   flickers, while untouched letters ahead of it keep scaling up
+   normally with the rest of the title (still satisfying "the title
+   scales like the matrix" for the intact portion).
 =================================================================== */
 (function(){
   if(!window.gsap || !window.ScrollTrigger) return;
@@ -107,30 +122,48 @@
   // t*t (quadratic ease-in) reads as gravity picking up speed, not a
   // constant-velocity slide
   const FALL_DISTANCE_EM = 1.8;
+  // must match the titleEl scale tween's own position/duration below —
+  // used to compute (and cancel) the parent's current zoom factor for
+  // any character that's already mid-dissolve, see the FURTHER BUG FIX
+  // note above
+  const SCALE_START = 0.4, SCALE_END = 0.75;
+  let titleScaleTarget = 1.4; // overwritten per breakpoint in mm.add below
+  function currentParentScale(progress){
+    const t = clamp01((progress - SCALE_START) / (SCALE_END - SCALE_START));
+    return 1 + (titleScaleTarget - 1) * t;
+  }
   function updateTitleGlitch(progress){
     if(!titleChars.length) return;
     const raw = clamp01((progress - GLITCH_START) / (GLITCH_END - GLITCH_START));
+    const parentScale = currentParentScale(progress);
+    const counterScale = (1 / parentScale).toFixed(4);
     const n = titleChars.length;
     titleChars.forEach((span, i) => {
       const start = i / n;
       const end = start + STAGGER_SPAN / n;
       const t = clamp01((raw - start) / (end - start));
       if(t <= 0){
+        // untouched — inherits the parent's own zoom naturally, no
+        // override, so the still-intact text keeps scaling with it
         span.textContent = span.dataset.char;
         span.style.opacity = '1';
         span.style.transform = '';
         span.classList.remove('is-glitching');
         return;
       }
+      // translateY first (in the parent's zoomed coordinate space, so
+      // the fall distance stays visually consistent) then scale(counter-
+      // Scale) — cancels the parent's own growth for just this
+      // character, so it holds its natural size and only falls/fades
       if(t >= 1){
         span.style.opacity = '0';
-        span.style.transform = `translateY(${FALL_DISTANCE_EM}em)`;
+        span.style.transform = `translateY(${FALL_DISTANCE_EM}em) scale(${counterScale})`;
         return;
       }
       span.classList.add('is-glitching');
       span.textContent = Math.random() < t ? GLITCH_DIGITS[(Math.random() * 10) | 0] : span.dataset.char;
       span.style.opacity = String(1 - t * 0.35);
-      span.style.transform = `translateY(${(t * t * FALL_DISTANCE_EM).toFixed(3)}em)`;
+      span.style.transform = `translateY(${(t * t * FALL_DISTANCE_EM).toFixed(3)}em) scale(${counterScale})`;
     });
   }
 
@@ -144,6 +177,7 @@
     isMobile: '(max-width: 640px)',
   }, (context) => {
     const isDesktop = context.conditions.isDesktop;
+    titleScaleTarget = isDesktop ? 1.8 : 1.4; // read by currentParentScale() in updateTitleGlitch above
 
     // the hero (#processRoom) is exactly one viewport tall with
     // nothing extra to scroll through first, so ScrollTrigger's

@@ -576,16 +576,28 @@ window.scrollTo(0, 0);
 </div>
 
 <!-- ============ NEWSLETTER POPUP — triggered once, the first time the
-     visitor scrolls past the live-demo section ============ -->
+     visitor scrolls past the live-demo section.
+
+     REDESIGNED per direct request: "I do not want the pop up to just
+     pop up and cover the screen... something that is immersive,
+     doesnt take the entire page, something sleek, small, but
+     powerful." Was a full-viewport dark backdrop + centered modal
+     that scroll-locked the whole page (see js/accent.js's
+     lockScroll()) — replaced with a small card anchored to the
+     bottom-right corner (a bottom sheet on narrow/mobile widths),
+     no backdrop dimming the rest of the page at all, and no scroll
+     lock — the visitor can keep reading/scrolling right through it.
+     No role="dialog"/aria-modal here anymore either, for the same
+     reason: it's a non-blocking corner panel now, not a modal that
+     traps focus/interaction. ============ -->
 <div class="newsletter-popup" id="newsletterPopup" aria-hidden="true">
-  <div class="newsletter-popup-backdrop" id="newsletterBackdrop"></div>
-  <div class="newsletter-popup-card" role="dialog" aria-modal="true" aria-labelledby="newsletterTitle">
+  <div class="newsletter-popup-card" aria-labelledby="newsletterTitle">
     <button type="button" class="newsletter-popup-close" id="newsletterClose" aria-label="Close">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
     <p class="newsletter-popup-eyebrow">Limited-Time Offer</p>
     <h2 class="newsletter-popup-title" id="newsletterTitle">Get <span class="newsletter-popup-highlight">10% off</span> your website</h2>
-    <p class="newsletter-popup-sub">Subscribe to Papi and you'll be first in line for new features and Papi updates, exclusive discounts on future services — plus 10% off your build, just for signing up.</p>
+    <p class="newsletter-popup-sub">Sign up for early access to new features, updates, and 10% off your build.</p>
     <form class="newsletter-popup-form quote-form" id="newsletterForm" action="https://formspree.io/f/mrenblpj" method="POST" novalidate>
       <input type="hidden" name="form_type" value="Newsletter signup">
       <div class="quote-field">

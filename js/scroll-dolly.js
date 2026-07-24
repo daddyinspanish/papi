@@ -73,6 +73,31 @@
 
   if(!SECTIONS.length) return;
 
+  // BUG FIX: per report, "when i refresh it the second time... black
+  // screen" — every one of these sections used to carry a PERMANENT
+  // will-change:transform in CSS, for the entire page's lifetime,
+  // regardless of whether it was anywhere near the viewport. Each one
+  // is its own full-viewport-sized GPU compositor layer; holding 5+ of
+  // those in memory for the whole session is real, standing GPU
+  // memory that a reload doesn't need to pay for until a section is
+  // actually about to animate. A generous-margin IntersectionObserver
+  // toggles the .js-will-change class only while a section is
+  // reasonably close to the viewport, releasing the GPU layer once
+  // it's scrolled well away — same effect (no paint hitch on the
+  // first real transform change) for a fraction of the standing cost.
+  if('IntersectionObserver' in window){
+    const wcIO = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        entry.target.classList.toggle('js-will-change', entry.isIntersecting);
+      });
+    }, { rootMargin: '50% 0px 50% 0px' });
+    SECTIONS.forEach(({ el }) => wcIO.observe(el));
+  } else {
+    // no IntersectionObserver — fall back to the old always-on
+    // behavior rather than never promoting these at all
+    SECTIONS.forEach(({ el }) => el.classList.add('js-will-change'));
+  }
+
   function smoothstep(edge0, edge1, x){
     const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);

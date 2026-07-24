@@ -16,6 +16,25 @@
    hero's own dark gradient background entirely. clearRect + redraw
    every frame keeps this reliably transparent everywhere but the
    digits themselves, no matter how long it runs.
+
+   BUG FIX: per report, "when someone makes the website be loaded into
+   an extended monitor, that the numbers do not just stretch... make
+   sure same quality is across all types of sizing" — resize() already
+   recomputes the canvas's drawing-buffer resolution from the CSS size
+   × devicePixelRatio, but that only ever re-ran on a window 'resize'
+   event. Moving an already-open window from one display to another
+   (e.g. a laptop's Retina panel to a non-Retina external monitor, or
+   vice versa — exactly what "extended monitor" setups do) changes
+   window.devicePixelRatio WITHOUT necessarily firing 'resize' at all,
+   since the CSS-pixel viewport size can stay identical while only the
+   backing pixel density changes. Left unhandled, the canvas keeps
+   rendering at the OLD dpr's resolution while the browser silently
+   rescales that bitmap to match the new display's pixel density —
+   exactly the stretched/blurry look reported. watchDpr() below uses a
+   matchMedia resolution query (the standard technique, since there's
+   no native "devicePixelRatio change" event) to catch that and
+   re-run resize() at the correct new density, then re-arms itself for
+   whatever the new dpr is.
 =================================================================== */
 (function(){
   const canvas = document.getElementById('processHeroMatrix');
@@ -27,14 +46,18 @@
     fontSize: 16,
     fontSizeMobile: 13,
     mobileWidth: 640,
-    speedMin: 0.28,
-    speedMax: 0.72,
+    // per direct request: "make sure that you can speed up the matrix
+    // effect" — roughly 1.7x the old 0.28-0.72 range. renderFPS bumped
+    // alongside it (22 -> 28) so the larger per-frame y-jump this
+    // implies still reads as smooth motion rather than choppy steps.
+    speedMin: 0.48,
+    speedMax: 1.25,
     streamMin: 6,
     streamMax: 16,
     headAlpha: 0.55,
     // per-row falloff behind the head — smaller value fades out faster
     tailFalloff: 0.80,
-    renderFPS: 22,
+    renderFPS: 28,
   };
 
   const CHARS = '0123456789';
@@ -90,6 +113,19 @@
     clearTimeout(window.__papiHeroMatrixResizeT);
     window.__papiHeroMatrixResizeT = setTimeout(resize, 150);
   });
+
+  // see this file's own BUG FIX note up top — catches a display change
+  // (e.g. dragging the window onto a different-dpi external monitor)
+  // that a plain 'resize' listener can miss entirely
+  function watchDpr(){
+    if(!window.matchMedia) return;
+    const dpr = window.devicePixelRatio || 1;
+    const mq = window.matchMedia(`(resolution: ${dpr}dppx)`);
+    const onChange = () => { resize(); watchDpr(); };
+    if(mq.addEventListener) mq.addEventListener('change', onChange, { once: true });
+    else if(mq.addListener) mq.addListener(onChange); // older Safari
+  }
+  watchDpr();
 
   function renderFrame(){
     ctx.clearRect(0, 0, W, H);

@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "papi-static",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "4871"],
-      "port": 4871
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "python3 -m http.server $PORT"],
+      "port": 4871,
+      "autoPort": true
     }
   ]
 }
