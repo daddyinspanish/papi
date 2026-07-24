@@ -7,16 +7,33 @@
    when there's more than one; a single demo just sits centered with
    no dots/arrows since there's nothing to browse between yet.
 
-   Each iframe's src is assigned shortly after the *page's own* load
-   event, not gated by scroll proximity — even moved up to sit right
-   after Contrast (per direct request, so a visitor reaches real work
-   sooner), a fast scroller still takes a real beat to get here, which
-   is normally plenty of lead time for someone else's whole website to
-   finish loading in the background. Waiting until the card was
-   already nearly in view instead meant the "Loading live site…"
-   placeholder was often still showing right as it scrolled in. The
-   small delay after 'load' keeps this from competing with the main
-   page's own critical first paint.
+   Each iframe's src is assigned once the section comes within a
+   generous lead distance of the viewport (IntersectionObserver,
+   rootMargin extended well past the bottom edge — see
+   loadWhenNear() below), not the instant the page loads.
+
+   BUG FIX: per report, "when i refresh the page on safari and mobile,
+   the page sometimes just goes black" — this used to force all 3
+   iframes' src on unconditionally ~400ms after the page's own load
+   event, on EVERY page load/refresh, regardless of whether the
+   visitor had scrolled anywhere near this section yet (it's the very
+   first section after the hero in DOM order, but the hero itself is a
+   300-400%-tall pinned scroll section, so on a fresh load this section
+   actually sits several viewport-heights below scrollY:0). That meant
+   every single refresh forced three separate live production websites
+   — each with their own images/fonts/JS — to start loading into
+   memory at once, on top of everything else this page already does
+   (a continuously-animating canvas, several GSAP pin-spacers, a custom
+   cursor). Mobile Safari has a much tighter per-tab memory ceiling
+   than desktop; tipping over it makes WebKit's own out-of-memory
+   killer silently discard the page, which is exactly a black/blank
+   tab that needs a manual reload — worse, doing this unconditionally
+   on every refresh made it reproducible independent of how far the
+   visitor actually scrolled. A generous proximity margin (see
+   PRELOAD_MARGIN below) keeps the same "no loading flash for a normal
+   scroller" goal this file originally called out, while no longer
+   forcing all 3 sites into memory on a refresh where the visitor
+   hasn't even started scrolling yet.
 =================================================================== */
 (function(){
   const section = document.getElementById('liveDemoSection');
@@ -100,9 +117,10 @@
     cards[clamped].scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
   }
 
-  // ---- start every card's iframe loading well ahead of scroll
-  // arrival — see the header comment above for why this isn't gated
-  // by scroll proximity at all ----
+  // ---- start every card's iframe loading once the section is within
+  // a generous lead distance of the viewport — see this file's header
+  // comment for why this is proximity-gated now instead of firing
+  // unconditionally on every page load ----
   function loadAllCards(){
     cards.forEach(card=>{
       const iframe = card.querySelector('iframe');
@@ -111,10 +129,47 @@
       iframe.src = iframe.dataset.src;
     });
   }
-  if(document.readyState === 'complete'){
-    setTimeout(loadAllCards, 400);
+  function startPreloadWatch(){
+    // 150% of the viewport height ahead is comfortably more lead time
+    // than a normal scroll takes to cover, so a visitor who does scroll
+    // this far still never sees the "Loading live site…" placeholder —
+    // but a visitor who never scrolls this far (or reloads the page
+    // before scrolling at all) never forces three external sites into
+    // memory for nothing.
+    const preloadIO = new IntersectionObserver((entries) => {
+      if(!entries[0].isIntersecting) return;
+      preloadIO.disconnect();
+      loadAllCards();
+    }, { rootMargin: '0px 0px 150% 0px' });
+    preloadIO.observe(section);
+  }
+  if('IntersectionObserver' in window){
+    // BUG FIX: this script tag (see index.html's own script order) runs
+    // BEFORE GSAP/ScrollTrigger even load, so starting the observer
+    // immediately meant its very first proximity check ran against the
+    // page's PRE-pin layout — before the hero's own ~300-400%-tall
+    // pinned scroll distance existed, #liveDemoSection's real on-page
+    // position was still just one short viewport down, well inside the
+    // 150% margin — so this fired instantly on every load regardless of
+    // where the visitor had actually scrolled, completely defeating the
+    // point. Waiting for the same load+settle delay
+    // js/scroll-journey-process.js already uses before its own
+    // ScrollTrigger.refresh() ensures every pin has been fully measured
+    // (and mobile Safari's address bar has settled) before this
+    // observer's math can be trusted.
+    if(document.readyState === 'complete'){
+      setTimeout(startPreloadWatch, 600);
+    } else {
+      window.addEventListener('load', ()=> setTimeout(startPreloadWatch, 600));
+    }
   } else {
-    window.addEventListener('load', ()=> setTimeout(loadAllCards, 400));
+    // no IntersectionObserver support — fall back to the old
+    // unconditional page-load timer rather than never loading at all
+    if(document.readyState === 'complete'){
+      setTimeout(loadAllCards, 400);
+    } else {
+      window.addEventListener('load', ()=> setTimeout(loadAllCards, 400));
+    }
   }
 
   // ---- pause/resume both iframes based on whether this section is
