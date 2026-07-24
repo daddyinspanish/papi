@@ -100,12 +100,27 @@
       opacity: 0,
     });
 
+    // BUG FIX: per report, "the hero section brings up a live demo
+    // rectangle before we even reach the live demo." Root cause: the
+    // hero (#processRoom) is exactly one viewport tall with nothing
+    // extra to scroll through first, so ScrollTrigger's start:'bottom
+    // bottom' resolves to ~scrollY 0 — the pin (and this whole
+    // timeline) was engaging essentially at page load, and with only a
+    // short +=120%/+=60% total scroll distance, the reveal (which sat
+    // at 60%-100% of that short range) was playing out within roughly
+    // the first single scroll of the page, long before the visitor had
+    // any sense of "arriving" anywhere. The fix isn't to move `start`
+    // (there's no later natural point on a 100vh section to move it
+    // to) — it's to give the pin a much longer total scroll distance
+    // and push every visible change deep into the tail of it, so
+    // there's real "just read the hero" scroll runway before the
+    // portal ever starts, let alone completes.
     const tl = gsap.timeline({
       scrollTrigger: {
         trigger: processRoom,
         pin: true,
         start: 'bottom bottom',
-        end: isDesktop ? '+=120%' : '+=60%',
+        end: isDesktop ? '+=300%' : '+=170%',
         scrub: 1,
         onEnter: () => window.PapiDolly && window.PapiDolly.lock('processRoom'),
         onEnterBack: () => window.PapiDolly && window.PapiDolly.lock('processRoom'),
@@ -113,35 +128,38 @@
       },
     });
 
-    // portal: the matrix-rain canvas scales up across the WHOLE scrub
-    // range (transform+opacity only, per the 60fps requirement)
+    // portal: the matrix-rain canvas scale-up doesn't start until 40%
+    // into the (now much longer) pin, and finishes at 75% — a real
+    // dead zone first, then a gradual dolly-in, well ahead of the
+    // reveal itself (transform+opacity only, per the 60fps requirement)
     tl.to(matrixCanvas, {
       scale: isDesktop ? 2.6 : 1.6,
       transformOrigin: '50% 50%',
-      duration: 1,
+      duration: 0.35,
       ease: 'none',
-    }, 0);
+    }, 0.4);
 
-    // hero text fades ONLY in the last 40% — not a whole-section
+    // hero text fades ONLY in the last 22% — not a whole-section
     // crossfade, per direct request
     tl.to(heroCopy, {
       opacity: 0,
-      duration: 0.4,
+      duration: 0.22,
       ease: 'none',
-    }, 0.6);
+    }, 0.78);
 
     // the ghost browser fades in, reveals through the clip-path mask,
-    // and settles out of its pushed-back/tilted entrance, same last-
-    // 40% window
+    // and settles out of its pushed-back/tilted entrance, same final
+    // window as the text fade — both land together right as the pin
+    // ends and hands off to the real live-demo section
     tl.to(ghost, {
       opacity: 1,
       clipPath: 'inset(0% 0% round 16px)',
       z: 0,
       scale: 1,
       rotationX: 0,
-      duration: 0.4,
+      duration: 0.22,
       ease: 'none',
-    }, 0.6);
+    }, 0.78);
 
     // gsap.matchMedia auto-reverts everything created in this context
     // (the timeline + its ScrollTrigger) when the breakpoint changes —
