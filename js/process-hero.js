@@ -34,29 +34,41 @@
   const revealText = document.getElementById('processRevealText');
   const heroTitle = hero ? hero.querySelector('.process-hero-title') : null;
 
+  const revealIcon = document.getElementById('processRevealIcon');
+  const revealContent = document.getElementById('processRevealContent');
+
   // per direct request: "make sure the steps do not come out as
   // double digits" — single digit (1/2/3/4), not the old zero-padded
-  // 01/02/03/04
+  // 01/02/03/04. Per a later direct request ("add icons to the
+  // steps, to show more life") each step also carries its own inline-
+  // SVG inner markup (no outer <svg> tag — that shell already exists
+  // once in the HTML at #processRevealIcon, this just swaps its
+  // innerHTML) rather than 4 separate <svg> elements toggled with
+  // CSS, so there's only ever one icon in the DOM to animate/measure.
   const STEPS = {
     discover: {
       index: '1',
       title: 'Discover',
       text: 'We start by learning your business inside and out — your goals, your customers, what’s working and what isn’t.',
+      icon: '<circle cx="10" cy="10" r="6"/><line x1="14.5" y1="14.5" x2="20" y2="20"/>',
     },
     steps: {
       index: '2',
       title: 'Steps',
       text: 'A clear, honest roadmap from first sketch to final launch, so you always know exactly what happens next.',
+      icon: '<path d="M4 20v-4h4v-4h4v-4h4v-4h4"/>',
     },
     structure: {
       index: '3',
       title: 'Structure',
       text: 'Real, considered architecture beneath every page — built to hold up as your business grows, not just look good on day one.',
+      icon: '<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.2"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.2"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.2"/>',
     },
     delivery: {
       index: '4',
       title: 'Delivery',
       text: 'A finished site that’s fast, easy to manage, and ready to start bringing in business from day one.',
+      icon: '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
     },
   };
 
@@ -125,11 +137,19 @@
     revealIndex.textContent = data.index;
     revealTitle.textContent = data.title;
     revealText.textContent = data.text;
+    if(revealIcon) revealIcon.innerHTML = data.icon;
 
     hotspots.forEach(h => h.classList.toggle('is-active', h === hotspotEl));
     reveal.classList.add('is-visible');
     reveal.setAttribute('aria-hidden', 'false');
     activeKey = key;
+
+    // per direct request: "make the background in the process section
+    // darken when the step is clicked" — dims/blurs the eyebrow/title/
+    // dot-line behind the reveal overlay (on top of that overlay's own
+    // radial-gradient darkening) so the open step reads as a spotlit
+    // focus rather than a panel merely floating over the same content
+    if(stepsSection) stepsSection.classList.add('is-active');
 
     // per direct request: "dissolve the title" while a step is open —
     // clears any glitch-back-in still mid-flight from a rapid re-click
@@ -149,6 +169,7 @@
     reveal.setAttribute('aria-hidden', 'true');
     hotspots.forEach(h => h.classList.remove('is-active'));
     activeKey = null;
+    if(stepsSection) stepsSection.classList.remove('is-active');
 
     // per direct request: "make it glitch appear back when someone
     // clicks out of the step" — swaps straight from fully-dissolved to
@@ -192,6 +213,89 @@
     document.addEventListener('keydown', (e) => {
       if(e.key === 'Escape' && activeKey) hideReveal();
     });
+
+    // per direct request: "make the steps swipeable, to be able to go
+    // from 1-4 after someone clicks one, allow for them to be able to
+    // swipe into the other step" — Pointer Events (not separate touch/
+    // mouse handlers) so this works identically with a real finger and
+    // with a mouse drag. STEP_ORDER mirrors hotspots' own DOM order
+    // (1→2→3→4); clamped at both ends rather than wrapping, since
+    // "go from 1-4" reads as a bounded range, not a loop.
+    const STEP_ORDER = hotspots.map(h => h.dataset.step);
+    let swapTimeout = null;
+
+    function swapToStep(offset){
+      if(!activeKey) return;
+      const idx = STEP_ORDER.indexOf(activeKey);
+      const nextIdx = idx + offset;
+      if(nextIdx < 0 || nextIdx >= STEP_ORDER.length) return;
+      const nextKey = STEP_ORDER[nextIdx];
+      const nextHotspot = hotspots[nextIdx];
+      const data = STEPS[nextKey];
+      if(!data) return;
+
+      // quick crossfade, swap the text+icon+anchor underneath while
+      // invisible, fade back in — deliberately NOT hideReveal()+
+      // showStep(), which would replay the whole .6s panel open/close
+      // transition and feel sluggish for what should be a snappy swipe.
+      // A plain opacity crossfade (rather than a directional slide)
+      // keeps this to one CSS class and one timeout instead of the
+      // two-phase "animate out, jump, animate in" dance a real slide
+      // would need.
+      if(revealContent) revealContent.classList.add('is-swiping');
+      clearTimeout(swapTimeout);
+      swapTimeout = setTimeout(() => {
+        const sectionRect = stepsSection.getBoundingClientRect();
+        const dotEl = nextHotspot.querySelector('.process-hotspot-dot') || nextHotspot;
+        const dotRect = dotEl.getBoundingClientRect();
+        reveal.style.setProperty('--reveal-x', `${dotRect.left + dotRect.width / 2 - sectionRect.left}px`);
+        reveal.style.setProperty('--reveal-y', `${dotRect.top + dotRect.height / 2 - sectionRect.top}px`);
+
+        markLoaded(nextKey, nextHotspot);
+        revealIndex.textContent = data.index;
+        revealTitle.textContent = data.title;
+        revealText.textContent = data.text;
+        if(revealIcon) revealIcon.innerHTML = data.icon;
+        hotspots.forEach(h => h.classList.toggle('is-active', h === nextHotspot));
+        activeKey = nextKey;
+
+        if(revealContent) revealContent.classList.remove('is-swiping');
+      }, 160);
+    }
+
+    const SWIPE_THRESHOLD = 50;
+    let swipeStartX = null, swipeStartY = null, swipeAxis = null;
+
+    reveal.addEventListener('pointerdown', (e) => {
+      if(!reveal.classList.contains('is-visible')) return;
+      swipeStartX = e.clientX;
+      swipeStartY = e.clientY;
+      swipeAxis = null;
+    });
+    reveal.addEventListener('pointermove', (e) => {
+      if(swipeStartX === null) return;
+      const dx = e.clientX - swipeStartX;
+      const dy = e.clientY - swipeStartY;
+      // direction lock on the first few px of real movement — decides
+      // once whether this gesture is a horizontal swipe (ours to
+      // handle) or a vertical one (leave alone, e.g. page scroll)
+      if(swipeAxis === null && (Math.abs(dx) > 10 || Math.abs(dy) > 10)){
+        swipeAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      }
+      if(swipeAxis === 'x') e.preventDefault();
+    });
+    function endSwipe(e){
+      if(swipeStartX === null) return;
+      const dx = e.clientX - swipeStartX;
+      if(swipeAxis === 'x' && Math.abs(dx) > SWIPE_THRESHOLD){
+        swapToStep(dx < 0 ? 1 : -1); // swiped left -> next step, right -> previous
+      }
+      swipeStartX = null;
+      swipeStartY = null;
+      swipeAxis = null;
+    }
+    reveal.addEventListener('pointerup', endSwipe);
+    reveal.addEventListener('pointercancel', () => { swipeStartX = null; swipeStartY = null; swipeAxis = null; });
   }
 
   // ===================================================================

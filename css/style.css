@@ -930,26 +930,59 @@ body, a{ cursor:none; }
   align-items:center;
   flex-shrink:0;
 }
+/* per direct request: "make the industry marque, the words be more
+   brighter and NEON" — was a flat, muted rgba(154,205,228,.55) fill;
+   now a bright cyan with a layered text-shadow glow (tight inner +
+   soft wide outer, the standard neon-sign technique) plus an
+   irregular-timing flicker keyframe (the classic "real neon tube"
+   percentages, not an even pulse) so it reads as genuinely lit rather
+   than just recolored. Odd/even items get a small negative animation-
+   delay offset so the whole row doesn't flicker in perfect unison. */
 .trades-item{
   position:relative;
   font-family:'Fraunces', serif;
   font-style:italic;
   font-weight:400;
   font-size:clamp(1.3rem, 3vw, 1.9rem);
-  color:rgba(154,205,228,.55);
+  color:#8ff2ff;
+  text-shadow:
+    0 0 4px rgba(143,242,255,.9),
+    0 0 12px rgba(122,221,255,.75),
+    0 0 26px rgba(122,221,255,.5),
+    0 0 46px rgba(87,180,255,.35);
   white-space:nowrap;
   padding:0 clamp(1.1rem, 2.8vw, 1.8rem);
+  animation:tradesNeonFlicker 5s ease-in-out infinite;
 }
+.trades-item:nth-child(even){ animation-delay:-1.7s; }
+.trades-item:nth-child(3n){ animation-delay:-3.2s; }
 .trades-item:not(:last-child)::after{
   content:'';
   position:absolute;
   right:0;
   top:50%;
   transform:translateY(-50%);
-  width:4px;
-  height:4px;
+  width:5px;
+  height:5px;
   border-radius:50%;
-  background:rgba(154,205,228,.3);
+  background:#8ff2ff;
+  box-shadow:0 0 6px rgba(143,242,255,.9), 0 0 14px rgba(122,221,255,.6);
+}
+@keyframes tradesNeonFlicker{
+  0%, 19%, 21%, 23%, 54%, 56%, 100%{
+    opacity:1;
+    text-shadow:
+      0 0 4px rgba(143,242,255,.9),
+      0 0 12px rgba(122,221,255,.75),
+      0 0 26px rgba(122,221,255,.5),
+      0 0 46px rgba(87,180,255,.35);
+  }
+  20%, 22%, 55%{
+    opacity:.78;
+    text-shadow:
+      0 0 2px rgba(143,242,255,.5),
+      0 0 6px rgba(122,221,255,.35);
+  }
 }
 @keyframes tradesScroll{
   from{ transform:translateX(0); }
@@ -957,6 +990,30 @@ body, a{ cursor:none; }
 }
 @media (prefers-reduced-motion:reduce){
   .trades-track{ animation:none; }
+  .trades-item{ animation:none; }
+}
+
+/* ===================================================================
+   SCROLL REVEAL — per direct request: "add more creative animation to
+   every section so it feels like an immersive flow." js/scroll-
+   reveal.js toggles .is-revealed once each [data-reveal] element
+   scrolls into view (one-shot, via IntersectionObserver). Plain
+   data-reveal is a fade+rise; data-reveal="fade" is opacity-only (for
+   things like the trades label, where a rising label reads oddly);
+   data-reveal-delay (ms, applied as an inline transition-delay by the
+   JS itself) staggers a group of these within the same section.
+=================================================================== */
+[data-reveal]{
+  opacity:0;
+  transform:translateY(28px);
+  transition:opacity .8s var(--ease-out), transform .8s var(--ease-out);
+}
+[data-reveal="fade"]{
+  transform:none;
+}
+[data-reveal].is-revealed{
+  opacity:1;
+  transform:none;
 }
 
 /* ===================================================================
@@ -2349,13 +2406,15 @@ body, a{ cursor:none; }
 /* ===================================================================
    Process Hero — per direct request: "remove the background but keep
    the elements in place" — the photographed room photo is gone. What
-   used to be a subtle liquid-glass accent floating OVER that photo
-   (js/process-hero-slime.js) is now tuned up to BE the hero visual,
-   over a plain dark radial-gradient base (still has some depth to it,
-   not a flat single color) plus a faint film-grain layer so the dark
-   areas read as textured rather than empty. 4 clickable process-step
-   hotspots (now in a line, see .process-hotspot-line below), headline,
-   and two CTAs sit on top.
+   used to be here in its place was a liquid-glass metaball canvas
+   (js/process-hero-slime.js); per a later direct request that's gone
+   too, so the hero's whole visual is now js/hero-matrix.js's own
+   falling-number rain over a plain dark radial-gradient base (still
+   has some depth to it, not a flat single color) plus a faint film-
+   grain layer so the dark areas read as textured rather than empty.
+   Headline, CTA, and social icons sit on top (the 4 process-step
+   hotspots that used to live here moved to their own #ourProcessSection
+   further down the page — see that section's own comment).
 =================================================================== */
 .process-hero{
   position:relative;
@@ -2370,11 +2429,11 @@ body, a{ cursor:none; }
   justify-content:center;
 }
 /* per direct request: a falling-numbers matrix rain running
-   continuously behind the liquid glass (js/hero-matrix.js) — z-index
-   sits below both .process-hero-slime and .process-room-grain (both
-   z-index:2) so the glass and grain layer visibly sit on top of it,
-   and below .process-hero-copy (z-index:5) so it never competes with
-   the title/CTA for legibility */
+   continuously as the hero's whole background visual (js/hero-
+   matrix.js) — z-index sits below .process-room-grain (z-index:2) so
+   the grain layer visibly sits on top of it, and below .process-hero-
+   copy (z-index:5) so it never competes with the title/CTA for
+   legibility */
 .process-hero-matrix{
   position:absolute;
   inset:0;
@@ -2382,15 +2441,6 @@ body, a{ cursor:none; }
   height:100%;
   display:block;
   z-index:1;
-  pointer-events:none;
-}
-.process-hero-slime{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  display:block;
-  z-index:2;
   pointer-events:none;
 }
 
@@ -2760,6 +2810,37 @@ body, a{ cursor:none; }
 }
 .process-hero-cta:active{ transform:translateY(0) scale(.98); }
 
+/* per direct request: "add the social media icons we had before,
+   under the view our work button" — same circular colorful-SVG
+   pattern already established in .quote-social-link, sized down
+   slightly (32px vs 38px) since this is a compact hero accent under
+   the CTA rather than a standalone footer row */
+.process-hero-social{
+  position:relative;
+  z-index:5;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:.7rem;
+  margin-top:.4rem;
+}
+.process-hero-social-link{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:32px;
+  height:32px;
+  border-radius:50%;
+  overflow:hidden;
+  box-shadow:0 8px 20px -8px rgba(0,0,0,.5);
+  transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
+}
+.process-hero-social-link:hover{
+  transform:translateY(-3px) scale(1.08);
+  box-shadow:0 14px 26px -8px rgba(0,0,0,.6);
+}
+.process-hero-social-link svg{ display:block; }
+
 /* contrasting on purpose — solid cream is already the primary CTA
    above, so this one inverts to a translucent outline against the
    photo instead of competing for the same "solid light pill" read */
@@ -2819,6 +2900,18 @@ body, a{ cursor:none; }
   align-items:center;
   text-align:center;
   gap:clamp(1rem, 2.6vw, 1.6rem);
+  transition:opacity .5s ease, filter .5s ease;
+}
+/* per direct request: "make the background in the process section
+   darken when the step is clicked" — process-hero.js toggles this on
+   #ourProcessSection itself the instant a step opens/closes. Stacks
+   with .process-reveal's own radial-gradient darkening (that overlay
+   already sits above this at z-index:8 while open) rather than
+   replacing it — this dims what's still peeking out around/behind the
+   reveal card, so the open step reads as a spotlit focus */
+.our-process-section.is-active .our-process-inner{
+  opacity:.22;
+  filter:blur(3px);
 }
 .our-process-eyebrow{
   font-size:.76rem;
@@ -3031,6 +3124,12 @@ body, a{ cursor:none; }
      point instead of scaling with how off-center it happens to be */
   background:radial-gradient(circle 640px at var(--reveal-x, 50%) var(--reveal-y, 50%), rgba(31,106,138,.55) 0%, rgba(8,12,16,.86) 46%, rgba(4,6,9,.96) 78%);
   transition:opacity .6s var(--ease-in-out), visibility 0s linear .6s;
+  /* per direct request: "make the steps swipeable... allow for them to
+     be able to swipe into the other step" — pan-y lets real vertical
+     scroll gestures pass through untouched; horizontal ones are
+     entirely ours (process-hero.js calls preventDefault on those once
+     its own direction-lock decides a gesture is horizontal) */
+  touch-action:pan-y;
 }
 .process-reveal.is-visible{
   opacity:1;
@@ -3051,6 +3150,18 @@ body, a{ cursor:none; }
   opacity:1;
   transform:translateY(0);
 }
+/* per direct request: swipe-triggered step swaps crossfade this inner
+   wrapper (not the whole card, which would also flicker the close
+   button) on a fast, fixed .16s timing — process-hero.js's own
+   swapToStep() toggles this class then updates the text/icon/anchor
+   underneath while it's invisible, deliberately NOT reusing the
+   card's own slower .55s open/close transition above */
+.process-reveal-content{
+  transition:opacity .16s ease;
+}
+.process-reveal-content.is-swiping{
+  opacity:0;
+}
 .process-reveal-close{
   position:absolute;
   top:-2.6rem;
@@ -3067,6 +3178,18 @@ body, a{ cursor:none; }
   transition:background .2s ease, border-color .2s ease;
 }
 .process-reveal-close:hover{ background:rgba(255,255,255,.14); border-color:var(--cream); }
+/* per direct request: "add icons to the steps, to show more life" —
+   process-hero.js swaps this single shell's innerHTML per step (see
+   STEPS[key].icon); stroke:currentColor so the color/glow live here,
+   not baked into each icon's own markup */
+.process-reveal-icon{
+  width:42px;
+  height:42px;
+  margin:0 auto .9rem;
+  display:block;
+  color:var(--gold-soft);
+  filter:drop-shadow(0 0 10px rgba(154,205,228,.5));
+}
 .process-reveal-index{
   display:block;
   font-family:'Space Grotesk', sans-serif;

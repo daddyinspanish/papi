@@ -4,10 +4,12 @@
    characters in the background alongside the liquid, something that
    is constantly happening in the background." A plain 2D-canvas
    falling-digit rain (classic Matrix look, but brand-tinted aqua
-   instead of green) sitting BEHIND js/process-hero-slime.js's own
-   liquid-glass canvas so both are visible at once. Every column is
-   redrawn fresh each frame with a randomized digit per cell (the
-   standard "shimmering" matrix-rain trick) rather than persisting
+   instead of green) — originally sat BEHIND js/process-hero-slime.js's
+   own liquid-glass canvas so both were visible at once; per a later
+   direct request that liquid-glass layer was removed entirely, so
+   this is now the hero's whole background visual on its own. Every
+   column is redrawn fresh each frame with a randomized digit per cell
+   (the standard "shimmering" matrix-rain trick) rather than persisting
    trails via a semi-transparent fillRect overlay — that overlay
    technique never actually clears (alpha compositing asymptotically
    approaches fully opaque), which would eventually paint over the
