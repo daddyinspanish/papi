@@ -119,45 +119,36 @@ window.scrollTo(0, 0);
       <a href="#liveDemoSection" class="process-hero-cta">View our work</a>
 
       <!-- per direct request: "add the social media icons we had before,
-           under the view our work button" — same colorful brand-SVG
-           style already established in the quote section's own
-           .quote-social-links (Instagram/TikTok reused verbatim from
-           there for visual consistency; YouTube built to match that
-           same style). href="#" placeholders, matching the quote
-           section's own links — no real profile URLs have been wired
-           in anywhere on this site yet. -->
+           under the view our work button" — originally reused the
+           quote section's own full-color brand-SVG icons verbatim.
+           Per direct follow-up feedback ("make the social icons feel
+           part of the theme, those icons look old") these are now
+           simple single-color line icons (same stroke-based style as
+           .process-reveal-icon elsewhere on this page) sitting in a
+           glass-pill circle matching .process-hero-start's own look,
+           instead of full-color brand logos that clashed with the
+           rest of this hero's monochrome aqua/cream palette. href="#"
+           placeholders — no real profile URLs have been wired in
+           anywhere on this site yet. -->
       <div class="process-hero-social">
         <a href="#" class="process-hero-social-link" aria-label="Papi on Instagram">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <defs>
-              <radialGradient id="heroIgGrad" cx="30%" cy="107%" r="150%">
-                <stop offset="0%" stop-color="#fdf497"/>
-                <stop offset="15%" stop-color="#fdf497"/>
-                <stop offset="35%" stop-color="#fd5949"/>
-                <stop offset="60%" stop-color="#d6249f"/>
-                <stop offset="100%" stop-color="#285AEB"/>
-              </radialGradient>
-            </defs>
-            <rect x="0" y="0" width="24" height="24" rx="7" fill="url(#heroIgGrad)"/>
-            <rect x="6" y="6" width="12" height="12" rx="3.5" fill="none" stroke="#fff" stroke-width="1.6"/>
-            <circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.6"/>
-            <circle cx="16" cy="8" r="1" fill="#fff"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="5"/>
+            <circle cx="12" cy="12" r="4.2"/>
+            <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
           </svg>
         </a>
         <a href="#" class="process-hero-social-link" aria-label="Papi on TikTok">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <circle cx="12" cy="12" r="12" fill="#010101"/>
-            <g transform="translate(6.6,3.4) scale(0.62)">
-              <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z" fill="#25F4EE" transform="translate(-0.9,0.9)"/>
-              <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z" fill="#FE2C55" transform="translate(0.9,-0.9)"/>
-              <path d="M16.5 3c.4 2.3 1.8 3.8 4 4.1v2.6c-1.4 0-2.8-.4-4-1.2v6.4c0 3.3-2.7 5.6-5.7 5.1-2.4-.4-4.1-2.6-3.9-5.1.2-2.5 2.3-4.4 4.8-4.3v2.7c-1.1-.2-2.1.5-2.3 1.6-.2 1.1.5 2.1 1.6 2.3 1.2.2 2.4-.7 2.4-2V3h3.1z" fill="#fff"/>
-            </g>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 18V5l10-2v13"/>
+            <circle cx="6" cy="18" r="3"/>
+            <circle cx="16" cy="16" r="3"/>
           </svg>
         </a>
         <a href="#" class="process-hero-social-link" aria-label="Papi on YouTube">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <rect x="0" y="0" width="24" height="24" rx="7" fill="#FF0000"/>
-            <path d="M10 8.5l6 3.5-6 3.5v-7z" fill="#fff"/>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="5" width="18" height="14" rx="4"/>
+            <path d="M10 9l6 3-6 3V9z" fill="currentColor" stroke="none"/>
           </svg>
         </a>
       </div>

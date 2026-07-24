@@ -901,7 +901,15 @@ body, a{ cursor:none; }
 .trades-section{
   position:relative;
   z-index:1;
-  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
+  /* per direct request: "there also seems to be waves around some
+     sections, looks like they are like gradient layers, please remove
+     that from all sections" — was a radial-gradient ellipse peaking at
+     top-center; every section down the page had its own copy of this,
+     so scrolling past each one's own bright-center/dark-edge boundary
+     read as a repeating wave. Flattened to the same solid tone the old
+     gradient's own darkest stop already used, so the overall darkness
+     is unchanged but there's no curvature left to read as a wave */
+  background:#07060a;
   padding:clamp(1.6rem, 4vw, 2.4rem) 0;
   overflow:hidden;
 }
@@ -933,11 +941,12 @@ body, a{ cursor:none; }
 /* per direct request: "make the industry marque, the words be more
    brighter and NEON" — was a flat, muted rgba(154,205,228,.55) fill;
    now a bright cyan with a layered text-shadow glow (tight inner +
-   soft wide outer, the standard neon-sign technique) plus an
-   irregular-timing flicker keyframe (the classic "real neon tube"
-   percentages, not an even pulse) so it reads as genuinely lit rather
-   than just recolored. Odd/even items get a small negative animation-
-   delay offset so the whole row doesn't flicker in perfect unison. */
+   soft wide outer, the standard neon-sign technique) so it reads as
+   genuinely lit rather than just recolored. Per direct follow-up
+   feedback ("the words are flickering too much... make sure that's
+   less distracting") the flicker keyframe this originally had is
+   gone entirely — a steady glow reads as bright/neon just as well
+   without adding motion on top of the marquee's own scroll. */
 .trades-item{
   position:relative;
   font-family:'Fraunces', serif;
@@ -952,10 +961,7 @@ body, a{ cursor:none; }
     0 0 46px rgba(87,180,255,.35);
   white-space:nowrap;
   padding:0 clamp(1.1rem, 2.8vw, 1.8rem);
-  animation:tradesNeonFlicker 5s ease-in-out infinite;
 }
-.trades-item:nth-child(even){ animation-delay:-1.7s; }
-.trades-item:nth-child(3n){ animation-delay:-3.2s; }
 .trades-item:not(:last-child)::after{
   content:'';
   position:absolute;
@@ -968,29 +974,12 @@ body, a{ cursor:none; }
   background:#8ff2ff;
   box-shadow:0 0 6px rgba(143,242,255,.9), 0 0 14px rgba(122,221,255,.6);
 }
-@keyframes tradesNeonFlicker{
-  0%, 19%, 21%, 23%, 54%, 56%, 100%{
-    opacity:1;
-    text-shadow:
-      0 0 4px rgba(143,242,255,.9),
-      0 0 12px rgba(122,221,255,.75),
-      0 0 26px rgba(122,221,255,.5),
-      0 0 46px rgba(87,180,255,.35);
-  }
-  20%, 22%, 55%{
-    opacity:.78;
-    text-shadow:
-      0 0 2px rgba(143,242,255,.5),
-      0 0 6px rgba(122,221,255,.35);
-  }
-}
 @keyframes tradesScroll{
   from{ transform:translateX(0); }
   to{ transform:translateX(-50%); }
 }
 @media (prefers-reduced-motion:reduce){
   .trades-track{ animation:none; }
-  .trades-item{ animation:none; }
 }
 
 /* ===================================================================
@@ -1002,11 +991,21 @@ body, a{ cursor:none; }
    things like the trades label, where a rising label reads oddly);
    data-reveal-delay (ms, applied as an inline transition-delay by the
    JS itself) staggers a group of these within the same section.
-=================================================================== */
+   Per direct follow-up feedback ("animations feel too stacked, make
+   sure they are smooth not jumpy") the travel distance is much
+   shorter (was 28px — a big translate watched WHILE actively
+   scrolling is what read as a "jump"), the duration is shorter too,
+   and it now uses plain ease-out instead of this site's usual
+   --ease-out (that curve is tuned snappy/fast-start for click
+   micro-interactions elsewhere, which only amplified the jumpiness
+   here). js/scroll-reveal.js's own rootMargin was also widened so the
+   reveal starts before the element is actually on-screen, letting it
+   finish settling by the time it's actually seen instead of being
+   caught mid-motion. */
 [data-reveal]{
   opacity:0;
-  transform:translateY(28px);
-  transition:opacity .8s var(--ease-out), transform .8s var(--ease-out);
+  transform:translateY(14px);
+  transition:opacity .6s ease-out, transform .6s ease-out;
 }
 [data-reveal="fade"]{
   transform:none;
@@ -1092,7 +1091,15 @@ body, a{ cursor:none; }
 .testimonials-section{
   position:relative;
   z-index:1;
-  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
+  /* per direct request: "there also seems to be waves around some
+     sections, looks like they are like gradient layers, please remove
+     that from all sections" — was a radial-gradient ellipse peaking at
+     top-center; every section down the page had its own copy of this,
+     so scrolling past each one's own bright-center/dark-edge boundary
+     read as a repeating wave. Flattened to the same solid tone the old
+     gradient's own darkest stop already used, so the overall darkness
+     is unchanged but there's no curvature left to read as a wave */
+  background:#07060a;
   padding:clamp(3.5rem, 8vw, 6rem) 0;
   overflow:hidden;
 }
@@ -1347,7 +1354,15 @@ body, a{ cursor:none; }
 =================================================================== */
 .comparison-section{
   position:relative;
-  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
+  /* per direct request: "there also seems to be waves around some
+     sections, looks like they are like gradient layers, please remove
+     that from all sections" — was a radial-gradient ellipse peaking at
+     top-center; every section down the page had its own copy of this,
+     so scrolling past each one's own bright-center/dark-edge boundary
+     read as a repeating wave. Flattened to the same solid tone the old
+     gradient's own darkest stop already used, so the overall darkness
+     is unchanged but there's no curvature left to read as a wave */
+  background:#07060a;
   padding:clamp(4rem, 10vw, 7rem) clamp(1.5rem, 5vw, 4.5rem);
 }
 .comparison-inner{
@@ -2175,7 +2190,15 @@ body, a{ cursor:none; }
 .live-demo-section{
   position:relative;
   z-index:1;
-  background:radial-gradient(120% 90% at 50% 0%, #14121a 0%, #07060a 55%, #000 100%);
+  /* per direct request: "there also seems to be waves around some
+     sections, looks like they are like gradient layers, please remove
+     that from all sections" — was a radial-gradient ellipse peaking at
+     top-center; every section down the page had its own copy of this,
+     so scrolling past each one's own bright-center/dark-edge boundary
+     read as a repeating wave. Flattened to the same solid tone the old
+     gradient's own darkest stop already used, so the overall darkness
+     is unchanged but there's no curvature left to read as a wave */
+  background:#07060a;
   padding:clamp(3.5rem, 8vw, 6rem) 0;
 }
 .live-demo-inner{
@@ -2422,7 +2445,12 @@ body, a{ cursor:none; }
   min-height:100svh;
   min-height:100vh;
   overflow:hidden;
-  background:radial-gradient(ellipse at 50% 38%, #131b21 0%, #0a0e12 60%, #05070a 100%);
+  /* per direct request: "there also seems to be waves around some
+     sections... please remove that from all sections" — flattened
+     from a radial-gradient vignette to a flat solid tone (matching
+     that gradient's own darkest stop) for the same reason as every
+     other section below */
+  background:#07060a;
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -2811,10 +2839,15 @@ body, a{ cursor:none; }
 .process-hero-cta:active{ transform:translateY(0) scale(.98); }
 
 /* per direct request: "add the social media icons we had before,
-   under the view our work button" — same circular colorful-SVG
-   pattern already established in .quote-social-link, sized down
-   slightly (32px vs 38px) since this is a compact hero accent under
-   the CTA rather than a standalone footer row */
+   under the view our work button" — sized down (32px vs 38px) since
+   this is a compact hero accent under the CTA rather than a
+   standalone footer row. Per direct follow-up feedback ("make the
+   social icons feel part of the theme, those icons look old") this
+   dropped the original full-color brand-logo circles for the same
+   dark-glass pill look already established on .process-hero-start
+   right above it (in the top-right corner) — border + translucent
+   fill + a cream icon that brightens to the site's aqua accent on
+   hover, same as every other icon-in-a-circle on this page. */
 .process-hero-social{
   position:relative;
   z-index:5;
@@ -2831,15 +2864,18 @@ body, a{ cursor:none; }
   width:32px;
   height:32px;
   border-radius:50%;
-  overflow:hidden;
-  box-shadow:0 8px 20px -8px rgba(0,0,0,.5);
-  transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
+  color:var(--cream);
+  background:rgba(12,16,20,.35);
+  border:1px solid rgba(243,237,226,.4);
+  transition:transform .3s var(--ease-out), border-color .25s ease, background-color .25s ease, color .25s ease;
 }
 .process-hero-social-link:hover{
   transform:translateY(-3px) scale(1.08);
-  box-shadow:0 14px 26px -8px rgba(0,0,0,.6);
+  color:#7addff;
+  border-color:#7addff;
+  background-color:rgba(122,221,255,.12);
 }
-.process-hero-social-link svg{ display:block; }
+.process-hero-social-link svg{ display:block; width:16px; height:16px; }
 
 /* contrasting on purpose — solid cream is already the primary CTA
    above, so this one inverts to a translucent outline against the
@@ -2889,7 +2925,11 @@ body, a{ cursor:none; }
   align-items:center;
   justify-content:center;
   overflow:hidden;
-  background:radial-gradient(120% 90% at 50% 100%, #10151b 0%, #06080b 55%, #000 100%);
+  /* per direct request: "there also seems to be waves around some
+     sections... please remove that from all sections" — flattened to
+     the same solid tone used across every other section now, for one
+     continuous dark background with no visible seams while scrolling */
+  background:#07060a;
   padding:clamp(4rem, 9vw, 6.5rem) 1.5rem;
 }
 .our-process-inner{

@@ -30,13 +30,21 @@
     if(delay) el.style.transitionDelay = `${delay}ms`;
   });
 
+  // per direct follow-up feedback ("animations feel too stacked, make
+  // sure they are smooth not jumpy") — was threshold:0.15/rootMargin
+  // -8%, meaning an element only started revealing once already 15%
+  // into the actual visible viewport, so the fade+rise played out
+  // while it was being watched, mid-scroll. threshold:0 + a positive
+  // bottom rootMargin fires as soon as the element is still BELOW the
+  // fold (inside that extended zone), so by the time it's actually
+  // scrolled into view the transition has already finished settling.
   const io = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if(!entry.isIntersecting) return;
       entry.target.classList.add('is-revealed');
       io.unobserve(entry.target);
     });
-  }, { threshold: 0.15, rootMargin: '0px 0px -8% 0px' });
+  }, { threshold: 0, rootMargin: '0px 0px 15% 0px' });
 
   els.forEach(el => io.observe(el));
 })();
