@@ -117,6 +117,40 @@
   .sound-toggle{ cursor:auto; }
 }
 
+/* per direct request: a persistent, always-available escape hatch —
+   same small-circle-button language as .sound-toggle, mirrored to the
+   opposite corner. z-index:5600 deliberately clears the loader's own
+   5000 (see the FULL-SITE LOADER block further down) — this needs to
+   stay clickable even if something on the page underneath is broken,
+   which is the entire point of it existing. */
+.page-refresh{
+  position:fixed;
+  right:1.25rem;
+  bottom:1.25rem;
+  z-index:5600;
+  width:40px;
+  height:40px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:50%;
+  background:rgba(12,16,20,.5);
+  border:1px solid rgba(243,237,226,.4);
+  color:var(--cream);
+  cursor:none;
+  transition:transform .3s var(--ease-out), border-color .25s ease, background-color .25s ease, color .25s ease;
+}
+.page-refresh:hover{
+  transform:scale(1.08) rotate(90deg);
+  color:#7addff;
+  border-color:#7addff;
+  background-color:rgba(122,221,255,.14);
+}
+.page-refresh svg{ width:18px; height:18px; }
+@media (hover:none), (pointer:coarse){
+  .page-refresh{ cursor:auto; }
+}
+
 html,body{
   min-height:100%;
   /* BUG FIX: per report, "on mobile there's a white/black gap at the

@@ -260,10 +260,15 @@
     if(!liveTrigger){ window.scrollTo(0, target); return; }
     const startY = liveTrigger.scroll();
     if(Math.abs(target - startY) < 1) return;
+    // mobile default is shorter than desktop's — see the scrub:0.15
+    // comment above, same reasoning: a touch swipe is one deliberate
+    // gesture, so the jump itself should resolve quickly, not just the
+    // catch-up smoothing behind it
+    const defaultDuration = window.innerWidth <= 640 ? 210 : 320;
     const proxy = { v: startY };
     gsap.to(proxy, {
       v: target,
-      duration: (duration || 320) / 1000,
+      duration: (duration || defaultDuration) / 1000,
       ease: 'power3.out',
       onUpdate: () => liveTrigger.scroll(proxy.v),
     });
@@ -363,8 +368,13 @@
       // second of catch-up smoothing is barely noticeable while someone
       // is continuously scrolling, but it's exactly what made a single
       // swipe/click jump feel sluggish once the actual scroll itself
-      // stopped taking so long.
-      scrub: 0.35,
+      // stopped taking so long. Mobile gets an even lower value — per
+      // follow-up report, "the swipe for each step is still a bit slow"
+      // — since a touch swipe is a single, deliberate discrete gesture
+      // (unlike a trackpad/wheel scroll, which still often arrives as a
+      // continuous stream), it benefits from tracking the jump almost
+      // immediately rather than easing into it.
+      scrub: context.conditions.isDesktop ? 0.35 : 0.15,
       onUpdate: (self) => render(states, self.progress),
     });
     liveTrigger = trigger;

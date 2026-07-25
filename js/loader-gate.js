@@ -123,6 +123,35 @@
         // fix, applied here right as the thing that was covering all
         // three pins for the entire initial load finally goes away.
         if(window.ScrollTrigger) window.ScrollTrigger.refresh();
+
+        // ROOT CAUSE FIX: per report, "i have the website tab open and
+        // then i refresh... it enters, but the website is black." The
+        // actual mechanism: js/scroll-journey-hero.js pins the hero with
+        // start:'bottom bottom' — since the hero is exactly one viewport
+        // tall, that resolves to ~scrollY 0, so its own scrubbed
+        // timeline's progress is driven almost directly by raw scrollY,
+        // over a SHORT total range (only 170%/300% of one viewport). That
+        // timeline fades .process-hero-copy to opacity:0 and zooms
+        // #processHeroMatrix as progress nears 1 — completely correct
+        // behavior for "the visitor scrolled past the hero." The bug:
+        // mobile browsers commonly restore a previous scroll position on
+        // a plain refresh (this doesn't require a long-backgrounded tab —
+        // any refresh after having scrolled down at all can do it), and
+        // if GSAP reads that restored scrollY as progress before
+        // holdScrollAtTop() above gets a chance to correct it back to 0,
+        // it computes progress at/near 1 against that tiny range — hero
+        // text fully faded, canvas fully zoomed-in — even though nobody
+        // has actually scrolled past the hero yet. Not a paint failure:
+        // working code given a momentarily wrong scroll input. scrollTo/
+        // refresh above should already correct this via GSAP's own
+        // re-measurement, but forcing these two elements back to their
+        // untouched CSS defaults here too removes any dependency on
+        // exactly how/when GSAP chooses to re-render after refresh().
+        const heroCopy = document.querySelector('.process-hero-copy');
+        const heroMatrix = document.getElementById('processHeroMatrix');
+        if(heroCopy){ heroCopy.style.opacity = ''; heroCopy.style.transform = ''; }
+        if(heroMatrix){ heroMatrix.style.transform = ''; }
+
         // only now hand control back — real scrolling starts here
         scrollGuardActive = false;
         window.removeEventListener('scroll', holdScrollAtTop);
