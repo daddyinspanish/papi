@@ -66,9 +66,39 @@
 
   const CHARS = '0123456789';
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // per direct request: "when you hold the cursor over the hero, the
+  // numbers are pushed out of the way" — desktop/mouse only (matches
+  // this site's own cursor.js convention of gating hover effects behind
+  // pointer:fine, since there's no continuous "hover" on touch)
+  const canHover = window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches;
 
   let W = 0, H = 0, fontSize = CONFIG.fontSize, rowH = CONFIG.fontSize, cellW = CONFIG.fontSize * 0.62;
   let columns = [];
+
+  // cursor repulsion — tracked in CSS pixels (canvas is DPR-scaled via
+  // ctx.setTransform in resize(), so drawing coordinates already match
+  // CSS pixels; no extra conversion needed here). Starts far off-canvas
+  // so nothing is pushed before the first real pointer move.
+  const REPEL_RADIUS = 110;
+  const REPEL_MAX_PUSH = 34;
+  let pointerX = -9999, pointerY = -9999;
+  // the canvas itself is pointer-events:none (so it never blocks clicks
+  // on the title/CTA above it — see .process-hero-matrix in style.css),
+  // so the listener has to live on its parent section instead; pointer
+  // coordinates are still measured against the canvas's own bounding
+  // box, which is what renderFrame()'s drawing coordinates are in
+  const heroSection = canvas.closest('.process-hero');
+  if(canHover && heroSection){
+    heroSection.addEventListener('pointermove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      pointerX = e.clientX - rect.left;
+      pointerY = e.clientY - rect.top;
+    }, { passive: true });
+    heroSection.addEventListener('pointerleave', () => {
+      pointerX = -9999;
+      pointerY = -9999;
+    }, { passive: true });
+  }
 
   function randRange(min, max){ return min + Math.random() * (max - min); }
 
@@ -134,8 +164,28 @@
   function renderFrame(steps){
     ctx.clearRect(0, 0, W, H);
     const maxRow = H / rowH;
+    const hasPointer = pointerX > -1000;
 
     columns.forEach(col => {
+      // repulsion is per-column, not per-character — pushing every
+      // digit in a falling stream by the same amount keeps the stream
+      // reading as one continuous line bending around the cursor,
+      // rather than digits scattering independently of their neighbors
+      let pushX = 0;
+      if(hasPointer){
+        const dx = col.x - pointerX;
+        // compare against the column's vertical center-ish rather than
+        // per-character, since the push is horizontal-only anyway and
+        // a per-column push looks more like a "field" bending around
+        // the cursor than a per-character jitter
+        const dy = (col.y * rowH) - pointerY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if(dist < REPEL_RADIUS){
+          const falloff = 1 - dist / REPEL_RADIUS;
+          pushX = (dist < 0.01 ? 1 : dx / dist) * falloff * falloff * REPEL_MAX_PUSH;
+        }
+      }
+
       for(let j = 0; j < col.length; j++){
         const rowY = col.y - j;
         if(rowY < 0) continue;
@@ -151,7 +201,7 @@
         ctx.fillStyle = j === 0
           ? `rgba(226,246,255,${alpha})`
           : `rgba(122,180,214,${alpha})`;
-        ctx.fillText(ch, col.x, py);
+        ctx.fillText(ch, col.x + pushX, py);
       }
 
       col.y += col.speed * steps;

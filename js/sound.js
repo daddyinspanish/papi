@@ -95,27 +95,64 @@
   // ---- discrete one-shots: short synthesized events, no continuous
   // scroll-tied sound (restraint — same principle the rest of this
   // pass has followed throughout) ----
+  //
+  // BUG FIX: per direct report, the original tick ("a fast 720->480Hz
+  // sine sweep") read as "an alien gun shooting" — that fast downward
+  // pitch-sweep is exactly the classic sci-fi laser-zap shape. Redesigned
+  // with NO frequency sweep at all: a fixed-pitch, filtered-noise "tap"
+  // (a muted UI click, closer to a keyboard/soft-click sound than a
+  // synth effect) layered under a very brief, non-swept low thump for
+  // body. Lower peak gain too, since it now fires on every swipe/open
+  // rather than being a rare accent.
   function playTick(){
     if(!ctx) return;
     const now = ctx.currentTime;
+
+    // filtered-noise "tap" — a short burst of noise through a tight
+    // bandpass, no pitch movement, reads as a soft physical click
+    const bufferSize = Math.max(1, Math.round(ctx.sampleRate * 0.03));
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1400;
+    filter.Q.value = 1.1;
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0, now);
+    noiseGain.gain.linearRampToValueAtTime(0.05, now + 0.004);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+    noise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(master);
+    noise.start(now);
+    noise.stop(now + 0.05);
+
+    // a touch of low body underneath, fixed pitch (no sweep)
     const osc = ctx.createOscillator();
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(720, now);
-    osc.frequency.exponentialRampToValueAtTime(480, now + 0.06);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(0.14, now + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-    osc.connect(g);
-    g.connect(master);
+    osc.frequency.value = 260;
+    const oscGain = ctx.createGain();
+    oscGain.gain.setValueAtTime(0, now);
+    oscGain.gain.linearRampToValueAtTime(0.035, now + 0.005);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+    osc.connect(oscGain);
+    oscGain.connect(master);
     osc.start(now);
-    osc.stop(now + 0.1);
+    osc.stop(now + 0.06);
   }
 
+  // BUG FIX: per direct report, "the whoosh... is a bit too strong."
+  // Narrowed the bandpass sweep range (was 200->2400Hz, three-plus
+  // octaves; now 350->900Hz, under two) so the pitch rise reads as a
+  // soft breath of air rather than a rising siren, shortened the total
+  // duration, and roughly halved the peak gain.
   function playWhoosh(){
     if(!ctx) return;
     const now = ctx.currentTime;
-    const bufferSize = ctx.sampleRate * 0.8;
+    const bufferSize = ctx.sampleRate * 0.5;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
@@ -125,20 +162,44 @@
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'bandpass';
-    filter.Q.value = 0.9;
-    filter.frequency.setValueAtTime(200, now);
-    filter.frequency.exponentialRampToValueAtTime(2400, now + 0.7);
+    filter.Q.value = 1.1;
+    filter.frequency.setValueAtTime(350, now);
+    filter.frequency.exponentialRampToValueAtTime(900, now + 0.45);
 
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(0.1, now + 0.25);
-    g.gain.linearRampToValueAtTime(0, now + 0.75);
+    g.gain.linearRampToValueAtTime(0.045, now + 0.18);
+    g.gain.linearRampToValueAtTime(0, now + 0.48);
 
     noise.connect(filter);
     filter.connect(g);
     g.connect(master);
     noise.start(now);
-    noise.stop(now + 0.8);
+    noise.stop(now + 0.5);
+  }
+
+  // "select" — a soft, warm double-blip for the "Start a project" CTA,
+  // deliberately distinct from both the tick (a click) and the chime
+  // (a 3-note reward) — two overlapping triangle tones, no sweep, no
+  // percussive noise layer, reads as a gentle confirm rather than an
+  // effect.
+  function playSelect(){
+    if(!ctx) return;
+    const now = ctx.currentTime;
+    [392.0, 493.88].forEach((freq, i) => {
+      const start = now + i * 0.05;
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(0.075, start + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
+      osc.connect(g);
+      g.connect(master);
+      osc.start(start);
+      osc.stop(start + 0.24);
+    });
   }
 
   function playChime(){
@@ -161,7 +222,7 @@
     });
   }
 
-  const EVENTS = { tick: playTick, whoosh: playWhoosh, chime: playChime };
+  const EVENTS = { tick: playTick, whoosh: playWhoosh, chime: playChime, select: playSelect };
 
   function enable(){
     const c = ensureContext();

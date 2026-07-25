@@ -40,6 +40,43 @@
 
   gsap.registerPlugin(ScrollTrigger);
 
+  // ---- per direct request: "add matrix effect numbers animating left
+  // to right and right to left... to add more life" — two rows of
+  // digits drifting behind the panels in opposite directions, echoing
+  // the hero's own falling-number rain (js/hero-matrix.js) but
+  // horizontal here rather than vertical, since this stage is wide and
+  // shallow rather than tall. Pure CSS transform loops (no canvas, no
+  // rAF) — cheap, and the content is generated once here rather than
+  // hardcoded in index.html since this file already owns building
+  // everything else inside #processStage.
+  (function buildDigitMarquee(){
+    const DIGITS = '0123456789';
+    function randomDigits(len){
+      let out = '';
+      for(let i = 0; i < len; i++) out += DIGITS[(Math.random() * DIGITS.length) | 0];
+      return out;
+    }
+    // spaced into groups purely for visual rhythm (matches the hero
+    // matrix's own single-column-of-digits look less than it echoes a
+    // ticking readout) — content is decorative, not real data
+    function randomRow(){
+      const groups = [];
+      for(let i = 0; i < 18; i++) groups.push(randomDigits(4));
+      return groups.join('  ');
+    }
+    ['process-stage-digits-a', 'process-stage-digits-b'].forEach((cls) => {
+      const row = document.createElement('div');
+      row.className = 'process-stage-digits ' + cls;
+      row.setAttribute('aria-hidden', 'true');
+      const track = document.createElement('span');
+      track.className = 'process-stage-digits-track';
+      const text = randomRow();
+      track.textContent = text + '  ' + text; // doubled for a seamless -50% loop
+      row.appendChild(track);
+      stage.appendChild(row);
+    });
+  })();
+
   // ---- build the 4 panels from the shared STEPS data ----
   const panels = ORDER.map((key) => {
     const data = STEPS[key];
@@ -200,13 +237,51 @@
   // keep stacking duplicate listeners across resizes if bound inside
   // the mm.add() context instead). Reads liveTrigger by closure
   // reference, so it always targets whichever ScrollTrigger is current.
+  function jumpToStep(i){
+    if(!liveTrigger) return;
+    const clamped = Math.max(0, Math.min(n - 1, i));
+    const target = liveTrigger.start + (clamped / (n - 1)) * (liveTrigger.end - liveTrigger.start);
+    window.scrollTo({ top: target, behavior: 'smooth' });
+  }
+
   hotspots.forEach((hotspot, i) => {
-    hotspot.addEventListener('click', () => {
-      if(!liveTrigger) return;
-      const target = liveTrigger.start + (i / (n - 1)) * (liveTrigger.end - liveTrigger.start);
-      window.scrollTo({ top: target, behavior: 'smooth' });
-    });
+    hotspot.addEventListener('click', () => jumpToStep(i));
   });
+
+  // per direct request: "make the how its built also be swipeable" —
+  // a horizontal drag/swipe on the stage jumps to the next/previous
+  // step, same scrollTo target math as the hotspot clicks above. This
+  // doesn't replace the scroll-scrubbed sequence (still the primary,
+  // continuous way through it) — it's an additional input, exactly
+  // like the hotspots already are, just gestural instead of a click.
+  // Same swipe pattern (pointerdown/up, horizontal-dominant, distance
+  // threshold) already used by testimonials.js/live-demo.js's own
+  // native-scroll-snap stacks, adapted here since this stage isn't a
+  // native scroll container — it's a set of GSAP-positioned panels — so
+  // navigation happens via the same programmatic scrollTo as a hotspot
+  // click rather than a native scroll-snap settle.
+  (function bindSwipe(){
+    const SWIPE_THRESHOLD = 44;
+    let startX = 0, startY = 0, dragging = false;
+    stage.addEventListener('pointerdown', (e) => {
+      if(e.pointerType === 'mouse' && e.button !== 0) return;
+      startX = e.clientX;
+      startY = e.clientY;
+      dragging = true;
+    });
+    stage.addEventListener('pointerup', (e) => {
+      if(!dragging) return;
+      dragging = false;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if(Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) <= Math.abs(dy)) return;
+      if(!liveTrigger) return;
+      const activeIndex = Math.round(liveTrigger.progress * (n - 1));
+      jumpToStep(activeIndex + (dx < 0 ? 1 : -1));
+      if(window.Papi && window.Papi.sound) window.Papi.sound.play('tick');
+    });
+    stage.addEventListener('pointercancel', () => { dragging = false; });
+  })();
 
   const mm = gsap.matchMedia();
   mm.add({

@@ -3381,6 +3381,42 @@ body, a{ cursor:none; }
   opacity:.55;
   will-change:transform, opacity;
 }
+/* two rows of digits drifting in opposite directions behind the panels
+   — see js/scroll-journey-process.js's buildDigitMarquee() for why this
+   is generated in JS rather than hardcoded here. z-index sits below
+   .process-stage-glow (0) and every .process-panel (1+), and
+   overflow:hidden lives on the row itself (not .process-stage, which
+   needs its own overflow visible for the panels' 3D perspective tilt
+   to extend past the stage bounds without getting clipped) */
+.process-stage-digits{
+  position:absolute;
+  left:0;
+  right:0;
+  z-index:-1;
+  overflow:hidden;
+  pointer-events:none;
+  opacity:.16;
+  white-space:nowrap;
+  font-family:"Courier New", monospace;
+  font-size:15px;
+  letter-spacing:0.08em;
+  color:#7addff;
+  mask-image:linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image:linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.process-stage-digits-a{ top:6%; }
+.process-stage-digits-b{ bottom:6%; }
+.process-stage-digits-track{ display:inline-block; }
+/* content is doubled (see buildDigitMarquee) so a -50% translate loops
+   seamlessly; the two rows run opposite directions at slightly
+   different speeds so they never visually sync up */
+.process-stage-digits-a .process-stage-digits-track{ animation:processDigitsLeft 34s linear infinite; }
+.process-stage-digits-b .process-stage-digits-track{ animation:processDigitsRight 40s linear infinite; }
+@keyframes processDigitsLeft{ from{ transform:translateX(0); } to{ transform:translateX(-50%); } }
+@keyframes processDigitsRight{ from{ transform:translateX(-50%); } to{ transform:translateX(0); } }
+@media (max-width:640px){
+  .process-stage-digits{ font-size:12px; opacity:.12; }
+}
 .process-panel{
   /* centered via inset:0 + margin:auto (pure layout, no transform) —
      js/scroll-journey-process.js's own GSAP tweens (xPercent/z/
@@ -3426,6 +3462,7 @@ body, a{ cursor:none; }
   .process-panel{ position:static; margin:0 auto 1.5rem; }
   .process-stage{ height:auto; perspective:none; }
   .process-stage-glow{ display:none; }
+  .process-stage-digits{ display:none; }
 }
 
 /* ---- the 4 steps, now a plain line instead of pinned to photo
