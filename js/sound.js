@@ -144,38 +144,65 @@
     osc.stop(now + 0.06);
   }
 
-  // BUG FIX: per direct report, "the whoosh... is a bit too strong."
-  // Narrowed the bandpass sweep range (was 200->2400Hz, three-plus
-  // octaves; now 350->900Hz, under two) so the pitch rise reads as a
-  // soft breath of air rather than a rising siren, shortened the total
-  // duration, and roughly halved the peak gain.
+  // BUG FIX: per direct report, a smooth filtered-noise sweep ("the
+  // whoosh... is too fake... need something more subtle, more matrix
+  // glitch vibe") reads as a generic sci-fi air/wind effect no matter
+  // how far the sweep range or gain get dialed back — the SHAPE of a
+  // single continuous swell is what reads as "whoosh," not the volume.
+  // Rebuilt around a genuinely different shape: a stutter of very
+  // short (10-20ms), randomly-pitched noise bursts with hard attacks
+  // and instant gaps between them — a data-glitch/stutter rhythm
+  // instead of one smooth breath — under a faint rising tone (much
+  // quieter than the bursts) just to keep it from feeling like
+  // scattered clicks with nothing gluing them together.
   function playWhoosh(){
     if(!ctx) return;
     const now = ctx.currentTime;
-    const bufferSize = ctx.sampleRate * 0.5;
-    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for(let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const burstCount = 5;
 
-    const noise = ctx.createBufferSource();
-    noise.buffer = buffer;
+    for(let i = 0; i < burstCount; i++){
+      const start = now + i * 0.045 + Math.random() * 0.015;
+      const dur = 0.01 + Math.random() * 0.008;
+      const bufferSize = Math.max(1, Math.round(ctx.sampleRate * dur));
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for(let j = 0; j < bufferSize; j++) data[j] = Math.random() * 2 - 1;
 
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.Q.value = 1.1;
-    filter.frequency.setValueAtTime(350, now);
-    filter.frequency.exponentialRampToValueAtTime(900, now + 0.45);
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
 
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0, now);
-    g.gain.linearRampToValueAtTime(0.045, now + 0.18);
-    g.gain.linearRampToValueAtTime(0, now + 0.48);
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 900 + Math.random() * 2000; // scattered, digital-sounding pitches
+      filter.Q.value = 5 + Math.random() * 5;
 
-    noise.connect(filter);
-    filter.connect(g);
-    g.connect(master);
-    noise.start(now);
-    noise.stop(now + 0.5);
+      const g = ctx.createGain();
+      const peak = 0.028 + Math.random() * 0.018;
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(peak, start + 0.002); // hard attack, not a swell
+      g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+
+      noise.connect(filter);
+      filter.connect(g);
+      g.connect(master);
+      noise.start(start);
+      noise.stop(start + dur + 0.01);
+    }
+
+    // faint rising tone underneath, quieter than any single burst — just
+    // enough continuity to read as one moment rather than five separate ticks
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(180, now);
+    osc.frequency.exponentialRampToValueAtTime(340, now + 0.3);
+    const oscGain = ctx.createGain();
+    oscGain.gain.setValueAtTime(0, now);
+    oscGain.gain.linearRampToValueAtTime(0.018, now + 0.08);
+    oscGain.gain.linearRampToValueAtTime(0, now + 0.32);
+    osc.connect(oscGain);
+    oscGain.connect(master);
+    osc.start(now);
+    osc.stop(now + 0.34);
   }
 
   // "select" — a soft, warm double-blip for the "Start a project" CTA,

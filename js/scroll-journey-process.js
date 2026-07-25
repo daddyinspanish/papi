@@ -261,6 +261,13 @@
   // navigation happens via the same programmatic scrollTo as a hotspot
   // click rather than a native scroll-snap settle.
   (function bindSwipe(){
+    function stepAndAnnounce(dir){
+      if(!liveTrigger) return;
+      const activeIndex = Math.round(liveTrigger.progress * (n - 1));
+      jumpToStep(activeIndex + dir);
+      if(window.Papi && window.Papi.sound) window.Papi.sound.play('tick');
+    }
+
     const SWIPE_THRESHOLD = 44;
     let startX = 0, startY = 0, dragging = false;
     stage.addEventListener('pointerdown', (e) => {
@@ -275,12 +282,30 @@
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
       if(Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) <= Math.abs(dy)) return;
-      if(!liveTrigger) return;
-      const activeIndex = Math.round(liveTrigger.progress * (n - 1));
-      jumpToStep(activeIndex + (dx < 0 ? 1 : -1));
-      if(window.Papi && window.Papi.sound) window.Papi.sound.play('tick');
+      stepAndAnnounce(dx < 0 ? 1 : -1);
     });
     stage.addEventListener('pointercancel', () => { dragging = false; });
+
+    // BUG FIX: per report, "locally, when i try to swipe on the how its
+    // built process cards, it doesnt let me swipe" — the pointerdown/up
+    // pair above only ever fires for an actual touchscreen drag or a
+    // literal mouse click-and-hold-and-release. A trackpad two-finger
+    // swipe (the far more common way anyone on a laptop would try this)
+    // is a completely different, non-pointer input: the browser reports
+    // it as a native 'wheel' event carrying deltaX/deltaY, with no
+    // pointerdown/pointerup at all — so the whole gesture was invisible
+    // to this handler. Trackpads fire many wheel events per physical
+    // swipe (not one), so this debounces to one step per gesture rather
+    // than firing repeatedly as the numbers stream in.
+    let wheelCooldown = false;
+    stage.addEventListener('wheel', (e) => {
+      if(wheelCooldown) return;
+      if(Math.abs(e.deltaX) < 12 || Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      e.preventDefault();
+      wheelCooldown = true;
+      stepAndAnnounce(e.deltaX > 0 ? 1 : -1);
+      setTimeout(() => { wheelCooldown = false; }, 650);
+    }, { passive: false });
   })();
 
   const mm = gsap.matchMedia();
