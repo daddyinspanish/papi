@@ -32,31 +32,76 @@
    position:fixed, full-viewport, top-stacked overlay, so it fully
    blocks both visibility of and interaction with anything under it
    without needing a scroll lock at all.
+
+   BUG FIX: per report, "in safari... sometime the page after does not
+   load" — this file used to assume (see this file's own original
+   comment above) that #hero's own reveal always finishes well before
+   anyone reads two lines of text and clicks a button. That's usually
+   true but not guaranteed: js/init.js is the LAST of ~15 synchronous
+   scripts, and can't even start its own fonts-ready/900ms clock until
+   every earlier one has finished loading AND executing — on a slow
+   connection/device (or just a fast click), a visitor could dismiss
+   this loader before #hero had ever been marked .is-visible, revealing
+   a genuinely blank page underneath. Not a rendering bug — a race
+   between "user clicked" and "page is actually ready to show." dismiss()
+   below now waits for that class before it's allowed to fade the loader
+   out, with a 4.2s cap (matching index.html's own belt-and-suspenders
+   fallback timing) so a visitor is never stranded if something else
+   goes wrong.
 =================================================================== */
 (function(){
   const loader = document.getElementById('papiLoader');
   if(!loader) return;
 
+  let dismissed = false;
   function dismiss(){
-    loader.classList.add('is-dismissed');
-    setTimeout(() => {
-      loader.setAttribute('aria-hidden', 'true');
-      loader.style.display = 'none';
-      // BUG FIX: per follow-up report, "on safari... enter without
-      // sound... enters but shows nothing" — the html.scroll-lock cause
-      // behind the earlier Instagram version of this same symptom is
-      // already removed (see this file's own header comment), but this
-      // loader was still a full-viewport, top-stacked overlay covering
-      // the page for the whole initial load. This site's own bug
-      // history (see the many BUG FIX comments in js/scroll-journey-
-      // process.js) shows WebKit repeatedly needing an explicit
-      // ScrollTrigger.refresh() to correctly (re)paint the three pinned
-      // sections after a layout/visibility change, rather than trusting
-      // it to redraw what's newly exposed on its own — same fix,
-      // applied here right as the thing that was covering all three
-      // pins for the entire initial load finally goes away.
-      if(window.ScrollTrigger) window.ScrollTrigger.refresh();
-    }, 750);
+    if(dismissed) return;
+    dismissed = true;
+    loader.classList.add('is-entering');
+
+    // BUG FIX: looked up once at the top of this IIFE originally, but
+    // this script tag sits BEFORE <main id="hero"> in the document —
+    // it runs while the parser hasn't reached that markup yet, so
+    // document.getElementById('hero') returned null at that point and
+    // stayed null forever (never re-queried). The wait-for-hero logic
+    // below silently never engaged as a result — reveal() always ran
+    // immediately, same as before this fix existed, which is why the
+    // Safari report kept recurring even after that "fix" shipped.
+    // Looking it up here instead, at actual click time (long after the
+    // full page has parsed), gets the real element.
+    const hero = document.getElementById('hero');
+
+    function reveal(){
+      loader.classList.add('is-dismissed');
+      setTimeout(() => {
+        loader.setAttribute('aria-hidden', 'true');
+        loader.style.display = 'none';
+        // BUG FIX: per follow-up report, "on safari... enter without
+        // sound... enters but shows nothing" — this site's own bug
+        // history (see the many BUG FIX comments in js/scroll-journey-
+        // process.js) shows WebKit repeatedly needing an explicit
+        // ScrollTrigger.refresh() to correctly (re)paint the three
+        // pinned sections after a layout/visibility change, rather than
+        // trusting it to redraw what's newly exposed on its own — same
+        // fix, applied here right as the thing that was covering all
+        // three pins for the entire initial load finally goes away.
+        if(window.ScrollTrigger) window.ScrollTrigger.refresh();
+      }, 750);
+    }
+
+    if(!hero || hero.classList.contains('is-visible')){
+      reveal();
+      return;
+    }
+    let waited = 0;
+    const POLL_MS = 40, MAX_WAIT_MS = 4200;
+    const iv = setInterval(() => {
+      waited += POLL_MS;
+      if(hero.classList.contains('is-visible') || waited >= MAX_WAIT_MS){
+        clearInterval(iv);
+        reveal();
+      }
+    }, POLL_MS);
   }
 
   const enterBtn = document.getElementById('papiLoaderEnter');
