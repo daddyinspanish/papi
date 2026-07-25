@@ -120,6 +120,37 @@ setTimeout(function(){
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="css/style.css">
+
+<!-- structured data — per direct request, so search engines/AI tools
+     have an explicit, machine-readable answer for "what is this and
+     how do I reach them" instead of only inferring it from visible
+     text. Only real, verifiable data goes in here: no AggregateRating
+     (the "5.0 on Google" badge in the quote section is decorative, not
+     backed by a live review-platform integration — fabricating rating
+     markup not sourced that way is exactly what search engines flag as
+     spam), no fake address (Papi has no public physical location). -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Papi",
+  "url": "https://designedbypapi.com/",
+  "description": "Papi builds business-ready websites designed to build trust, communicate clearly, and guide visitors to their next step.",
+  "email": "designedbypapi@gmail.com",
+  "telephone": "+1-323-842-4021",
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "telephone": "+1-323-842-4021",
+    "email": "designedbypapi@gmail.com",
+    "contactType": "customer service"
+  },
+  "sameAs": [
+    "https://www.instagram.com/designedbypapi/",
+    "https://www.tiktok.com/@designedbypapi",
+    "https://www.youtube.com/@designedbypapi"
+  ]
+}
+</script>
 </head>
 <body>
 
@@ -174,18 +205,18 @@ setTimeout(function(){
            .process-reveal-icon elsewhere on this page) sitting in a
            glass-pill circle matching .process-hero-start's own look,
            instead of full-color brand logos that clashed with the
-           rest of this hero's monochrome aqua/cream palette. href="#"
-           placeholders — no real profile URLs have been wired in
-           anywhere on this site yet. -->
+           rest of this hero's monochrome aqua/cream palette. Real
+           profile URLs wired in — see the matching set in .quote-social
+           further down and the Organization schema in <head>. -->
       <div class="process-hero-social">
-        <a href="#" class="process-hero-social-link" aria-label="Papi on Instagram">
+        <a href="https://www.instagram.com/designedbypapi/" target="_blank" rel="noopener" class="process-hero-social-link" aria-label="Papi on Instagram">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="5"/>
             <circle cx="12" cy="12" r="4.2"/>
             <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
           </svg>
         </a>
-        <a href="#" class="process-hero-social-link" aria-label="Papi on TikTok">
+        <a href="https://www.tiktok.com/@designedbypapi" target="_blank" rel="noopener" class="process-hero-social-link" aria-label="Papi on TikTok">
           <!-- per direct report: "one of them looks like a music
                symbol, it's supposed to be TikTok" — that was a generic
                two-eighth-notes glyph (any "music" icon, not specific to
@@ -197,7 +228,7 @@ setTimeout(function(){
             <path d="M16.6 5.82c-.9-.78-1.47-1.9-1.53-3.16h-2.62v13.02c0 1.4-1.14 2.54-2.54 2.54a2.54 2.54 0 0 1 0-5.08c.24 0 .47.03.69.1V10.6a5.2 5.2 0 0 0-.69-.05 5.17 5.17 0 0 0-5.17 5.17 5.17 5.17 0 0 0 5.17 5.17 5.17 5.17 0 0 0 5.17-5.17V9.01a7.66 7.66 0 0 0 4.32 1.33V7.71c-.94 0-1.87-.32-2.6-.9-.14-.11-.27-.25-.4-.99z"/>
           </svg>
         </a>
-        <a href="#" class="process-hero-social-link" aria-label="Papi on YouTube">
+        <a href="https://www.youtube.com/@designedbypapi" target="_blank" rel="noopener" class="process-hero-social-link" aria-label="Papi on YouTube">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="5" width="18" height="14" rx="4"/>
             <path d="M10 9l6 3-6 3V9z" fill="currentColor" stroke="none"/>
@@ -486,7 +517,7 @@ setTimeout(function(){
                 <path d="M13.5 21v-7.6h2.55l.38-2.96h-2.93v-1.9c0-.86.24-1.44 1.47-1.44h1.57V4.42C16.24 4.3 15.36 4.2 14.34 4.2c-2.1 0-3.54 1.28-3.54 3.64v2.03H8.25v2.96h2.55V21h2.7z" fill="#fff"/>
               </svg>
             </a>
-            <a href="#" class="quote-social-link quote-social-link--instagram" aria-label="Papi on Instagram">
+            <a href="https://www.instagram.com/designedbypapi/" target="_blank" rel="noopener" class="quote-social-link quote-social-link--instagram" aria-label="Papi on Instagram">
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 <defs>
                   <radialGradient id="igGrad" cx="30%" cy="107%" r="150%">
@@ -503,7 +534,7 @@ setTimeout(function(){
                 <circle cx="16" cy="8" r="1" fill="#fff"/>
               </svg>
             </a>
-            <a href="#" class="quote-social-link quote-social-link--tiktok" aria-label="Papi on TikTok">
+            <a href="https://www.tiktok.com/@designedbypapi" target="_blank" rel="noopener" class="quote-social-link quote-social-link--tiktok" aria-label="Papi on TikTok">
               <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
                 <circle cx="12" cy="12" r="12" fill="#010101"/>
                 <g transform="translate(6.6,3.4) scale(0.62)">
