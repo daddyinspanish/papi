@@ -267,7 +267,25 @@ body, a{ cursor:none; }
   background:#07060a;
   visibility:hidden;
   opacity:0;
-  transition:opacity 1.6s var(--ease-in-out);
+  /* BUG FIX: per the recurring "page goes black after clicking Enter"
+     reports — this used to be 1.6s. #hero's own non-1 opacity makes it
+     a CSS containing block for any position:fixed descendant, and
+     js/scroll-journey-hero.js's GSAP pin on .process-hero is exactly
+     that. Reproduced directly: js/scroll-journey-process.js keeps its
+     own independent ScrollTrigger.refresh() timers running (a load+
+     600ms one-shot, plus a debounced <body> ResizeObserver, both
+     completely unrelated to when a visitor actually clicks the loader)
+     — if one of those fires while THIS transition is still mid-flight,
+     GSAP can measure/rebuild the hero's pin-spacer against a hero that
+     is neither fully the old containing-block state nor the new one,
+     and the next section's pin-spacer ends up not reserving space
+     correctly, sliding that section up to cover the hero completely
+     (confirmed via a live repro: .pin-spacer count dropped and
+     #liveDemoSection rendered at the very top of the viewport at
+     scrollY 0). A 1.6s window gave those independent, arbitrarily-timed
+     refresh() calls a wide target to land in; cutting it this short
+     closes almost all of it without losing the reveal entirely. */
+  transition:opacity .3s var(--ease-in-out);
 }
 #hero.is-visible{
   visibility:visible;

@@ -100,6 +100,18 @@ setTimeout(function(){
   }
   if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
   if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
+  // #hero's own opacity:0 makes it a CSS containing block for any
+  // position:fixed descendant (see js/init.js's own BUG FIX comment) —
+  // js/scroll-journey-hero.js's GSAP pin is exactly that, and may
+  // already have been created against that stale containing block by
+  // the time this last-resort path ever fires. Telling GSAP to
+  // re-measure is what actually fixes the pin, same as loader-gate.js's
+  // own dismiss() already does. Routed through the shared
+  // safeScrollRefresh (see js/loader-gate.js) rather than calling
+  // ScrollTrigger.refresh() directly — see that file's own BUG FIX
+  // comment for why concurrent refresh() calls from different files can
+  // corrupt GSAP's pin-spacers.
+  if(window.Papi && window.Papi.safeScrollRefresh) window.Papi.safeScrollRefresh();
 }, 4000);
 </script>
 <title>Papi — Business-Ready Websites, Built With Purpose</title>

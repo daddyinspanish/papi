@@ -396,8 +396,15 @@
   // every pin against the final viewport — same "wait for it to
   // settle" convention already used for --stable-vh elsewhere on this
   // site, just applied to GSAP's own measurements instead.
+  // routed through window.Papi.safeScrollRefresh (see js/loader-gate.js)
+  // rather than calling ScrollTrigger.refresh() directly — this file's
+  // own refresh timers and loader-gate.js's click-triggered one are
+  // completely independent of each other, and landing close together
+  // was confirmed (via a live MutationObserver + monkey-patch) to
+  // occasionally corrupt every pin's .pin-spacer, collapsing #hero to
+  // 0 height and sliding #liveDemoSection up to cover it entirely.
   window.addEventListener('load', () => {
-    setTimeout(() => ScrollTrigger.refresh(), 600);
+    setTimeout(() => window.Papi.safeScrollRefresh(), 600);
   });
 
   // BUG FIX: per follow-up report, "in desktop after reaching how we
@@ -418,7 +425,7 @@
     let resizeT = null;
     const ro = new ResizeObserver(() => {
       clearTimeout(resizeT);
-      resizeT = setTimeout(() => ScrollTrigger.refresh(), 200);
+      resizeT = setTimeout(() => window.Papi.safeScrollRefresh(), 200);
     });
     ro.observe(document.body);
   }

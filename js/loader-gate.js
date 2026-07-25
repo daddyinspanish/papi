@@ -38,6 +38,47 @@
    still-valid concern (making sure GSAP's scroll-linked hero pin reads
    a correct scrollY at the moment it re-measures), not a timing race.
 =================================================================== */
+/* BUG FIX — window.Papi.safeScrollRefresh: per the recurring "page goes
+   black after clicking Enter" reports, directly reproduced via a live
+   MutationObserver + monkey-patched ScrollTrigger.refresh: this file's
+   own dismiss(), js/scroll-journey-process.js's load+600ms one-shot,
+   and its own debounced <body> ResizeObserver, all call
+   ScrollTrigger.refresh() completely independently of one another. Two
+   of those calls landing close together occasionally leaves GSAP
+   unable to correctly recreate every pin's .pin-spacer — confirmed
+   directly: all three pin-spacers vanished, #hero (which has no
+   explicit height of its own) collapsed to 0px, and #liveDemoSection
+   slid up to cover it completely at scrollY:0, which is exactly the
+   black/empty screen being reported. It doesn't matter precisely why
+   GSAP mishandles two concurrent refreshes — removing the concurrency
+   entirely removes the whole class of race. Every refresh() call site
+   on this page now routes through this shared, self-coalescing
+   wrapper instead of calling ScrollTrigger.refresh() directly: only one
+   real refresh is ever in flight at a time, and any request that comes
+   in while one is running gets folded into a single follow-up call
+   right after, instead of firing concurrently. Defined here (the
+   earliest-loading script on the page) purely as a plain function —
+   GSAP itself doesn't need to exist yet, only by the time this is
+   actually CALLED, which every real call site already satisfies. */
+window.Papi = window.Papi || {};
+if(!window.Papi.safeScrollRefresh){
+  let refreshInFlight = false;
+  let refreshQueued = false;
+  window.Papi.safeScrollRefresh = function(){
+    if(!window.ScrollTrigger) return;
+    if(refreshInFlight){ refreshQueued = true; return; }
+    refreshInFlight = true;
+    window.ScrollTrigger.refresh();
+    requestAnimationFrame(() => {
+      refreshInFlight = false;
+      if(refreshQueued){
+        refreshQueued = false;
+        window.Papi.safeScrollRefresh();
+      }
+    });
+  };
+}
+
 (function(){
   const loader = document.getElementById('papiLoader');
   if(!loader) return;
@@ -103,7 +144,7 @@
 
       // confirm scrollY is really 0 before GSAP re-measures against it
       if(window.scrollY !== 0) window.scrollTo(0, 0);
-      if(window.ScrollTrigger) window.ScrollTrigger.refresh();
+      window.Papi.safeScrollRefresh();
 
       // belt-and-suspenders: force these back to their untouched CSS
       // defaults too, removing any dependency on exactly how/when GSAP
