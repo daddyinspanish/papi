@@ -159,13 +159,12 @@ setTimeout(function(){
      away; it covers the whole viewport via z-index regardless of DOM
      order, but sitting first keeps that intent obvious in the markup. -->
 <div id="papiLoader" class="papi-loader" role="dialog" aria-modal="true" aria-label="Papi — choose how to enter the site">
-  <div class="process-stage-digits process-stage-digits-a" id="papiLoaderDigitsA" aria-hidden="true"><span class="process-stage-digits-track"></span></div>
-  <div class="process-stage-digits process-stage-digits-b" id="papiLoaderDigitsB" aria-hidden="true"><span class="process-stage-digits-track"></span></div>
   <div class="papi-loader-inner">
     <span class="papi-loader-title">Papi</span>
     <span class="papi-loader-subtitle">Premium Websites</span>
     <div class="papi-loader-actions">
       <button type="button" class="papi-loader-enter" id="papiLoaderEnter">Enter</button>
+      <span class="papi-loader-divider" aria-hidden="true"></span>
       <button type="button" class="papi-loader-silent" id="papiLoaderEnterSilent">Enter without sound</button>
     </div>
   </div>

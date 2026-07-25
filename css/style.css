@@ -3810,10 +3810,18 @@ body, a{ cursor:none; }
    (#soundToggle) stays as-is underneath for changing the choice mid-
    visit. z-index:5000 clears everything else on the page, including
    .custom-cursor's own 2000 (see that rule above).
-   Reuses .process-stage-digits/-a/-b/-track as-is for the ambient
-   matrix-digit backdrop (js/scroll-journey-process.js's own reduced-
-   motion handling for that class covers this reuse for free) instead
-   of building a second decorative system.
+   Per direct follow-up feedback ("the buttons and numbers on the
+   loading screen makes the website not feel premium... maybe be part
+   of the loading screen without buttons"): dropped the matrix-digit
+   backdrop entirely (it earns its keep in "How It's Built" as a
+   process motif, not here) and replaced the two glowing pill buttons
+   — which read as the same loud CTA energy as the hero's own "View
+   our work" button — with plain understated text, sized only a step
+   up from the subtitle itself, so the choice reads as considered
+   typography rather than a form. "Enter" stays the visually primary
+   one (brighter, slightly heavier) since it's the default expectation;
+   "Enter without sound" sits quieter beside it, a thin divider
+   between them instead of two separate button shapes.
    ================================================================ */
 .papi-loader{
   position:fixed;
@@ -3882,78 +3890,76 @@ body, a{ cursor:none; }
   display:flex;
   align-items:center;
   justify-content:center;
-  gap:1rem;
-  flex-wrap:wrap;
-  margin-top:2.6rem;
+  gap:1.1rem;
+  margin-top:2.8rem;
 }
-.papi-loader-enter{
+.papi-loader-divider{
+  display:block;
+  width:1px;
+  height:.8em;
+  background:rgba(243,237,226,.25);
+  flex-shrink:0;
+}
+/* shared base for both — plain text, no fill/border/glow. The visual
+   distinction between the two is entirely typographic (size, weight,
+   color), not a button shape. */
+.papi-loader-enter,
+.papi-loader-silent{
   position:relative;
   z-index:5;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  font-family:'Inter', sans-serif;
-  font-size:.82rem;
-  font-weight:700;
-  letter-spacing:.14em;
-  text-transform:uppercase;
-  border-radius:999px;
-  padding:1rem 2.4rem;
+  display:inline-block;
+  background:none;
+  border:none;
+  padding:.2rem 0;
   cursor:pointer;
   white-space:nowrap;
+  font-family:'Inter', sans-serif;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  transition:color .25s ease, opacity .25s ease;
+}
+/* underline grows in from the center on hover/focus rather than
+   sitting there permanently — keeps the resting state as quiet as
+   possible while still reading as interactive on approach */
+.papi-loader-enter::after,
+.papi-loader-silent::after{
+  content:'';
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-.15rem;
+  height:1px;
+  background:currentColor;
+  transform:scaleX(0);
+  transition:transform .3s var(--ease-out);
+}
+.papi-loader-enter:hover::after,
+.papi-loader-enter:focus-visible::after,
+.papi-loader-silent:hover::after,
+.papi-loader-silent:focus-visible::after{
+  transform:scaleX(1);
+}
+
+.papi-loader-enter{
+  font-size:.88rem;
+  font-weight:600;
   color:var(--cream);
-  background-color:rgba(10,16,20,.55);
-  background-image:linear-gradient(120deg,
-    rgba(154,205,228,0) 0%,
-    rgba(154,205,228,.5) 22%,
-    rgba(255,255,255,.55) 40%,
-    var(--gold) 55%,
-    rgba(154,205,228,.5) 72%,
-    rgba(154,205,228,0) 100%);
-  background-size:100% 100%, 240% 100%;
-  background-position:0 0, 0% 50%;
-  background-repeat:no-repeat;
-  border:1px solid rgba(154,205,228,.65);
-  box-shadow:0 8px 30px rgba(0,0,0,.35), 0 0 34px rgba(105,168,203,.5), inset 0 1px 0 rgba(255,255,255,.2);
-  transition:transform .25s var(--ease-out), box-shadow .25s var(--ease-out), background-color .25s ease;
 }
-.papi-loader-enter:hover{
-  transform:translateY(-2px) scale(1.03);
-  background-color:rgba(16,24,30,.6);
-  box-shadow:0 12px 38px rgba(0,0,0,.4), 0 0 44px rgba(105,168,203,.65), inset 0 1px 0 rgba(255,255,255,.28);
-}
-.papi-loader-enter:active{ transform:translateY(0) scale(.98); }
+.papi-loader-enter:hover{ color:#eef8fa; }
 
 .papi-loader-silent{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  font-family:'Inter', sans-serif;
   font-size:.76rem;
-  font-weight:600;
-  letter-spacing:.1em;
-  text-transform:uppercase;
-  border-radius:999px;
-  padding:.85rem 1.6rem;
-  cursor:pointer;
-  white-space:nowrap;
+  font-weight:500;
   color:var(--cream-dim);
-  background:transparent;
-  border:1px solid rgba(243,237,226,.3);
-  transition:color .25s ease, border-color .25s ease, background-color .25s ease, transform .25s var(--ease-out);
 }
-.papi-loader-silent:hover{
-  color:var(--cream);
-  border-color:rgba(243,237,226,.6);
-  background-color:rgba(243,237,226,.08);
-  transform:translateY(-1px);
-}
+.papi-loader-silent:hover{ color:var(--cream); }
 
 @media (max-width:640px){
   .papi-loader-title{ font-size:clamp(2.8rem, 16vw, 4.2rem); }
   .papi-loader-subtitle{ letter-spacing:.32em; }
-  .papi-loader-actions{ flex-direction:column; width:100%; max-width:280px; margin-top:2.2rem; }
-  .papi-loader-enter, .papi-loader-silent{ width:100%; }
+  .papi-loader-actions{ margin-top:2.4rem; gap:.9rem; }
+  .papi-loader-enter{ font-size:.8rem; }
+  .papi-loader-silent{ font-size:.7rem; }
 }
 
 @media (prefers-reduced-motion:reduce){

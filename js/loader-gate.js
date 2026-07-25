@@ -37,17 +37,6 @@
   const loader = document.getElementById('papiLoader');
   if(!loader) return;
 
-  function buildDigits(containerId){
-    const el = document.getElementById(containerId);
-    const track = el && el.querySelector('.process-stage-digits-track');
-    if(!track) return;
-    let text = '';
-    for(let i = 0; i < 18; i++) text += (1000 + Math.floor(Math.random() * 9000)) + ' ';
-    track.textContent = text + ' ' + text;
-  }
-  buildDigits('papiLoaderDigitsA');
-  buildDigits('papiLoaderDigitsB');
-
   function dismiss(){
     loader.classList.add('is-dismissed');
     setTimeout(() => {
