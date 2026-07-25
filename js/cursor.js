@@ -42,7 +42,17 @@
   });
 
   function frame(){
-    if(performance.now() - lastMoveTime > IDLE_MS){
+    // BUG FIX: found via a MutationObserver audit — this unconditionally
+    // called classList.add('is-idle') on every single animation frame
+    // once idle, forever (not just once on the idle transition).
+    // classList.add() still fires an attribute mutation even when the
+    // class is already present, so this was rewriting the cursor's
+    // class attribute ~60 times/second, at rest, on every page load,
+    // for the cursor's entire lifetime — needless style-recalc churn
+    // fighting for the same frame budget as the matrix canvas and any
+    // active GSAP scrub tween. The contains() guard makes this fire
+    // exactly once per idle transition instead.
+    if(!cursor.classList.contains('is-idle') && performance.now() - lastMoveTime > IDLE_MS){
       cursor.classList.add('is-idle');
     }
 
