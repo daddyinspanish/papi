@@ -82,6 +82,10 @@
     if(dismissed) return;
     dismissed = true;
     loader.classList.add('is-dismissed');
+    // lets anything deferred until "the visitor actually chose to enter"
+    // (see js/hero-matrix.js) start right now, not after the 750ms
+    // reveal delay below — no reason to make it wait on the fade too
+    document.dispatchEvent(new CustomEvent('papi:enter'));
 
     setTimeout(() => {
       loader.setAttribute('aria-hidden', 'true');
