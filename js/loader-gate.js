@@ -93,17 +93,29 @@
     dismissed = true;
     loader.classList.add('is-entering');
 
-    // BUG FIX: looked up once at the top of this IIFE originally, but
-    // this script tag sits BEFORE <main id="hero"> in the document —
-    // it runs while the parser hasn't reached that markup yet, so
-    // document.getElementById('hero') returned null at that point and
-    // stayed null forever (never re-queried). The wait-for-hero logic
-    // below silently never engaged as a result — reveal() always ran
-    // immediately, same as before this fix existed, which is why the
-    // Safari report kept recurring even after that "fix" shipped.
-    // Looking it up here instead, at actual click time (long after the
-    // full page has parsed), gets the real element.
-    const hero = document.getElementById('hero');
+    // BUG FIX: per report, "when you search up the tab on safari or are
+    // doing a new load for a fresh tab... it enters but the hero is
+    // never loaded" — this file used to look up #hero ONCE (either at
+    // module-load time originally, or at click time after an earlier
+    // fix), then either reveal immediately if that lookup was null, or
+    // poll that SAME cached reference. Both miss the same real case: on
+    // a genuinely fresh load, the browser paints/renders progressively
+    // as it parses — the loader sits very early in the document and can
+    // become visible and clickable before the parser has even reached
+    // <main id="hero"> further down. A visitor who clicks fast enough
+    // (or whose connection is slow enough that parsing is still
+    // ongoing) can trigger this at a moment document.getElementById
+    // ('hero') genuinely returns null — not "doesn't exist," just "not
+    // parsed yet." Treating null as "nothing to wait for" and revealing
+    // immediately reproduces the exact same blank-page race this was
+    // supposed to close. heroReady() below re-queries fresh on every
+    // poll tick instead of trusting one cached lookup, so it keeps
+    // waiting until the element actually exists AND is visible, however
+    // long parsing takes (bounded by MAX_WAIT_MS below either way).
+    function heroReady(){
+      const hero = document.getElementById('hero');
+      return !!hero && hero.classList.contains('is-visible');
+    }
 
     function reveal(){
       loader.classList.add('is-dismissed');
@@ -158,15 +170,20 @@
       }, 750);
     }
 
-    if(!hero || hero.classList.contains('is-visible')){
+    if(heroReady()){
       reveal();
       return;
     }
     let waited = 0;
-    const POLL_MS = 40, MAX_WAIT_MS = 4200;
+    // was 4200 — only 200ms past index.html's own 4000ms belt-and-
+    // suspenders fallback, not a comfortable margin once real timer
+    // jitter under load is accounted for. 6000 gives that fallback
+    // (or, far more often, js/init.js's own much earlier fonts-ready/
+    // 900ms reveal) real room to land first.
+    const POLL_MS = 40, MAX_WAIT_MS = 6000;
     const iv = setInterval(() => {
       waited += POLL_MS;
-      if(hero.classList.contains('is-visible') || waited >= MAX_WAIT_MS){
+      if(heroReady() || waited >= MAX_WAIT_MS){
         clearInterval(iv);
         reveal();
       }
