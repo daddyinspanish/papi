@@ -87,16 +87,7 @@
       const target = targetId && document.querySelector(targetId);
       if(!target) return; // fall back to the plain anchor jump
       e.preventDefault();
-      // routed through Lenis when active — a raw scrollIntoView here
-      // would animate against Lenis's own competing scroll writes and
-      // produce visible double-motion. Falls back to the native call
-      // when Lenis isn't running (prefers-reduced-motion, or it failed
-      // to load) — see js/lenis-init.js.
-      if(window.Papi && window.Papi.lenis){
-        window.Papi.lenis.scrollTo(target, { offset: 0 });
-      } else {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
   bindSmoothScroll('.process-hero-cta');
