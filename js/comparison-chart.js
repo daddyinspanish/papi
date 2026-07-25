@@ -66,7 +66,21 @@
 
   if('IntersectionObserver' in window){
     const io = new IntersectionObserver((entries)=>{
-      entries.forEach(entry => { if(entry.isIntersecting) reveal(); });
+      entries.forEach(entry => {
+        if(entry.isIntersecting) reveal();
+        // BUG FIX: per report, "something is causing my phone to turn
+        // really hot" — comparisonLineGlow (see style.css) animates
+        // filter:drop-shadow 'infinite', forever, the instant this
+        // section is first revealed, with nothing to ever stop it again
+        // even once scrolled far away. Unlike a transform/opacity
+        // animation, filter isn't compositor-only — every keyframe step
+        // forces a real repaint, so this kept costing CPU for the rest
+        // of the visit regardless of whether the chart was ever on
+        // screen again. Pausing it whenever the section itself isn't
+        // intersecting removes that ongoing cost outside the one time
+        // it's actually visible.
+        if(linePapi) linePapi.style.animationPlayState = entry.isIntersecting ? 'running' : 'paused';
+      });
     }, { threshold: 0.35 });
     io.observe(section);
   } else {

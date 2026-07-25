@@ -66,19 +66,14 @@
 
   const CHARS = '0123456789';
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // per direct request: "when you hold the cursor over the hero, the
-  // numbers are pushed out of the way" — desktop/mouse only (matches
-  // this site's own cursor.js convention of gating hover effects behind
-  // pointer:fine, since there's no continuous "hover" on touch)
-  const canHover = window.matchMedia && window.matchMedia('(hover:hover) and (pointer:fine)').matches;
 
   let W = 0, H = 0, fontSize = CONFIG.fontSize, rowH = CONFIG.fontSize, cellW = CONFIG.fontSize * 0.62;
   let columns = [];
 
-  // cursor repulsion — tracked in CSS pixels (canvas is DPR-scaled via
-  // ctx.setTransform in resize(), so drawing coordinates already match
-  // CSS pixels; no extra conversion needed here). Starts far off-canvas
-  // so nothing is pushed before the first real pointer move.
+  // cursor/touch repulsion — tracked in CSS pixels (canvas is DPR-scaled
+  // via ctx.setTransform in resize(), so drawing coordinates already
+  // match CSS pixels; no extra conversion needed here). Starts far
+  // off-canvas so nothing is pushed before the first real pointer move.
   const REPEL_RADIUS = 110;
   const REPEL_MAX_PUSH = 34;
   let pointerX = -9999, pointerY = -9999;
@@ -86,15 +81,35 @@
   // on the title/CTA above it — see .process-hero-matrix in style.css),
   // so the listener has to live on its parent section instead; pointer
   // coordinates are still measured against the canvas's own bounding
-  // box, which is what renderFrame()'s drawing coordinates are in
+  // box, which is what renderFrame()'s drawing coordinates are in.
+  //
+  // Per direct request: "make sure the cursor effects are also on
+  // mobile, that way when someone touches the screen the numbers get
+  // affected" — this used to be gated to hover:hover+pointer:fine only
+  // (desktop), since touch has no continuous "hover" state to speak of.
+  // Pointer events already unify mouse/pen/touch, though, so binding
+  // unconditionally and reacting to an actual finger contact (rather
+  // than a hover that touch can never produce) covers both without any
+  // separate touch-specific code path: pointermove fires while a finger
+  // drags across the hero, and pointerup/pointercancel below reset the
+  // push the moment contact ends, since touch has no "pointerleave" of
+  // its own the way a mouse does.
   const heroSection = canvas.closest('.process-hero');
-  if(canHover && heroSection){
+  if(!prefersReducedMotion && heroSection){
     heroSection.addEventListener('pointermove', (e) => {
       const rect = canvas.getBoundingClientRect();
       pointerX = e.clientX - rect.left;
       pointerY = e.clientY - rect.top;
     }, { passive: true });
     heroSection.addEventListener('pointerleave', () => {
+      pointerX = -9999;
+      pointerY = -9999;
+    }, { passive: true });
+    heroSection.addEventListener('pointerup', () => {
+      pointerX = -9999;
+      pointerY = -9999;
+    }, { passive: true });
+    heroSection.addEventListener('pointercancel', () => {
       pointerX = -9999;
       pointerY = -9999;
     }, { passive: true });
@@ -161,6 +176,24 @@
   }
   watchDpr();
 
+  // BUG FIX: per report, "something is causing my phone to turn really
+  // hot" — every fillText call in the loop below used to build a brand
+  // new rgba(...) template-literal string, per character, every single
+  // frame (streamMax=16 rows × ~50 mobile columns × up to 24fps = tens
+  // of thousands of short-lived string allocations per second). Alpha
+  // only ever depends on the row's fixed position in its own stream
+  // (CONFIG.tailFalloffraised to a fixed power of j), never on anything
+  // that changes frame to frame, so every possible fillStyle string is
+  // knowable up front — computed once here instead of reallocated on
+  // every character on every frame. Pure GC-pressure reduction, zero
+  // visual difference (identical values, just cached).
+  const HEAD_FILLSTYLE = `rgba(226,246,255,${CONFIG.headAlpha})`;
+  const TAIL_FILLSTYLES = new Array(CONFIG.streamMax).fill(null).map((_, j) => {
+    if(j === 0) return null; // row 0 always uses HEAD_FILLSTYLE instead
+    const alpha = CONFIG.headAlpha * Math.pow(CONFIG.tailFalloff, j) * 0.6;
+    return alpha < 0.015 ? null : `rgba(122,180,214,${alpha})`;
+  });
+
   function renderFrame(steps){
     ctx.clearRect(0, 0, W, H);
     const maxRow = H / rowH;
@@ -192,15 +225,11 @@
         const py = rowY * rowH;
         if(py > H) break;
 
-        const alpha = j === 0
-          ? CONFIG.headAlpha
-          : CONFIG.headAlpha * Math.pow(CONFIG.tailFalloff, j) * 0.6;
-        if(alpha < 0.015) continue;
+        const style = j === 0 ? HEAD_FILLSTYLE : TAIL_FILLSTYLES[j];
+        if(!style) continue;
 
         const ch = CHARS[(Math.random() * CHARS.length) | 0];
-        ctx.fillStyle = j === 0
-          ? `rgba(226,246,255,${alpha})`
-          : `rgba(122,180,214,${alpha})`;
+        ctx.fillStyle = style;
         ctx.fillText(ch, col.x + pushX, py);
       }
 

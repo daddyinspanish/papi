@@ -231,6 +231,34 @@
     }
   }
 
+  // BUG FIX: per report, "the swipe on mobile for the steps is working
+  // but its very slow" — jumpToStep() used the browser's native
+  // behavior:'smooth' scrollTo, whose actual duration is picked by the
+  // browser/OS itself (mobile Safari in particular tends to run this
+  // slower than desktop, and it isn't configurable), THEN the trigger's
+  // own scrub:1 smoothing (see mm.add() below) took up to another full
+  // second to catch the panels up to wherever that scroll landed — two
+  // separate un-tunable delays stacked on top of a single discrete
+  // gesture. A fixed-duration custom scroll (fastScrollTo) replaces the
+  // first; scrub was lowered from 1 to 0.35 to shrink the second — a
+  // continuous scroll gesture barely notices that (it's a much smaller
+  // lag than 1s), but a one-shot jump now settles in a few hundred ms
+  // total instead of one-to-two seconds.
+  function fastScrollTo(target, duration){
+    const startY = window.scrollY;
+    const delta = target - startY;
+    if(Math.abs(delta) < 1) return;
+    const dur = duration || 320;
+    const t0 = performance.now();
+    function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
+    function step(now){
+      const t = Math.min((now - t0) / dur, 1);
+      window.scrollTo(0, startY + delta * easeOutCubic(t));
+      if(t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
   // click-to-jump wiring bound ONCE (not per matchMedia breakpoint —
   // gsap.matchMedia auto-reverts gsap-created animations/ScrollTriggers
   // on breakpoint change, but a plain addEventListener here would just
@@ -241,7 +269,7 @@
     if(!liveTrigger) return;
     const clamped = Math.max(0, Math.min(n - 1, i));
     const target = liveTrigger.start + (clamped / (n - 1)) * (liveTrigger.end - liveTrigger.start);
-    window.scrollTo({ top: target, behavior: 'smooth' });
+    fastScrollTo(target);
   }
 
   hotspots.forEach((hotspot, i) => {
@@ -321,7 +349,12 @@
       pin: true,
       start: 'top top',
       end: end,
-      scrub: 1,
+      // was 1 — see fastScrollTo()'s own comment above for why: a full
+      // second of catch-up smoothing is barely noticeable while someone
+      // is continuously scrolling, but it's exactly what made a single
+      // swipe/click jump feel sluggish once the actual scroll itself
+      // stopped taking so long.
+      scrub: 0.35,
       onUpdate: (self) => render(states, self.progress),
     });
     liveTrigger = trigger;
