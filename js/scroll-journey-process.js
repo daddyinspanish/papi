@@ -244,19 +244,29 @@
   // continuous scroll gesture barely notices that (it's a much smaller
   // lag than 1s), but a one-shot jump now settles in a few hundred ms
   // total instead of one-to-two seconds.
+  // BUG FIX: per follow-up report, "swiping through the steps on mobile
+  // is no longer working" — the first attempt at this drove the jump
+  // with raw window.scrollTo() calls on a plain requestAnimationFrame
+  // loop, fighting Safari's own native touch/momentum-scroll
+  // coordination (a swipe gesture that still has ANY residual native
+  // scroll momentum from the same touch can cause WebKit to silently
+  // drop or override programmatic scrollTo calls). Routing the same
+  // eased jump through the trigger's own .scroll() getter/setter
+  // instead funnels it through GSAP's own scroll-proxy system — the
+  // same mechanism ScrollTrigger itself already uses internally for
+  // pin/scrub math — which is built to be reliable across browsers
+  // instead of racing WebKit's native scroll handling.
   function fastScrollTo(target, duration){
-    const startY = window.scrollY;
-    const delta = target - startY;
-    if(Math.abs(delta) < 1) return;
-    const dur = duration || 320;
-    const t0 = performance.now();
-    function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
-    function step(now){
-      const t = Math.min((now - t0) / dur, 1);
-      window.scrollTo(0, startY + delta * easeOutCubic(t));
-      if(t < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
+    if(!liveTrigger){ window.scrollTo(0, target); return; }
+    const startY = liveTrigger.scroll();
+    if(Math.abs(target - startY) < 1) return;
+    const proxy = { v: startY };
+    gsap.to(proxy, {
+      v: target,
+      duration: (duration || 320) / 1000,
+      ease: 'power3.out',
+      onUpdate: () => liveTrigger.scroll(proxy.v),
+    });
   }
 
   // click-to-jump wiring bound ONCE (not per matchMedia breakpoint —

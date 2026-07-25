@@ -53,6 +53,20 @@
     setTimeout(() => {
       loader.setAttribute('aria-hidden', 'true');
       loader.style.display = 'none';
+      // BUG FIX: per follow-up report, "on safari... enter without
+      // sound... enters but shows nothing" — the html.scroll-lock cause
+      // behind the earlier Instagram version of this same symptom is
+      // already removed (see this file's own header comment), but this
+      // loader was still a full-viewport, top-stacked overlay covering
+      // the page for the whole initial load. This site's own bug
+      // history (see the many BUG FIX comments in js/scroll-journey-
+      // process.js) shows WebKit repeatedly needing an explicit
+      // ScrollTrigger.refresh() to correctly (re)paint the three pinned
+      // sections after a layout/visibility change, rather than trusting
+      // it to redraw what's newly exposed on its own — same fix,
+      // applied here right as the thing that was covering all three
+      // pins for the entire initial load finally goes away.
+      if(window.ScrollTrigger) window.ScrollTrigger.refresh();
     }, 750);
   }
 
