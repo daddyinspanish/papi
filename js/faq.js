@@ -31,6 +31,7 @@
     item.classList.add('is-open');
     question.setAttribute('aria-expanded', 'true');
     answer.style.height = `${answer.scrollHeight}px`;
+    if(window.Papi && window.Papi.sound) window.Papi.sound.play('tick');
 
     // Awwwards personality pass — brief glitch-spark on the chevron as
     // it opens (see .faq-chevron.is-glitching in css/style.css).

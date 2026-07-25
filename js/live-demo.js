@@ -267,6 +267,7 @@
     activeIndex = i;
     dots.forEach((dot, di)=> dot.classList.toggle('is-active', di === activeIndex));
     loadCard(activeIndex);
+    if(window.Papi && window.Papi.sound) window.Papi.sound.play('tick');
   }
   if(dots[0]) dots[0].classList.add('is-active');
 

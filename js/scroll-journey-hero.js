@@ -256,6 +256,7 @@
     // every visible change pushed deep into its tail, is what actually
     // gives the visitor real "just read the hero" scroll runway before
     // the portal starts, let alone completes.
+    let hasPlayedPortalWhoosh = false;
     const tl = gsap.timeline({
       scrollTrigger: {
         trigger: processRoom,
@@ -266,7 +267,26 @@
         onEnter: () => window.PapiDolly && window.PapiDolly.lock('processRoom'),
         onEnterBack: () => window.PapiDolly && window.PapiDolly.lock('processRoom'),
         onLeaveBack: () => window.PapiDolly && window.PapiDolly.unlock('processRoom'),
-        onUpdate: (self) => { updateTitleGlitch(self.progress); updateCtaGlitch(self.progress); },
+        onUpdate: (self) => {
+          updateTitleGlitch(self.progress);
+          updateCtaGlitch(self.progress);
+          // Awwwards personality pass — a soft whoosh right as the
+          // portal-zoom finishes, the site's single biggest cinematic
+          // beat. Scrubbed timelines don't get a real onComplete (they
+          // track scroll position, not playback), so this fires once
+          // the first time progress reaches the end and resets if the
+          // visitor scrolls back up past it, mirroring the
+          // entrancePinnedHigh guard pattern already used elsewhere on
+          // this site (js/testimonials.js, js/live-demo.js).
+          if(self.progress >= 0.995){
+            if(!hasPlayedPortalWhoosh){
+              hasPlayedPortalWhoosh = true;
+              if(window.Papi && window.Papi.sound) window.Papi.sound.play('whoosh');
+            }
+          } else {
+            hasPlayedPortalWhoosh = false;
+          }
+        },
       },
     });
 

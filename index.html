@@ -160,6 +160,21 @@ setTimeout(function(){
      instead of that feeling stopping after the hero. -->
 <div class="scroll-progress-track" aria-hidden="true"><div class="scroll-progress-fill" id="scrollProgressFill"></div></div>
 
+<!-- Sound toggle — defaults off; see js/sound.js for why this is a
+     small persistent control rather than a full entry gate. -->
+<button type="button" class="sound-toggle" id="soundToggle" aria-label="Turn sound on" aria-pressed="false">
+  <svg class="sound-toggle-icon sound-toggle-icon--off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <polygon points="4 9 8 9 12 5 12 19 8 15 4 15 4 9"></polygon>
+    <line x1="16" y1="9" x2="21" y2="14"></line>
+    <line x1="21" y1="9" x2="16" y2="14"></line>
+  </svg>
+  <svg class="sound-toggle-icon sound-toggle-icon--on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <polygon points="4 9 8 9 12 5 12 19 8 15 4 15 4 9"></polygon>
+    <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+    <path d="M18 6a9 9 0 0 1 0 12"></path>
+  </svg>
+</button>
+
 <!-- ============ HERO — this used to be a two-column copy+liquid intro
      followed by the process room; that intro section (headline, CTA,
      trusted-by marquee, hero-slime liquid mass, social icons) has been
@@ -728,6 +743,7 @@ setTimeout(function(){
 <script src="js/quote-form.js"></script>
 <script src="js/newsletter-popup.js"></script>
 <script src="js/cursor.js"></script>
+<script src="js/sound.js"></script>
 <script src="js/scroll-reveal.js"></script>
 <script src="js/scroll-dolly.js"></script>
 <script src="js/scroll-progress.js"></script>

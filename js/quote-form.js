@@ -150,6 +150,7 @@
         if(res.ok){
           form.classList.add('is-sent');
           if(successEl) successEl.textContent = successText;
+          if(window.Papi && window.Papi.sound) window.Papi.sound.play('chime');
         } else {
           form.classList.add('is-error');
           if(successEl) successEl.textContent = 'Something went wrong — please try again.';
