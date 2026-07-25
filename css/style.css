@@ -1380,6 +1380,11 @@ body, a{ cursor:none; }
   .comparison-section::before,
   .testimonials-section::before,
   .faq-section::before{ animation:none; }
+  /* Awwwards personality pass — FAQ scan sweep, chevron glitch-spark,
+     and answer depth-echo all skip straight to their final state */
+  .faq-question::after{ display:none; }
+  .faq-chevron.is-glitching{ animation:none; }
+  .faq-answer p{ transition:none; opacity:1; transform:none; }
 }
 .comparison-inner{
   position:relative;
@@ -1666,6 +1671,7 @@ body, a{ cursor:none; }
 }
 .faq-item:first-child{ border-top:1px solid rgba(122,221,255,.18); }
 .faq-question{
+  position:relative;
   width:100%;
   display:flex;
   align-items:center;
@@ -1679,9 +1685,29 @@ body, a{ cursor:none; }
   font-size:clamp(1.02rem, 2vw, 1.2rem);
   color:var(--cream);
   cursor:none;
+  overflow:hidden;
   transition:color .25s var(--ease-out);
 }
 .faq-question:hover{ color:#7addff; }
+/* Awwwards personality pass — a faint one-shot scanline sweep on hover,
+   echoing the hero's own digit-rain/scan motif at a whisper instead of
+   this row staying visually unrelated to the rest of the site. Plain
+   CSS animation restarting on :hover — no JS, no infinite loop. */
+.faq-question::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:linear-gradient(100deg, transparent 42%, rgba(122,221,255,.16) 50%, transparent 58%);
+  transform:translateX(-120%);
+  pointer-events:none;
+}
+.faq-question:hover::after{
+  animation:faqScanSweep .7s var(--ease-out);
+}
+@keyframes faqScanSweep{
+  from{ transform:translateX(-120%); }
+  to{ transform:translateX(120%); }
+}
 .faq-chevron{
   flex:0 0 auto;
   width:10px;
@@ -1692,6 +1718,19 @@ body, a{ cursor:none; }
   transition:transform .3s var(--ease-out);
 }
 .faq-item.is-open .faq-chevron{ transform:rotate(-135deg); }
+/* Awwwards personality pass — a brief glitch-spark on the chevron right
+   as a question opens, same highlight color (#8ff2ff) the hero's own
+   title/CTA glitch-dissolve already established elsewhere on the site.
+   Toggled by js/faq.js's openItem(); removed on animationend so it
+   never lingers or restarts on its own. */
+.faq-chevron.is-glitching{
+  animation:faqChevronGlitch .4s steps(2, end);
+}
+@keyframes faqChevronGlitch{
+  0%, 50%, 100%{ border-color:#7addff; filter:none; }
+  25%{ border-color:#8ff2ff; filter:drop-shadow(0 0 4px rgba(143,242,255,.85)); }
+  75%{ border-color:#8ff2ff; filter:drop-shadow(0 0 6px rgba(143,242,255,.85)); }
+}
 .faq-answer{
   height:0;
   overflow:hidden;
@@ -1702,6 +1741,19 @@ body, a{ cursor:none; }
   color:rgba(243,237,226,.68);
   font-size:.98rem;
   line-height:1.6;
+  /* Awwwards personality pass — a soft depth-echo settle instead of a
+     flat height-only reveal, the same eased-arrival feel (fade + tiny
+     rise) as scroll-journey-process.js's panel settle, scaled down to a
+     few px since this is a whisper of that effect, not the full thing.
+     Driven purely by .faq-item.is-open, already toggled by faq.js — no
+     JS change needed for this part. */
+  opacity:0;
+  transform:translateY(6px);
+  transition:opacity .3s var(--ease-out) .05s, transform .3s var(--ease-out) .05s;
+}
+.faq-item.is-open .faq-answer p{
+  opacity:1;
+  transform:translateY(0);
 }
 
 /* ===================================================================
