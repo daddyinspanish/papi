@@ -77,6 +77,19 @@
    flickers, while untouched letters ahead of it keep scaling up
    normally with the rest of the title (still satisfying "the title
    scales like the matrix" for the intact portion).
+
+   CTA BUTTON GLITCH (follow-up request): "make the button interact
+   like it was also built out of numbers — it's too still there when
+   the animation is happening." The "View our work" button used to just
+   sit untouched through the whole title dissolve + canvas zoom, then
+   flatly opacity-fade in the last 22% along with the rest of heroCopy —
+   visually static against everything dissolving/zooming around it.
+   Its own text now gets the identical per-character glitch/fall/fade
+   treatment as the title (same technique, own span set), timed to pick
+   up right as the title's own dissolve is finishing and fully resolve
+   just before heroCopy's whole-block fade takes over — reads as one
+   continuous wave sweeping down through the copy rather than a second,
+   disconnected effect.
 =================================================================== */
 (function(){
   if(!window.gsap || !window.ScrollTrigger) return;
@@ -95,6 +108,7 @@
   // Spaces are left as plain text nodes (never glitched into a digit,
   // which would visually read as a stray floating number) ----
   const titleEl = heroCopy.querySelector('.process-hero-title');
+  const ctaEl = heroCopy.querySelector('.process-hero-cta');
   const GLITCH_DIGITS = '0123456789';
   let titleChars = [];
   if(titleEl){
@@ -103,6 +117,15 @@
       .map((line) => Array.from(line).map((ch) => (ch === ' ' ? ' ' : `<span class="hero-title-char" data-char="${ch}">${ch}</span>`)).join(''))
       .join('<br>');
     titleChars = Array.from(titleEl.querySelectorAll('.hero-title-char'));
+  }
+  // same split-into-spans technique as the title above, own class so it
+  // can be styled/timed independently — see the CTA BUTTON GLITCH note
+  let ctaChars = [];
+  if(ctaEl){
+    ctaEl.innerHTML = Array.from(ctaEl.textContent)
+      .map((ch) => (ch === ' ' ? ' ' : `<span class="hero-cta-char" data-char="${ch}">${ch}</span>`))
+      .join('');
+    ctaChars = Array.from(ctaEl.querySelectorAll('.hero-cta-char'));
   }
 
   function clamp01(v){ return Math.max(0, Math.min(1, v)); }
@@ -167,6 +190,40 @@
     });
   }
 
+  // picks up as the title's own dissolve is finishing (GLITCH_END above)
+  // and fully resolves just ahead of heroCopy's own opacity fade at 0.78
+  // — see the CTA BUTTON GLITCH note up top. No parent scale/counter-
+  // scale needed here (unlike the title) since the button itself never
+  // gets a zoom tween — just the same fall/fade/flicker per character.
+  const CTA_GLITCH_START = 0.5, CTA_GLITCH_END = 0.76;
+  const CTA_FALL_DISTANCE_EM = 1.4;
+  function updateCtaGlitch(progress){
+    if(!ctaChars.length) return;
+    const raw = clamp01((progress - CTA_GLITCH_START) / (CTA_GLITCH_END - CTA_GLITCH_START));
+    const n = ctaChars.length;
+    ctaChars.forEach((span, i) => {
+      const start = i / n;
+      const end = start + STAGGER_SPAN / n;
+      const t = clamp01((raw - start) / (end - start));
+      if(t <= 0){
+        span.textContent = span.dataset.char;
+        span.style.opacity = '1';
+        span.style.transform = '';
+        span.classList.remove('is-glitching');
+        return;
+      }
+      if(t >= 1){
+        span.style.opacity = '0';
+        span.style.transform = `translateY(${CTA_FALL_DISTANCE_EM}em)`;
+        return;
+      }
+      span.classList.add('is-glitching');
+      span.textContent = Math.random() < t ? GLITCH_DIGITS[(Math.random() * 10) | 0] : span.dataset.char;
+      span.style.opacity = String(1 - t * 0.35);
+      span.style.transform = `translateY(${(t * t * CTA_FALL_DISTANCE_EM).toFixed(3)}em)`;
+    });
+  }
+
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(prefersReducedMotion) return;
 
@@ -196,7 +253,7 @@
         onEnter: () => window.PapiDolly && window.PapiDolly.lock('processRoom'),
         onEnterBack: () => window.PapiDolly && window.PapiDolly.lock('processRoom'),
         onLeaveBack: () => window.PapiDolly && window.PapiDolly.unlock('processRoom'),
-        onUpdate: (self) => updateTitleGlitch(self.progress),
+        onUpdate: (self) => { updateTitleGlitch(self.progress); updateCtaGlitch(self.progress); },
       },
     });
 

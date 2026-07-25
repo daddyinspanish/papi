@@ -2685,6 +2685,17 @@ body, a{ cursor:none; }
   color:#8ff2ff;
   text-shadow:0 0 6px rgba(143,242,255,.85), 0 0 16px rgba(122,221,255,.6);
 }
+/* same technique, applied to the "View our work" button's own text —
+   see js/scroll-journey-hero.js's CTA BUTTON GLITCH note. No gradient
+   text-fill to override here (the button uses a plain solid color, not
+   the title's metallic gradient), just the same aqua glow on glitch. */
+.hero-cta-char{
+  display:inline-block;
+}
+.hero-cta-char.is-glitching{
+  color:#8ff2ff;
+  text-shadow:0 0 6px rgba(143,242,255,.85), 0 0 14px rgba(122,221,255,.6);
+}
 /* per direct request: "dissolve the title" while a step is open — a
    soft fade/blur/lift out, not just a plain opacity cut */
 .process-hero-title.is-dissolved{

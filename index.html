@@ -11,6 +11,23 @@
 // entirely
 if('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.scrollTo(0, 0);
+// BELT AND SUSPENDERS: per report, "leave the tab open a few minutes,
+// then refresh — black screen." A likely contributor: this page's
+// hero is a long GSAP ScrollTrigger pin (js/scroll-journey-hero.js),
+// and if a reload's OWN native scroll-position restore lands (some
+// browsers apply this as a separate "resume where you left off" nicety
+// on plain refreshes, distinct from the History API's own restoration
+// this already disables above) AFTER this early scrollTo(0,0) but
+// BEFORE ScrollTrigger has measured the page, the pin's own math ends
+// up built against a scroll position that no longer matches a fresh
+// scrollY:0 load — a real, plausible way for the whole pinned layout
+// to render broken/blank. Reasserting scrollTo(0,0) again once the DOM
+// itself exists (this can't run any earlier — there's no document yet
+// at the point the line above runs) closes that gap regardless of
+// timing, for a negligible cost on every normal load.
+document.addEventListener('DOMContentLoaded', function(){
+  if(window.scrollY !== 0) window.scrollTo(0, 0);
+});
 
 // a stable stand-in for 100vh, computed once up front rather than
 // trusting the CSS vh unit directly — see the long comment on
