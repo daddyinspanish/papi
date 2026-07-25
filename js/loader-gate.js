@@ -69,6 +69,29 @@
    holdScrollAtTop() below re-asserts 0 for as long as that's true,
    closing the window entirely regardless of how late the browser's own
    restoration fires.
+
+   BUG FIX: per report, "on desktop its still happening" — the fix
+   above only ever CORRECTS scrollY back to 0 reactively, on the
+   'scroll' event, after it's already moved. That's enough for a
+   one-time restoration jump, but not for a visitor who simply scrolls
+   their mouse wheel/trackpad while reading this loader (completely
+   ordinary behavior, and the likely actual desktop cause) — a
+   continuous wheel gesture fires many scroll deltas in a row, and each
+   one moves real scrollY an instant before the correction lands,
+   feeding js/scroll-journey-hero.js's own per-frame scroll read a
+   nonzero value again and again. Given that pin's whole range is only
+   170%/300% of one viewport (see the earlier BUG FIX above), even an
+   ordinary few notches of scrolling is enough to visibly fade/zoom the
+   hero. Reactive correction can't reliably win that fight. preventDoc-
+   Scroll() below stops it at the source instead: while the loader is
+   still up, wheel/touchmove input is prevented from ever moving
+   scrollY in the first place, on both this document and — the same
+   original blank-screen bug can equally be triggered by a wheel/touch
+   gesture over the loader's own DOM node specifically, since it has no
+   scroll container of its own to absorb the input. Arrow/Space/Page
+   keys are blocked the same way, for a keyboard user doing the same
+   thing. Nobody should be able to scroll behind a full-viewport loader
+   anyway, so none of this removes any real capability.
 =================================================================== */
 (function(){
   const loader = document.getElementById('papiLoader');
@@ -87,6 +110,22 @@
     if(window.scrollY !== 0) window.scrollTo(0, 0);
   }
   window.addEventListener('scroll', holdScrollAtTop, { passive: true });
+
+  const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar']);
+  function preventDocScroll(e){
+    if(!scrollGuardActive) return;
+    if(e.type === 'keydown'){
+      if(!SCROLL_KEYS.has(e.key)) return;
+      // don't swallow Space/Enter meant to keyboard-activate the
+      // loader's own focused button
+      const tag = e.target && e.target.tagName;
+      if(tag === 'BUTTON' || tag === 'A' || tag === 'INPUT') return;
+    }
+    e.preventDefault();
+  }
+  window.addEventListener('wheel', preventDocScroll, { passive: false });
+  window.addEventListener('touchmove', preventDocScroll, { passive: false });
+  window.addEventListener('keydown', preventDocScroll);
 
   function dismiss(){
     if(dismissed) return;
@@ -167,6 +206,9 @@
         // only now hand control back — real scrolling starts here
         scrollGuardActive = false;
         window.removeEventListener('scroll', holdScrollAtTop);
+        window.removeEventListener('wheel', preventDocScroll);
+        window.removeEventListener('touchmove', preventDocScroll);
+        window.removeEventListener('keydown', preventDocScroll);
       }, 750);
     }
 

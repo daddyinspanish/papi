@@ -3867,6 +3867,18 @@ body, a{ cursor:none; }
   overflow:hidden;
   background:radial-gradient(120% 120% at 50% 40%, var(--ink-soft) 0%, var(--ink) 70%);
   transition:opacity .7s ease;
+  /* BUG FIX: per report, "the cursor is not visible on the loading
+     screen" — body,a{cursor:none} (sitewide, so js/cursor.js's own
+     custom dot/ring reads as the only cursor) hid the native one here
+     too, but the custom cursor either isn't revealed yet this early
+     (see js/init.js — same fonts-ready/900ms schedule as everything
+     else) or sits at z-index:2000, well under this loader's own 5000,
+     so it can't render on top of it regardless. Net result: no visible
+     cursor of any kind while deciding what to click. A class selector
+     always outranks the sitewide element-selector rule regardless of
+     source order, so this alone is enough to bring the native cursor
+     back for as long as the loader is up. */
+  cursor:auto;
 }
 /* per direct request feedback, no spinner/loading chrome — just a
    quiet acknowledgment that a click registered while js/loader-gate.js
