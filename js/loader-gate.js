@@ -69,13 +69,56 @@ if(!window.Papi.safeScrollRefresh){
     if(refreshInFlight){ refreshQueued = true; return; }
     refreshInFlight = true;
     window.ScrollTrigger.refresh();
-    requestAnimationFrame(() => {
+    // BUG FIX: found via a direct, repeatable before/after test — forcing
+    // scrollY deep into a pin's range (which correctly glitches the
+    // hero's title/CTA per their own scroll-driven dissolve effect),
+    // then resetting scrollY to 0 and calling refresh() alone, left the
+    // title/CTA PERMANENTLY stuck mid-glitch ("BuildingWebsitesthatMatt3r",
+    // "Viewourwo67") even though scrollY read back as correctly 0.
+    // refresh() recalculates each trigger's start/end boundaries but does
+    // NOT reliably force its cached progress (and therefore any scrub
+    // timeline or onUpdate callback driven by it — the hero's character-
+    // glitch effect, the Live Demo browser scale/fade, the "How It's
+    // Built" panel transforms) to resync against the CURRENT scroll
+    // position if GSAP doesn't independently detect a change. Only
+    // ScrollTrigger.update() forced that resync in testing. Calling it
+    // here, right after refresh(), means every real call site (this
+    // file's own dismiss, scroll-journey-process.js's load timer and
+    // ResizeObserver, index.html's 4s fallback) now also corrects any
+    // scroll-driven visual effect that drifted out of sync, not just the
+    // pin-spacer geometry refresh() already fixes.
+    window.ScrollTrigger.update();
+    // BUG FIX: found while verifying the update() fix above — the reset
+    // below used to run ONLY inside requestAnimationFrame. Confirmed
+    // directly (isolated the exact same refresh()+update() calls, run
+    // inline vs through this stored function): calling this function a
+    // SECOND time, after an earlier real call (e.g. dismiss()'s own,
+    // 750ms prior) had already fired, silently did nothing — no error,
+    // no console warning, refreshInFlight just never came back false.
+    // rAF ties this reset to the browser's own next real paint; if a
+    // paint is ever skipped or delayed for any reason (a backgrounded
+    // tab, aggressive power-saving throttling, or simply nothing else
+    // on the page currently forcing a new frame), refreshInFlight can
+    // stay stuck true for the rest of the page's life — and every
+    // future call from anywhere (scroll-journey-process.js's own
+    // ResizeObserver and load-timer, index.html's 4s fallback) would
+    // then silently queue and never actually run, which is worse than
+    // not having this coalescing at all. A short setTimeout backstop
+    // guarantees the reset happens regardless of whether a paint ever
+    // ties to it — whichever of the two fires first wins, and the
+    // `settled` guard stops the other from double-resetting.
+    let settled = false;
+    const settle = () => {
+      if(settled) return;
+      settled = true;
       refreshInFlight = false;
       if(refreshQueued){
         refreshQueued = false;
         window.Papi.safeScrollRefresh();
       }
-    });
+    };
+    requestAnimationFrame(settle);
+    setTimeout(settle, 50);
   };
 }
 
@@ -103,15 +146,37 @@ if(!window.Papi.safeScrollRefresh){
   // tick. Preventing the scroll at the source instead of correcting it
   // after the fact closes that regardless of how continuous the input
   // is. Nobody should be able to scroll behind a full-viewport loader
-  // anyway. Space/Enter are excluded when a button has focus, so
-  // keyboard-activating "Enter"/"Enter without sound" still works.
+  // anyway.
   const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar']);
   function preventDocScroll(e){
     if(!scrollGuardActive) return;
     if(e.type === 'keydown'){
       if(!SCROLL_KEYS.has(e.key)) return;
-      const tag = e.target && e.target.tagName;
-      if(tag === 'BUTTON' || tag === 'A' || tag === 'INPUT') return;
+      // BUG FIX: this used to skip prevention entirely whenever a
+      // BUTTON/A/INPUT had focus, reasoning that Space/Enter needed to
+      // reach the button to activate it. But a mouse click already
+      // leaves the clicked button focused, and Space's DEFAULT action
+      // on a focused button is a real page-down scroll (separate from
+      // the click it also triggers) — so a visitor who clicks Enter/
+      // Enter without sound and then habitually taps Space (common:
+      // hands already there) could let a real, large scroll jump
+      // through at the exact moment dismiss() is running, feeding
+      // scroll-journey-hero.js's pin a wrong value right as it
+      // resolves — the same class of bug window.Papi.safeScrollRefresh
+      // above now also corrects for, but better closed at the source.
+      // Only Space has this problem (Enter has no default scroll
+      // action on a button); the two loader buttons are the only
+      // focusable elements in here, so this can name them directly
+      // instead of a generic tag check. preventDefault() blocks the
+      // native scroll; firing the click ourselves keeps the button
+      // working exactly as before, without depending on browser-
+      // specific timing between this keydown and the native keyup-
+      // activation it would otherwise race.
+      if((e.key === ' ' || e.key === 'Spacebar') && (e.target === enterBtn || e.target === silentBtn)){
+        e.preventDefault();
+        e.target.click();
+        return;
+      }
     }
     e.preventDefault();
   }
