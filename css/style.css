@@ -2447,7 +2447,17 @@ body, a{ cursor:none; }
 }
 /* shown in place of the iframe until it's actually scrolled near —
    see js/live-demo.js's lazy-load — so the frame never sits blank-white
-   for a beat while the real site's own network request is in flight */
+   for a beat while the real site's own network request is in flight.
+   BUG FIX: this was itself near-white (#f8f6f2) against the page's
+   all-black theme — the embedded client sites are real light-themed
+   websites, so .live-demo-frame-wrap/.live-demo-iframe correctly stay
+   white for once they've actually loaded, but THIS placeholder shows
+   before any real content has painted, while a visitor who scrolls
+   faster than the preload lead time (or hits a cold-starting Vercel
+   deployment) is looking at pure black everywhere else on the page. A
+   ~700px-tall near-white box popping in against that reads as a hard
+   flash, not a loading state — recolored dark to match the surrounding
+   page instead; only the real, loaded embedded site is ever white now. */
 .live-demo-loading{
   position:absolute;
   inset:0;
@@ -2457,8 +2467,8 @@ body, a{ cursor:none; }
   font-size:.8rem;
   letter-spacing:.1em;
   text-transform:uppercase;
-  color:rgba(15,31,61,.4);
-  background:#f8f6f2;
+  color:rgba(243,237,226,.45);
+  background:#0d0d10;
   transition:opacity .4s ease;
 }
 .live-demo-card.is-loaded .live-demo-loading{
