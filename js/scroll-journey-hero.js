@@ -120,10 +120,23 @@
   }
   // same split-into-spans technique as the title above, own class so it
   // can be styled/timed independently — see the CTA BUTTON GLITCH note
+  //
+  // BUG FIX: per report, the button rendered as "VIEWOURWORK" with the
+  // word spaces gone entirely. .process-hero-cta is display:inline-flex
+  // (see its own CSS) — the title above sits in normal block flow,
+  // where a bare space text node between two inline-block spans lays
+  // out exactly like it would between two words. Flexbox uses a
+  // different model: per spec, an anonymous flex item containing only
+  // whitespace generates no box at all, so the plain ' ' between two
+  // <span> flex-item siblings collapses to zero width instead of
+  // reading as a space — a real, verified difference, not a guess.
+  // &nbsp; isn't "white space" for that CSS-collapsing rule, so it
+  // still generates a real (space-width) anonymous flex item and the
+  // gap renders normally again.
   let ctaChars = [];
   if(ctaEl){
     ctaEl.innerHTML = Array.from(ctaEl.textContent)
-      .map((ch) => (ch === ' ' ? ' ' : `<span class="hero-cta-char" data-char="${ch}">${ch}</span>`))
+      .map((ch) => (ch === ' ' ? '&nbsp;' : `<span class="hero-cta-char" data-char="${ch}">${ch}</span>`))
       .join('');
     ctaChars = Array.from(ctaEl.querySelectorAll('.hero-cta-char'));
   }
