@@ -48,12 +48,46 @@
    out, with a 4.2s cap (matching index.html's own belt-and-suspenders
    fallback timing) so a visitor is never stranded if something else
    goes wrong.
+
+   BUG FIX: per report, "leave the page on my tabs, on mobile, then i
+   refresh the page turns black after the loading" — this site has hit
+   this exact class of bug before (see index.html's own "leave the tab
+   open a few minutes, then refresh — black screen" comment/fix): a
+   long-backgrounded mobile tab's own refresh can trigger the browser's
+   "resume where you left off" scroll restoration (a separate mechanism
+   from the History API restoration already disabled up there), and it
+   can land asynchronously, sometimes quite late. Before this loader
+   existed, the window for that mistiming was short — the page became
+   interactive almost immediately after load. Now a visitor can sit on
+   this loader for several seconds before clicking, giving that late
+   restoration far more room to land AFTER everything (GSAP's pin
+   measurement included) already assumed scrollY:0 — so the pin math
+   ends up built against a scroll position that no longer matches
+   reality once it fires, and the pinned hero renders blank. Nobody can
+   scroll behind this full-viewport loader anyway, so there's no
+   legitimate reason for scrollY to ever move while it's still up —
+   holdScrollAtTop() below re-asserts 0 for as long as that's true,
+   closing the window entirely regardless of how late the browser's own
+   restoration fires.
 =================================================================== */
 (function(){
   const loader = document.getElementById('papiLoader');
   if(!loader) return;
 
   let dismissed = false;
+  // deliberately separate from `dismissed` — this stays active for the
+  // loader's ENTIRE remaining lifetime (through the hero-wait poll and
+  // the fade-out), not just until a button is clicked, since a late
+  // scroll-restoration could still land at any point up until GSAP
+  // actually re-measures in reveal() below
+  let scrollGuardActive = true;
+
+  function holdScrollAtTop(){
+    if(!scrollGuardActive) return;
+    if(window.scrollY !== 0) window.scrollTo(0, 0);
+  }
+  window.addEventListener('scroll', holdScrollAtTop, { passive: true });
+
   function dismiss(){
     if(dismissed) return;
     dismissed = true;
@@ -76,6 +110,9 @@
       setTimeout(() => {
         loader.setAttribute('aria-hidden', 'true');
         loader.style.display = 'none';
+        // one last correction right before GSAP re-measures, in case a
+        // restoration landed during the hero-wait poll above
+        if(window.scrollY !== 0) window.scrollTo(0, 0);
         // BUG FIX: per follow-up report, "on safari... enter without
         // sound... enters but shows nothing" — this site's own bug
         // history (see the many BUG FIX comments in js/scroll-journey-
@@ -86,6 +123,9 @@
         // fix, applied here right as the thing that was covering all
         // three pins for the entire initial load finally goes away.
         if(window.ScrollTrigger) window.ScrollTrigger.refresh();
+        // only now hand control back — real scrolling starts here
+        scrollGuardActive = false;
+        window.removeEventListener('scroll', holdScrollAtTop);
       }, 750);
     }
 
