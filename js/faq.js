@@ -31,20 +31,6 @@
     item.classList.add('is-open');
     question.setAttribute('aria-expanded', 'true');
     answer.style.height = `${answer.scrollHeight}px`;
-
-    // Awwwards personality pass — brief glitch-spark on the chevron as
-    // it opens (see .faq-chevron.is-glitching in css/style.css).
-    // One-shot, removed on its own animationend so it never lingers or
-    // re-triggers itself.
-    const chevron = item.querySelector('.faq-chevron');
-    if(chevron){
-      chevron.classList.remove('is-glitching');
-      void chevron.offsetWidth; // restart if the same item reopens quickly
-      chevron.classList.add('is-glitching');
-      chevron.addEventListener('animationend', () => {
-        chevron.classList.remove('is-glitching');
-      }, { once: true });
-    }
   }
 
   items.forEach(item=>{
