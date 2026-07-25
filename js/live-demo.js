@@ -241,35 +241,45 @@
 
   // ---- whichever card sits centered in the stack gets the active dot,
   // and — per the memory-footprint fix above — is the one whose iframe
-  // actually gets loaded. Firing loadCard() here means a swipe toward a
-  // not-yet-loaded neighbor starts it loading right as the drag begins
-  // (updateActive() runs on every scroll frame during the swipe, well
-  // before it settles on the new card), not only once the swipe has
-  // already finished. ----
+  // actually gets loaded.
+  //
+  // BUG FIX: per report, "the Atlas website does not load when I am in
+  // the live demo section" — Atlas is the last (3rd) card, reachable
+  // only by swiping past the first two, which per the fix above is also
+  // the ONLY thing that ever starts its iframe loading (nothing
+  // preloads it upfront anymore). This used to detect the centered card
+  // by polling getBoundingClientRect() on every 'scroll' event,
+  // throttled through requestAnimationFrame — but rAF callbacks are
+  // exactly the kind of work real browsers are free to throttle or
+  // drop entirely (a backgrounded tab, iOS Low Power Mode, Safari's own
+  // aggressive power-saving), and the last card is the one a dropped
+  // frame is most likely to strand mid-swipe, since it takes the most
+  // scrolling to reach. IntersectionObserver's callback is independent
+  // of the page's own rAF loop — the browser guarantees it fires when
+  // an observed element's visibility crosses the threshold regardless
+  // of what else is or isn't running — so this can't go stale the same
+  // way. threshold:0.6 fires only for whichever single card is actually
+  // centered (each card fills most of the stack's width, so only the
+  // one at rest ever crosses 60% visible at once).
   let activeIndex = 0;
-  function updateActive(){
-    if(n <= 1) return;
-    const stackRect = stack.getBoundingClientRect();
-    const stackCenter = stackRect.left + stackRect.width / 2;
-    let closest = 0, closestDist = Infinity;
-    cards.forEach((card, i)=>{
-      const r = card.getBoundingClientRect();
-      const dist = Math.abs((r.left + r.width / 2) - stackCenter);
-      if(dist < closestDist){ closestDist = dist; closest = i; }
-    });
-    if(closest === activeIndex) return;
-    activeIndex = closest;
-    dots.forEach((dot, i)=> dot.classList.toggle('is-active', i === activeIndex));
+  function setActive(i){
+    if(i === activeIndex) return;
+    activeIndex = i;
+    dots.forEach((dot, di)=> dot.classList.toggle('is-active', di === activeIndex));
     loadCard(activeIndex);
   }
   if(dots[0]) dots[0].classList.add('is-active');
 
-  let stackTicking = false;
-  stack.addEventListener('scroll', ()=>{
-    if(stackTicking) return;
-    stackTicking = true;
-    requestAnimationFrame(()=>{ updateActive(); stackTicking = false; });
-  }, { passive:true });
+  if(n > 1 && 'IntersectionObserver' in window){
+    const activeIO = new IntersectionObserver((entries)=>{
+      entries.forEach((entry)=>{
+        if(!entry.isIntersecting) return;
+        const i = cards.indexOf(entry.target);
+        if(i !== -1) setActive(i);
+      });
+    }, { root: stack, threshold: 0.6 });
+    cards.forEach((card)=> activeIO.observe(card));
+  }
 
   if(prevBtn) prevBtn.addEventListener('click', ()=> goTo(activeIndex - 1));
   if(nextBtn) nextBtn.addEventListener('click', ()=> goTo(activeIndex + 1));
