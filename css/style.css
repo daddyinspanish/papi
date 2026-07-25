@@ -3880,14 +3880,6 @@ body, a{ cursor:none; }
      back for as long as the loader is up. */
   cursor:auto;
 }
-/* per direct request feedback, no spinner/loading chrome — just a
-   quiet acknowledgment that a click registered while js/loader-gate.js
-   waits for #hero to actually be ready underneath (see that file's own
-   BUG FIX comment) */
-.papi-loader.is-entering .papi-loader-actions{
-  opacity:.4;
-  pointer-events:none;
-}
 .papi-loader.is-dismissed{
   opacity:0;
   pointer-events:none;
