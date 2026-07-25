@@ -1265,21 +1265,6 @@ body, a{ cursor:none; }
   margin-bottom:1rem;
 }
 .testimonial-result::before{ content:'✓'; font-weight:700; }
-/* Awwwards personality pass — a brief glitch-spark on the result badge
-   right as its card becomes active, same highlight color (#8ff2ff) the
-   hero/FAQ glitch moments already use. Border/glow only — the badge's
-   own green stays green throughout, since that color carries real
-   "verified result" meaning and shouldn't flicker away. Triggered by
-   js/testimonials.js's updateActive(); self-removes on animationend. */
-.testimonial-result.is-glitching{
-  animation:testimonialResultGlitch .5s steps(2, end);
-}
-@keyframes testimonialResultGlitch{
-  0%, 100%{ box-shadow:none; border-color:rgba(140,233,154,.3); }
-  30%{ box-shadow:0 0 8px rgba(143,242,255,.55); border-color:#8ff2ff; }
-  60%{ box-shadow:none; border-color:rgba(140,233,154,.3); }
-  80%{ box-shadow:0 0 6px rgba(143,242,255,.4); border-color:#8ff2ff; }
-}
 .testimonial-stars{
   color:#7addff;
   letter-spacing:.25em;
@@ -1400,7 +1385,6 @@ body, a{ cursor:none; }
   .faq-question::after{ display:none; }
   .faq-chevron.is-glitching{ animation:none; }
   .faq-answer p{ transition:none; opacity:1; transform:none; }
-  .testimonial-result.is-glitching{ animation:none; }
 }
 .comparison-inner{
   position:relative;

@@ -186,19 +186,6 @@
     activeIndex = closest;
     cards.forEach((card, i)=> card.classList.toggle('is-active', i === activeIndex));
     dots.forEach((dot, i)=> dot.classList.toggle('is-active', i === activeIndex));
-
-    // Awwwards personality pass — brief glitch-spark on the newly
-    // active card's result badge (see .testimonial-result.is-glitching
-    // in css/style.css). One-shot, removed on its own animationend.
-    const badge = cards[activeIndex].querySelector('.testimonial-result');
-    if(badge){
-      badge.classList.remove('is-glitching');
-      void badge.offsetWidth;
-      badge.classList.add('is-glitching');
-      badge.addEventListener('animationend', () => {
-        badge.classList.remove('is-glitching');
-      }, { once: true });
-    }
   }
 
   // batch to one check per animation frame — the stack's own 'scroll'
