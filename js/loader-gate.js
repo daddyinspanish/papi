@@ -18,12 +18,24 @@
    whichever of enable()/disable() runs in this file's own click
    handler below always runs last (click fires after pointerdown) and
    is what actually decides the outcome.
+
+   Deliberately NOT using html.scroll-lock (overflow:hidden on <html>)
+   to block scroll behind this overlay, even though that class already
+   exists (see accent.js) — per css/style.css's own documented WebKit
+   bug (search "position:fixed breaking"), *any* explicit overflow on
+   the root <html> element makes position:fixed descendants render in
+   normal document flow instead of pinning to the viewport. GSAP
+   ScrollTrigger pins the hero via position:fixed from page load, so
+   locking scroll here broke exactly that combination — confirmed as
+   the cause of a real report: "on instagram... enter without sound...
+   enters but does not show anything." The loader is already a
+   position:fixed, full-viewport, top-stacked overlay, so it fully
+   blocks both visibility of and interaction with anything under it
+   without needing a scroll lock at all.
 =================================================================== */
 (function(){
   const loader = document.getElementById('papiLoader');
   if(!loader) return;
-
-  document.documentElement.classList.add('scroll-lock');
 
   function buildDigits(containerId){
     const el = document.getElementById(containerId);
@@ -38,7 +50,6 @@
 
   function dismiss(){
     loader.classList.add('is-dismissed');
-    document.documentElement.classList.remove('scroll-lock');
     setTimeout(() => {
       loader.setAttribute('aria-hidden', 'true');
       loader.style.display = 'none';
