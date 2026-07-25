@@ -308,6 +308,13 @@
       reflect(window.Papi.sound.isEnabled());
     });
 
+    // keep this button's visual state truthful even when something
+    // else flips sound on/off — per direct request, js/loader-gate.js's
+    // "Enter"/"Enter without sound" buttons now call enable()/disable()
+    // directly, and without this the corner toggle would keep showing
+    // its old state until next manually clicked
+    document.addEventListener('papi:sound-change', (e) => reflect(e.detail.enabled));
+
     // a returning visitor who had it on last time sees the toggle
     // already showing "on" (their actual preference), but the
     // AudioContext itself still can't start until a real gesture

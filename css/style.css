@@ -3798,3 +3798,166 @@ body, a{ cursor:none; }
   .process-hotspot-label{ display:none; }
   .process-reveal-card{ padding:0 1.25rem; }
 }
+
+/* ===================================================================
+   FULL-SITE LOADER — sound-consent gate. Per direct request: "Make
+   Loader for the entire Website: That Reads: 'Papi' and under it
+   'Premium Websites'... add a enter without sound button." This is
+   the one deliberate exception to js/sound.js's own comment ("small
+   persistent control rather than a full entry gate") — the user
+   explicitly asked for exactly that pattern here, so it now sits in
+   front of the whole site on every load; the small corner toggle
+   (#soundToggle) stays as-is underneath for changing the choice mid-
+   visit. z-index:5000 clears everything else on the page, including
+   .custom-cursor's own 2000 (see that rule above).
+   Reuses .process-stage-digits/-a/-b/-track as-is for the ambient
+   matrix-digit backdrop (js/scroll-journey-process.js's own reduced-
+   motion handling for that class covers this reuse for free) instead
+   of building a second decorative system.
+   ================================================================ */
+.papi-loader{
+  position:fixed;
+  inset:0;
+  z-index:5000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  background:radial-gradient(120% 120% at 50% 40%, var(--ink-soft) 0%, var(--ink) 70%);
+  transition:opacity .7s ease;
+}
+.papi-loader.is-dismissed{
+  opacity:0;
+  pointer-events:none;
+}
+.papi-loader-inner{
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+  padding:2rem;
+  animation:papiLoaderRise 1s var(--ease-out) both;
+}
+@keyframes papiLoaderRise{
+  from{ opacity:0; transform:translateY(18px); }
+  to{ opacity:1; transform:translateY(0); }
+}
+.papi-loader-title{
+  display:block;
+  font-family:'Fraunces', serif;
+  font-weight:400;
+  font-style:italic;
+  font-size:clamp(3.4rem, 12vw, 7.2rem);
+  line-height:1;
+  color:var(--gold-soft);
+  background:linear-gradient(115deg,
+    #eef8fa 0%,
+    var(--gold-soft) 16%,
+    var(--gold) 34%,
+    #f5fdff 50%,
+    var(--gold-deep) 66%,
+    var(--gold-soft) 84%,
+    #eef8fa 100%);
+  background-size:220% 100%;
+  background-position:0% 50%;
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 4px 40px rgba(4,8,12,.4), 0 0 30px rgba(154,205,228,.3);
+  animation:processHeroTitleShine 7s ease-in-out infinite;
+}
+.papi-loader-subtitle{
+  display:block;
+  margin-top:.5rem;
+  font-family:'Inter', sans-serif;
+  font-weight:500;
+  font-size:clamp(.72rem, 1.6vw, .92rem);
+  letter-spacing:.42em;
+  text-transform:uppercase;
+  color:rgba(var(--accent-tint), .85);
+}
+.papi-loader-actions{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:1rem;
+  flex-wrap:wrap;
+  margin-top:2.6rem;
+}
+.papi-loader-enter{
+  position:relative;
+  z-index:5;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Inter', sans-serif;
+  font-size:.82rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  border-radius:999px;
+  padding:1rem 2.4rem;
+  cursor:pointer;
+  white-space:nowrap;
+  color:var(--cream);
+  background-color:rgba(10,16,20,.55);
+  background-image:linear-gradient(120deg,
+    rgba(154,205,228,0) 0%,
+    rgba(154,205,228,.5) 22%,
+    rgba(255,255,255,.55) 40%,
+    var(--gold) 55%,
+    rgba(154,205,228,.5) 72%,
+    rgba(154,205,228,0) 100%);
+  background-size:100% 100%, 240% 100%;
+  background-position:0 0, 0% 50%;
+  background-repeat:no-repeat;
+  border:1px solid rgba(154,205,228,.65);
+  box-shadow:0 8px 30px rgba(0,0,0,.35), 0 0 34px rgba(105,168,203,.5), inset 0 1px 0 rgba(255,255,255,.2);
+  transition:transform .25s var(--ease-out), box-shadow .25s var(--ease-out), background-color .25s ease;
+}
+.papi-loader-enter:hover{
+  transform:translateY(-2px) scale(1.03);
+  background-color:rgba(16,24,30,.6);
+  box-shadow:0 12px 38px rgba(0,0,0,.4), 0 0 44px rgba(105,168,203,.65), inset 0 1px 0 rgba(255,255,255,.28);
+}
+.papi-loader-enter:active{ transform:translateY(0) scale(.98); }
+
+.papi-loader-silent{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Inter', sans-serif;
+  font-size:.76rem;
+  font-weight:600;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  border-radius:999px;
+  padding:.85rem 1.6rem;
+  cursor:pointer;
+  white-space:nowrap;
+  color:var(--cream-dim);
+  background:transparent;
+  border:1px solid rgba(243,237,226,.3);
+  transition:color .25s ease, border-color .25s ease, background-color .25s ease, transform .25s var(--ease-out);
+}
+.papi-loader-silent:hover{
+  color:var(--cream);
+  border-color:rgba(243,237,226,.6);
+  background-color:rgba(243,237,226,.08);
+  transform:translateY(-1px);
+}
+
+@media (max-width:640px){
+  .papi-loader-title{ font-size:clamp(2.8rem, 16vw, 4.2rem); }
+  .papi-loader-subtitle{ letter-spacing:.32em; }
+  .papi-loader-actions{ flex-direction:column; width:100%; max-width:280px; margin-top:2.2rem; }
+  .papi-loader-enter, .papi-loader-silent{ width:100%; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .papi-loader{ transition:none; }
+  .papi-loader-inner{ animation:none; opacity:1; transform:none; }
+  .papi-loader-title{ animation:none; background-position:50% 50%; }
+}
