@@ -71,6 +71,18 @@
   // flat rate the whole time — same start/end values, same scrub
   // timing, just a softer curve in between.
   function easeInOutCubic(t){ return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+  // BUG FIX: at the exact midpoint between two steps (activeFloat === i+0.5),
+  // BOTH neighboring panels sit at t=0.5 simultaneously — under the shared
+  // easeInOutCubic curve that blended to opacity 0.65 for both at once,
+  // while xPercent had only moved them ~27% apart. Two similarly-sized text
+  // blocks at 65% opacity, a quarter-width apart, double-expose into
+  // unreadable overlapping text. Giving opacity its own steeper curve (via
+  // OPACITY_FALLOFF) makes it reach its target well before t=1, so the
+  // outgoing panel is already faint and the incoming panel already solid by
+  // the time they'd otherwise visually cross — position/rotation/scale keep
+  // using the original curve, so the motion itself is unchanged.
+  const OPACITY_FALLOFF = 1.7;
+  function easeOpacity(t){ return easeInOutCubic(clamp01(t * OPACITY_FALLOFF)); }
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(prefersReducedMotion){
@@ -125,7 +137,8 @@
     }
     const out = {};
     const et = easeInOutCubic(t);
-    Object.keys(states.active).forEach((k) => { out[k] = lerp(from[k], to[k], et); });
+    const etOpacity = easeOpacity(t);
+    Object.keys(states.active).forEach((k) => { out[k] = lerp(from[k], to[k], k === 'opacity' ? etOpacity : et); });
     return out;
   }
 
