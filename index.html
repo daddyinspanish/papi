@@ -26,7 +26,19 @@ window.scrollTo(0, 0);
 // at the point the line above runs) closes that gap regardless of
 // timing, for a negligible cost on every normal load.
 document.addEventListener('DOMContentLoaded', function(){
-  if(window.scrollY !== 0) window.scrollTo(0, 0);
+  // by the time DOMContentLoaded fires, every synchronous bottom-of-body
+  // script (including js/lenis-init.js) has already run, so window.Papi.lenis
+  // exists here if it was ever going to. A raw window.scrollTo() after Lenis
+  // exists writes the real position instantly but doesn't tell Lenis's own
+  // internal animated-scroll state about it — Lenis's next rAF tick can
+  // silently overwrite the reset right back to wherever it last thought the
+  // page should be. Routing through lenis.scrollTo(0,{immediate:true}) keeps
+  // both in sync instead.
+  if(window.Papi && window.Papi.lenis){
+    window.Papi.lenis.scrollTo(0, { immediate: true });
+  } else if(window.scrollY !== 0) {
+    window.scrollTo(0, 0);
+  }
 });
 
 // a stable stand-in for 100vh, computed once up front rather than
@@ -308,7 +320,7 @@ setTimeout(function(){
     <p class="live-demo-eyebrow">See It Live</p>
     <h2 class="live-demo-title">Not a screenshot. <em>The real site.</em></h2>
     <p class="live-demo-sub">Scroll inside the window below — it's the actual live website, not a mockup.</p>
-    <div class="live-demo-stack" id="liveDemoStack" data-cursor="drag"></div>
+    <div class="live-demo-stack" id="liveDemoStack" data-cursor="drag" data-lenis-prevent></div>
     <div class="live-demo-controls" id="liveDemoControls">
       <button type="button" class="live-demo-arrow" id="liveDemoPrev" aria-label="Previous demo">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
@@ -457,7 +469,7 @@ setTimeout(function(){
     <p class="testimonials-eyebrow" data-reveal>Trusted across industries</p>
     <h2 class="testimonials-heading" data-reveal data-reveal-delay="100">What business owners say</h2>
     <p class="testimonials-hint"><span class="testimonials-hint-icon" aria-hidden="true">↔</span> Swipe to browse</p>
-    <div class="testimonial-stack" id="testimonialStack" data-cursor="drag"></div>
+    <div class="testimonial-stack" id="testimonialStack" data-cursor="drag" data-lenis-prevent></div>
     <div class="testimonials-controls">
       <button type="button" class="testimonial-arrow" id="testimonialPrev" aria-label="Previous testimonial">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 5l-7 7 7 7"/></svg>
@@ -575,7 +587,7 @@ setTimeout(function(){
       <button type="button" class="quote-form-tab is-active" role="tab" aria-selected="true" aria-controls="quotePanel" data-panel="0">Get a Quote</button>
       <button type="button" class="quote-form-tab" role="tab" aria-selected="false" aria-controls="callPanel" data-panel="1">Book a Call</button>
     </div>
-    <div class="quote-form-stack" id="quoteFormStack">
+    <div class="quote-form-stack" id="quoteFormStack" data-lenis-prevent>
       <div class="quote-form-panel" id="quotePanel">
       <form class="quote-form" id="quoteForm" action="https://formspree.io/f/mrenblpj" method="POST" novalidate>
         <h3 class="quote-form-title">Build your website today!</h3>
@@ -757,6 +769,13 @@ setTimeout(function(){
      exist in the DOM), before init.js. -->
 <script src="js/vendor/gsap/gsap.min.js"></script>
 <script src="js/vendor/gsap/ScrollTrigger.min.js"></script>
+<!-- smooth-scroll (Lenis), vendored locally same as gsap/ above. Needs
+     gsap+ScrollTrigger already loaded to wire its own scroll bridge —
+     see js/lenis-init.js's header comment for why it's safe alongside
+     every other scroll-reading script on this site with no changes to
+     them. -->
+<script src="js/vendor/lenis/lenis.min.js"></script>
+<script src="js/lenis-init.js"></script>
 <script src="js/scroll-journey-hero.js"></script>
 <script src="js/scroll-journey-livedemo.js"></script>
 <script src="js/scroll-journey-process.js"></script>

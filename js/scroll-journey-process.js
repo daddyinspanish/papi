@@ -204,7 +204,14 @@
     hotspot.addEventListener('click', () => {
       if(!liveTrigger) return;
       const target = liveTrigger.start + (i / (n - 1)) * (liveTrigger.end - liveTrigger.start);
-      window.scrollTo({ top: target, behavior: 'smooth' });
+      // routed through Lenis when active — see js/process-hero.js's CTA
+      // handler for why a raw scrollTo here would fight Lenis's own
+      // scroll writes; same fallback when Lenis isn't running.
+      if(window.Papi && window.Papi.lenis){
+        window.Papi.lenis.scrollTo(target, { immediate: false });
+      } else {
+        window.scrollTo({ top: target, behavior: 'smooth' });
+      }
     });
   });
 
