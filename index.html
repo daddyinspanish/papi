@@ -100,18 +100,7 @@ setTimeout(function(){
   }
   if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
   if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
-  // #hero's own opacity:0 makes it a CSS containing block for any
-  // position:fixed descendant (see js/init.js's own BUG FIX comment) —
-  // js/scroll-journey-hero.js's GSAP pin is exactly that, and may
-  // already have been created against that stale containing block by
-  // the time this last-resort path ever fires. Telling GSAP to
-  // re-measure is what actually fixes the pin, same as loader-gate.js's
-  // own dismiss() already does. Routed through the shared
-  // safeScrollRefresh (see js/loader-gate.js) rather than calling
-  // ScrollTrigger.refresh() directly — see that file's own BUG FIX
-  // comment for why concurrent refresh() calls from different files can
-  // corrupt GSAP's pin-spacers.
-  if(window.Papi && window.Papi.safeScrollRefresh) window.Papi.safeScrollRefresh();
+  if(window.ScrollTrigger) window.ScrollTrigger.refresh();
 }, 4000);
 </script>
 <title>Papi — Business-Ready Websites, Built With Purpose</title>
@@ -166,43 +155,11 @@ setTimeout(function(){
 </head>
 <body>
 
-<!-- Full-site loader / sound-consent gate — see js/loader-gate.js.
-     Placed first so it paints immediately and can lock scroll right
-     away; it covers the whole viewport via z-index regardless of DOM
-     order, but sitting first keeps that intent obvious in the markup. -->
-<div id="papiLoader" class="papi-loader" role="dialog" aria-modal="true" aria-label="Papi — choose how to enter the site">
-  <div class="papi-loader-inner">
-    <span class="papi-loader-title">Papi</span>
-    <span class="papi-loader-subtitle">Premium Websites</span>
-    <div class="papi-loader-actions">
-      <button type="button" class="papi-loader-enter" id="papiLoaderEnter">Enter</button>
-      <span class="papi-loader-divider" aria-hidden="true"></span>
-      <button type="button" class="papi-loader-silent" id="papiLoaderEnterSilent">Enter without sound</button>
-    </div>
-  </div>
-</div>
-<script src="js/loader-gate.js"></script>
-
 <!-- Awwwards personality pass — a thin, persistent journey indicator
      spanning the whole page (see js/scroll-progress.js), reinforcing
      the "journey" framing the hero/process sections already establish
      instead of that feeling stopping after the hero. -->
 <div class="scroll-progress-track" aria-hidden="true"><div class="scroll-progress-fill" id="scrollProgressFill"></div></div>
-
-<!-- Sound toggle — defaults off; see js/sound.js for why this is a
-     small persistent control rather than a full entry gate. -->
-<button type="button" class="sound-toggle" id="soundToggle" aria-label="Turn sound on" aria-pressed="false">
-  <svg class="sound-toggle-icon sound-toggle-icon--off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <polygon points="4 9 8 9 12 5 12 19 8 15 4 15 4 9"></polygon>
-    <line x1="16" y1="9" x2="21" y2="14"></line>
-    <line x1="21" y1="9" x2="16" y2="14"></line>
-  </svg>
-  <svg class="sound-toggle-icon sound-toggle-icon--on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <polygon points="4 9 8 9 12 5 12 19 8 15 4 15 4 9"></polygon>
-    <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
-    <path d="M18 6a9 9 0 0 1 0 12"></path>
-  </svg>
-</button>
 
 <!-- Refresh — a persistent, always-available escape hatch, per direct
      request ("apply a refresh tab in case something is not working
@@ -789,7 +746,6 @@ setTimeout(function(){
 <script src="js/newsletter-popup.js"></script>
 <script src="js/cursor.js"></script>
 <script src="js/cursor-trail.js"></script>
-<script src="js/sound.js"></script>
 <script src="js/scroll-reveal.js"></script>
 <script src="js/scroll-dolly.js"></script>
 <script src="js/scroll-progress.js"></script>

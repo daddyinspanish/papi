@@ -186,7 +186,6 @@
     activeIndex = closest;
     cards.forEach((card, i)=> card.classList.toggle('is-active', i === activeIndex));
     dots.forEach((dot, i)=> dot.classList.toggle('is-active', i === activeIndex));
-    if(window.Papi && window.Papi.sound) window.Papi.sound.play('tick');
 
     // Awwwards personality pass — brief glitch-spark on the newly
     // active card's result badge (see .testimonial-result.is-glitching

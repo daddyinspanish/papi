@@ -313,36 +313,11 @@
     io.observe(canvas);
   }
   document.addEventListener('visibilitychange', syncLoop);
-
-  // BUG FIX: per "the page is empty/black after clicking Enter,"
-  // recurring across this session despite every scroll/GSAP-timing fix
-  // — direct instrumentation against the live production site (reading
-  // real ScrollTrigger.progress/scrollY through the loader-dismiss
-  // sequence) showed the app's own state was always correct. What the
-  // user's screen recording actually showed was narrower: canvas/iframe
-  // *pixel content* going black while plain DOM (hotspot dot numbers, a
-  // native iframe title tooltip) kept rendering and responding — the
-  // same signature already root-caused once before in this exact
-  // codebase for js/live-demo.js's iframes (see that file's own BUG FIX
-  // comments): WebKit tips over its per-tab GPU/memory ceiling on a
-  // reload and silently drops hardware-composited surfaces while the
-  // page process itself stays alive and interactive. This canvas used
-  // to start its render loop unconditionally, the instant this script
-  // parsed — meaning it ran continuously, competing for that same GPU
-  // process, for however long the loader sat on screen, even though the
-  // loader fully covers it and nothing was visible yet anyway. That's
-  // pure waste sitting right on top of the highest-pressure moment on
-  // the page (fonts settling, 3 GSAP ScrollTrigger pins measuring,
-  // real memory pressure from whatever else the visitor's browser has
-  // open — exactly what the recording showed, several other tabs). Now
-  // it waits for the loader to actually dismiss before starting at all,
-  // costing nothing visually (it was hidden behind the loader either
-  // way) while removing a real, previously-unconditional chunk of GPU
-  // work from that exact window.
-  const loaderEl = document.getElementById('papiLoader');
-  if(loaderEl && !loaderEl.classList.contains('is-dismissed')){
-    document.addEventListener('papi:enter', startLoop, { once: true });
-  } else {
-    startLoop();
-  }
+  // starts unconditionally rather than routing through syncLoop() —
+  // some environments report document.hidden === true even on initial
+  // load before any real visibilitychange has fired, which would
+  // otherwise leave this canvas blank forever until some other event
+  // happened to call syncLoop(). Real backgrounding still pauses it
+  // correctly via the visibilitychange listener above.
+  startLoop();
 })();

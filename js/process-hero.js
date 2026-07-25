@@ -78,7 +78,7 @@
   // global scroll-behavior, e.g. the old process-room's own neon quick
   // nav); this matches that same pattern for both hero CTAs
   // ===================================================================
-  function bindSmoothScroll(selector, soundName){
+  function bindSmoothScroll(selector){
     if(!hero) return;
     const link = hero.querySelector(selector);
     if(!link) return;
@@ -87,15 +87,11 @@
       const target = targetId && document.querySelector(targetId);
       if(!target) return; // fall back to the plain anchor jump
       e.preventDefault();
-      if(soundName && window.Papi && window.Papi.sound) window.Papi.sound.play(soundName);
       target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
   bindSmoothScroll('.process-hero-cta');
-  // "Start a project" gets its own distinct sound on click (per direct
-  // request, separate from the portal whoosh the CTA above triggers via
-  // the hero pin's own scroll-progress — see js/sound.js's playSelect)
-  bindSmoothScroll('.process-hero-start', 'select');
+  bindSmoothScroll('.process-hero-start');
 
   // ===================================================================
   // 2. pause the hotspot dots' pulse once #ourProcessSection scrolls

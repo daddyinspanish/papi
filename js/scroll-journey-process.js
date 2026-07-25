@@ -38,6 +38,29 @@
   const ORDER = window.PapiStepOrder;
   if(!section || !stage || !STEPS || !ORDER || !ORDER.length) return;
 
+  // this file has two independent timers below that can both ask GSAP
+  // to refresh its pin measurements (a load+600ms one-shot and a
+  // debounced <body> ResizeObserver) — coalesced into one in-flight
+  // call at a time so a burst of layout shifts can't ask GSAP to
+  // re-measure twice in close succession.
+  let refreshInFlight = false;
+  let refreshQueued = false;
+  function safeRefresh(){
+    if(!window.ScrollTrigger) return;
+    if(refreshInFlight){ refreshQueued = true; return; }
+    refreshInFlight = true;
+    window.ScrollTrigger.refresh();
+    let settled = false;
+    const settle = () => {
+      if(settled) return;
+      settled = true;
+      refreshInFlight = false;
+      if(refreshQueued){ refreshQueued = false; safeRefresh(); }
+    };
+    requestAnimationFrame(settle);
+    setTimeout(settle, 50);
+  }
+
   gsap.registerPlugin(ScrollTrigger);
 
   // ---- per direct request: "add matrix effect numbers animating left
@@ -308,7 +331,6 @@
       if(!liveTrigger) return;
       const activeIndex = Math.round(liveTrigger.progress * (n - 1));
       jumpToStep(activeIndex + dir);
-      if(window.Papi && window.Papi.sound) window.Papi.sound.play('tick');
     }
 
     const SWIPE_THRESHOLD = 44;
@@ -396,15 +418,8 @@
   // every pin against the final viewport — same "wait for it to
   // settle" convention already used for --stable-vh elsewhere on this
   // site, just applied to GSAP's own measurements instead.
-  // routed through window.Papi.safeScrollRefresh (see js/loader-gate.js)
-  // rather than calling ScrollTrigger.refresh() directly — this file's
-  // own refresh timers and loader-gate.js's click-triggered one are
-  // completely independent of each other, and landing close together
-  // was confirmed (via a live MutationObserver + monkey-patch) to
-  // occasionally corrupt every pin's .pin-spacer, collapsing #hero to
-  // 0 height and sliding #liveDemoSection up to cover it entirely.
   window.addEventListener('load', () => {
-    setTimeout(() => window.Papi.safeScrollRefresh(), 600);
+    setTimeout(safeRefresh, 600);
   });
 
   // BUG FIX: per follow-up report, "in desktop after reaching how we
@@ -425,7 +440,7 @@
     let resizeT = null;
     const ro = new ResizeObserver(() => {
       clearTimeout(resizeT);
-      resizeT = setTimeout(() => window.Papi.safeScrollRefresh(), 200);
+      resizeT = setTimeout(safeRefresh, 200);
     });
     ro.observe(document.body);
   }
