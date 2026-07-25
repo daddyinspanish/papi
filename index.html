@@ -70,6 +70,20 @@ document.addEventListener('DOMContentLoaded', function(){
   window.addEventListener('orientationchange', function(){
     setTimeout(function(){ lastW = window.innerWidth; setStableVh(); }, 200);
   });
+  // per report: hero appears "shorter than before, cut off" on mobile —
+  // Safari's own address bar starts expanded and only collapses once
+  // scrolling begins, revealing more real innerHeight through a resize
+  // event that changes height only (deliberately ignored by the width-
+  // only guard above, so mid-scroll toolbar wobble doesn't churn this).
+  // That guard is fine for what it's guarding against, but it also means
+  // the very first measurement above — taken before any scrolling has
+  // happened — permanently locks in the shorter, chrome-still-expanded
+  // reading for the rest of the visit. A single one-time re-measure
+  // shortly after the very first scroll (matching the orientationchange
+  // settle-delay above) catches the real, settled height once.
+  window.addEventListener('scroll', function(){
+    setTimeout(function(){ lastW = window.innerWidth; setStableVh(); }, 150);
+  }, { passive: true, once: true });
 })();
 
 // SAFETY NET: per report, "opening the site from Instagram's in-app
@@ -749,6 +763,7 @@ setTimeout(function(){
 <script src="js/scroll-reveal.js"></script>
 <script src="js/scroll-dolly.js"></script>
 <script src="js/scroll-progress.js"></script>
+<script src="js/anim-idle.js"></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
      Hero -> Live Demo -> How It's Built. gsap.min.js/ScrollTrigger.min.js
      were already vendored locally from an earlier (since-reverted) 3D

@@ -2381,6 +2381,13 @@ body, a{ cursor:none; }
   pointer-events:auto;
   transform:translateY(0);
 }
+/* per iPhone-heat investigation: this popup sits at opacity:0 (not
+   display:none) for however long it takes to trigger, or forever if
+   the visitor never scrolls to it — its own quoteFormTitleShine
+   animation would otherwise keep running, invisibly, the entire time */
+.newsletter-popup:not(.is-visible) .newsletter-popup-highlight{
+  animation-play-state:paused;
+}
 .newsletter-popup-card{
   position:relative;
   max-height:calc(100vh - 2.5rem);
@@ -3803,5 +3810,21 @@ body, a{ cursor:none; }
   }
   .process-hotspot-label{ display:none; }
   .process-reveal-card{ padding:0 1.25rem; }
+}
+
+/* per iPhone-heat investigation: sitewide "infinite" CSS keyframe
+   animations (glow pulses, shines, sweeps) have nothing to ever stop
+   them, unlike this codebase's own JS-driven effects (hero-matrix.js's
+   canvas, cursor-trail.js, scroll-dolly.js) which already pause off-
+   screen. An off-screen infinite animation is still real, sustained
+   compositor/paint work for zero visible benefit. js/anim-idle.js
+   toggles this class via IntersectionObserver on each animated
+   section/element once it scrolls out of view — !important because it
+   needs to reliably beat ~15 differently-specific existing selectors
+   without editing any of them. */
+.is-anim-idle,
+.is-anim-idle::before,
+.is-anim-idle::after{
+  animation-play-state:paused !important;
 }
 
