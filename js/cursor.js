@@ -41,6 +41,20 @@
     el.addEventListener('mouseleave', ()=> cursor.classList.remove('is-active'));
   });
 
+  // Awwwards personality pass — site-wide cursor language: a generic
+  // hook for any element marked data-cursor="X" to swap the ring into
+  // an .is-X variant (see css/style.css for the drag/view treatments),
+  // instead of every hover on the site reading as the same generic
+  // "clickable" state. Bound once, same as the a/button loop above —
+  // this runs after live-demo.js/testimonials.js have already built
+  // their cards (see index.html's own script order), so their dynamic
+  // [data-cursor] elements are already in the DOM by the time this runs.
+  document.querySelectorAll('[data-cursor]').forEach(el=>{
+    const variantClass = 'is-' + el.dataset.cursor;
+    el.addEventListener('mouseenter', ()=> cursor.classList.add(variantClass));
+    el.addEventListener('mouseleave', ()=> cursor.classList.remove(variantClass));
+  });
+
   function frame(){
     // BUG FIX: found via a MutationObserver audit — this unconditionally
     // called classList.add('is-idle') on every single animation frame

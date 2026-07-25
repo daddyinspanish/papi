@@ -1025,6 +1025,27 @@ body, a{ cursor:none; }
   0%, 100%{ box-shadow:0 0 24px rgba(122,221,255,.55); }
   50%{ box-shadow:0 0 40px rgba(122,221,255,.85); }
 }
+/* Awwwards personality pass — site-wide cursor language (see
+   js/cursor.js's generic [data-cursor] hook). Two variants, each a
+   distinct affordance rather than the one generic "clickable" ring
+   everything else on the site already uses:
+   - .is-drag (Live Demo / Testimonials swipe rows): the ring itself
+     becomes a horizontal pill, echoing the drag gesture rather than a
+     point-and-click one.
+   - .is-view (Live Demo browser cards): a quiet color-only shift to
+     the glitch-highlight blue already established elsewhere on the
+     site, deliberately NOT scaled up like .is-active — these cards
+     aren't themselves clickable, so the cursor shouldn't claim they are. */
+.custom-cursor.is-drag .cursor-ring{
+  width:74px; height:34px;
+  margin:-17px 0 0 -37px;
+  border-radius:999px;
+  border-color:#7addff;
+}
+.custom-cursor.is-view .cursor-ring{
+  border-color:#8ff2ff;
+  animation:cursorGlowPulseActive 1.3s ease-in-out infinite;
+}
 
 @media (hover:none), (pointer:coarse){
   .custom-cursor{ display:none; }

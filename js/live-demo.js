@@ -81,7 +81,7 @@
     const card = document.createElement('div');
     card.className = 'live-demo-card';
     card.innerHTML = `
-      <div class="live-demo-browser">
+      <div class="live-demo-browser" data-cursor="view">
         <div class="live-demo-browser-bar">
           <span class="live-demo-dot"></span><span class="live-demo-dot"></span><span class="live-demo-dot"></span>
           <span class="live-demo-url">${host}</span>
