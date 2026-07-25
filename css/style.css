@@ -47,6 +47,33 @@
 
 *{ margin:0; padding:0; box-sizing:border-box; }
 
+/* Awwwards personality pass — a thin, persistent page-scroll progress
+   indicator (see js/scroll-progress.js), reinforcing the "journey"
+   framing the hero/process sections already establish all the way to
+   the footer, without competing with the existing local 1-4 step dots
+   inside How It's Built. transform:scaleX only (compositor-cheap,
+   matches every other scroll-tied effect's own convention on this
+   site) — the script sets a CSS custom property, never touches layout. */
+.scroll-progress-track{
+  position:fixed;
+  top:0; left:0; right:0;
+  height:2px;
+  background:rgba(243,237,226,.08);
+  z-index:1900;
+  pointer-events:none;
+}
+.scroll-progress-fill{
+  height:100%;
+  width:100%;
+  transform-origin:left center;
+  transform:scaleX(var(--scroll-progress, 0));
+  background:linear-gradient(90deg, #3fd2ff, #8ff2ff);
+  box-shadow:0 0 8px rgba(122,221,255,.5);
+}
+@media (prefers-reduced-motion:reduce){
+  .scroll-progress-fill{ transition:none; }
+}
+
 html,body{
   min-height:100%;
   /* BUG FIX: per report, "on mobile there's a white/black gap at the

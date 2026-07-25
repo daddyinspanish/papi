@@ -154,6 +154,12 @@ setTimeout(function(){
 </head>
 <body>
 
+<!-- Awwwards personality pass — a thin, persistent journey indicator
+     spanning the whole page (see js/scroll-progress.js), reinforcing
+     the "journey" framing the hero/process sections already establish
+     instead of that feeling stopping after the hero. -->
+<div class="scroll-progress-track" aria-hidden="true"><div class="scroll-progress-fill" id="scrollProgressFill"></div></div>
+
 <!-- ============ HERO — this used to be a two-column copy+liquid intro
      followed by the process room; that intro section (headline, CTA,
      trusted-by marquee, hero-slime liquid mass, social icons) has been
@@ -724,6 +730,7 @@ setTimeout(function(){
 <script src="js/cursor.js"></script>
 <script src="js/scroll-reveal.js"></script>
 <script src="js/scroll-dolly.js"></script>
+<script src="js/scroll-progress.js"></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
      Hero -> Live Demo -> How It's Built. gsap.min.js/ScrollTrigger.min.js
      were already vendored locally from an earlier (since-reverted) 3D
