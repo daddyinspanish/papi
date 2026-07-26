@@ -195,9 +195,13 @@
       badge.classList.remove('is-glitching');
       void badge.offsetWidth;
       badge.classList.add('is-glitching');
-      badge.addEventListener('animationend', () => {
-        badge.classList.remove('is-glitching');
-      }, { once: true });
+      // per heat/reliability audit: swiping back-and-forth onto the same
+      // card fast enough could cancel the animation before its {once:true}
+      // listener fired, stranding it — removing any prior pending one by
+      // its stored reference first keeps at most one in flight per badge.
+      if(badge._glitchEndHandler) badge.removeEventListener('animationend', badge._glitchEndHandler);
+      badge._glitchEndHandler = () => badge.classList.remove('is-glitching');
+      badge.addEventListener('animationend', badge._glitchEndHandler, { once: true });
     }
   }
 

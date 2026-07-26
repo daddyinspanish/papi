@@ -41,9 +41,16 @@
       chevron.classList.remove('is-glitching');
       void chevron.offsetWidth; // restart if the same item reopens quickly
       chevron.classList.add('is-glitching');
-      chevron.addEventListener('animationend', () => {
-        chevron.classList.remove('is-glitching');
-      }, { once: true });
+      // per heat/reliability audit: a fast reopen before the previous
+      // animationend fired left the old {once:true} listener stranded
+      // (its animation instance got cancelled by the class remove/re-add
+      // above, so it never actually fires) — listeners could accumulate
+      // on this element across repeated rapid opens. Removing any prior
+      // pending one by its stored reference before adding a new one
+      // keeps at most one in flight at a time.
+      if(chevron._glitchEndHandler) chevron.removeEventListener('animationend', chevron._glitchEndHandler);
+      chevron._glitchEndHandler = () => chevron.classList.remove('is-glitching');
+      chevron.addEventListener('animationend', chevron._glitchEndHandler, { once: true });
     }
   }
 

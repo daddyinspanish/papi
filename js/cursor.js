@@ -19,6 +19,20 @@
   let lastMoveTime = performance.now();
   const IDLE_MS = 1400; // fades away if the pointer sits still this long
 
+  // per heat/reliability audit: this rAF loop had no backgrounded-tab
+  // guard at all, unlike its two siblings (hero-matrix.js, cursor-
+  // trail.js) which both already stop on visibilitychange — a
+  // backgrounded tab kept this repainting two translate3d styles every
+  // frame forever, for no visible benefit.
+  let rafId = null;
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden){
+      if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+    } else if(rafId === null){
+      rafId = requestAnimationFrame(frame);
+    }
+  });
+
   window.addEventListener('mousemove', (e)=>{
     targetX = e.clientX;
     targetY = e.clientY;
@@ -78,7 +92,7 @@
     if(dot) dot.style.transform = `translate3d(${dotX}px, ${dotY}px, 0)`;
     if(ring) ring.style.transform = `translate3d(${ringX}px, ${ringY}px, 0)`;
 
-    requestAnimationFrame(frame);
+    rafId = requestAnimationFrame(frame);
   }
-  frame();
+  rafId = requestAnimationFrame(frame);
 })();

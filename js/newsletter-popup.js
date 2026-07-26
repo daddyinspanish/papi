@@ -68,7 +68,15 @@
     function onScroll(){
       if(ticking) return;
       ticking = true;
-      requestAnimationFrame(checkTrigger);
+      requestAnimationFrame(() => {
+        checkTrigger();
+        // per heat/reliability audit: comparison-chart.js's own copy of
+        // this exact "IO can miss a fast flick" fallback already removes
+        // its scroll listener once revealed — this one didn't, leaving
+        // it (and its rAF call) attached for the rest of the page's life
+        // even after the popup opened or was marked already-seen.
+        if(shown) window.removeEventListener('scroll', onScroll);
+      });
     }
     window.addEventListener('scroll', onScroll, { passive:true });
     checkTrigger();
