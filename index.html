@@ -139,7 +139,17 @@ setTimeout(function(){
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/style.css">
+<!-- CACHE-BUSTING: per report, "even a fresh reload still shows the old
+     black-screen version" — a plain hard reload isn't guaranteed to
+     re-fetch every local file if Safari (or any browser) decided an
+     asset was still "fresh" under its own heuristics, especially right
+     after a deploy. Every local css/js/vendor URL below carries a
+     ?v=YYYYMMDD-N query string so the URL itself changes on any commit
+     that touches file contents, forcing a real re-fetch regardless of
+     what the browser's cache thought. BUMP THIS EXACT STRING (all
+     occurrences in this file) whenever any css/js file's contents
+     change — a stale version string here defeats the entire point. -->
+<link rel="stylesheet" href="css/style.css?v=20260727-1">
 
 <!-- structured data — per direct request, so search engines/AI tools
      have an explicit, machine-readable answer for "what is this and
@@ -752,22 +762,22 @@ setTimeout(function(){
   </div>
 </div>
 
-<script src="js/accent.js"></script>
-<script src="js/hero-matrix.js"></script>
-<script src="js/process-hero.js"></script>
-<script src="js/title-dock.js"></script>
-<script src="js/testimonials.js"></script>
-<script src="js/comparison-chart.js"></script>
-<script src="js/live-demo.js"></script>
-<script src="js/faq.js"></script>
-<script src="js/quote-form.js"></script>
-<script src="js/newsletter-popup.js"></script>
-<script src="js/cursor.js"></script>
-<script src="js/cursor-trail.js"></script>
-<script src="js/scroll-reveal.js"></script>
-<script src="js/scroll-dolly.js"></script>
-<script src="js/scroll-progress.js"></script>
-<script src="js/anim-idle.js"></script>
+<script src="js/accent.js?v=20260727-1"></script>
+<script src="js/hero-matrix.js?v=20260727-1"></script>
+<script src="js/process-hero.js?v=20260727-1"></script>
+<script src="js/title-dock.js?v=20260727-1"></script>
+<script src="js/testimonials.js?v=20260727-1"></script>
+<script src="js/comparison-chart.js?v=20260727-1"></script>
+<script src="js/live-demo.js?v=20260727-1"></script>
+<script src="js/faq.js?v=20260727-1"></script>
+<script src="js/quote-form.js?v=20260727-1"></script>
+<script src="js/newsletter-popup.js?v=20260727-1"></script>
+<script src="js/cursor.js?v=20260727-1"></script>
+<script src="js/cursor-trail.js?v=20260727-1"></script>
+<script src="js/scroll-reveal.js?v=20260727-1"></script>
+<script src="js/scroll-dolly.js?v=20260727-1"></script>
+<script src="js/scroll-progress.js?v=20260727-1"></script>
+<script src="js/anim-idle.js?v=20260727-1"></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
      Hero -> Live Demo -> How It's Built. gsap.min.js/ScrollTrigger.min.js
      were already vendored locally from an earlier (since-reverted) 3D
@@ -776,11 +786,11 @@ setTimeout(function(){
      coordinate with via window.PapiDolly) and after live-demo.js earlier
      above (whose cards the hero/live-demo journey files need to already
      exist in the DOM), before init.js. -->
-<script src="js/vendor/gsap/gsap.min.js"></script>
-<script src="js/vendor/gsap/ScrollTrigger.min.js"></script>
-<script src="js/scroll-journey-hero.js"></script>
-<script src="js/scroll-journey-livedemo.js"></script>
-<script src="js/scroll-journey-process.js"></script>
-<script src="js/init.js"></script>
+<script src="js/vendor/gsap/gsap.min.js?v=20260727-1"></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20260727-1"></script>
+<script src="js/scroll-journey-hero.js?v=20260727-1"></script>
+<script src="js/scroll-journey-livedemo.js?v=20260727-1"></script>
+<script src="js/scroll-journey-process.js?v=20260727-1"></script>
+<script src="js/init.js?v=20260727-1"></script>
 </body>
 </html>
