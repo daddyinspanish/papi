@@ -114,7 +114,12 @@ setTimeout(function(){
   }
   if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
   if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
-  if(window.ScrollTrigger) window.ScrollTrigger.refresh();
+  // see js/accent.js's own comment on window.Papi.safeScrollRefresh —
+  // coalesced against the other 2 places on the page that can also ask
+  // ScrollTrigger to refresh, so this can't corrupt pin measurements by
+  // firing at the same moment as one of those.
+  if(window.Papi && window.Papi.safeScrollRefresh) window.Papi.safeScrollRefresh();
+  else if(window.ScrollTrigger) window.ScrollTrigger.refresh();
 }, 4000);
 </script>
 <title>Papi — Business-Ready Websites, Built With Purpose</title>

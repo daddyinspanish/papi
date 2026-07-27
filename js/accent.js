@@ -64,4 +64,49 @@
   }
   window.Papi.lockScroll = lockScroll;
   window.Papi.unlockScroll = unlockScroll;
+
+  // ---------------------------------------------------------------
+  // shared, page-wide ScrollTrigger.refresh() coalescing.
+  //
+  // BUG FIX: per report, "refresh the page, it sometimes goes black
+  // until the 3rd or 4th refresh." Reproduced directly: on a reload
+  // (fonts/assets already cached, so everything below resolves fast
+  // and close together), three independent, uncoordinated call sites
+  // — this file's own callers below, index.html's 4s last-resort
+  // fallback, and js/init.js's font-ready handler — could each call
+  // window.ScrollTrigger.refresh() at nearly the same moment. GSAP
+  // isn't safely re-entrant against a second refresh() firing while
+  // the first hasn't finished settling the DOM it just measured, and
+  // confirmed via direct inspection: a black-screen reload measured
+  // document.body.scrollHeight at exactly 2x the correct value —
+  // corrupted/doubled pin-spacer placeholders, not a rendering glitch.
+  //
+  // A previous fix already coalesced this within
+  // js/scroll-journey-process.js's own two internal timers (a load+
+  // 600ms one-shot and a debounced ResizeObserver) — but that guard
+  // was local to that one file, so it had no way to know about (or
+  // wait for) a refresh already in flight from either of the other two
+  // call sites. Promoting the exact same coalescing logic to a single
+  // shared instance here, used by all three call sites, closes that
+  // gap: at most one refresh() is ever in flight at a time, page-wide,
+  // regardless of which of the three timers asked for it.
+  // ---------------------------------------------------------------
+  let refreshInFlight = false;
+  let refreshQueued = false;
+  function safeScrollRefresh(){
+    if(!window.ScrollTrigger) return;
+    if(refreshInFlight){ refreshQueued = true; return; }
+    refreshInFlight = true;
+    window.ScrollTrigger.refresh();
+    let settled = false;
+    const settle = () => {
+      if(settled) return;
+      settled = true;
+      refreshInFlight = false;
+      if(refreshQueued){ refreshQueued = false; safeScrollRefresh(); }
+    };
+    requestAnimationFrame(settle);
+    setTimeout(settle, 50);
+  }
+  window.Papi.safeScrollRefresh = safeScrollRefresh;
 })();

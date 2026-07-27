@@ -40,25 +40,15 @@
 
   // this file has two independent timers below that can both ask GSAP
   // to refresh its pin measurements (a load+600ms one-shot and a
-  // debounced <body> ResizeObserver) — coalesced into one in-flight
-  // call at a time so a burst of layout shifts can't ask GSAP to
-  // re-measure twice in close succession.
-  let refreshInFlight = false;
-  let refreshQueued = false;
+  // debounced <body> ResizeObserver) — plus 2 more call sites elsewhere
+  // on the page (index.html's 4s fallback, js/init.js's font-ready
+  // handler) that can land close enough in time to collide with these.
+  // window.Papi.safeScrollRefresh (js/accent.js) coalesces all of them
+  // into one in-flight call at a time, page-wide — see that file's own
+  // comment for the full reproduction of the black-screen bug this fixes.
   function safeRefresh(){
-    if(!window.ScrollTrigger) return;
-    if(refreshInFlight){ refreshQueued = true; return; }
-    refreshInFlight = true;
-    window.ScrollTrigger.refresh();
-    let settled = false;
-    const settle = () => {
-      if(settled) return;
-      settled = true;
-      refreshInFlight = false;
-      if(refreshQueued){ refreshQueued = false; safeRefresh(); }
-    };
-    requestAnimationFrame(settle);
-    setTimeout(settle, 50);
+    if(window.Papi && window.Papi.safeScrollRefresh) window.Papi.safeScrollRefresh();
+    else if(window.ScrollTrigger) window.ScrollTrigger.refresh();
   }
 
   gsap.registerPlugin(ScrollTrigger);

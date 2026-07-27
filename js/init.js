@@ -26,7 +26,15 @@
 
     if(window.Papi && window.Papi.revealSocial) window.Papi.revealSocial();
     if(window.Papi && window.Papi.revealCursor) window.Papi.revealCursor();
-    if(window.ScrollTrigger) window.ScrollTrigger.refresh();
+    // BUG FIX: per report, "refresh sometimes goes black until the 3rd
+    // or 4th refresh" — this used to call window.ScrollTrigger.refresh()
+    // directly, uncoordinated with the other 2 places on the page that
+    // also ask for a refresh (index.html's 4s fallback, and this file's
+    // own font-ready timing can land close enough to those on a reload
+    // with warm caches to fire concurrently). See js/accent.js's own
+    // comment on window.Papi.safeScrollRefresh for the full reproduction.
+    if(window.Papi && window.Papi.safeScrollRefresh) window.Papi.safeScrollRefresh();
+    else if(window.ScrollTrigger) window.ScrollTrigger.refresh();
   }
 
   const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
