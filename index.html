@@ -788,6 +788,24 @@ setTimeout(function(){
      exist in the DOM), before init.js. -->
 <script src="js/vendor/gsap/gsap.min.js?v=20260727-1"></script>
 <script src="js/vendor/gsap/ScrollTrigger.min.js?v=20260727-1"></script>
+<script>
+// BUG FIX: per report, "my iphone gets very hot every time I pull up
+// the website." Every custom canvas loop on this site (hero-matrix.js,
+// cursor-trail.js) already caps its own frame rate specifically to cut
+// phone heat — but GSAP's own internal ticker, which drives all 3
+// pinned ScrollTrigger timelines (hero, live-demo, process journeys),
+// was never capped anywhere in this codebase. Left alone, it runs at
+// the display's full native refresh rate — up to 120Hz on ProMotion
+// iPhones — for the entire time any of those 3 pins exist on the page,
+// which is the whole session, not just while actively scrolling.
+// Capping to 30fps (matching this site's own existing mobile-conscious
+// convention) cuts that per-frame work by up to 4x on a 120Hz device.
+// Scroll-scrubbed motion is driven by real scroll position, not free-
+// running time, so it stays visually smooth at 30fps — this is GSAP's
+// own documented technique for reducing power draw on scroll-heavy
+// sites, not a quality tradeoff.
+if(window.gsap) gsap.ticker.fps(30);
+</script>
 <script src="js/scroll-journey-hero.js?v=20260727-1"></script>
 <script src="js/scroll-journey-livedemo.js?v=20260727-1"></script>
 <script src="js/scroll-journey-process.js?v=20260727-1"></script>
