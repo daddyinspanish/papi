@@ -44,7 +44,15 @@
 
   const CONFIG = {
     fontSize: 16,
-    fontSizeMobile: 13,
+    // BUG FIX: per report (screenshot of the Instagram in-app browser,
+    // now that the black-screen bug is fixed and the hero is actually
+    // visible there), "the numbers look too big" — 13px on a real phone
+    // viewport reads noticeably larger relative to screen width than on
+    // a desktop test window, since there's far less width for the same
+    // digit size to sit inside. Smaller value here also raises column
+    // density (cellW is derived from fontSize below), which reads closer
+    // to the classic dense matrix-rain look on a narrow viewport too.
+    fontSizeMobile: 9,
     mobileWidth: 640,
     // BUG FIX: per follow-up report, "the speed of the matrix now seems
     // like its raining... make sure its a bit smoother, a bit slower."
