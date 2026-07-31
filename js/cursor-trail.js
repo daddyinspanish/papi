@@ -113,7 +113,9 @@
       p.x += p.vx;
       p.y += p.vy;
       const alpha = (1 - t) * 0.65;
-      ctx.fillStyle = `rgba(122,221,255,${alpha.toFixed(3)})`;
+      // per direct request to move the site's blue accent to gold —
+      // was rgba(122,221,255,*), R/B-swapped like every other color
+      ctx.fillStyle = `rgba(255,221,122,${alpha.toFixed(3)})`;
       ctx.fillText(p.ch, p.x, p.y);
       return true;
     });

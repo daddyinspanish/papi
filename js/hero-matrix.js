@@ -195,11 +195,16 @@
   // knowable up front — computed once here instead of reallocated on
   // every character on every frame. Pure GC-pressure reduction, zero
   // visual difference (identical values, just cached).
-  const HEAD_FILLSTYLE = `rgba(226,246,255,${CONFIG.headAlpha})`;
+  // BUG FIX: per direct request to move the site's blue accent to a
+  // yellow/gold metallic — these were rgba(226,246,255,*)/
+  // rgba(122,180,214,*) (icy blue-white head, dusty blue tail); R/B
+  // channels swapped the same way as every other color on the site for
+  // this change, giving a warm cream head and gold-tan tail instead.
+  const HEAD_FILLSTYLE = `rgba(255,246,226,${CONFIG.headAlpha})`;
   const TAIL_FILLSTYLES = new Array(CONFIG.streamMax).fill(null).map((_, j) => {
     if(j === 0) return null; // row 0 always uses HEAD_FILLSTYLE instead
     const alpha = CONFIG.headAlpha * Math.pow(CONFIG.tailFalloff, j) * 0.6;
-    return alpha < 0.015 ? null : `rgba(122,180,214,${alpha})`;
+    return alpha < 0.015 ? null : `rgba(214,180,122,${alpha})`;
   });
 
   function renderFrame(steps){
