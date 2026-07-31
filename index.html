@@ -762,22 +762,47 @@ setTimeout(function(){
   </div>
 </div>
 
-<script src="js/accent.js?v=20260727-1"></script>
-<script src="js/hero-matrix.js?v=20260727-1"></script>
-<script src="js/process-hero.js?v=20260727-1"></script>
-<script src="js/title-dock.js?v=20260727-1"></script>
-<script src="js/testimonials.js?v=20260727-1"></script>
-<script src="js/comparison-chart.js?v=20260727-1"></script>
-<script src="js/live-demo.js?v=20260727-1"></script>
-<script src="js/faq.js?v=20260727-1"></script>
-<script src="js/quote-form.js?v=20260727-1"></script>
-<script src="js/newsletter-popup.js?v=20260727-1"></script>
-<script src="js/cursor.js?v=20260727-1"></script>
-<script src="js/cursor-trail.js?v=20260727-1"></script>
-<script src="js/scroll-reveal.js?v=20260727-1"></script>
-<script src="js/scroll-dolly.js?v=20260727-1"></script>
-<script src="js/scroll-progress.js?v=20260727-1"></script>
-<script src="js/anim-idle.js?v=20260727-1"></script>
+<!-- BUG FIX: per report, "black screen, takes 1-3 refreshes to show
+     properly" (recurring after the earlier ScrollTrigger-refresh-race
+     fix — a separate root cause). Root cause, confirmed directly: these
+     24 script tags (this file's own 22 plus the 2 GSAP vendor bundles
+     below) were all plain render-blocking classic scripts. Browsers
+     fetch+execute classic scripts strictly in DOM order, each one
+     pausing HTML parsing until it's done — and #hero is opacity:0/
+     visibility:hidden/near-black by default in CSS (see style.css),
+     only flipped visible by JS (init.js's 900ms font-ready race, or the
+     4s <head> failsafe). Both of those are setTimeout callbacks, which
+     can't fire until the main thread is free — so on a slow/cold load
+     (a hard refresh forces exactly this: every one of these 24 requests
+     re-fetched with no cache assist) the black hero can sit far past
+     either "guaranteed" window, for as long as the blocking chain takes.
+     A later plain refresh looks "fixed" only because the browser's HTTP
+     cache for these same versioned URLs is now warm from the failed
+     attempt — not because anything was actually resolved.
+     `defer` keeps the exact same execution order (required: accent.js's
+     window.Papi must exist before later files use it, GSAP vendor must
+     run before the scroll-journey-*.js files that call it, init.js must
+     run last) while letting the browser parse/paint without waiting on
+     any of it — so by the time these run, the HTML+CSS is already up,
+     and init.js's own bounded reveal windows can actually fire on time
+     instead of queuing behind an unbounded fetch chain. Confirmed safe:
+     none of these files use document.write (defer-incompatible). -->
+<script src="js/accent.js?v=20260727-1" defer></script>
+<script src="js/hero-matrix.js?v=20260727-1" defer></script>
+<script src="js/process-hero.js?v=20260727-1" defer></script>
+<script src="js/title-dock.js?v=20260727-1" defer></script>
+<script src="js/testimonials.js?v=20260727-1" defer></script>
+<script src="js/comparison-chart.js?v=20260727-1" defer></script>
+<script src="js/live-demo.js?v=20260727-1" defer></script>
+<script src="js/faq.js?v=20260727-1" defer></script>
+<script src="js/quote-form.js?v=20260727-1" defer></script>
+<script src="js/newsletter-popup.js?v=20260727-1" defer></script>
+<script src="js/cursor.js?v=20260727-1" defer></script>
+<script src="js/cursor-trail.js?v=20260727-1" defer></script>
+<script src="js/scroll-reveal.js?v=20260727-1" defer></script>
+<script src="js/scroll-dolly.js?v=20260727-1" defer></script>
+<script src="js/scroll-progress.js?v=20260727-1" defer></script>
+<script src="js/anim-idle.js?v=20260727-1" defer></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
      Hero -> Live Demo -> How It's Built. gsap.min.js/ScrollTrigger.min.js
      were already vendored locally from an earlier (since-reverted) 3D
@@ -786,29 +811,11 @@ setTimeout(function(){
      coordinate with via window.PapiDolly) and after live-demo.js earlier
      above (whose cards the hero/live-demo journey files need to already
      exist in the DOM), before init.js. -->
-<script src="js/vendor/gsap/gsap.min.js?v=20260727-1"></script>
-<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20260727-1"></script>
-<script>
-// BUG FIX: per report, "my iphone gets very hot every time I pull up
-// the website." Every custom canvas loop on this site (hero-matrix.js,
-// cursor-trail.js) already caps its own frame rate specifically to cut
-// phone heat — but GSAP's own internal ticker, which drives all 3
-// pinned ScrollTrigger timelines (hero, live-demo, process journeys),
-// was never capped anywhere in this codebase. Left alone, it runs at
-// the display's full native refresh rate — up to 120Hz on ProMotion
-// iPhones — for the entire time any of those 3 pins exist on the page,
-// which is the whole session, not just while actively scrolling.
-// Capping to 30fps (matching this site's own existing mobile-conscious
-// convention) cuts that per-frame work by up to 4x on a 120Hz device.
-// Scroll-scrubbed motion is driven by real scroll position, not free-
-// running time, so it stays visually smooth at 30fps — this is GSAP's
-// own documented technique for reducing power draw on scroll-heavy
-// sites, not a quality tradeoff.
-if(window.gsap) gsap.ticker.fps(30);
-</script>
-<script src="js/scroll-journey-hero.js?v=20260727-1"></script>
-<script src="js/scroll-journey-livedemo.js?v=20260727-1"></script>
-<script src="js/scroll-journey-process.js?v=20260727-1"></script>
-<script src="js/init.js?v=20260727-1"></script>
+<script src="js/vendor/gsap/gsap.min.js?v=20260727-1" defer></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20260727-1" defer></script>
+<script src="js/scroll-journey-hero.js?v=20260727-1" defer></script>
+<script src="js/scroll-journey-livedemo.js?v=20260727-1" defer></script>
+<script src="js/scroll-journey-process.js?v=20260727-1" defer></script>
+<script src="js/init.js?v=20260727-1" defer></script>
 </body>
 </html>

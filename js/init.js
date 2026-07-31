@@ -16,6 +16,21 @@
 (function(){
   const hero = document.getElementById('hero');
 
+  // BUG FIX: per report, "my iphone gets very hot every time I pull up
+  // the website." GSAP's own internal ticker, which drives all 3 pinned
+  // ScrollTrigger timelines (hero, live-demo, process journeys), runs at
+  // the display's full native refresh rate (up to 120Hz on ProMotion
+  // iPhones) for as long as those pins exist — capping it matches this
+  // site's other mobile-conscious frame caps. This used to be its own
+  // inline <script> between the GSAP vendor tags and scroll-journey-
+  // hero.js in index.html; moved here when all script tags were made
+  // `defer` (see index.html's own comment on that change) — an inline
+  // script has no `src` so `defer` can't apply to it, meaning it would
+  // otherwise run at parse time, before the now-deferred gsap.min.js has
+  // executed. init.js already runs last in the deferred order, after
+  // GSAP is guaranteed loaded, so it's the correct home for this now.
+  if(window.gsap) gsap.ticker.fps(30);
+
   function start(){
     hero.classList.add('is-visible');
     hero.removeAttribute('aria-hidden');
