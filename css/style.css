@@ -1951,11 +1951,15 @@ body, a{ cursor:none; }
   width:100%;
   border-radius:16px;
   overflow:hidden;
-  background:#0d0d10;
-  /* per direct request: this border read as plain gray at its old low
-     opacity (.16) against the dark card — bumped up so it visibly reads
-     as gold, in sync with the rest of the site's yellow/gold accent */
-  border:1px solid rgba(255,221,122,.45);
+  /* per direct follow-up request ("make the entire card gold yellow, i
+     do not want those grays in there") — the old #0d0d10 was a neutral
+     near-black with no gold cast at all, and every accent inside this
+     card (bar/dots/url pill below) was a low-opacity tint faint enough
+     to read as plain gray against it. Background swapped for a dark
+     tone with a real gold cast, and every accent below bumped to a
+     clearly gold opacity rather than a barely-there one. */
+  background:#1a1508;
+  border:1px solid rgba(255,221,122,.5);
   box-shadow:0 40px 90px -30px rgba(0,0,0,.6), inset 0 1px 30px rgba(0,0,0,.28);
 }
 /* soft reflection: a static, low-opacity top-down gradient, never a
@@ -1967,7 +1971,7 @@ body, a{ cursor:none; }
   position:absolute;
   inset:0 0 auto 0;
   height:40%;
-  background:linear-gradient(180deg, rgba(243,237,226,.05), transparent);
+  background:linear-gradient(180deg, rgba(255,221,122,.1), transparent);
   pointer-events:none;
 }
 .live-demo-browser-bar{
@@ -1975,21 +1979,21 @@ body, a{ cursor:none; }
   align-items:center;
   gap:.5rem;
   padding:.65rem .9rem;
-  background:rgba(255,221,122,.06);
+  background:rgba(255,221,122,.16);
 }
 .live-demo-dot{
   width:8px;
   height:8px;
   border-radius:50%;
-  background:rgba(255,221,122,.22);
+  background:rgba(255,221,122,.6);
   flex:0 0 auto;
 }
 .live-demo-url{
   flex:1;
   margin-left:.4rem;
   font-size:.72rem;
-  color:rgba(243,237,226,.55);
-  background:rgba(255,255,255,.04);
+  color:rgba(255,221,122,.85);
+  background:rgba(255,221,122,.1);
   border-radius:999px;
   padding:.3em .9em;
   overflow:hidden;
