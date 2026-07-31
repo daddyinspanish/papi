@@ -1952,7 +1952,10 @@ body, a{ cursor:none; }
   border-radius:16px;
   overflow:hidden;
   background:#0d0d10;
-  border:1px solid rgba(255,221,122,.16);
+  /* per direct request: this border read as plain gray at its old low
+     opacity (.16) against the dark card — bumped up so it visibly reads
+     as gold, in sync with the rest of the site's yellow/gold accent */
+  border:1px solid rgba(255,221,122,.45);
   box-shadow:0 40px 90px -30px rgba(0,0,0,.6), inset 0 1px 30px rgba(0,0,0,.28);
 }
 /* soft reflection: a static, low-opacity top-down gradient, never a
@@ -2626,9 +2629,12 @@ body, a{ cursor:none; }
   width:32px;
   height:32px;
   border-radius:50%;
-  color:var(--cream);
+  /* per direct request to add the site's gold tone to these — was
+     plain cream by default, only turning gold on hover; now gold at
+     rest too, matching .process-hero-start beside it */
+  color:var(--gold-soft);
   background:rgba(12,16,20,.35);
-  border:1px solid rgba(243,237,226,.4);
+  border:1px solid rgba(228,205,154,.5);
   transition:transform .3s var(--ease-out), border-color .25s ease, background-color .25s ease, color .25s ease;
 }
 .process-hero-social-link:hover{

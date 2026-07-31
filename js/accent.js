@@ -8,6 +8,29 @@
    pair so nothing off-brand ever shows up in the hero field.)
 =================================================================== */
 (function(){
+  // BUG FIX: per report, "after a few refreshes the website loads
+  // black" — recurring even in a fresh private tab, so not stale cache
+  // (already ruled that out separately). Root cause found by testing
+  // the ACTUAL real-world scenario: scroll deep into the page, THEN hit
+  // reload — not a fresh navigation, which is all prior testing here
+  // had covered. Safari (and Instagram's in-app browser) can restore
+  // that scrolled position mid-load. index.html's own first inline
+  // <script> already fights this once, early, plus again on
+  // DOMContentLoaded — but DOMContentLoaded fires only AFTER every
+  // deferred script (this file first, then scroll-dolly.js, then the
+  // scroll-journey-*.js files that create GSAP ScrollTriggers) has
+  // already run. If the browser's restore lands in that window, the
+  // page-load-time pin math in scroll-journey-hero.js gets built against
+  // a non-zero scrollY — its start:'bottom bottom' measurement, and any
+  // transform scroll-dolly.js already applied to #processRoom from that
+  // same stale scrollY, are both wrong from that point on, and nothing
+  // downstream fully un-corrupts it. This file runs FIRST of all
+  // deferred scripts, so reasserting scrollY:0 right here closes the gap
+  // immediately before any of that scroll-dependent measurement runs,
+  // rather than hoping DOMContentLoaded's own reassertion (which fires
+  // too late, after the damage is already done) wins the race.
+  if(window.scrollY !== 0) window.scrollTo(0, 0);
+
   const palette = [
     [255,200,40], // gold
     [ 10,  9,  8], // near-black
