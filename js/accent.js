@@ -132,4 +132,39 @@
     setTimeout(settle, 50);
   }
   window.Papi.safeScrollRefresh = safeScrollRefresh;
+
+  // ---------------------------------------------------------------
+  // BUG FIX: per report, "my iphone keeps getting hot as I load my
+  // website and scroll through it." Found via CSS audit (not a guess):
+  // every "shine"/"sweep" animation on the site (hero title, hero CTA,
+  // the 4 process-step reveal titles, the whole quote section's
+  // background, the quote submit button, the quote heading shine)
+  // animates `background-position`, not transform/opacity — that
+  // forces a real repaint of the element every single animation frame,
+  // and being `animation: ... infinite`, that never stops for as long
+  // as the element exists in the DOM, REGARDLESS of scroll position.
+  // The newsletter popup already had exactly this fix applied to its
+  // own shine (see its "per iPhone-heat investigation" CSS comment) —
+  // it just was never extended to these far more prominent, much
+  // longer-running ones. Same technique here: pause via CSS
+  // (animation-play-state) whenever the containing section isn't
+  // on/near-screen, matching the .js-will-change convention already
+  // used by js/scroll-dolly.js for the same "don't pay for it while
+  // it can't be seen" reason.
+  if('IntersectionObserver' in window){
+    const shineIo = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        entry.target.classList.toggle('js-anim-live', entry.isIntersecting);
+      });
+    }, { rootMargin: '50% 0px 50% 0px' });
+    ['.process-hero-copy', '.process-stage', '.quote-section'].forEach((sel) => {
+      const el = document.querySelector(sel);
+      if(el) shineIo.observe(el);
+    });
+  } else {
+    // no IntersectionObserver — fall back to always-on rather than
+    // permanently paused
+    document.querySelectorAll('.process-hero-copy, .process-stage, .quote-section')
+      .forEach((el) => el.classList.add('js-anim-live'));
+  }
 })();

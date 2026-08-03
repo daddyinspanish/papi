@@ -1317,6 +1317,22 @@ body, a{ cursor:none; }
   50%{ background-position:100% 50%; }
   100%{ background-position:0% 50%; }
 }
+/* BUG FIX: per iPhone-heat report — see js/accent.js's own comment on
+   the shared IntersectionObserver this pairs with. This is the LAST
+   section on the page, so its own background sweep (and the submit
+   button/heading shine inside it, which share the same background-
+   position technique) used to repaint continuously from the moment
+   the page loaded, the entire time a visitor was still reading the
+   hero/live-demo/process/comparison/testimonials/FAQ sections above it. */
+.quote-section:not(.js-anim-live){
+  animation-play-state:paused;
+}
+.quote-section:not(.js-anim-live) .quote-submit,
+.quote-section:not(.js-anim-live) .quote-heading,
+.quote-section:not(.js-anim-live) .quote-heading-shine,
+.quote-section:not(.js-anim-live) .quote-form-title{
+  animation-play-state:paused;
+}
 
 .quote-inner{
   position:relative;
@@ -2596,6 +2612,25 @@ body, a{ cursor:none; }
   0%{ transform:translateX(-140%); }
   35%{ transform:translateX(140%); }
   100%{ transform:translateX(140%); }
+}
+/* BUG FIX: per iPhone-heat report — see js/accent.js's own comment on
+   the shared IntersectionObserver this pairs with. .process-hero-title/
+   .process-hero-cta both animate background-position (a real repaint,
+   not just a composite) via an `infinite` animation, so left alone they
+   keep repainting forever, long after the visitor has scrolled well
+   past the hero. Paused whenever .process-hero-copy isn't on/near-
+   screen; .js-anim-live is added back the moment it is. */
+.process-hero-copy:not(.js-anim-live) .process-hero-title,
+.process-hero-copy:not(.js-anim-live) .process-hero-cta{
+  animation-play-state:paused;
+}
+/* same fix, for the 4 process-step reveal titles — all 4 exist in the
+   DOM simultaneously (GSAP just transforms their position around the
+   3D carousel, see js/scroll-journey-process.js), so all 4 copies of
+   this same shine animation were running at once, continuously,
+   whether or not that step's panel was ever opened. */
+.process-stage:not(.js-anim-live) .process-reveal-title{
+  animation-play-state:paused;
 }
 .process-hero-cta:hover::before{
   animation-duration:1.1s;
