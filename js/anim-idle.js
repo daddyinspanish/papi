@@ -49,12 +49,12 @@
   if(!('IntersectionObserver' in window)) return;
 
   const GROUPS = [
-    { root: '#hero', extra: ['.process-room-grain', '.process-hero-copy', '.process-hero-title', '.process-hero-cta'] },
+    { root: '#hero', extra: ['.process-room-grain', '.process-hero-copy', '.process-hero-title', '.process-hero-cta', '.process-hero-start'] },
     { root: '#liveDemoSection', extra: ['.process-arrival-flame'] },
     { root: '#ourProcessSection', extra: ['.process-reveal-title'] },
     { root: '#testimonialsSection', extra: ['.testimonials-hint-icon'] },
     { root: '#comparisonSection', extra: ['.comparison-title em', '.comparison-line--papi', '.comparison-stat-number'] },
-    { root: '#faqSection', extra: [] },
+    { root: '#faqSection', extra: ['.faq-hint-icon'] },
     { root: '#quoteSection', extra: ['.quote-heading', '.quote-heading-shine', '.quote-form-title', '.quote-submit'] },
   ];
 
