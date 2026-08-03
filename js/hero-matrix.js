@@ -162,14 +162,53 @@
     buildColumns();
   }
 
-  let lastResizeW = window.innerWidth;
-  window.addEventListener('resize', () => {
-    const w = window.innerWidth;
-    if(Math.abs(w - lastResizeW) <= 10) return; // see the --stable-vh comment elsewhere on this site
-    lastResizeW = w;
-    clearTimeout(window.__papiHeroMatrixResizeT);
-    window.__papiHeroMatrixResizeT = setTimeout(resize, 150);
-  });
+  // BUG FIX: per report, "the matrix numbers sometimes appear stretched
+  // out" on iPhone Safari. Root cause, confirmed directly (not a guess):
+  // this used to only re-run resize() on a native window 'resize' event
+  // with a >10px WIDTH change, deliberately ignoring height-only ones —
+  // correct for ignoring Safari's own toolbar-collapse jank, per the
+  // --stable-vh comment elsewhere on this site. But .process-hero's own
+  // height is `min-height:calc(var(--stable-vh) * 100)`, and
+  // --stable-vh itself gets re-measured ONCE, 150ms after the visitor's
+  // very first scroll (index.html's own one-time 'scroll' listener) —
+  // specifically to catch Safari's address bar collapsing and revealing
+  // more real viewport height. That update is a CSS custom-property
+  // change cascading through min-height, not a width-changing native
+  // resize event, so the old listener above never heard about it: this
+  // canvas's CSS box (100% of .process-hero) grew taller while its
+  // internal drawing-buffer resolution (canvas.width/height, set only
+  // inside resize()) stayed frozen at the old, shorter size — the
+  // browser then stretches that fixed-resolution bitmap to fill the new
+  // taller box, distorting every digit. Reproduced directly: simulating
+  // that exact --stable-vh update left the canvas's CSS height ~8%
+  // taller than its buffer height, a real, measured aspect-ratio
+  // mismatch, not a hypothetical one.
+  //
+  // A ResizeObserver on the canvas itself fixes this at the root: it
+  // reports the canvas's own actual rendered box size changing for ANY
+  // reason (real width change, orientation change, or this --stable-vh
+  // cascade), so it can't miss this class of change the way a native
+  // 'resize' event (gated on width) could — and it fully subsumes the
+  // old listener's job too, since a genuine width change also changes
+  // the canvas's own clientWidth. Same 150ms debounce as before.
+  if('ResizeObserver' in window){
+    const ro = new ResizeObserver(() => {
+      clearTimeout(window.__papiHeroMatrixResizeT);
+      window.__papiHeroMatrixResizeT = setTimeout(resize, 150);
+    });
+    ro.observe(canvas);
+  } else {
+    // no ResizeObserver — fall back to the old width-gated listener
+    // rather than never re-measuring at all
+    let lastResizeW = window.innerWidth;
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      if(Math.abs(w - lastResizeW) <= 10) return;
+      lastResizeW = w;
+      clearTimeout(window.__papiHeroMatrixResizeT);
+      window.__papiHeroMatrixResizeT = setTimeout(resize, 150);
+    });
+  }
 
   // see this file's own BUG FIX note up top — catches a display change
   // (e.g. dragging the window onto a different-dpi external monitor)
