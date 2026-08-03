@@ -1173,7 +1173,7 @@ body, a{ cursor:none; }
 .faq-inner{
   position:relative;
   z-index:1;
-  max-width:1100px;
+  max-width:760px;
   margin:0 auto;
 }
 .faq-eyebrow{
@@ -1190,60 +1190,19 @@ body, a{ cursor:none; }
   font-weight:400;
   font-size:clamp(1.9rem, 4.4vw, 2.8rem);
   color:var(--cream);
-  margin-bottom:1rem;
+  margin-bottom:3rem;
 }
 .faq-title em{ font-style:italic; color:#ffdd7a; }
-/* per direct request: "make the FAQ questions more immersive by making
-   them scrollable as well" — matching .testimonials-hint's own pattern
-   exactly (same icon-nudge technique, see .faq-hint-icon below) so this
-   reads as the same site-wide "swipeable row" convention as
-   testimonials/live-demo, not a one-off. */
-.faq-hint{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  gap:.4em;
-  font-size:.78rem;
-  color:rgba(243,237,226,.45);
-  margin-bottom:2rem;
-}
-.faq-hint-icon{
-  display:inline-block;
-  animation:testimonialHintNudge 1.6s ease-in-out infinite;
-}
 
-/* REDESIGNED per direct request above: was a plain vertical accordion
-   list (full-width rows, border-bottom between each); now a horizontal
-   scroll-snap row of cards, same technique as .testimonial-stack
-   (flex row, scroll-snap-type:x, edge-fade mask, hidden scrollbar) —
-   js/faq.js's own open/close-by-height accordion logic is completely
-   unchanged, it doesn't care whether its items sit in a column or a
-   row. align-items:flex-start so one card opening taller doesn't
-   stretch its still-closed neighbors to match (flex's own stretch
-   default would do exactly that otherwise). */
-.faq-list{
-  width:100%;
-  display:flex;
-  align-items:flex-start;
-  gap:1.25rem;
-  overflow-x:auto;
-  scroll-snap-type:x mandatory;
-  -webkit-overflow-scrolling:touch;
-  scrollbar-width:none;
-  padding:.5rem clamp(1.5rem, 8vw, 12vw) 1.5rem;
-  -webkit-mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-  mask-image:linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
-}
-.faq-list::-webkit-scrollbar{ display:none; }
-
+/* REVERTED per direct follow-up: "I did not want them to be swipeable,
+   I want them to be accordion, but as I scroll one question, it goes
+   to the other." Back to a plain vertical accordion list — see
+   js/faq.js's own scroll-driven auto-advance for the new "scrolling
+   moves through the questions" behavior instead of a swipeable row. */
 .faq-item{
-  flex:0 0 auto;
-  width:min(420px, 82vw);
-  scroll-snap-align:center;
-  background:rgba(255,221,122,.04);
-  border:1px solid rgba(255,221,122,.18);
-  border-radius:16px;
+  border-bottom:1px solid rgba(255,221,122,.18);
 }
+.faq-item:first-child{ border-top:1px solid rgba(255,221,122,.18); }
 .faq-question{
   position:relative;
   width:100%;

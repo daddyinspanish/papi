@@ -99,4 +99,30 @@
       answer.style.height = `${answer.scrollHeight}px`;
     });
   });
+
+  // ---------------------------------------------------------------
+  // scroll-driven auto-advance — per direct request: "as I scroll one
+  // question, it goes to the other." Stays a plain accordion (one open
+  // at a time, click still works exactly as above); this layers on top
+  // of it, so scrolling through the list opens whichever question is
+  // currently nearest the center of the viewport, closing the rest —
+  // the visitor never has to click at all to page through the FAQ.
+  // rootMargin trims the observed viewport down to a thin horizontal
+  // band around its vertical center, so "intersecting" only means
+  // "currently the one nearest the middle of the screen," not "visible
+  // at all" (which the tall content around it would satisfy for most
+  // of a scroll anyway).
+  // ---------------------------------------------------------------
+  if('IntersectionObserver' in window){
+    const focusIO = new IntersectionObserver((entries)=>{
+      entries.forEach(entry=>{
+        if(!entry.isIntersecting) return;
+        const item = entry.target;
+        if(item.classList.contains('is-open')) return;
+        items.forEach(other=>{ if(other !== item && other.classList.contains('is-open')) closeItem(other); });
+        openItem(item);
+      });
+    }, { rootMargin: '-42% 0px -42% 0px', threshold: 0 });
+    items.forEach(item => focusIO.observe(item));
+  }
 })();

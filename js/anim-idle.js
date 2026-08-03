@@ -54,7 +54,7 @@
     { root: '#ourProcessSection', extra: ['.process-reveal-title'] },
     { root: '#testimonialsSection', extra: ['.testimonials-hint-icon'] },
     { root: '#comparisonSection', extra: ['.comparison-title em', '.comparison-line--papi', '.comparison-stat-number'] },
-    { root: '#faqSection', extra: ['.faq-hint-icon'] },
+    { root: '#faqSection', extra: [] },
     { root: '#quoteSection', extra: ['.quote-heading', '.quote-heading-shine', '.quote-form-title', '.quote-submit'] },
   ];
 
