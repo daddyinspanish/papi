@@ -20,6 +20,30 @@
    was never a factor on iPhone to begin with. .process-hotspot-dot's
    pulse already has its own pause mechanism (see process-hero.js's
    is-scrolled-away toggle) so it's left out here too.
+
+   #ourProcessSection/.process-reveal-title added per a later full-site
+   heat audit: a separate, parallel pass had already caught this one
+   independently (all 4 process-step reveal titles exist in the DOM
+   simultaneously — see js/scroll-journey-process.js — so all 4 copies
+   of that shine animation ran at once, continuously, regardless of
+   whether that step was ever opened) but built its own bespoke
+   mechanism for it instead of adding it here; consolidated into this
+   file's existing generic one so there's a single canonical off-
+   screen-pause system site-wide.
+
+   BUG FIX, found while verifying that consolidation: `extra` used to
+   be resolved to a fixed `els` array ONCE, when this IIFE first ran —
+   fine for every other group (their `extra` selectors are all plain
+   static markup, already in the DOM by the time any deferred script
+   runs), but .process-reveal-title's 4 real copies are built by
+   js/scroll-journey-process.js, which runs LATER in script order (see
+   index.html) — only the one static default panel existed yet when
+   this file's old fixed snapshot was taken, so the other 3 silently
+   never got toggled at all, forever. Re-querying `extra` live inside
+   the observer callback (which only ever fires later, well after every
+   deferred script has finished) fixes this generically, without
+   needing to special-case which groups involve dynamically-built
+   markup and which don't.
 =================================================================== */
 (function(){
   if(!('IntersectionObserver' in window)) return;
@@ -27,6 +51,7 @@
   const GROUPS = [
     { root: '#hero', extra: ['.process-room-grain', '.process-hero-copy', '.process-hero-title', '.process-hero-cta'] },
     { root: '#liveDemoSection', extra: ['.process-arrival-flame'] },
+    { root: '#ourProcessSection', extra: ['.process-reveal-title'] },
     { root: '#testimonialsSection', extra: ['.testimonials-hint-icon'] },
     { root: '#comparisonSection', extra: ['.comparison-title em', '.comparison-line--papi', '.comparison-stat-number'] },
     { root: '#faqSection', extra: [] },
@@ -36,12 +61,11 @@
   GROUPS.forEach(({ root, extra }) => {
     const container = document.querySelector(root);
     if(!container) return;
-    const els = [container];
-    extra.forEach(sel => container.querySelectorAll(sel).forEach(el => els.push(el)));
 
     const io = new IntersectionObserver((entries) => {
       const idle = !entries[0].isIntersecting;
-      els.forEach(el => el.classList.toggle('is-anim-idle', idle));
+      container.classList.toggle('is-anim-idle', idle);
+      extra.forEach(sel => container.querySelectorAll(sel).forEach(el => el.classList.toggle('is-anim-idle', idle)));
     }, { threshold: 0 });
     io.observe(container);
   });
