@@ -30,7 +30,6 @@
 
   const section = document.getElementById('ourProcessSection');
   const stage = document.getElementById('processStage');
-  const glow = stage ? stage.querySelector('.process-stage-glow') : null;
   const trackFill = document.getElementById('processTrackFill');
   const hotspotLine = document.getElementById('processHotspotLine');
   const hotspots = hotspotLine ? Array.from(hotspotLine.querySelectorAll('.process-hotspot')) : [];
@@ -52,43 +51,6 @@
   }
 
   gsap.registerPlugin(ScrollTrigger);
-
-  // ---- per direct request: "add matrix effect numbers animating left
-  // to right and right to left... to add more life" — two rows of
-  // digits drifting behind the panels in opposite directions, echoing
-  // the hero's own falling-number rain (js/hero-matrix.js) but
-  // horizontal here rather than vertical, since this stage is wide and
-  // shallow rather than tall. Pure CSS transform loops (no canvas, no
-  // rAF) — cheap, and the content is generated once here rather than
-  // hardcoded in index.html since this file already owns building
-  // everything else inside #processStage.
-  (function buildDigitMarquee(){
-    const DIGITS = '0123456789';
-    function randomDigits(len){
-      let out = '';
-      for(let i = 0; i < len; i++) out += DIGITS[(Math.random() * DIGITS.length) | 0];
-      return out;
-    }
-    // spaced into groups purely for visual rhythm (matches the hero
-    // matrix's own single-column-of-digits look less than it echoes a
-    // ticking readout) — content is decorative, not real data
-    function randomRow(){
-      const groups = [];
-      for(let i = 0; i < 18; i++) groups.push(randomDigits(4));
-      return groups.join('  ');
-    }
-    ['process-stage-digits-a', 'process-stage-digits-b'].forEach((cls) => {
-      const row = document.createElement('div');
-      row.className = 'process-stage-digits ' + cls;
-      row.setAttribute('aria-hidden', 'true');
-      const track = document.createElement('span');
-      track.className = 'process-stage-digits-track';
-      const text = randomRow();
-      track.textContent = text + '  ' + text; // doubled for a seamless -50% loop
-      row.appendChild(track);
-      stage.appendChild(row);
-    });
-  })();
 
   // ---- build the 4 panels from the shared STEPS data ----
   const panels = ORDER.map((key) => {
@@ -234,14 +196,6 @@
     markLoaded(activeIndex);
 
     if(trackFill) trackFill.style.transform = 'scaleX(' + progress.toFixed(4) + ')';
-
-    // subtle background-light movement, tied to the same active float —
-    // plain radial-gradient position/opacity shift, no filter:blur (see
-    // .process-stage-glow's own CSS comment)
-    if(glow){
-      const glowShift = (activeFloat - (n - 1) / 2) * 18;
-      gsap.set(glow, { x: glowShift, opacity: 0.4 + 0.2 * Math.sin(activeFloat * Math.PI) });
-    }
   }
 
   // BUG FIX: per report, "the swipe on mobile for the steps is working

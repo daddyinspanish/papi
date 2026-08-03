@@ -69,6 +69,28 @@
     el.addEventListener('mouseleave', ()=> cursor.classList.remove(variantClass));
   });
 
+  // BUG FIX: per report (screenshot attached), the custom cursor gets
+  // visibly "stuck" — frozen mid-shape at a fixed spot — while hovering
+  // the Live Demo section's embedded iframes. Root cause: an iframe is
+  // a separate browsing context with its own document, so once the real
+  // pointer moves onto one, this file's own window-level 'mousemove'
+  // listener (which drives targetX/targetY every frame) stops receiving
+  // events entirely — dotX/ringX/ringY simply stop updating, freezing
+  // the cursor exactly where it was the instant it crossed onto the
+  // iframe. .live-demo-stack's own [data-cursor="drag"] mouseenter/
+  // mouseleave (above) is unaffected by this (mouseleave correctly
+  // never fires just for moving onto a child element), so the frozen
+  // cursor also keeps whatever shape it had — together, a static,
+  // stuck-looking cursor exactly like the one in the report. Hiding the
+  // cursor for as long as the pointer is over any iframe sidesteps the
+  // cross-frame tracking gap outright — the browser's own real cursor
+  // shows over the iframe's own content anyway, and 'is-hidden' clears
+  // itself automatically the moment the pointer re-enters the parent
+  // page and the mousemove listener above starts firing again.
+  document.querySelectorAll('iframe').forEach(frame=>{
+    frame.addEventListener('mouseenter', ()=> cursor.classList.add('is-hidden'));
+  });
+
   function frame(){
     // BUG FIX: found via a MutationObserver audit — this unconditionally
     // called classList.add('is-idle') on every single animation frame
