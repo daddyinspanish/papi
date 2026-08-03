@@ -13,13 +13,13 @@
 
    Dead/unrendered CSS (no matching elements in the DOM right now, so
    not a runtime cost regardless) is deliberately left out: .hero-
-   headline-char, .hero-trusted-track, .process-neon-link, .process-
-   stage-digits-a/-b. The desktop-only cursor-ring glow is also left
-   out — js/cursor.js already fully disables that whole feature on
-   touch devices via its own (hover:none),(pointer:coarse) check, so it
-   was never a factor on iPhone to begin with. .process-hotspot-dot's
-   pulse already has its own pause mechanism (see process-hero.js's
-   is-scrolled-away toggle) so it's left out here too.
+   headline-char, .hero-trusted-track, .process-neon-link. The
+   desktop-only cursor-ring glow is also left out — js/cursor.js already
+   fully disables that whole feature on touch devices via its own
+   (hover:none),(pointer:coarse) check, so it was never a factor on
+   iPhone to begin with. .process-hotspot-dot's pulse already has its
+   own pause mechanism (see process-hero.js's is-scrolled-away toggle)
+   so it's left out here too.
 
    #ourProcessSection/.process-reveal-title added per a later full-site
    heat audit: a separate, parallel pass had already caught this one
@@ -44,6 +44,20 @@
    deferred script has finished) fixes this generically, without
    needing to special-case which groups involve dynamically-built
    markup and which don't.
+
+   #ourProcessSection/.process-stage-digits-track added per a final
+   full-site sweep specifically re-auditing every "infinite" CSS
+   animation against this file's own GROUPS list (rather than assuming
+   past coverage was still complete): the two horizontal digit-marquee
+   rows js/scroll-journey-process.js builds inside this same section
+   (per the older "dead/unrendered" note above, once true — they're
+   real DOM now) were never added here, so they kept scrolling forever
+   once built, regardless of scroll position. Their own transform-only
+   animation is compositor-cheap either way (not the kind of real
+   paint/layout cost the rest of this file exists to stop), but closing
+   the gap makes this section's coverage actually complete rather than
+   leaving one silently-uncovered animation sitting next to ones that
+   are covered.
 =================================================================== */
 (function(){
   if(!('IntersectionObserver' in window)) return;
@@ -51,7 +65,7 @@
   const GROUPS = [
     { root: '#hero', extra: ['.process-room-grain', '.process-hero-copy', '.process-hero-title', '.process-hero-cta', '.process-hero-start'] },
     { root: '#liveDemoSection', extra: ['.process-arrival-flame'] },
-    { root: '#ourProcessSection', extra: ['.process-reveal-title'] },
+    { root: '#ourProcessSection', extra: ['.process-reveal-title', '.process-stage-digits-track'] },
     { root: '#testimonialsSection', extra: ['.testimonials-hint-icon'] },
     { root: '#comparisonSection', extra: ['.comparison-title em', '.comparison-line--papi', '.comparison-stat-number'] },
     { root: '#faqSection', extra: [] },

@@ -112,17 +112,43 @@
   // "currently the one nearest the middle of the screen," not "visible
   // at all" (which the tall content around it would satisfy for most
   // of a scroll anyway).
+  //
+  // BUG FIX: per report, "when I scroll through the questions and form
+  // on Instagram's in-app browser, the page jumps/snaps." Root cause,
+  // confirmed directly: opening an answer changes that item's height in
+  // normal document flow, shifting everything below it — including the
+  // next question and, right at the section boundary, the quote form.
+  // The observer above used to apply that open/close the INSTANT an
+  // item crossed into the center band, i.e. while a real touch/momentum
+  // scroll was still actively in flight — a layout shift landing mid-
+  // gesture fights the OS's own scroll physics, which is exactly what
+  // reads as the page "snapping" to a new position on its own (worse in
+  // Instagram's WKWebView, which handles this less gracefully than
+  // Safari itself). Deferring the actual open/close until scrolling has
+  // gone idle for a moment keeps the feature scroll-driven (it still
+  // auto-advances as you scroll) without ever reflowing content while a
+  // scroll gesture is actively moving the page.
   // ---------------------------------------------------------------
   if('IntersectionObserver' in window){
+    let pendingItem = null;
     const focusIO = new IntersectionObserver((entries)=>{
       entries.forEach(entry=>{
         if(!entry.isIntersecting) return;
-        const item = entry.target;
-        if(item.classList.contains('is-open')) return;
-        items.forEach(other=>{ if(other !== item && other.classList.contains('is-open')) closeItem(other); });
-        openItem(item);
+        pendingItem = entry.target;
       });
     }, { rootMargin: '-42% 0px -42% 0px', threshold: 0 });
     items.forEach(item => focusIO.observe(item));
+
+    function applyPendingFocus(){
+      const item = pendingItem;
+      if(!item || item.classList.contains('is-open')) return;
+      items.forEach(other=>{ if(other !== item && other.classList.contains('is-open')) closeItem(other); });
+      openItem(item);
+    }
+    let scrollIdleTimer = null;
+    window.addEventListener('scroll', ()=>{
+      clearTimeout(scrollIdleTimer);
+      scrollIdleTimer = setTimeout(applyPendingFocus, 140);
+    }, { passive:true });
   }
 })();
