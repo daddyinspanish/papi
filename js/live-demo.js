@@ -64,6 +64,11 @@
       url: 'https://haverstone-remodeling.vercel.app',
     },
     {
+      name: 'Aurelius Golf',
+      industry: 'Golf Equipment',
+      url: 'https://aurelius-golf.vercel.app',
+    },
+    {
       name: 'Atlas Relocation Co.',
       industry: 'Moving & Relocation',
       url: 'https://moving-website-three.vercel.app',

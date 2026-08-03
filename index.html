@@ -149,7 +149,7 @@ setTimeout(function(){
      what the browser's cache thought. BUMP THIS EXACT STRING (all
      occurrences in this file) whenever any css/js file's contents
      change — a stale version string here defeats the entire point. -->
-<link rel="stylesheet" href="css/style.css?v=20260731-5">
+<link rel="stylesheet" href="css/style.css?v=20260731-6">
 
 <!-- structured data — per direct request, so search engines/AI tools
      have an explicit, machine-readable answer for "what is this and
@@ -705,6 +705,18 @@ setTimeout(function(){
      reason: it's a non-blocking corner panel now, not a modal that
      traps focus/interaction. ============ -->
 <div class="newsletter-popup" id="newsletterPopup" aria-hidden="true">
+  <!-- per direct request: "make the Limited Time offer pop up a tab
+       that is minimal, that is bouncing, then when someone clicks it,
+       it pops up to the card itself... instead of just popping up with
+       the whole form out of the blue" — this small pill is what
+       actually appears first (see js/newsletter-popup.js's open()); the
+       full form card below only becomes visible once this is clicked
+       (expand()), so a visitor's first encounter with the offer is a
+       low-commitment nudge, not the whole form landing unannounced. -->
+  <button type="button" class="newsletter-popup-tab" id="newsletterTab" aria-label="Limited-time offer: 10% off your website">
+    <span class="newsletter-popup-tab-badge">10%</span>
+    <span class="newsletter-popup-tab-text">Limited-Time Offer</span>
+  </button>
   <div class="newsletter-popup-card" aria-labelledby="newsletterTitle">
     <button type="button" class="newsletter-popup-close" id="newsletterClose" aria-label="Close">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -746,6 +758,36 @@ setTimeout(function(){
   </div>
 </div>
 
+<!-- ============ FAQ CHATBOT — per direct request: "Add a FAQ chatbot,
+     where someone might ask the most asked questions, and my bot
+     answers them." js/faq-chatbot.js's own knowledge base is sourced
+     verbatim from the same 5 real Q&A pairs already in the FAQ
+     accordion above (#faqList), not invented, plus one safe pricing
+     answer that redirects to the real quote flow instead of stating a
+     fabricated number. Bottom-LEFT corner specifically so it never
+     collides with the newsletter tab's bottom-right one. ============ -->
+<div class="faq-bot" id="faqBot" aria-hidden="true">
+  <button type="button" class="faq-bot-launcher" id="faqBotLauncher" aria-label="Ask a question about Papi">
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+  </button>
+  <div class="faq-bot-panel" role="dialog" aria-labelledby="faqBotTitle">
+    <div class="faq-bot-header">
+      <p class="faq-bot-title" id="faqBotTitle">Ask Papi</p>
+      <button type="button" class="faq-bot-close" id="faqBotClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="faq-bot-log" id="faqBotLog" role="log" aria-live="polite"></div>
+    <div class="faq-bot-suggestions" id="faqBotSuggestions"></div>
+    <form class="faq-bot-form" id="faqBotForm">
+      <input type="text" id="faqBotInput" placeholder="Type a question…" autocomplete="off">
+      <button type="submit" aria-label="Send">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+      </button>
+    </form>
+  </div>
+</div>
+
 <!-- BUG FIX: per report, "black screen, takes 1-3 refreshes to show
      properly" (recurring after the earlier ScrollTrigger-refresh-race
      fix — a separate root cause). Root cause, confirmed directly: these
@@ -771,22 +813,23 @@ setTimeout(function(){
      and init.js's own bounded reveal windows can actually fire on time
      instead of queuing behind an unbounded fetch chain. Confirmed safe:
      none of these files use document.write (defer-incompatible). -->
-<script src="js/accent.js?v=20260731-5" defer></script>
-<script src="js/hero-matrix.js?v=20260731-5" defer></script>
-<script src="js/process-hero.js?v=20260731-5" defer></script>
-<script src="js/title-dock.js?v=20260731-5" defer></script>
-<script src="js/testimonials.js?v=20260731-5" defer></script>
-<script src="js/comparison-chart.js?v=20260731-5" defer></script>
-<script src="js/live-demo.js?v=20260731-5" defer></script>
-<script src="js/faq.js?v=20260731-5" defer></script>
-<script src="js/quote-form.js?v=20260731-5" defer></script>
-<script src="js/newsletter-popup.js?v=20260731-5" defer></script>
-<script src="js/cursor.js?v=20260731-5" defer></script>
-<script src="js/cursor-trail.js?v=20260731-5" defer></script>
-<script src="js/scroll-reveal.js?v=20260731-5" defer></script>
-<script src="js/scroll-dolly.js?v=20260731-5" defer></script>
-<script src="js/scroll-progress.js?v=20260731-5" defer></script>
-<script src="js/anim-idle.js?v=20260731-5" defer></script>
+<script src="js/accent.js?v=20260731-6" defer></script>
+<script src="js/hero-matrix.js?v=20260731-6" defer></script>
+<script src="js/process-hero.js?v=20260731-6" defer></script>
+<script src="js/title-dock.js?v=20260731-6" defer></script>
+<script src="js/testimonials.js?v=20260731-6" defer></script>
+<script src="js/comparison-chart.js?v=20260731-6" defer></script>
+<script src="js/live-demo.js?v=20260731-6" defer></script>
+<script src="js/faq.js?v=20260731-6" defer></script>
+<script src="js/quote-form.js?v=20260731-6" defer></script>
+<script src="js/newsletter-popup.js?v=20260731-6" defer></script>
+<script src="js/faq-chatbot.js?v=20260731-6" defer></script>
+<script src="js/cursor.js?v=20260731-6" defer></script>
+<script src="js/cursor-trail.js?v=20260731-6" defer></script>
+<script src="js/scroll-reveal.js?v=20260731-6" defer></script>
+<script src="js/scroll-dolly.js?v=20260731-6" defer></script>
+<script src="js/scroll-progress.js?v=20260731-6" defer></script>
+<script src="js/anim-idle.js?v=20260731-6" defer></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
      Hero -> Live Demo -> How It's Built. gsap.min.js/ScrollTrigger.min.js
      were already vendored locally from an earlier (since-reverted) 3D
@@ -795,11 +838,11 @@ setTimeout(function(){
      coordinate with via window.PapiDolly) and after live-demo.js earlier
      above (whose cards the hero/live-demo journey files need to already
      exist in the DOM), before init.js. -->
-<script src="js/vendor/gsap/gsap.min.js?v=20260731-5" defer></script>
-<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20260731-5" defer></script>
-<script src="js/scroll-journey-hero.js?v=20260731-5" defer></script>
-<script src="js/scroll-journey-livedemo.js?v=20260731-5" defer></script>
-<script src="js/scroll-journey-process.js?v=20260731-5" defer></script>
-<script src="js/init.js?v=20260731-5" defer></script>
+<script src="js/vendor/gsap/gsap.min.js?v=20260731-6" defer></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20260731-6" defer></script>
+<script src="js/scroll-journey-hero.js?v=20260731-6" defer></script>
+<script src="js/scroll-journey-livedemo.js?v=20260731-6" defer></script>
+<script src="js/scroll-journey-process.js?v=20260731-6" defer></script>
+<script src="js/init.js?v=20260731-6" defer></script>
 </body>
 </html>

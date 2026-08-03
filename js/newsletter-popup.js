@@ -25,9 +25,18 @@
    rest of the page while it's up. Click-outside-to-close replaces the
    old backdrop-click handler, since there's no backdrop element left
    to click on.
+
+   REDESIGNED AGAIN per direct follow-up request: "make the Limited Time
+   offer pop up a tab that is minimal, that is bouncing, then when
+   someone clicks it, it pops up to the card itself, instead of just
+   popping up with the whole form out of the blue." open() below now
+   only reveals the small bouncing .newsletter-popup-tab (see its own
+   CSS); the full form card stays hidden (is-expanded not yet added)
+   until that tab is actually clicked.
 =================================================================== */
 (function(){
   const popup = document.getElementById('newsletterPopup');
+  const tab = document.getElementById('newsletterTab');
   const card = document.querySelector('.newsletter-popup-card');
   const closeBtn = document.getElementById('newsletterClose');
   const form = document.getElementById('newsletterForm');
@@ -45,9 +54,12 @@
     popup.setAttribute('aria-hidden', 'false');
     try { localStorage.setItem(STORAGE_KEY, '1'); } catch(e){ /* private-mode storage can throw — losing the "seen" flag just means it might show again, not a functional break */ }
   }
+  function expand(){
+    popup.classList.add('is-expanded');
+  }
   function close(){
     if(!shown) return;
-    popup.classList.remove('is-visible');
+    popup.classList.remove('is-visible', 'is-expanded');
     popup.setAttribute('aria-hidden', 'true');
   }
 
@@ -82,16 +94,20 @@
     checkTrigger();
   }
 
+  if(tab) tab.addEventListener('click', expand);
   if(closeBtn) closeBtn.addEventListener('click', close);
   window.addEventListener('keydown', (e)=>{
     if(e.key === 'Escape' && popup.classList.contains('is-visible')) close();
   });
   // click-outside-to-close — the popup no longer has a backdrop element
   // to catch this the old way, since it's a small corner card that
-  // doesn't block the rest of the page
+  // doesn't block the rest of the page. Also ignores clicks on the tab
+  // itself, so the same click that expands the card isn't immediately
+  // treated as "outside" and closed right back.
   document.addEventListener('click', (e)=>{
     if(!popup.classList.contains('is-visible')) return;
     if(card && card.contains(e.target)) return;
+    if(tab && tab.contains(e.target)) return;
     close();
   });
 
