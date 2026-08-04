@@ -2304,32 +2304,53 @@ body, a{ cursor:none; }
   display:block;
   background:#fff;
 }
-/* shown in place of the iframe until it's actually scrolled near —
-   see js/live-demo.js's lazy-load — so the frame never sits blank-white
-   for a beat while the real site's own network request is in flight.
-   BUG FIX: this was itself near-white (#f8f6f2) against the page's
-   all-black theme — the embedded client sites are real light-themed
-   websites, so .live-demo-frame-wrap/.live-demo-iframe correctly stay
-   white for once they've actually loaded, but THIS placeholder shows
-   before any real content has painted, while a visitor who scrolls
-   faster than the preload lead time (or hits a cold-starting Vercel
-   deployment) is looking at pure black everywhere else on the page. A
-   ~700px-tall near-white box popping in against that reads as a hard
-   flash, not a loading state — recolored dark to match the surrounding
-   page instead; only the real, loaded embedded site is ever white now. */
+/* shown in place of the iframe until the visitor explicitly clicks to
+   load the live site (js/live-demo.js) — a real <button>, not a plain
+   label, so this doubles as the click target. Dark to match the
+   surrounding all-black page rather than the near-white the embedded
+   client sites themselves use — those stay white once actually loaded
+   (real light-themed sites), but this placeholder needed to not read
+   as a flash of unstyled content against everything else here. */
 .live-demo-loading{
   position:absolute;
   inset:0;
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:.7rem;
+  background:#0d0d10;
+  border:0;
+  cursor:pointer;
+  transition:opacity .4s ease;
+}
+.live-demo-load-icon{
   display:flex;
   align-items:center;
   justify-content:center;
+  width:2.6rem;
+  height:2.6rem;
+  border-radius:50%;
+  border:1px solid rgba(255,221,122,.35);
+  color:#ffdd7a;
+  font-size:.8rem;
+  transition:background .25s ease, transform .25s ease, border-color .25s ease;
+}
+.live-demo-load-btn:hover .live-demo-load-icon,
+.live-demo-load-btn:focus-visible .live-demo-load-icon{
+  background:rgba(255,221,122,.12);
+  border-color:rgba(255,221,122,.6);
+  transform:scale(1.06);
+}
+.live-demo-load-text{
   font-size:.8rem;
   letter-spacing:.1em;
   text-transform:uppercase;
-  color:rgba(243,237,226,.45);
-  background:#0d0d10;
-  transition:opacity .4s ease;
+  color:rgba(243,237,226,.55);
 }
+.live-demo-load-btn:disabled{ cursor:default; }
+.live-demo-load-btn:disabled .live-demo-load-icon{ opacity:.4; }
 .live-demo-card.is-loaded .live-demo-loading{
   opacity:0;
   pointer-events:none;

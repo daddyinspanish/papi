@@ -7,33 +7,37 @@
    when there's more than one; a single demo just sits centered with
    no dots/arrows since there's nothing to browse between yet.
 
-   Each iframe's src is assigned once the section comes within a
-   generous lead distance of the viewport (IntersectionObserver,
-   rootMargin extended well past the bottom edge — see
-   loadWhenNear() below), not the instant the page loads.
+   Every card starts unloaded, showing a "click to load the live site"
+   button in place of the iframe. Nothing here loads automatically —
+   not on page load, not on proximity/scroll, not on swiping to a card
+   — only an explicit click on that card's own button calls loadCard()
+   (below). Each of these embeds is a full separate production site
+   (Velocity's alone makes 100+ requests just for its hero), and this
+   section sits on essentially every visit to the homepage, so anything
+   short of "only load what's actually clicked" turns every visitor
+   into load on 1-4 external sites' worth of traffic whether they
+   wanted to see them or not.
 
-   BUG FIX: per report, "when i refresh the page on safari and mobile,
-   the page sometimes just goes black" — this used to force all 3
-   iframes' src on unconditionally ~400ms after the page's own load
-   event, on EVERY page load/refresh, regardless of whether the
-   visitor had scrolled anywhere near this section yet (it's the very
-   first section after the hero in DOM order, but the hero itself is a
-   300-400%-tall pinned scroll section, so on a fresh load this section
-   actually sits several viewport-heights below scrollY:0). That meant
-   every single refresh forced three separate live production websites
-   — each with their own images/fonts/JS — to start loading into
-   memory at once, on top of everything else this page already does
-   (a continuously-animating canvas, several GSAP pin-spacers, a custom
-   cursor). Mobile Safari has a much tighter per-tab memory ceiling
-   than desktop; tipping over it makes WebKit's own out-of-memory
-   killer silently discard the page, which is exactly a black/blank
-   tab that needs a manual reload — worse, doing this unconditionally
-   on every refresh made it reproducible independent of how far the
-   visitor actually scrolled. A generous proximity margin (see
-   PRELOAD_MARGIN below) keeps the same "no loading flash for a normal
-   scroller" goal this file originally called out, while no longer
-   forcing all 3 sites into memory on a refresh where the visitor
-   hasn't even started scrolling yet.
+   Earlier versions of this file chased the same "don't waste a load"
+   goal with automatic proximity/timer-based preloading instead of a
+   real click, tuned across two real bugs worth remembering since the
+   underlying causes (not the specific fixes) still constrain any
+   future change here:
+
+   - Forcing all iframes to load unconditionally ~400ms after page load
+     (regardless of scroll position) blew past mobile Safari's per-tab
+     memory ceiling and silently discarded the page — "the page
+     sometimes just goes black" on refresh.
+   - Loading ALL cards' iframes at once, even though the swipeable
+     stack only ever shows one at a time, left every other one running
+     its own background JS indefinitely for no visible benefit — this
+     is why loadCard()/the pause-on-scroll-away logic below only ever
+     touch one card, never all of them.
+
+   Click-to-load sidesteps both by construction: nothing loads until a
+   visitor deliberately asks for it, so there's no "how early is early
+   enough" preload-timing tuning to get wrong, and at most one demo is
+   ever the visitor's own explicit choice at a time.
 =================================================================== */
 (function(){
   const section = document.getElementById('liveDemoSection');
@@ -78,6 +82,12 @@
   const n = DEMOS.length;
   const cards = [];
   const dots = [];
+  // indices the visitor has explicitly clicked "load the live site" on
+  // -- gates every automatic load/reload below (swiping to a card,
+  // scrolling back to the section) so nothing ever loads an external
+  // site the visitor didn't ask for, while still feeling seamless for
+  // one they already opted into once
+  const userInitiated = new Set();
 
   DEMOS.forEach((demo, i)=>{
     let host = '';
@@ -92,7 +102,10 @@
           <span class="live-demo-url">${host}</span>
         </div>
         <div class="live-demo-frame-wrap">
-          <span class="live-demo-loading">Loading live site…</span>
+          <button type="button" class="live-demo-loading live-demo-load-btn" aria-label="Load the live ${demo.name} site">
+            <span class="live-demo-load-icon" aria-hidden="true">▶</span>
+            <span class="live-demo-load-text">Click to load the live site</span>
+          </button>
           <iframe class="live-demo-iframe" data-src="${demo.url}" title="${demo.name} — live site preview" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
         </div>
       </div>
@@ -111,6 +124,9 @@
       dotsEl.appendChild(dot);
       dots.push(dot);
     }
+
+    const loadBtn = card.querySelector('.live-demo-load-btn');
+    if(loadBtn) loadBtn.addEventListener('click', ()=>{ userInitiated.add(i); loadCard(i); });
   });
 
   // nothing to browse between with only one demo — matches the CSS's
@@ -122,27 +138,18 @@
     cards[clamped].scrollIntoView({ behavior:'smooth', inline:'center', block:'nearest' });
   }
 
-  // ---- start a single card's iframe loading once the section is
-  // within a generous lead distance of the viewport — see this file's
-  // header comment for why this is proximity-gated now instead of
-  // firing unconditionally on every page load ----
-  //
-  // FURTHER BUG FIX: per follow-up report, "if i want to refresh it the
-  // second time, that is when i get the black screen" — this used to
-  // load ALL 3 demos' iframes at once (loadAllCards()), even though the
-  // swipeable stack only ever shows ONE of them at a time. Two full
-  // external websites were sitting fully loaded in memory the entire
-  // time doing nothing but running their own background JS, for every
-  // single visit. That's 3x the memory footprint the fix above already
-  // targeted, for no visible benefit — and matches the "not the first
-  // refresh, but the one after" pattern exactly: WebKit doesn't
-  // necessarily reclaim 100% of a heavy page's peak memory the instant
-  // it navigates away, so a second reload's own peak, stacked on
-  // whatever the first reload's process hadn't fully released yet, is
-  // what tips it over the ceiling. Loading only the active card (and
-  // the next one on-demand, right as the visitor actually swipes
-  // toward it — see updateActive() below) cuts the steady-state
-  // footprint to one external site instead of three.
+  // ---- every demo starts unloaded, no proximity/timer-based
+  // auto-loading at all -- a real, external production website (with
+  // its own images/fonts/JS, and for Velocity specifically, over a
+  // hundred separate frame-image requests just for its hero) only ever
+  // starts loading in response to an explicit click on that card's own
+  // "click to load the live site" button, wired below in the DEMOS.forEach
+  // loop above. That's the whole fix: zero of these four sites cost
+  // anything for a visitor who never asks to see one, no matter how far
+  // they scroll or how many times they refresh -- previous versions of
+  // this file iterated through proximity margins and preload delays to
+  // chase the same "no loading flash" goal automatically, but the only
+  // way to guarantee zero wasted loads is to not auto-load at all.
   function loadCard(i){
     const card = cards[i];
     if(!card) return;
@@ -150,51 +157,14 @@
     if(!iframe || !iframe.dataset.src) return;
     const src = iframe.getAttribute('src');
     if(src && src !== 'about:blank') return; // already loading/loaded
+    const loadBtn = card.querySelector('.live-demo-load-btn');
+    if(loadBtn){
+      loadBtn.disabled = true;
+      const label = loadBtn.querySelector('.live-demo-load-text');
+      if(label) label.textContent = 'Loading live site…';
+    }
     iframe.addEventListener('load', ()=> card.classList.add('is-loaded'), { once:true });
     iframe.src = iframe.dataset.src;
-  }
-  function startPreloadWatch(){
-    // 150% of the viewport height ahead is comfortably more lead time
-    // than a normal scroll takes to cover, so a visitor who does scroll
-    // this far still never sees the "Loading live site…" placeholder —
-    // but a visitor who never scrolls this far (or reloads the page
-    // before scrolling at all) never forces three external sites into
-    // memory for nothing.
-    const preloadIO = new IntersectionObserver((entries) => {
-      if(!entries[0].isIntersecting) return;
-      preloadIO.disconnect();
-      loadCard(activeIndex);
-    }, { rootMargin: '0px 0px 150% 0px' });
-    preloadIO.observe(section);
-  }
-  if('IntersectionObserver' in window){
-    // BUG FIX: this script tag (see index.html's own script order) runs
-    // BEFORE GSAP/ScrollTrigger even load, so starting the observer
-    // immediately meant its very first proximity check ran against the
-    // page's PRE-pin layout — before the hero's own ~300-400%-tall
-    // pinned scroll distance existed, #liveDemoSection's real on-page
-    // position was still just one short viewport down, well inside the
-    // 150% margin — so this fired instantly on every load regardless of
-    // where the visitor had actually scrolled, completely defeating the
-    // point. Waiting for the same load+settle delay
-    // js/scroll-journey-process.js already uses before its own
-    // ScrollTrigger.refresh() ensures every pin has been fully measured
-    // (and mobile Safari's address bar has settled) before this
-    // observer's math can be trusted.
-    if(document.readyState === 'complete'){
-      setTimeout(startPreloadWatch, 600);
-    } else {
-      window.addEventListener('load', ()=> setTimeout(startPreloadWatch, 600));
-    }
-  } else {
-    // no IntersectionObserver support — fall back to the old
-    // unconditional page-load timer rather than never loading at all,
-    // still only the active card rather than all of them
-    if(document.readyState === 'complete'){
-      setTimeout(()=> loadCard(activeIndex), 400);
-    } else {
-      window.addEventListener('load', ()=> setTimeout(()=> loadCard(activeIndex), 400));
-    }
   }
 
   // ---- pause/resume both iframes based on whether this section is
@@ -207,27 +177,21 @@
   // background, so blanking each iframe's src is the only real way to
   // actually stop that work once the visitor has moved on.
   //
-  // This intentionally does NOT touch anything before the section's
-  // first-ever visit: startPreloadWatch()/loadCard() above already
-  // deliberately starts loading the active card well ahead of scroll
-  // arrival so it never shows its "Loading live site…" placeholder
-  // right as it scrolls in. The section starts off-screen below the
-  // fold, so this observer's very first reading is "not intersecting"
-  // — reacting to that would blank the iframe before the visitor ever
-  // arrives and bring back exactly the loading flash this was built to
-  // avoid. The hasBeenVisible guard makes sure pausing only ever
-  // happens on a real "was visible, now scrolled away" transition.
-  //
-  // Only re-loads cards[activeIndex] on return, not every card — see
-  // loadCard()'s own comment for why this only ever keeps one demo's
-  // iframe alive at a time now.
+  // This never auto-loads a card the visitor hasn't clicked on: only
+  // re-loads cards[activeIndex] on return if it's in userInitiated
+  // (i.e. the visitor already explicitly loaded it once before
+  // scrolling away) -- a card nobody has clicked stays showing its
+  // "click to load" prompt indefinitely, exactly like on first arrival.
+  // The hasBeenVisible guard makes sure pausing only ever happens on a
+  // real "was visible, now scrolled away" transition, not on the
+  // section's first (off-screen) reading at page load.
   if('IntersectionObserver' in window){
     let hasBeenVisible = false;
     const visibilityIO = new IntersectionObserver((entries)=>{
       const isVisible = entries[0].isIntersecting;
       if(isVisible){
         hasBeenVisible = true;
-        loadCard(activeIndex);
+        if(userInitiated.has(activeIndex)) loadCard(activeIndex);
         return;
       }
       if(!hasBeenVisible) return;
@@ -244,34 +208,25 @@
     visibilityIO.observe(section);
   }
 
-  // ---- whichever card sits centered in the stack gets the active dot,
-  // and — per the memory-footprint fix above — is the one whose iframe
-  // actually gets loaded.
+  // ---- whichever card sits centered in the stack gets the active dot.
+  // Swiping to a card no longer auto-loads it -- each card only ever
+  // loads on an explicit click of its own "click to load" button (see
+  // loadCard()'s comment) -- but if the visitor already clicked that
+  // card once earlier in this visit, swiping back to it should feel
+  // seamless rather than making them click again, so this still
+  // reloads it automatically when userInitiated already has it.
   //
-  // BUG FIX: per report, "the Atlas website does not load when I am in
-  // the live demo section" — Atlas is the last (3rd) card, reachable
-  // only by swiping past the first two, which per the fix above is also
-  // the ONLY thing that ever starts its iframe loading (nothing
-  // preloads it upfront anymore). This used to detect the centered card
-  // by polling getBoundingClientRect() on every 'scroll' event,
-  // throttled through requestAnimationFrame — but rAF callbacks are
-  // exactly the kind of work real browsers are free to throttle or
-  // drop entirely (a backgrounded tab, iOS Low Power Mode, Safari's own
-  // aggressive power-saving), and the last card is the one a dropped
-  // frame is most likely to strand mid-swipe, since it takes the most
-  // scrolling to reach. IntersectionObserver's callback is independent
-  // of the page's own rAF loop — the browser guarantees it fires when
-  // an observed element's visibility crosses the threshold regardless
-  // of what else is or isn't running — so this can't go stale the same
-  // way. threshold:0.6 fires only for whichever single card is actually
-  // centered (each card fills most of the stack's width, so only the
-  // one at rest ever crosses 60% visible at once).
+  // Detected via IntersectionObserver (threshold:0.6, fires only for
+  // whichever single card is actually centered) rather than polling
+  // getBoundingClientRect() on scroll, since rAF-throttled polling can
+  // drop frames under real-world conditions (backgrounded tab, iOS Low
+  // Power Mode) and strand the detection mid-swipe.
   let activeIndex = 0;
   function setActive(i){
     if(i === activeIndex) return;
     activeIndex = i;
     dots.forEach((dot, di)=> dot.classList.toggle('is-active', di === activeIndex));
-    loadCard(activeIndex);
+    if(userInitiated.has(activeIndex)) loadCard(activeIndex);
   }
   if(dots[0]) dots[0].classList.add('is-active');
 
