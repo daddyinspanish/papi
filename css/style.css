@@ -937,6 +937,121 @@ body, a{ cursor:none; }
 }
 
 /* ===================================================================
+   CONTENT & FILM — per direct request, a new service section (content
+   strategy + video production, scoped to dental practices). Video
+   grid built by js/content-film.js — see that file for the real-vs-
+   placeholder-card logic.
+=================================================================== */
+.content-film-section{
+  position:relative;
+  z-index:1;
+  background:var(--paper);
+  padding:clamp(4rem, 9vw, 6.5rem) 1.5rem;
+}
+.content-film-inner{
+  max-width:1100px;
+  margin:0 auto;
+  text-align:center;
+}
+.content-film-eyebrow{
+  font-size:.76rem;
+  letter-spacing:.38em;
+  text-transform:uppercase;
+  color:var(--gold-deep);
+  margin-bottom:1rem;
+}
+.content-film-title{
+  font-family:'Fraunces', serif;
+  font-weight:400;
+  font-size:clamp(1.9rem, 4.4vw, 2.8rem);
+  line-height:1.15;
+  color:var(--ink-text);
+  max-width:28ch;
+  margin:0 auto .9rem;
+}
+.content-film-title em{
+  font-style:italic;
+  color:var(--gold-deep);
+}
+.content-film-sub{
+  max-width:520px;
+  margin:0 auto clamp(2.5rem, 5vw, 3.5rem);
+  color:rgba(28,26,22,.68);
+  font-size:1rem;
+  line-height:1.55;
+}
+.content-film-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:clamp(1.2rem, 3vw, 1.8rem);
+  text-align:left;
+}
+@media (max-width:860px){
+  .content-film-grid{ grid-template-columns:1fr; max-width:460px; margin:0 auto; }
+}
+.content-film-card{
+  display:flex;
+  flex-direction:column;
+  border-radius:16px;
+  overflow:hidden;
+  background:#fff;
+  border:1px solid rgba(138,106,31,.16);
+  box-shadow:0 20px 50px -28px rgba(0,0,0,.22);
+}
+.content-film-video{
+  display:block;
+  width:100%;
+  aspect-ratio:16/9;
+  background:#000;
+}
+.content-film-card-title{
+  font-family:'Fraunces', serif;
+  font-weight:600;
+  font-size:1.05rem;
+  color:var(--ink-text);
+  padding:1rem 1.2rem 0;
+}
+.content-film-card-text{
+  font-size:.86rem;
+  line-height:1.5;
+  color:rgba(28,26,22,.62);
+  padding:.4rem 1.2rem 1.2rem;
+}
+/* placeholder slots — a real aspect-ratio frame with a play icon and a
+   plain "Coming soon" tag, so an empty VIDEOS array still reads as
+   "this is a real, intentional section" rather than a broken/empty one */
+.content-film-placeholder-frame{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:.6rem;
+  background:linear-gradient(160deg, #fbf3df, #f3f1ec);
+}
+.content-film-placeholder-icon{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  color:var(--gold-deep);
+  background:#fff;
+  border:1px solid rgba(138,106,31,.3);
+}
+.content-film-placeholder-icon svg{ width:20px; height:20px; }
+.content-film-placeholder-tag{
+  font-size:.7rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:rgba(28,26,22,.45);
+}
+
+/* ===================================================================
    FAQ — light-blue-on-black accordion, one answer open at a time.
 =================================================================== */
 .faq-section{
