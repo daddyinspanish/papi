@@ -32,17 +32,17 @@
      restoring the exact same luminance/contrast relationships the blue
      had (anywhere the blue was legible against black or white, this
      gold still is, since it's the same transform run in reverse).
-     --gold-deep is now also every former rgba(255,221,122,X) hairline
+     --gold-deep is now also every former rgba(52,211,153,X) hairline
      border/glow's RGB (138,106,31 — same values, same alphas), swapped
      in for the same reason as the text/background flip above: a pale
      gold line barely visible against black just disappears entirely
      against white, where the deeper gold still reads as a clear,
      intentional hairline. */
-  --gold: #cba869;
-  --gold-soft: #e4cd9a;
-  --gold-deep: #8a6a1f;
+  --gold: #10b981;
+  --gold-soft: #6ee7b7;
+  --gold-deep: #047857;
 
-  --accent: 203, 168, 105;      /* r,g,b */
+  --accent: 16, 185, 129;      /* r,g,b */
 
   --ease-out: cubic-bezier(.16,1,.3,1);
   --ease-in-out: cubic-bezier(.65,0,.35,1);
@@ -70,8 +70,8 @@
   width:100%;
   transform-origin:left center;
   transform:scaleX(var(--scroll-progress, 0));
-  background:linear-gradient(90deg, #ffd23f, #fff28f);
-  box-shadow:0 0 8px rgba(138,106,31,.5);
+  background:linear-gradient(90deg, #34d399, #a7f3d0);
+  box-shadow:0 0 8px rgba(4,120,87,.5);
 }
 @media (prefers-reduced-motion:reduce){
   .scroll-progress-fill{ transition:none; }
@@ -346,7 +346,7 @@ body, a{ cursor:none; }
   width:2.6rem;
   height:auto;
   flex-shrink:0;
-  filter:drop-shadow(0 0 10px rgba(138,106,31,.35));
+  filter:drop-shadow(0 0 10px rgba(4,120,87,.35));
 }
 .process-arrival-flame{
   transform-origin:30px 66px;
@@ -474,8 +474,8 @@ body, a{ cursor:none; }
   animation:cursorGlowPulse 2.6s ease-in-out infinite;
 }
 @keyframes cursorGlowPulse{
-  0%, 100%{ box-shadow:0 0 16px rgba(138,106,31,.3); }
-  50%{ box-shadow:0 0 28px rgba(138,106,31,.55); }
+  0%, 100%{ box-shadow:0 0 16px rgba(4,120,87,.3); }
+  50%{ box-shadow:0 0 28px rgba(4,120,87,.55); }
 }
 .cursor-dot{
   position:absolute;
@@ -494,8 +494,8 @@ body, a{ cursor:none; }
   animation:cursorGlowPulseActive 1.3s ease-in-out infinite;
 }
 @keyframes cursorGlowPulseActive{
-  0%, 100%{ box-shadow:0 0 24px rgba(138,106,31,.55); }
-  50%{ box-shadow:0 0 40px rgba(138,106,31,.85); }
+  0%, 100%{ box-shadow:0 0 24px rgba(4,120,87,.55); }
+  50%{ box-shadow:0 0 40px rgba(4,120,87,.85); }
 }
 /* Awwwards personality pass — site-wide cursor language (see
    js/cursor.js's generic [data-cursor] hook). Two variants, each a
@@ -515,7 +515,7 @@ body, a{ cursor:none; }
   border-color:var(--gold-deep);
 }
 .custom-cursor.is-view .cursor-ring{
-  border-color:#fff28f;
+  border-color:#a7f3d0;
   animation:cursorGlowPulseActive 1.3s ease-in-out infinite;
 }
 
@@ -557,7 +557,7 @@ body, a{ cursor:none; }
   inset:-15% -10%;
   z-index:0;
   pointer-events:none;
-  background:radial-gradient(circle at 72% 30%, rgba(138,106,31,.08), transparent 60%);
+  background:radial-gradient(circle at 72% 30%, rgba(4,120,87,.08), transparent 60%);
   opacity:.7;
   animation:ambientGlowDrift 26s ease-in-out infinite;
   animation-delay:-6s;
@@ -587,7 +587,7 @@ body, a{ cursor:none; }
   font-size:.72rem;
   letter-spacing:.4em;
   text-transform:uppercase;
-  color:rgba(228,205,154,.65);
+  color:rgba(110,231,183,.65);
 }
 /* its own font on purpose — everything else on the site is Fraunces
    (headings) or Inter (body); Space Grotesk's confident, slightly
@@ -599,7 +599,7 @@ body, a{ cursor:none; }
   font-weight:700;
   letter-spacing:-.01em;
   font-size:clamp(2rem, 5vw, 3.4rem);
-  background:linear-gradient(100deg, var(--ink-text) 30%, #ffdd7a 65%, #ffb400 100%);
+  background:linear-gradient(100deg, var(--ink-text) 30%, #047857 65%, #059669 100%);
   -webkit-background-clip:text;
   background-clip:text;
   color:transparent;
@@ -616,7 +616,7 @@ body, a{ cursor:none; }
    with nothing to clip against). */
 .testimonials-heading-word{
   display:inline-block;
-  /* BUG FIX: per the white rebrand — #ffdd7a is a pale, high-luminance
+  /* BUG FIX: per the white rebrand — #047857 is a pale, high-luminance
      gold that popped clearly against the old near-black section but
      reads as barely-there low-contrast text against the new white one
      (confirmed visually: the whole heading was nearly unreadable).
@@ -638,7 +638,7 @@ body, a{ cursor:none; }
   height:.72em;
   margin-left:.32em;
   vertical-align:-.06em;
-  color:#ffb400;
+  color:#059669;
   opacity:0;
   will-change:opacity, transform;
 }
@@ -809,9 +809,9 @@ body, a{ cursor:none; }
 }
 @keyframes testimonialResultGlitch{
   0%, 100%{ box-shadow:none; border-color:rgba(15,157,88,.3); }
-  30%{ box-shadow:0 0 8px rgba(138,106,31,.45); border-color:var(--gold-deep); }
+  30%{ box-shadow:0 0 8px rgba(4,120,87,.45); border-color:var(--gold-deep); }
   60%{ box-shadow:none; border-color:rgba(15,157,88,.3); }
-  80%{ box-shadow:0 0 6px rgba(138,106,31,.3); border-color:var(--gold-deep); }
+  80%{ box-shadow:0 0 6px rgba(4,120,87,.3); border-color:var(--gold-deep); }
 }
 /* the real "posted on Google" pattern — a small instance of the actual
    4-color Google "G" mark (see js/testimonials.js's GOOGLE_G_SVG)
@@ -845,7 +845,7 @@ body, a{ cursor:none; }
   cursor:none;
   transition:border-color .3s var(--ease-out), color .3s var(--ease-out), background .3s var(--ease-out);
 }
-.testimonial-arrow:hover{ border-color:var(--gold-deep); color:var(--gold-deep); background:rgba(138,106,31,.08); }
+.testimonial-arrow:hover{ border-color:var(--gold-deep); color:var(--gold-deep); background:rgba(4,120,87,.08); }
 @media (hover:none), (pointer:coarse){ .testimonial-arrow{ display:none; } }
 
 .testimonial-dots{
@@ -867,7 +867,7 @@ body, a{ cursor:none; }
 .testimonial-dot.is-active{
   width:22px;
   border-radius:5px;
-  background:#ffdd7a;
+  background:#047857;
 }
 
 /* ===================================================================
@@ -995,7 +995,7 @@ body, a{ cursor:none; }
   border-radius:16px;
   overflow:hidden;
   background:#fff;
-  border:1px solid rgba(138,106,31,.16);
+  border:1px solid rgba(4,120,87,.16);
   box-shadow:0 20px 50px -28px rgba(0,0,0,.22);
 }
 .content-film-video{
@@ -1029,7 +1029,7 @@ body, a{ cursor:none; }
   align-items:center;
   justify-content:center;
   gap:.6rem;
-  background:linear-gradient(160deg, #fbf3df, #f3f1ec);
+  background:linear-gradient(160deg, #d1fae5, #f3f1ec);
 }
 .content-film-placeholder-icon{
   display:flex;
@@ -1040,7 +1040,7 @@ body, a{ cursor:none; }
   border-radius:50%;
   color:var(--gold-deep);
   background:#fff;
-  border:1px solid rgba(138,106,31,.3);
+  border:1px solid rgba(4,120,87,.3);
 }
 .content-film-placeholder-icon svg{ width:20px; height:20px; }
 .content-film-placeholder-tag{
@@ -1077,7 +1077,7 @@ body, a{ cursor:none; }
   inset:-15% -10%;
   z-index:0;
   pointer-events:none;
-  background:radial-gradient(circle at 45% 75%, rgba(138,106,31,.07), transparent 58%);
+  background:radial-gradient(circle at 45% 75%, rgba(4,120,87,.07), transparent 58%);
   opacity:.7;
   animation:ambientGlowDrift 24s ease-in-out infinite;
   animation-delay:-13s;
@@ -1113,9 +1113,9 @@ body, a{ cursor:none; }
    js/faq.js's own scroll-driven auto-advance for the new "scrolling
    moves through the questions" behavior instead of a swipeable row. */
 .faq-item{
-  border-bottom:1px solid rgba(138,106,31,.18);
+  border-bottom:1px solid rgba(4,120,87,.18);
 }
-.faq-item:first-child{ border-top:1px solid rgba(138,106,31,.18); }
+.faq-item:first-child{ border-top:1px solid rgba(4,120,87,.18); }
 .faq-question{
   position:relative;
   width:100%;
@@ -1144,7 +1144,7 @@ body, a{ cursor:none; }
   content:'';
   position:absolute;
   inset:0;
-  background:linear-gradient(100deg, transparent 42%, rgba(138,106,31,.16) 50%, transparent 58%);
+  background:linear-gradient(100deg, transparent 42%, rgba(4,120,87,.16) 50%, transparent 58%);
   transform:translateX(-120%);
   pointer-events:none;
 }
@@ -1159,14 +1159,14 @@ body, a{ cursor:none; }
   flex:0 0 auto;
   width:10px;
   height:10px;
-  border-right:1.5px solid #ffdd7a;
-  border-bottom:1.5px solid #ffdd7a;
+  border-right:1.5px solid #047857;
+  border-bottom:1.5px solid #047857;
   transform:rotate(45deg);
   transition:transform .3s var(--ease-out);
 }
 .faq-item.is-open .faq-chevron{ transform:rotate(-135deg); }
 /* Awwwards personality pass — a brief glitch-spark on the chevron right
-   as a question opens, same highlight color (#fff28f) the hero's own
+   as a question opens, same highlight color (#a7f3d0) the hero's own
    title/CTA glitch-dissolve already established elsewhere on the site.
    Toggled by js/faq.js's openItem(); removed on animationend so it
    never lingers or restarts on its own. */
@@ -1175,8 +1175,8 @@ body, a{ cursor:none; }
 }
 @keyframes faqChevronGlitch{
   0%, 50%, 100%{ border-color:var(--gold-deep); filter:none; }
-  25%{ border-color:#fff28f; filter:drop-shadow(0 0 4px rgba(255,242,143,.85)); }
-  75%{ border-color:#fff28f; filter:drop-shadow(0 0 6px rgba(255,242,143,.85)); }
+  25%{ border-color:#a7f3d0; filter:drop-shadow(0 0 4px rgba(167,243,208,.85)); }
+  75%{ border-color:#a7f3d0; filter:drop-shadow(0 0 6px rgba(167,243,208,.85)); }
 }
 .faq-answer{
   height:0;
@@ -1222,8 +1222,9 @@ body, a{ cursor:none; }
      piece of copy inside this section individually, since the actual
      text colors (var(--ink-text) etc.) are already correct for a light
      background; the section's own background was the one piece still
-     built for the old dark theme. */
-  background:linear-gradient(120deg, #f8f6f2, #fbf1da, #f0dba8, #fbf1da, #f8f6f2);
+     built for the old dark theme. Gold stops swapped for emerald ones
+     per the later site-wide accent color change. */
+  background:linear-gradient(120deg, #f8f6f2, #d1fae5, #a7f3d0, #d1fae5, #f8f6f2);
   background-size:400% 400%;
   animation:quoteBgSweep 26s ease-in-out infinite;
   padding:clamp(4rem, 10vw, 8rem) clamp(1.5rem, 5vw, 4rem);
@@ -1282,7 +1283,7 @@ body, a{ cursor:none; }
    it — its own animation, offset in timing so it doesn't just match
    the backdrop 1:1 the whole time */
 /* BUG FIX: per the white rebrand — this used to be an all-white/pale-
-   gold shine gradient (#fff/#ffe27a/#ffd23f/#fff6d8), which read as a
+   gold shine gradient (#fff/#ffe27a/#34d399/#fff6d8), which read as a
    premium shimmer against the old dark quote-section background but
    has no dark anchor at all, so it goes nearly invisible against the
    new light one (confirmed visually: the heading was barely legible,
@@ -1318,7 +1319,7 @@ body, a{ cursor:none; }
   gap:1.1rem;
 }
 .quote-rating{ display:flex; align-items:center; gap:.7rem; }
-.quote-stars{ color:#ffd23f; letter-spacing:.15em; font-size:1.05rem; }
+.quote-stars{ color:#34d399; letter-spacing:.15em; font-size:1.05rem; }
 .quote-rating-text{ font-size:.9rem; color:rgba(28,26,22,.8); }
 .quote-rating-text strong{ color:var(--ink-text); }
 
@@ -1364,7 +1365,7 @@ body, a{ cursor:none; }
      wrapped around the tabs+stack pair here (rather than on each
      separately) so there's one border, not a visible seam where two
      borders would otherwise meet at the tabs/stack boundary */
-  border:1px solid rgba(138,106,31,.16);
+  border:1px solid rgba(4,120,87,.16);
   /* a plain, static shadow for depth — not a "container background",
      just enough definition that the card doesn't look like it's
      floating flat against the page */
@@ -1580,7 +1581,7 @@ body, a{ cursor:none; }
   padding:1rem 1.5rem;
   border:none;
   border-radius:14px;
-  background:linear-gradient(120deg, #8a6a1f, #ffd23f, #cba869, #8a6a1f);
+  background:linear-gradient(120deg, #047857, #34d399, #10b981, #047857);
   background-size:300% 100%;
   animation:quoteBgSweep 8s ease-in-out infinite;
   color:#0a0908;
@@ -1592,9 +1593,9 @@ body, a{ cursor:none; }
   transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
   /* restored to its original gold glow (see the .quote-field:focus
      box-shadow fix above for the same reversal) */
-  box-shadow:0 16px 34px -14px rgba(138,106,31,.6);
+  box-shadow:0 16px 34px -14px rgba(4,120,87,.6);
 }
-.quote-submit:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -14px rgba(138,106,31,.7); }
+.quote-submit:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -14px rgba(4,120,87,.7); }
 .quote-submit:active{ transform:translateY(0) scale(.98); }
 .quote-submit-check{
   display:none;
@@ -1688,7 +1689,7 @@ body, a{ cursor:none; }
   gap:.55rem;
   padding:.7rem 1.1rem .7rem .6rem;
   border-radius:999px;
-  border:1px solid rgba(138,106,31,.4);
+  border:1px solid rgba(4,120,87,.4);
   background:linear-gradient(160deg, #ffffff, #f3f1ec);
   box-shadow:0 16px 34px -14px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.9);
   color:var(--gold-deep);
@@ -1710,7 +1711,7 @@ body, a{ cursor:none; }
   height:26px;
   flex:0 0 auto;
   border-radius:50%;
-  background:rgba(138,106,31,.18);
+  background:rgba(4,120,87,.18);
   color:var(--gold-deep);
   font-size:.68rem;
   font-weight:800;
@@ -1737,7 +1738,7 @@ body, a{ cursor:none; }
   max-height:calc(100vh - 2.5rem);
   overflow-y:auto;
   background:#ffffff;
-  border:1px solid rgba(138,106,31,.16);
+  border:1px solid rgba(4,120,87,.16);
   border-radius:16px;
   padding:clamp(1.2rem, 3vw, 1.5rem);
   box-shadow:0 24px 60px -16px rgba(0,0,0,.6), 0 4px 18px -4px rgba(0,0,0,.35), inset 0 1px 30px rgba(0,0,0,.28);
@@ -1853,11 +1854,11 @@ body, a{ cursor:none; }
   width:52px;
   height:52px;
   border-radius:50%;
-  border:1px solid rgba(138,106,31,.4);
+  border:1px solid rgba(4,120,87,.4);
   background:linear-gradient(160deg, #ffffff, #f3f1ec);
   color:var(--gold-deep);
   cursor:none;
-  box-shadow:0 16px 34px -14px rgba(0,0,0,.18), 0 0 0 0 rgba(138,106,31,.35), inset 0 1px 0 rgba(255,255,255,.9);
+  box-shadow:0 16px 34px -14px rgba(0,0,0,.18), 0 0 0 0 rgba(4,120,87,.35), inset 0 1px 0 rgba(255,255,255,.9);
   transition:transform .25s var(--ease-out), border-color .25s ease, opacity .25s ease;
   animation:faqBotPulse 3.4s ease-in-out infinite;
 }
@@ -1868,8 +1869,8 @@ body, a{ cursor:none; }
    off-screen-pause treatment, but it's still the right property to
    animate here regardless */
 @keyframes faqBotPulse{
-  0%, 100%{ box-shadow:0 16px 34px -14px rgba(0,0,0,.6), 0 0 0 0 rgba(138,106,31,.35); }
-  50%{ box-shadow:0 16px 34px -14px rgba(0,0,0,.6), 0 0 0 8px rgba(138,106,31,0); }
+  0%, 100%{ box-shadow:0 16px 34px -14px rgba(0,0,0,.6), 0 0 0 0 rgba(4,120,87,.35); }
+  50%{ box-shadow:0 16px 34px -14px rgba(0,0,0,.6), 0 0 0 8px rgba(4,120,87,0); }
 }
 @media (prefers-reduced-motion:reduce){
   .faq-bot-launcher{ animation:none; }
@@ -1883,7 +1884,7 @@ body, a{ cursor:none; }
   display:flex;
   flex-direction:column;
   background:#ffffff;
-  border:1px solid rgba(138,106,31,.16);
+  border:1px solid rgba(4,120,87,.16);
   border-radius:16px;
   box-shadow:0 24px 60px -16px rgba(0,0,0,.6), 0 4px 18px -4px rgba(0,0,0,.35), inset 0 1px 30px rgba(0,0,0,.28);
   opacity:0;
@@ -1908,7 +1909,7 @@ body, a{ cursor:none; }
   align-items:center;
   justify-content:space-between;
   padding:.9rem 1rem;
-  border-bottom:1px solid rgba(138,106,31,.12);
+  border-bottom:1px solid rgba(4,120,87,.12);
   flex:0 0 auto;
 }
 .faq-bot-title{
@@ -1948,7 +1949,7 @@ body, a{ cursor:none; }
 }
 .faq-bot-msg--bot{
   align-self:flex-start;
-  background:rgba(138,106,31,.1);
+  background:rgba(4,120,87,.1);
   color:var(--ink-text);
   border-bottom-left-radius:4px;
 }
@@ -1986,19 +1987,19 @@ body, a{ cursor:none; }
   font-size:.7rem;
   padding:.4rem .7rem;
   border-radius:999px;
-  border:1px solid rgba(138,106,31,.3);
+  border:1px solid rgba(4,120,87,.3);
   background:transparent;
   color:var(--gold-soft);
   cursor:none;
   transition:border-color .2s ease, background .2s ease;
 }
-.faq-bot-chip:hover{ border-color:var(--gold-deep); background:rgba(138,106,31,.08); }
+.faq-bot-chip:hover{ border-color:var(--gold-deep); background:rgba(4,120,87,.08); }
 .faq-bot-form{
   flex:0 0 auto;
   display:flex;
   gap:.5rem;
   padding:.8rem 1rem;
-  border-top:1px solid rgba(138,106,31,.12);
+  border-top:1px solid rgba(4,120,87,.12);
 }
 .faq-bot-form input{
   flex:1;
@@ -2227,7 +2228,7 @@ body, a{ cursor:none; }
   font-size:.85rem;
   color:var(--gold-deep);
   text-decoration:none;
-  border-bottom:1px solid rgba(138,106,31,.4);
+  border-bottom:1px solid rgba(4,120,87,.4);
   padding-bottom:2px;
   cursor:none;
   transition:border-color .3s var(--ease-out);
@@ -2253,7 +2254,7 @@ body, a{ cursor:none; }
   cursor:none;
   transition:border-color .3s var(--ease-out), color .3s var(--ease-out), background .3s var(--ease-out);
 }
-.live-demo-arrow:hover{ border-color:var(--gold-deep); color:var(--gold-deep); background:rgba(138,106,31,.08); }
+.live-demo-arrow:hover{ border-color:var(--gold-deep); color:var(--gold-deep); background:rgba(4,120,87,.08); }
 @media (hover:none), (pointer:coarse){ .live-demo-arrow{ display:none; } }
 /* hidden outright with a single demo — no point browsing a list of one */
 .live-demo-controls.is-single{ display:none; }
@@ -2277,7 +2278,7 @@ body, a{ cursor:none; }
 .live-demo-dot-btn.is-active{
   width:22px;
   border-radius:5px;
-  background:#ffdd7a;
+  background:#047857;
 }
 
 /* ===================================================================
@@ -2418,7 +2419,7 @@ body, a{ cursor:none; }
   display:inline-block;
 }
 .hero-title-char.is-glitching{
-  /* BUG FIX: this used to flash near-white (#fff28f) to pop against the
+  /* BUG FIX: this used to flash near-white (#a7f3d0) to pop against the
      old near-black hero and the title's own gold gradient — against the
      new white hero and the title's new solid dark-ink fill, a near-
      white flash is the one color that would actually vanish mid-
@@ -2428,7 +2429,7 @@ body, a{ cursor:none; }
   background:none;
   -webkit-text-fill-color:var(--gold-deep);
   color:var(--gold-deep);
-  text-shadow:0 0 6px rgba(138,106,31,.5), 0 0 16px rgba(138,106,31,.35);
+  text-shadow:0 0 6px rgba(4,120,87,.5), 0 0 16px rgba(4,120,87,.35);
 }
 /* same technique, applied to the "View our work" button's own text —
    see js/scroll-journey-hero.js's CTA BUTTON GLITCH note. No gradient
@@ -2438,8 +2439,8 @@ body, a{ cursor:none; }
   display:inline-block;
 }
 .hero-cta-char.is-glitching{
-  color:#fff28f;
-  text-shadow:0 0 6px rgba(255,242,143,.85), 0 0 14px rgba(138,106,31,.6);
+  color:#a7f3d0;
+  text-shadow:0 0 6px rgba(167,243,208,.85), 0 0 14px rgba(4,120,87,.6);
 }
 /* per direct request: "dissolve the title" while a step is open — a
    soft fade/blur/lift out, not just a plain opacity cut */
@@ -2714,10 +2715,10 @@ body, a{ cursor:none; }
      it. The glint sweep (::before below) stays; it works over any
      base color. */
   color:#1c1a16;
-  background:linear-gradient(120deg, #8a6a1f, #ffd23f, #cba869, #8a6a1f);
+  background:linear-gradient(120deg, #047857, #34d399, #10b981, #047857);
   background-size:300% 100%;
-  border:1px solid rgba(138,106,31,.4);
-  box-shadow:0 10px 30px -12px rgba(138,106,31,.55), inset 0 1px 0 rgba(255,255,255,.4);
+  border:1px solid rgba(4,120,87,.4);
+  box-shadow:0 10px 30px -12px rgba(4,120,87,.55), inset 0 1px 0 rgba(255,255,255,.4);
   animation:processHeroCtaShine 6.5s ease-in-out infinite;
   transition:transform .25s var(--ease-out), box-shadow .25s var(--ease-out);
 }
@@ -2758,7 +2759,7 @@ body, a{ cursor:none; }
 }
 .process-hero-cta:hover{
   transform:translateY(-2px) scale(1.03);
-  box-shadow:0 14px 38px -12px rgba(138,106,31,.7), inset 0 1px 0 rgba(255,255,255,.5);
+  box-shadow:0 14px 38px -12px rgba(4,120,87,.7), inset 0 1px 0 rgba(255,255,255,.5);
 }
 .process-hero-cta:active{ transform:translateY(0) scale(.98); }
 
@@ -2798,7 +2799,7 @@ body, a{ cursor:none; }
      hero's own palette (see the real-logo SVGs below in index.html). */
   color:var(--gold-deep);
   background:linear-gradient(160deg, #ffffff, #f3f1ec);
-  border:1px solid rgba(138,106,31,.3);
+  border:1px solid rgba(4,120,87,.3);
   box-shadow:0 10px 24px -14px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.9);
   transition:transform .3s var(--ease-out), border-color .25s ease, box-shadow .25s ease, color .25s ease;
 }
@@ -2806,7 +2807,7 @@ body, a{ cursor:none; }
   transform:translateY(-3px) scale(1.08);
   color:var(--gold);
   border-color:var(--gold-deep);
-  box-shadow:0 14px 30px -14px rgba(138,106,31,.45), inset 0 1px 0 rgba(255,255,255,.9);
+  box-shadow:0 14px 30px -14px rgba(4,120,87,.45), inset 0 1px 0 rgba(255,255,255,.9);
 }
 .process-hero-social-link svg{ display:block; width:17px; height:17px; }
 
@@ -2832,9 +2833,9 @@ body, a{ cursor:none; }
      the old translucent dark-glass pill. */
   color:#1c1a16;
   text-decoration:none;
-  background:linear-gradient(120deg, #8a6a1f, #ffd23f, #cba869, #8a6a1f);
+  background:linear-gradient(120deg, #047857, #34d399, #10b981, #047857);
   background-size:300% 100%;
-  border:1px solid rgba(138,106,31,.4);
+  border:1px solid rgba(4,120,87,.4);
   border-radius:999px;
   padding:.7rem 1.5rem;
   transition:transform .25s var(--ease-out);
@@ -2948,7 +2949,7 @@ body, a{ cursor:none; }
   bottom:0;
   width:2px;
   transform:translateX(-50%);
-  background:rgba(138,106,31,.18);
+  background:rgba(4,120,87,.18);
 }
 /* BUG FIX: per direct request, "the number line... actually animates
    from 1 number to the other as it scrolls, with a neon pulsing line
@@ -2970,12 +2971,12 @@ body, a{ cursor:none; }
   transform:translateX(-50%) scaleY(var(--timeline-progress, 0));
   transform-origin:top center;
   background:linear-gradient(180deg, var(--gold-soft), var(--gold), var(--gold-deep));
-  filter:drop-shadow(0 0 6px rgba(255,221,122,.8));
+  filter:drop-shadow(0 0 6px rgba(52,211,153,.8));
   animation:timelineFillGlow 2.4s ease-in-out infinite;
 }
 @keyframes timelineFillGlow{
-  0%, 100%{ filter:drop-shadow(0 0 4px rgba(255,221,122,.6)); }
-  50%{ filter:drop-shadow(0 0 10px rgba(255,221,122,1)); }
+  0%, 100%{ filter:drop-shadow(0 0 4px rgba(52,211,153,.6)); }
+  50%{ filter:drop-shadow(0 0 10px rgba(52,211,153,1)); }
 }
 @media (prefers-reduced-motion:reduce){
   .process-timeline-fill{ animation:none; }
@@ -3010,7 +3011,7 @@ body, a{ cursor:none; }
   font-size:1.1rem;
   color:rgba(28,26,22,.4);
   background:#fff;
-  border:2px solid rgba(138,106,31,.25);
+  border:2px solid rgba(4,120,87,.25);
   /* the ring of --paper matching the page background is what makes the
      line behind it look like it passes BEHIND the circle rather than
      being visibly cut off at its edge */
@@ -3021,12 +3022,12 @@ body, a{ cursor:none; }
   color:#1c1a16;
   border-color:transparent;
   background:linear-gradient(135deg, var(--gold-soft), var(--gold));
-  box-shadow:0 10px 26px -10px rgba(138,106,31,.6), 0 0 0 6px var(--paper);
+  box-shadow:0 10px 26px -10px rgba(4,120,87,.6), 0 0 0 6px var(--paper);
   animation:timelineNumberPop .55s var(--ease-out);
 }
 @keyframes timelineNumberPop{
   0%{ transform:scale(1); }
-  45%{ transform:scale(1.3); box-shadow:0 10px 30px -8px rgba(138,106,31,.8), 0 0 0 6px var(--paper), 0 0 18px rgba(255,221,122,.9); }
+  45%{ transform:scale(1.3); box-shadow:0 10px 30px -8px rgba(4,120,87,.8), 0 0 0 6px var(--paper), 0 0 18px rgba(52,211,153,.9); }
   100%{ transform:scale(1); }
 }
 @media (prefers-reduced-motion:reduce){
@@ -3036,7 +3037,7 @@ body, a{ cursor:none; }
   grid-column:1;
   text-align:left;
   background:#fff;
-  border:1px solid rgba(138,106,31,.16);
+  border:1px solid rgba(4,120,87,.16);
   border-radius:16px;
   padding:clamp(1.4rem, 3vw, 1.9rem) clamp(1.5rem, 3.5vw, 2rem);
   box-shadow:0 24px 60px -30px rgba(0,0,0,.22);

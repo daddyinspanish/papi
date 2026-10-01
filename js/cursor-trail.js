@@ -113,9 +113,8 @@
       p.x += p.vx;
       p.y += p.vy;
       const alpha = (1 - t) * 0.65;
-      // per direct request to move the site's blue accent to gold —
-      // was rgba(122,221,255,*), R/B-swapped like every other color
-      ctx.fillStyle = `rgba(255,221,122,${alpha.toFixed(3)})`;
+      // brand accent color — kept in sync with --gold-soft (#6ee7b7)
+      ctx.fillStyle = `rgba(110,231,183,${alpha.toFixed(3)})`;
       ctx.fillText(p.ch, p.x, p.y);
       return true;
     });
