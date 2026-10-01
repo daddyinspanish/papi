@@ -2,12 +2,11 @@
    Papi — live demos
    Per direct follow-up request, "the screenshots are nice, but it does
    not really show a live site unless you click visit full site... are
-   we able to show the actual live site" — back to real, live iframe
-   embeds (not screenshots), but keeping the screenshot as the card's
-   instant poster so it still looks fully-loaded the moment it scrolls
-   into view, with a "View live site" button overlaid on top of it.
-   Clicking that button swaps the poster for a real <iframe> of the
-   actual production site.
+   we able to show the actual live site" — real, live iframe embeds
+   (not screenshots). Per a further follow-up, the screenshot poster is
+   gone too, replaced by an animated "gas" loader (.live-demo-gas, see
+   its own CSS comment) behind the "View live site" button; clicking it
+   dissolves the gas away into the real production site.
 
    Nothing loads automatically — not on page load, not on proximity/
    scroll, not on swiping to a card — only an explicit click on that
@@ -21,6 +20,12 @@
    an earlier set of demos — see this file's own git history (the
    commit converting iframes to click-to-load) if more detail is ever
    needed than the comments below carry.
+
+   `url` below is each site's own real custom domain (not its
+   *.vercel.app address) per direct request, "have the actual domains
+   for each demo live site" — host/iframe-src/"Visit full site" link
+   are all derived from this one value, so that's the only thing that
+   needed to change.
 =================================================================== */
 (function(){
   const section = document.getElementById('liveDemoSection');
@@ -43,20 +48,17 @@
     {
       name: 'California Dental Group of North Anaheim',
       industry: 'Dentists',
-      url: 'https://cdg-north.vercel.app',
-      screenshot: 'img/live-demo/cdg-north.jpg',
+      url: 'https://cdgnorth.com',
     },
     {
       name: 'Dental Scanning Solutions',
       industry: 'Dental Technology',
-      url: 'https://dental-scanning-solutions.vercel.app',
-      screenshot: 'img/live-demo/dental-scanning-solutions.jpg',
+      url: 'https://dscanningsolutions.com',
     },
     {
       name: 'Figueroa Furniture',
       industry: 'Furniture & Home',
-      url: 'https://figueroa-furniture.vercel.app',
-      screenshot: 'img/live-demo/figueroa-furniture.jpg',
+      url: 'https://figueroa-furniture.com',
     },
   ];
 
@@ -83,12 +85,14 @@
           <span class="live-demo-url">${host}</span>
         </div>
         <div class="live-demo-frame-wrap">
-          <img class="live-demo-screenshot" src="${demo.screenshot}" alt="${demo.name} — website screenshot" loading="lazy">
+          <iframe class="live-demo-iframe" data-src="${demo.url}" title="${demo.name} — live site preview" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+          <div class="live-demo-gas" aria-hidden="true">
+            <span class="live-demo-gas-blob"></span><span class="live-demo-gas-blob"></span><span class="live-demo-gas-blob"></span>
+          </div>
           <button type="button" class="live-demo-load-btn" aria-label="Load the live ${demo.name} site">
             <span class="live-demo-load-icon" aria-hidden="true">▶</span>
             <span class="live-demo-load-text">View live site</span>
           </button>
-          <iframe class="live-demo-iframe" data-src="${demo.url}" title="${demo.name} — live site preview" loading="lazy" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
         </div>
       </div>
       <p class="live-demo-name">${demo.name}</p>

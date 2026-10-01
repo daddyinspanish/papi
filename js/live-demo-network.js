@@ -24,17 +24,27 @@
 
   const CONFIG = {
     // particles per 1000x1000px of canvas area, capped below — keeps
-    // density sane across very tall/short or narrow/wide sections
-    densityPer1e6: 55,
-    minCount: 26,
-    maxCount: 110,
-    linkDistance: 150,
+    // density sane across very tall/short or narrow/wide sections.
+    // Raised per direct request, "make the moving connect lines with
+    // dots more close together, like if they were connected throughout
+    // the background" — denser field + a touch shorter link distance
+    // reads as one continuous mesh rather than scattered pairs.
+    densityPer1e6: 140,
+    minCount: 40,
+    maxCount: 220,
+    linkDistance: 135,
     speed: 0.12,
-    nodeRadius: 1.6,
+    nodeRadius: 1.4,
   };
 
-  const DARK_RGB = [4, 120, 87];     // matches --gold-deep, for the white/light top
-  const LIGHT_RGB = [224, 252, 238]; // pale mint, for the saturated green bottom
+  const DARK_RGB = [4, 120, 87];   // matches --gold-deep, for the white/light top
+  // per direct follow-up request, "make the background color of the
+  // connecting dots a bit more darker" — this used to fade all the way
+  // to a pale, near-white mint toward the bottom; darkened to a deep
+  // green instead so the whole network reads as deliberately dark
+  // rather than washing out against the section's own saturated-green
+  // backdrop down there.
+  const LIGHT_RGB = [10, 70, 52];
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

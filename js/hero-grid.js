@@ -44,6 +44,16 @@
     nearRatio: 0.42,
     farMultiple: 5,
     horizonFrac: 0.16,
+    // per direct report, "on mobile the grid... is not connecting to
+    // the very top, it looks like the grid cuts half of the screen" —
+    // horizonFrac is a FRACTION of the canvas's own height, so the same
+    // 0.16 that reads as a small, unnoticeable gap on a short/wide
+    // desktop window becomes a much taller, more obvious empty band at
+    // the top of a tall, narrow phone screen (16% of 812px is a lot
+    // more dead space than 16% of 674px). Mobile gets a much smaller
+    // fraction so the grid itself starts close to the true top edge.
+    horizonFracMobile: 0.04,
+    mobileWidth: 640,
     nearYFrac: 1.04, // the nearest row lands just past the bottom edge
     // per direct request, "make sure the grid covers the left and right
     // sides of the desktop view, not just the center" — calibrating the
@@ -88,10 +98,11 @@
     W = w;
     H = h;
 
+    const isMobile = window.innerWidth < CONFIG.mobileWidth;
     FOCAL = H * 0.9;
     zNear = FOCAL * CONFIG.nearRatio;
     zFar = zNear * CONFIG.farMultiple;
-    horizonY = H * CONFIG.horizonFrac;
+    horizonY = H * (isMobile ? CONFIG.horizonFracMobile : CONFIG.horizonFrac);
     amplitude = H * CONFIG.amplitudeFrac;
 
     // the nearest row's flat (height 0) point should land at nearYFrac*H;
