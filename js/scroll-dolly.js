@@ -92,7 +92,6 @@
   // neighbor colors; translate-only never has that failure mode).
   const SECTIONS = [
     { id: 'processRoom' },
-    { id: 'comparisonSection', extraY: 14 },
     { id: 'testimonialsSection', extraY: 16 },
     { id: 'faqSection', extraY: 18 },
     { id: 'quoteSection', extraY: 20 },
