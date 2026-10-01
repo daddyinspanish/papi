@@ -2498,6 +2498,16 @@ body, a{ cursor:none; }
   0%, 100%{ transform:translateY(0); }
   50%{ transform:translateY(-3px); }
 }
+/* per direct request to lead the hero with the full offering, not just
+   "websites" — same proportions/color as the other hero-adjacent
+   subheadlines on the page (.quote-sub) for consistency */
+.process-hero-sub{
+  font-family:'Inter', sans-serif;
+  font-size:clamp(1rem, 1.8vw, 1.15rem);
+  line-height:1.55;
+  color:rgba(28,26,22,.75);
+  max-width:38ch;
+}
 @media (prefers-reduced-motion:reduce){
   .process-hero-copy{ animation:none; }
 }
