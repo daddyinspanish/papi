@@ -1,0 +1,171 @@
+/* ===================================================================
+   Papi — Live Demo network background
+   Per direct request, "I would like the background to have more of a
+   background go from white to a more filled green... where there are
+   lines connecting to dots... so it can have more of a web feel" — a
+   classic plexus/constellation canvas: a field of slowly-drifting
+   points, connected by lines whenever two of them are close enough,
+   fading with distance. Pairs with #liveDemoSection's own CSS
+   background gradient (white at the top, brand emerald by the bottom)
+   — node/line color is interpolated vertically too (dark emerald near
+   the top, pale mint near the bottom) so the network stays visible
+   against whichever part of that gradient it's drawn over.
+
+   Plain 2D canvas, same resize/DPR/pause-off-screen conventions as
+   every other background canvas on this site (js/hero-grid.js).
+=================================================================== */
+(function(){
+  const canvas = document.getElementById('liveDemoNetwork');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return;
+  const section = canvas.closest('.live-demo-section');
+  if(!section) return;
+
+  const CONFIG = {
+    // particles per 1000x1000px of canvas area, capped below — keeps
+    // density sane across very tall/short or narrow/wide sections
+    densityPer1e6: 55,
+    minCount: 26,
+    maxCount: 110,
+    linkDistance: 150,
+    speed: 0.12,
+    nodeRadius: 1.6,
+  };
+
+  const DARK_RGB = [4, 120, 87];     // matches --gold-deep, for the white/light top
+  const LIGHT_RGB = [224, 252, 238]; // pale mint, for the saturated green bottom
+
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let W = 0, H = 0, dpr = 1;
+  let points = [];
+
+  function lerp(a, b, t){ return a + (b - a) * t; }
+  function colorAt(ny){
+    const t = Math.max(0, Math.min(1, ny));
+    const r = lerp(DARK_RGB[0], LIGHT_RGB[0], t);
+    const g = lerp(DARK_RGB[1], LIGHT_RGB[1], t);
+    const b = lerp(DARK_RGB[2], LIGHT_RGB[2], t);
+    return [r, g, b];
+  }
+
+  function buildPoints(){
+    const area = W * H;
+    const count = Math.max(CONFIG.minCount, Math.min(CONFIG.maxCount, Math.round((area / 1e6) * CONFIG.densityPer1e6)));
+    points = new Array(count).fill(0).map(() => ({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      vx: (Math.random() * 2 - 1) * CONFIG.speed,
+      vy: (Math.random() * 2 - 1) * CONFIG.speed,
+    }));
+  }
+
+  function resize(){
+    const w = section.clientWidth || window.innerWidth;
+    const h = section.clientHeight || window.innerHeight;
+    if(!w || !h) return;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = w;
+    H = h;
+    buildPoints();
+  }
+
+  function renderFrame(steps){
+    ctx.clearRect(0, 0, W, H);
+
+    points.forEach((p) => {
+      p.x += p.vx * steps;
+      p.y += p.vy * steps;
+      // wrap at the edges rather than bounce — keeps the field reading
+      // as a continuous, undirected drift instead of visibly "bumping"
+      if(p.x < -10) p.x = W + 10; else if(p.x > W + 10) p.x = -10;
+      if(p.y < -10) p.y = H + 10; else if(p.y > H + 10) p.y = -10;
+    });
+
+    const linkDist2 = CONFIG.linkDistance * CONFIG.linkDistance;
+    for(let i = 0; i < points.length; i++){
+      const a = points[i];
+      for(let j = i + 1; j < points.length; j++){
+        const b = points[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d2 = dx * dx + dy * dy;
+        if(d2 > linkDist2) continue;
+        const d = Math.sqrt(d2);
+        const alpha = (1 - d / CONFIG.linkDistance) * 0.5;
+        if(alpha < 0.01) continue;
+        const [r, g, bl] = colorAt(((a.y + b.y) / 2) / H);
+        ctx.strokeStyle = `rgba(${r.toFixed(0)},${g.toFixed(0)},${bl.toFixed(0)},${alpha.toFixed(3)})`;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    }
+
+    points.forEach((p) => {
+      const [r, g, b] = colorAt(p.y / H);
+      ctx.fillStyle = `rgba(${r.toFixed(0)},${g.toFixed(0)},${b.toFixed(0)},0.85)`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, CONFIG.nodeRadius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
+
+  if('ResizeObserver' in window){
+    const ro = new ResizeObserver(() => {
+      clearTimeout(window.__papiLiveDemoNetResizeT);
+      window.__papiLiveDemoNetResizeT = setTimeout(resize, 150);
+    });
+    ro.observe(section);
+  } else {
+    let lastResizeW = window.innerWidth;
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      if(Math.abs(w - lastResizeW) <= 10) return;
+      lastResizeW = w;
+      clearTimeout(window.__papiLiveDemoNetResizeT);
+      window.__papiLiveDemoNetResizeT = setTimeout(resize, 150);
+    });
+  }
+
+  resize();
+
+  if(prefersReducedMotion){
+    renderFrame(0);
+    return;
+  }
+
+  let isVisible = true;
+  let rafId = null;
+  const REFERENCE_FRAME_MS = 1000 / 60;
+  const MAX_STEPS = 4;
+  const RENDER_INTERVAL = 1000 / (window.innerWidth < 640 ? 24 : 36);
+  let lastRenderTs = 0;
+
+  function loop(ts){
+    if(ts - lastRenderTs >= RENDER_INTERVAL){
+      const dt = lastRenderTs ? ts - lastRenderTs : REFERENCE_FRAME_MS;
+      lastRenderTs = ts;
+      const steps = Math.min(dt / REFERENCE_FRAME_MS, MAX_STEPS);
+      renderFrame(steps);
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+  function startLoop(){ if(rafId === null) rafId = requestAnimationFrame(loop); }
+  function stopLoop(){ if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; } }
+  function syncLoop(){ if(isVisible && !document.hidden) startLoop(); else stopLoop(); }
+
+  if('IntersectionObserver' in window){
+    const io = new IntersectionObserver((entries) => {
+      isVisible = entries[0].isIntersecting;
+      syncLoop();
+    }, { threshold: 0 });
+    io.observe(canvas);
+  }
+  document.addEventListener('visibilitychange', syncLoop);
+  startLoop();
+})();

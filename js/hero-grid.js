@@ -22,6 +22,12 @@
    so the framing — near row touching the bottom edge, horizon near the
    top — holds up across any viewport aspect ratio, the same reasoning
    js/hero-matrix.js used for its own resize().
+
+   UPDATED per direct follow-up request, "make the grid form more of a
+   ball point that is moving as the cursor moves around it" — the
+   dominant feature is now a single rounded bump that tracks the cursor
+   (see heightAt()'s own comment below), not an autonomous drifting
+   hill the cursor could only nudge.
 =================================================================== */
 (function(){
   const canvas = document.getElementById('processHeroGrid');
@@ -110,16 +116,15 @@
   }
 
   // ===================================================================
-  // pointer interaction — the cursor presses a soft bump into the
-  // surface, same "ambient but responsive" spirit as the old matrix
-  // rain's cursor-repulsion field. nx/nz below are the cursor's
-  // approximate position in the SAME normalized grid space heightAt()
-  // works in, found by inverting the projection for the nearest row
-  // (see pointermove) rather than a full analytic unproject.
+  // pointer tracking — nx/nz below are the cursor's approximate
+  // position in the SAME normalized grid space heightAt() works in,
+  // found by inverting the projection for the nearest row (see
+  // pointermove) rather than a full analytic unproject. The ball itself
+  // (heightAt's ballX/ballZ) chases this every frame in the render loop
+  // below, rather than snapping straight to it.
   // ===================================================================
   let pointerActive = false;
   let pointerNX = 0, pointerNZ = 0.4;
-  let pointerLift = 0; // smoothed 0..1, eases the bump in/out
 
   const heroSection = canvas.closest('.process-hero');
   if(!prefersReducedMotion && heroSection){
@@ -148,47 +153,41 @@
     heroSection.addEventListener('pointercancel', () => { pointerActive = false; }, { passive: true });
   }
 
-  // nx: -1..1 across the grid's width. nz: 0..1 from near to far.
-  //
-  // Two layers, not one coupled formula — an earlier version multiplied
-  // a symmetric cosine envelope by a few sine terms and it read as a
-  // rigid, perfectly-centered pyramid instead of an organic dune: the
-  // envelope dominated the silhouette and the sines barely varied it
-  // across x. Separating "one broad hill, off-center and drifting" from
-  // "a layer of small ambient ripple texture" and adding them (not
-  // multiplying) matches the reference image's look much more closely.
-  function heightAt(nx, nz, t){
-    const hillX = 0.12 + Math.sin(t * 0.05) * 0.22;
-    const hillZ = 0.44 + Math.cos(t * 0.04) * 0.1;
-    const dx = nx - hillX;
-    const dz = nz - hillZ;
-    // z falloff is deliberately much tighter than the x falloff: rows
-    // near the far edge are already heavily compressed toward the
-    // horizon by perspective, so even a small residual height there
-    // reads as a dramatic-looking spike. Fading the hill fully to ~0
-    // well before nz=1 keeps that compressed band calm.
-    const hill = Math.exp(-(dx * dx) / 0.9 - (dz * dz) / 0.045);
+  // per direct request, "make the grid form more of a ball point that
+  // is moving as the cursor moves around it" — the dominant feature is
+  // now a single, tightly-rounded bump that CHASES the cursor (ballX/
+  // ballZ below, smoothed toward the pointer's position every frame)
+  // rather than an autonomous hill the cursor could only nudge. With no
+  // pointer present (touch devices, or before the first mouse move) it
+  // settles into a slow idle drift instead of sitting dead-center, so
+  // the hero still reads as "alive" with nothing to chase it.
+  let ballX = 0.12, ballZ = 0.42;
 
-    // sin(nz*pi) is 0 at BOTH nz=0 and nz=1 and peaks at nz=0.5 — using
-    // it as a multiplier (not an offset added to a flat base) ensures
-    // the ripple texture also fades out completely at the near and far
-    // edges, for the same compressed-horizon reason as above.
+  // nx: -1..1 across the grid's width. nz: 0..1 from near to far.
+  function heightAt(nx, nz, t){
+    const dx = nx - ballX;
+    const dz = nz - ballZ;
+    // tight, roughly-equal falloff in both axes — a round "ball" rather
+    // than the elongated ridge a wide x/narrow z falloff would produce.
+    // z stays slightly tighter than x since rows near the far edge are
+    // already heavily compressed toward the horizon by perspective, so
+    // even a small residual height there reads as a dramatic-looking
+    // spike.
+    const ball = Math.exp(-(dx * dx) / 0.16 - (dz * dz) / 0.05);
+
+    // faint ambient ripple texture only — kept deliberately subtle so
+    // the ball itself stays the clear, dominant feature. sin(nz*pi) is
+    // 0 at both nz=0 and nz=1 and peaks at nz=0.5, fading the ripple
+    // out at the near/far edges for the same compressed-horizon reason
+    // as the ball's own z falloff above.
     const zTaper = Math.sin(Math.min(Math.max(nz, 0), 1) * Math.PI);
     const ripple = (
       Math.sin(nx * 2.4 + nz * 1.6 + t * 0.3) * 0.5 +
       Math.sin(nx * 1.1 - nz * 2.8 - t * 0.24) * 0.4 +
       Math.sin((nx * 0.7 + nz * 1.3) * 3.1 + t * 0.2) * 0.3
-    ) * zTaper * 0.5;
+    ) * zTaper * 0.22;
 
-    let h = hill * 0.9 + ripple;
-
-    if(pointerLift > 0.001){
-      const pdx = nx - pointerNX;
-      const pdz = nz - pointerNZ;
-      const d2 = pdx * pdx + pdz * pdz;
-      h += Math.exp(-d2 / 0.05) * 1.1 * pointerLift;
-    }
-    return h * amplitude;
+    return (ball * 1.1 + ripple) * amplitude;
   }
 
   function renderFrame(t){
@@ -288,10 +287,19 @@
     if(ts - lastRenderTs >= RENDER_INTERVAL){
       lastRenderTs = ts;
       const t = (ts - startTs) / 1000;
-      // ease the pointer bump in/out rather than snapping, so it reads
-      // as pressing into a soft surface instead of a hard toggle
-      const target = pointerActive ? 1 : 0;
-      pointerLift += (target - pointerLift) * 0.12;
+      // chase the cursor when it's present; otherwise drift slowly on
+      // its own so there's always something to find, not a dead-center
+      // ball waiting for a pointer that touch devices never send
+      let targetX, targetZ;
+      if(pointerActive){
+        targetX = pointerNX;
+        targetZ = Math.max(0.12, Math.min(0.85, pointerNZ));
+      } else {
+        targetX = Math.sin(t * 0.12) * 0.5;
+        targetZ = 0.42 + Math.cos(t * 0.09) * 0.18;
+      }
+      ballX += (targetX - ballX) * 0.08;
+      ballZ += (targetZ - ballZ) * 0.08;
       renderFrame(t);
     }
     rafId = requestAnimationFrame(loop);

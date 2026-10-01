@@ -1,9 +1,16 @@
 /* ===================================================================
-   Papi — Scroll Journey: Hero -> See It Live (portal)
+   Papi — Scroll Journey: Hero -> See It Live
    Per direct request for a GSAP ScrollTrigger cinematic transition:
-   near the end of the hero, pin the section and scale the hero's own
-   visual outward until it fills the viewport like a portal, fading the
-   hero text only near the end (not a whole-section crossfade).
+   near the end of the hero, pin the section and dissolve the hero's own
+   text into a matrix-style character glitch, fading it out only near
+   the end (not a whole-section crossfade).
+
+   REMOVED per direct follow-up request, "do not zoom in when we are
+   scrolling down to the next section" — this used to also be a
+   "portal": the grid canvas and the title both scaled up in lockstep
+   across the same window as the glitch, reading as a zoom/dolly-in.
+   Only the scale-up is gone; the character-level glitch/dissolve and
+   the final opacity fade are unchanged.
 
    REMOVED per direct follow-up report, after three separate rounds of
    bugs from it (showing on page load, staying stuck after the pin
@@ -144,14 +151,11 @@
 
   function clamp01(v){ return Math.max(0, Math.min(1, v)); }
 
-  // maps the pin's own 0-1 progress into a local glitch window that
-  // leads/overlaps the canvas-scale tween just below (0.4-0.75) so the
-  // title has fully dissolved right as the canvas's own zoom is really
-  // taking off. Per-character stagger (a sweep, not every letter
-  // glitching in lockstep) is driven purely by index — no separate
-  // timer loop, matching this site's "everything driven by scroll"
-  // convention already used by js/hero-grid.js's own per-frame wave
-  // recompute.
+  // maps the pin's own 0-1 progress into a local glitch window. Per-
+  // character stagger (a sweep, not every letter glitching in lockstep)
+  // is driven purely by index — no separate timer loop, matching this
+  // site's "everything driven by scroll" convention already used by
+  // js/hero-grid.js's own per-frame wave recompute.
   const GLITCH_START = 0.28, GLITCH_END = 0.7;
   const STAGGER_SPAN = 2.5; // how many characters' worth of overlap are "in flight" at once
   // how far a character falls once fully dissolved, in its own font-size
@@ -159,48 +163,30 @@
   // t*t (quadratic ease-in) reads as gravity picking up speed, not a
   // constant-velocity slide
   const FALL_DISTANCE_EM = 1.8;
-  // must match the titleEl scale tween's own position/duration below —
-  // used to compute (and cancel) the parent's current zoom factor for
-  // any character that's already mid-dissolve, see the FURTHER BUG FIX
-  // note above
-  const SCALE_START = 0.4, SCALE_END = 0.75;
-  let titleScaleTarget = 1.4; // overwritten per breakpoint in mm.add below
-  function currentParentScale(progress){
-    const t = clamp01((progress - SCALE_START) / (SCALE_END - SCALE_START));
-    return 1 + (titleScaleTarget - 1) * t;
-  }
   function updateTitleGlitch(progress){
     if(!titleChars.length) return;
     const raw = clamp01((progress - GLITCH_START) / (GLITCH_END - GLITCH_START));
-    const parentScale = currentParentScale(progress);
-    const counterScale = (1 / parentScale).toFixed(4);
     const n = titleChars.length;
     titleChars.forEach((span, i) => {
       const start = i / n;
       const end = start + STAGGER_SPAN / n;
       const t = clamp01((raw - start) / (end - start));
       if(t <= 0){
-        // untouched — inherits the parent's own zoom naturally, no
-        // override, so the still-intact text keeps scaling with it
         span.textContent = span.dataset.char;
         span.style.opacity = '1';
         span.style.transform = '';
         span.classList.remove('is-glitching');
         return;
       }
-      // translateY first (in the parent's zoomed coordinate space, so
-      // the fall distance stays visually consistent) then scale(counter-
-      // Scale) — cancels the parent's own growth for just this
-      // character, so it holds its natural size and only falls/fades
       if(t >= 1){
         span.style.opacity = '0';
-        span.style.transform = `translateY(${FALL_DISTANCE_EM}em) scale(${counterScale})`;
+        span.style.transform = `translateY(${FALL_DISTANCE_EM}em)`;
         return;
       }
       span.classList.add('is-glitching');
       span.textContent = Math.random() < t ? GLITCH_DIGITS[(Math.random() * 10) | 0] : span.dataset.char;
       span.style.opacity = String(1 - t * 0.35);
-      span.style.transform = `translateY(${(t * t * FALL_DISTANCE_EM).toFixed(3)}em) scale(${counterScale})`;
+      span.style.transform = `translateY(${(t * t * FALL_DISTANCE_EM).toFixed(3)}em)`;
     });
   }
 
@@ -248,7 +234,6 @@
     isMobile: '(max-width: 640px)',
   }, (context) => {
     const isDesktop = context.conditions.isDesktop;
-    titleScaleTarget = isDesktop ? 1.8 : 1.4; // read by currentParentScale() in updateTitleGlitch above
 
     // the hero (#processRoom) is exactly one viewport tall with
     // nothing extra to scroll through first, so ScrollTrigger's
@@ -274,33 +259,14 @@
       },
     });
 
-    // portal: the hero canvas scale-up doesn't start until 40%
-    // into the pin, and finishes at 75% — a real dead zone first, then
-    // a gradual dolly-in (transform+opacity only, per the 60fps
-    // requirement)
-    tl.to(gridCanvas, {
-      scale: isDesktop ? 2.6 : 1.6,
-      transformOrigin: '50% 50%',
-      duration: 0.35,
-      ease: 'sine.inOut',
-    }, 0.4);
-
-    // per direct follow-up request ("make sure the title scales as
-    // well like the matrix in the background") — same 0.4-0.75 window
-    // as the canvas tween just above, so the title zooms in lockstep
-    // with it rather than only the background moving. A smaller target
-    // than the canvas's own 2.6/1.6 (this is foreground text already
-    // mid-dissolve via updateTitleGlitch, not a background layer —
-    // scaling it as aggressively would fight the falling-away motion
-    // instead of reading as one continuous zoom)
-    if(titleEl){
-      tl.to(titleEl, {
-        scale: isDesktop ? 1.8 : 1.4,
-        transformOrigin: '50% 50%',
-        duration: 0.35,
-        ease: 'sine.inOut',
-      }, 0.4);
-    }
+    // REMOVED per direct request, "do not zoom in when we are scrolling
+    // down to the next section" — this used to scale both the grid
+    // canvas (up to 2.6x/1.6x) and the title in lockstep across the
+    // same 0.4-0.75 window as a "portal" dolly-in. The character-level
+    // glitch/dissolve below (updateTitleGlitch/updateCtaGlitch) and the
+    // final opacity fade just below are untouched — only the scale-up
+    // itself is gone, so the transition into #liveDemoSection now reads
+    // as a dissolve, not a zoom.
 
     // hero text fades ONLY in the last 22% — not a whole-section
     // crossfade, per direct request. Stays faded once the pin releases
