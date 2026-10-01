@@ -209,5 +209,4 @@
     });
   }
   bindSmoothScroll('.process-hero-cta');
-  bindSmoothScroll('.process-hero-start');
 })();

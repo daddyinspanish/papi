@@ -50,9 +50,12 @@
     // 0.16 that reads as a small, unnoticeable gap on a short/wide
     // desktop window becomes a much taller, more obvious empty band at
     // the top of a tall, narrow phone screen (16% of 812px is a lot
-    // more dead space than 16% of 674px). Mobile gets a much smaller
-    // fraction so the grid itself starts close to the true top edge.
-    horizonFracMobile: 0.04,
+    // more dead space than 16% of 674px). FOLLOW-UP per direct report,
+    // "still no more blank space in the top" — 0.04 (an earlier fix)
+    // still left a small gap; 0 puts the horizon exactly at the top
+    // edge, so the grid's own vanishing point sits right at y=0 with
+    // nothing above it.
+    horizonFracMobile: 0,
     mobileWidth: 640,
     nearYFrac: 1.04, // the nearest row lands just past the bottom edge
     // per direct request, "make sure the grid covers the left and right
@@ -137,8 +140,16 @@
   let pointerActive = false;
   let pointerNX = 0, pointerNZ = 0.4;
 
+  // per direct request, "I want the grid to have the ball point effect
+  // move on its own, only for mobile" — touch devices have no ambient
+  // hover, so a visitor who never drags a finger across the hero would
+  // otherwise see the ball sit wherever it last settled; binding is
+  // skipped entirely on mobile so the ball ALWAYS runs the idle-drift
+  // path in the render loop below, continuously, rather than waiting on
+  // touch input that may never come.
+  const isMobileDevice = window.innerWidth < CONFIG.mobileWidth;
   const heroSection = canvas.closest('.process-hero');
-  if(!prefersReducedMotion && heroSection){
+  if(!prefersReducedMotion && heroSection && !isMobileDevice){
     const updatePointer = (clientX, clientY) => {
       const rect = canvas.getBoundingClientRect();
       const px = clientX - rect.left;
