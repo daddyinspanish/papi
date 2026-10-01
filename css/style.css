@@ -3047,17 +3047,6 @@ body, a{ cursor:none; }
   gap:clamp(1rem, 2.6vw, 1.6rem);
   transition:opacity .5s ease, filter .5s ease;
 }
-/* per direct request: "make the background in the process section
-   darken when the step is clicked" — process-hero.js toggles this on
-   #ourProcessSection itself the instant a step opens/closes. Stacks
-   with .process-reveal's own radial-gradient darkening (that overlay
-   already sits above this at z-index:8 while open) rather than
-   replacing it — this dims what's still peeking out around/behind the
-   reveal card, so the open step reads as a spotlit focus */
-.our-process-section.is-active .our-process-inner{
-  opacity:.22;
-  filter:blur(3px);
-}
 .our-process-eyebrow{
   font-size:.76rem;
   letter-spacing:.38em;
@@ -3084,352 +3073,125 @@ body, a{ cursor:none; }
   line-height:1.5;
 }
 
-/* per direct request for a GSAP ScrollTrigger cinematic journey — the
-   pinned 400vh depth-travel stage for the 4 process steps (see
-   js/scroll-journey-process.js, which builds the 4 .process-panel
-   children from window.PapiSteps and drives their transform every
-   scroll frame). perspective lives HERE, local to this one stage —
-   never on <body> — after perspective on <body> caused a real bug
-   earlier this session (translateZ projected from the document's
-   vertical midpoint instead of the viewport, dragging the quote
-   section up on top of FAQ on mobile). Panel typography reuses the
-   existing .process-reveal-icon/-index/-title/-text classes directly
-   (same premium metallic-title treatment, no new type rules needed) —
-   only the card chrome itself (background/border/shadow, matching
-   .live-demo-browser's own values for consistency) is new here. */
-.process-stage{
+/* ===================================================================
+   OUR PROCESS TIMELINE — per direct request, modeled on
+   dentalscale.com's "How It Works" section: a plain vertical,
+   scroll-revealed timeline (numbered steps down a connecting line,
+   alternating left/right) instead of the pinned 3D depth-travel
+   carousel this replaced (js/scroll-journey-process.js, deleted —
+   see git history if that version is ever needed again). Built by
+   js/process-hero.js from its own STEPS data; each .process-timeline-
+   step already gets [data-reveal] in that markup, so the fade+rise
+   entrance is the same generic one used site-wide (see this file's own
+   [data-reveal] rule near the top) — no bespoke scroll JS needed here.
+=================================================================== */
+.process-timeline{
   position:relative;
   width:100%;
-  max-width:1100px;
-  height:clamp(360px, 48vh, 480px);
-  margin-top:clamp(2rem, 5vh, 3.5rem);
-  perspective:1400px;
+  max-width:900px;
+  margin-top:clamp(2rem, 5vh, 3rem);
 }
-.process-panel{
-  /* centered via inset:0 + margin:auto (pure layout, no transform) —
-     js/scroll-journey-process.js's own GSAP tweens (xPercent/z/
-     rotationY/scale) are the ONLY transform this element ever gets;
-     centering it via a CSS transform:translate(-50%,-50%) instead would
-     get silently overwritten the first time GSAP touches the inline
-     transform (inline style always wins over a stylesheet rule for the
-     same property), breaking the anchor point entirely */
+/* the connecting line is a pseudo-element (not a real DOM sibling) so
+   it never throws off :nth-child(even)/(odd) below, which is what
+   actually drives the left/right alternation */
+.process-timeline::before{
+  content:'';
   position:absolute;
-  inset:0;
-  margin:auto;
-  height:fit-content;
-  z-index:1;
-  width:min(88vw, 26rem);
-  padding:2.2rem 1.8rem;
-  border-radius:16px;
-  background:#ffffff;
-  border:1px solid rgba(138,106,31,.16);
-  /* BUG FIX: per request to "strengthen depth... add subtle ambient
-     occlusion... without making the scene glossy" — the added `inset`
-     shadow is a standard CSS-only AO fake (darkens just inside the
-     edges, no `filter`). Shared with .live-demo-browser/.testimonial-
-     card below for a consistent card language. No ::after reflection
-     overlay on this element specifically: it uses transform-style:
-     preserve-3d for its GSAP rotationY tilt, and overflow:hidden (which
-     a reflection overlay would need for containment) forces preserve-3d
-     to flatten in every browser — skipped here to protect the 3D
-     depth effect, which matters more for this element. */
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.6), inset 0 1px 30px rgba(0,0,0,.28);
-  text-align:center;
-  transform-style:preserve-3d;
-  will-change:transform, opacity;
-}
-/* BUG FIX: per report, on mobile "you can barely read things because
-   one step is seen behind the other" — a narrower panel here gives
-   js/scroll-journey-process.js's own wider ±78% mobile xPercent shift
-   more room to actually clear the active panel's text instead of
-   still sitting mostly underneath it */
-@media (max-width:640px){
-  .process-panel{ width:min(80vw, 20rem); }
-}
-@media (prefers-reduced-motion:reduce){
-  .process-panel{ position:static; margin:0 auto 1.5rem; }
-  .process-stage{ height:auto; perspective:none; }
-}
-
-/* ---- the 4 steps, now a plain line instead of pinned to photo
-   markers (per direct request — see index.html's own comment on
-   #processHotspotLine for the full "loads as you click" behavior).
-   .process-hotspot itself is just a centering box around its own dot
-   — the label is pulled out via position:absolute below (see
-   .process-hotspot-label) so it never affects the box's own height,
-   which is what keeps every dot's center sitting exactly on
-   .process-hotspot-track's own vertical center for free ---- */
-.process-hotspot-line{
-  position:relative;
-  z-index:5;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  width:min(90vw, 32rem);
-  margin-top:clamp(1.4rem, 3vh, 2.2rem);
-}
-.process-hotspot-track{
-  position:absolute;
-  left:0;
-  right:0;
-  top:50%;
-  height:2px;
-  transform:translateY(-50%);
-  background:rgba(28,26,22,.16);
-  border-radius:999px;
-  overflow:hidden;
-  z-index:0;
-  pointer-events:none;
-}
-.process-hotspot-track-fill{
-  position:absolute;
-  inset:0;
-  transform:scaleX(0);
-  transform-origin:0 50%;
-  background:linear-gradient(90deg, var(--gold-soft), var(--gold), rgba(228,205,154,.9));
-  box-shadow:0 0 14px rgba(212,175,110,.55);
-  transition:transform .7s var(--ease-out);
-}
-.process-hotspot{
-  position:relative;
-  z-index:2;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:none;
-  border:none;
-  padding:.9rem;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-}
-/* per direct request: "add numbers to the dots... do not want people
-   to get confused" — sized up from the old plain 10px dot so a digit
-   actually reads inside it, centered via flex */
-.process-hotspot-dot{
-  width:20px;
-  height:20px;
-  border-radius:50%;
-  background:var(--ink-text);
-  box-shadow:0 0 0 0 rgba(28,26,22,.55);
-  animation:processHotspotPulse 2.6s ease-in-out infinite;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  transition:width .3s var(--ease-out), height .3s var(--ease-out);
-}
-.process-hotspot-number{
-  font-family:'Inter', sans-serif;
-  font-size:.66rem;
-  font-weight:800;
-  color:#16110a;
-  line-height:1;
-  pointer-events:none;
-  user-select:none;
-  transition:font-size .3s var(--ease-out);
-}
-@keyframes processHotspotPulse{
-  0%, 100%{ box-shadow:0 0 0 0 rgba(28,26,22,.4); }
-  50%{ box-shadow:0 0 0 10px rgba(28,26,22,0); }
-}
-/* per direct request: "have number 1 bigger in pulsing, and then
-   switch the bigger pulsing to every other number as they interact"
-   — process-hero.js's own updateEmphasis() keeps exactly one hotspot
-   in this state at a time, starting at #1, moving to the next number
-   in sequence each time any step is opened, so the "which one's next"
-   cue visibly walks 1→2→3→4→1... instead of every dot pulsing
-   identically forever */
-.process-hotspot.is-emphasized .process-hotspot-dot{
-  width:30px;
-  height:30px;
-  animation-name:processHotspotPulseBig;
-  animation-duration:1.8s;
-  animation-timing-function:ease-in-out;
-  animation-iteration-count:infinite;
-}
-.process-hotspot.is-emphasized .process-hotspot-number{
-  font-size:.86rem;
-}
-@keyframes processHotspotPulseBig{
-  0%, 100%{ box-shadow:0 0 0 0 rgba(228,205,154,.6); }
-  50%{ box-shadow:0 0 0 15px rgba(228,205,154,0); }
-}
-/* per direct request: each dot "loads" (permanently) the moment it's
-   clicked — process-hero.js's own markLoaded() adds this class and
-   swaps the number for a checkmark, once per step, forever (not just
-   while its reveal panel is open — that's .is-active below) */
-.process-hotspot.is-loaded .process-hotspot-dot{
-  background:var(--gold);
-}
-.process-hotspot.is-loaded .process-hotspot-number{
-  color:#241b0a;
-}
-/* per direct request: "make the dots stop pulsing when the viewer is
-   in section 2, and when they get back to section 1 they start
-   glowing again" — process-hero.js's own IntersectionObserver toggles
-   this class purely off real scroll intersection (not a viewport-size
-   media query), so it applies identically on desktop and mobile. The
-   second, more specific selector guarantees this wins over the
-   emphasized dot's own animation shorthand-equivalent above regardless
-   of source order (both would otherwise tie on specificity). Targets
-   .our-process-section now that the dots live there instead of the
-   hero (see index.html's own comment on #ourProcessSection). */
-.our-process-section.is-scrolled-away .process-hotspot-dot,
-.our-process-section.is-scrolled-away .process-hotspot.is-emphasized .process-hotspot-dot{
-  animation-play-state:paused;
-}
-/* pulled out of the button's own flex flow (position:absolute) so its
-   height never counts toward .process-hotspot's box — that's what
-   keeps every dot's own vertical center landing exactly on
-   .process-hotspot-track's center regardless of whether a label is
-   currently visible */
-.process-hotspot-label{
-  position:absolute;
-  top:100%;
   left:50%;
-  margin-top:.6rem;
-  transform:translate(-50%, -4px);
-  font-family:'Inter', sans-serif;
-  font-size:.72rem;
-  font-weight:600;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  color:var(--ink-text);
-  opacity:0;
-  transition:opacity .25s ease, transform .25s ease;
-  white-space:nowrap;
-  pointer-events:none;
+  top:0;
+  bottom:0;
+  width:2px;
+  transform:translateX(-50%);
+  background:linear-gradient(180deg, var(--gold-soft), var(--gold), var(--gold-deep));
 }
-.process-hotspot:hover .process-hotspot-label,
-.process-hotspot:focus-visible .process-hotspot-label,
-.process-hotspot.is-active .process-hotspot-label{
-  opacity:1;
-  transform:translate(-50%, 0);
+.process-timeline-step{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:1fr 56px 1fr;
+  column-gap:clamp(1rem, 3vw, 2rem);
+  align-items:center;
 }
-.process-hotspot:hover .process-hotspot-dot,
-.process-hotspot.is-active .process-hotspot-dot{
-  background:var(--gold-soft);
+.process-timeline-step:not(:last-child){
+  margin-bottom:clamp(1.8rem, 5vw, 3rem);
 }
-
-/* ---- reveal panel — a full-bleed radial gradient anchored at
-   --reveal-x/--reveal-y (set by js/process-hero.js to whichever
-   hotspot was actually clicked), so the light reads as spreading
-   outward FROM that exact point, plus the step's own title/copy
-   fading and sliding in on top. One shared panel, re-targeted per
-   click, rather than 4 separate overlays stacking ---- */
-.process-reveal{
-  position:absolute;
-  inset:0;
-  z-index:8;
+.process-timeline-number{
+  grid-column:2;
+  justify-self:center;
+  width:44px;
+  height:44px;
+  border-radius:50%;
   display:flex;
   align-items:center;
   justify-content:center;
-  opacity:0;
-  visibility:hidden;
-  pointer-events:none;
-  /* BUG FIX: a bare "circle at X Y" defaults to farthest-corner sizing
-     — when X/Y sits near an edge (most of these hotspots do), the
-     distance to the FAR corner is huge, so the bright early colour
-     stops (0%-46%) still spread most of the way across the section
-     regardless of which corner they're anchored to, reading as "always
-     centered" rather than "sourced from wherever was clicked." A fixed
-     pixel radius keeps the bright zone visually anchored right at that
-     point instead of scaling with how off-center it happens to be */
-  background:radial-gradient(circle 640px at var(--reveal-x, 50%) var(--reveal-y, 50%), rgba(138,106,31,.55) 0%, rgba(8,12,16,.86) 46%, rgba(4,6,9,.96) 78%);
-  transition:opacity .6s var(--ease-in-out), visibility 0s linear .6s;
-  /* per direct request: "make the steps swipeable... allow for them to
-     be able to swipe into the other step" — pan-y lets real vertical
-     scroll gestures pass through untouched; horizontal ones are
-     entirely ours (process-hero.js calls preventDefault on those once
-     its own direction-lock decides a gesture is horizontal) */
-  touch-action:pan-y;
-}
-.process-reveal.is-visible{
-  opacity:1;
-  visibility:visible;
-  pointer-events:auto;
-  transition:opacity .6s var(--ease-in-out), visibility 0s linear 0s;
-}
-.process-reveal-card{
-  position:relative;
-  max-width:min(90vw, 30rem);
-  text-align:center;
-  padding:0 1.5rem;
-  transform:translateY(14px);
-  opacity:0;
-  transition:opacity .55s var(--ease-out) .1s, transform .55s var(--ease-out) .1s;
-}
-.process-reveal.is-visible .process-reveal-card{
-  opacity:1;
-  transform:translateY(0);
-}
-/* per direct request: swipe-triggered step swaps crossfade this inner
-   wrapper (not the whole card, which would also flicker the close
-   button) on a fast, fixed .16s timing — process-hero.js's own
-   swapToStep() toggles this class then updates the text/icon/anchor
-   underneath while it's invisible, deliberately NOT reusing the
-   card's own slower .55s open/close transition above */
-.process-reveal-content{
-  transition:opacity .16s ease;
-}
-.process-reveal-content.is-swiping{
-  opacity:0;
-}
-.process-reveal-close{
-  position:absolute;
-  top:-2.6rem;
-  right:0;
-  width:2.2rem;
-  height:2.2rem;
-  border-radius:50%;
-  border:1px solid rgba(28,26,22,.4);
-  background:rgba(255,255,255,.06);
-  color:var(--ink-text);
-  font-size:1.3rem;
-  line-height:1;
-  cursor:pointer;
-  transition:background .2s ease, border-color .2s ease;
-}
-.process-reveal-close:hover{ background:rgba(255,255,255,.14); border-color:var(--ink-text); }
-/* per direct request: "add icons to the steps, to show more life" —
-   process-hero.js swaps this single shell's innerHTML per step (see
-   STEPS[key].icon); stroke:currentColor so the color/glow live here,
-   not baked into each icon's own markup */
-.process-reveal-icon{
-  width:42px;
-  height:42px;
-  margin:0 auto .9rem;
-  display:block;
-  color:var(--gold-soft);
-  filter:drop-shadow(0 0 10px rgba(228,205,154,.5));
-}
-.process-reveal-index{
-  display:block;
   font-family:'Space Grotesk', sans-serif;
-  font-size:.85rem;
-  font-weight:600;
-  letter-spacing:.2em;
-  color:var(--gold-soft);
-  margin-bottom:.9rem;
+  font-weight:700;
+  font-size:1.1rem;
+  color:#1c1a16;
+  background:linear-gradient(135deg, var(--gold-soft), var(--gold));
+  /* the ring of --paper matching the page background is what makes the
+     line behind it look like it passes BEHIND the circle rather than
+     being visibly cut off at its edge */
+  box-shadow:0 10px 26px -10px rgba(138,106,31,.6), 0 0 0 6px var(--paper);
 }
-/* BUG FIX: same reasoning as .process-hero-title above — this used to
-   share that element's gold/cream brushed-metal gradient, which went
-   invisible once this panel's own card background flipped from
-   #0d0d10 to white as part of the site-wide white rebrand. Flattened
-   to the same solid dark ink fill rather than a bespoke dark-toned
-   shine. */
-.process-reveal-title{
-  font-family:'Fraunces', serif;
-  font-style:italic;
-  font-weight:400;
-  font-size:clamp(2rem, 4.5vw, 3rem);
-  margin-bottom:1.1rem;
-  color:var(--ink-text);
+.process-timeline-card{
+  grid-column:1;
+  text-align:left;
+  background:#fff;
+  border:1px solid rgba(138,106,31,.16);
+  border-radius:16px;
+  padding:clamp(1.4rem, 3vw, 1.9rem) clamp(1.5rem, 3.5vw, 2rem);
+  box-shadow:0 24px 60px -30px rgba(0,0,0,.22);
 }
-.process-reveal-text{
+.process-timeline-step:nth-child(even) .process-timeline-card{
+  grid-column:3;
+}
+.process-timeline-step-label{
   font-family:'Inter', sans-serif;
-  font-size:1rem;
-  line-height:1.6;
-  color:rgba(28,26,22,.82);
+  font-size:.74rem;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--gold-deep);
+  margin-bottom:.3rem;
+}
+.process-timeline-title{
+  font-family:'Fraunces', serif;
+  font-weight:600;
+  font-size:clamp(1.2rem, 2.6vw, 1.5rem);
+  color:var(--ink-text);
+  margin-bottom:.5rem;
+}
+.process-timeline-text{
+  font-family:'Inter', sans-serif;
+  font-size:.92rem;
+  line-height:1.55;
+  color:rgba(28,26,22,.72);
+  margin-bottom:.8rem;
+}
+.process-timeline-tags{
+  font-family:'Inter', sans-serif;
+  font-size:.74rem;
+  font-weight:600;
+  letter-spacing:.03em;
+  color:rgba(28,26,22,.45);
+}
+/* below ~720px there isn't enough width either side of a centered line
+   for an alternating card to read comfortably — the line and every
+   number move to the left edge instead, matching the standard "simple
+   vertical list" fallback this kind of timeline collapses to on
+   narrow screens, cards always to the right of their own number */
+@media (max-width:720px){
+  .process-timeline::before{ left:22px; transform:none; }
+  .process-timeline-step{
+    grid-template-columns:44px 1fr;
+    column-gap:1rem;
+  }
+  .process-timeline-number{ grid-column:1; }
+  .process-timeline-card,
+  .process-timeline-step:nth-child(even) .process-timeline-card{
+    grid-column:2;
+  }
 }
 
 /* mobile portrait tweaks — kept scoped to portrait only (matches this
@@ -3467,8 +3229,6 @@ body, a{ cursor:none; }
     padding:.55rem 1.1rem;
     font-size:.68rem;
   }
-  .process-hotspot-label{ display:none; }
-  .process-reveal-card{ padding:0 1.25rem; }
 }
 
 /* per iPhone-heat investigation: sitewide "infinite" CSS keyframe

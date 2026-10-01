@@ -185,7 +185,7 @@ setTimeout(function(){
      what the browser's cache thought. BUMP THIS EXACT STRING (all
      occurrences in this file) whenever any css/js file's contents
      change — a stale version string here defeats the entire point. -->
-<link rel="stylesheet" href="css/style.css?v=20261001-2">
+<link rel="stylesheet" href="css/style.css?v=20261001-4">
 
 <!-- structured data — per direct request, so search engines/AI tools
      have an explicit, machine-readable answer for "what is this and
@@ -278,9 +278,8 @@ setTimeout(function(){
            quote section's own full-color brand-SVG icons verbatim.
            Per direct follow-up feedback ("make the social icons feel
            part of the theme, those icons look old") these are now
-           simple single-color line icons (same stroke-based style as
-           .process-reveal-icon elsewhere on this page) sitting in a
-           glass-pill circle matching .process-hero-start's own look,
+           simple single-color line icons sitting in a glass-pill
+           circle matching .process-hero-start's own look,
            instead of full-color brand logos that clashed with the
            rest of this hero's monochrome aqua/cream palette. Real
            profile URLs wired in — see the matching set in .quote-social
@@ -401,64 +400,15 @@ setTimeout(function(){
   <div class="our-process-inner">
     <p class="our-process-eyebrow" data-reveal>How It's Built</p>
     <h2 class="our-process-title" data-reveal data-reveal-delay="100">Here's exactly <em>how we build it.</em></h2>
-    <p class="our-process-sub" data-reveal data-reveal-delay="200">Tap each step to see what actually happens along the way.</p>
+    <p class="our-process-sub" data-reveal data-reveal-delay="200">One system, from first conversation to a site that's live.</p>
 
-    <div class="process-hotspot-line" id="processHotspotLine">
-      <div class="process-hotspot-track" aria-hidden="true">
-        <div class="process-hotspot-track-fill" id="processTrackFill"></div>
-      </div>
-      <button type="button" class="process-hotspot" data-step="discover">
-        <span class="process-hotspot-dot"><span class="process-hotspot-number">1</span></span>
-        <span class="process-hotspot-label">Discover</span>
-      </button>
-      <button type="button" class="process-hotspot" data-step="steps">
-        <span class="process-hotspot-dot"><span class="process-hotspot-number">2</span></span>
-        <span class="process-hotspot-label">Steps</span>
-      </button>
-      <button type="button" class="process-hotspot" data-step="structure">
-        <span class="process-hotspot-dot"><span class="process-hotspot-number">3</span></span>
-        <span class="process-hotspot-label">Structure</span>
-      </button>
-      <button type="button" class="process-hotspot" data-step="delivery">
-        <span class="process-hotspot-dot"><span class="process-hotspot-number">4</span></span>
-        <span class="process-hotspot-label">Delivery</span>
-      </button>
-    </div>
-
-    <!-- per direct request for a GSAP ScrollTrigger cinematic journey:
-         "turn the four process steps into one pinned scroll-controlled
-         sequence... objects should visibly travel through depth" —
-         js/scroll-journey-process.js builds 4 .process-panel elements
-         here from window.PapiSteps (js/process-hero.js's own single
-         source of truth for the step copy/icons — no content duplicated
-         in this markup) and pins this whole section for ~400vh, moving
-         each panel through z/rotationY/scale/opacity as you scroll. The
-         hotspot dots above stay in place, now doubling as a live
-         progress indicator during the pin. -->
-    <div class="process-stage" id="processStage" data-reveal data-cursor="drag"></div>
-  </div>
-
-  <!-- per direct request: "make the steps swipeable... allow for them
-       to be able to swipe into the other step" — process-hero.js's own
-       pointer-based swipe handler listens on this whole overlay; a
-       swipe-triggered content swap toggles .is-swiping on
-       .process-reveal-content (a quick crossfade, not the close
-       button's own container) instead of replaying the full open/
-       close animation. -->
-  <div class="process-reveal" id="processReveal" aria-hidden="true">
-    <div class="process-reveal-card">
-      <button type="button" class="process-reveal-close" aria-label="Close">&times;</button>
-      <div class="process-reveal-content" id="processRevealContent">
-        <!-- per direct request: "add icons to the steps, to show more
-             life" — one shared <svg> shell; process-hero.js swaps its
-             innerHTML per step (see STEPS[key].icon) rather than
-             toggling 4 separate <svg> elements -->
-        <svg class="process-reveal-icon" id="processRevealIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg>
-        <span class="process-reveal-index" id="processRevealIndex">1</span>
-        <h2 class="process-reveal-title" id="processRevealTitle">Discover</h2>
-        <p class="process-reveal-text" id="processRevealText"></p>
-      </div>
-    </div>
+    <!-- per direct request, modeled on dentalscale.com's "How It
+         Works" timeline: a plain vertical scroll-reveal track instead
+         of the old pinned/swipeable 3D panel carousel. Built by
+         js/process-hero.js from its own STEPS data (single source of
+         truth, same as before) — see that file for the exact markup
+         each .process-timeline-step gets. -->
+    <div class="process-timeline" id="processTimeline"></div>
   </div>
 </section>
 
@@ -869,37 +819,41 @@ setTimeout(function(){
      and init.js's own bounded reveal windows can actually fire on time
      instead of queuing behind an unbounded fetch chain. Confirmed safe:
      none of these files use document.write (defer-incompatible). -->
-<script src="js/accent.js?v=20261001-2" defer></script>
-<script src="js/hero-matrix.js?v=20261001-2" defer></script>
-<script src="js/process-hero.js?v=20261001-2" defer></script>
-<script src="js/title-dock.js?v=20261001-2" defer></script>
-<script src="js/testimonials.js?v=20261001-2" defer></script>
-<script src="js/comparison-chart.js?v=20261001-2" defer></script>
-<script src="js/logo-marquee.js?v=20261001-2" defer></script>
-<script src="js/live-demo.js?v=20261001-2" defer></script>
-<script src="js/faq.js?v=20261001-2" defer></script>
-<script src="js/quote-form.js?v=20261001-2" defer></script>
-<script src="js/newsletter-popup.js?v=20261001-2" defer></script>
-<script src="js/faq-chatbot.js?v=20261001-2" defer></script>
-<script src="js/cursor.js?v=20261001-2" defer></script>
-<script src="js/cursor-trail.js?v=20261001-2" defer></script>
-<script src="js/scroll-reveal.js?v=20261001-2" defer></script>
-<script src="js/scroll-dolly.js?v=20261001-2" defer></script>
-<script src="js/scroll-progress.js?v=20261001-2" defer></script>
-<script src="js/anim-idle.js?v=20261001-2" defer></script>
+<script src="js/accent.js?v=20261001-4" defer></script>
+<script src="js/hero-matrix.js?v=20261001-4" defer></script>
+<script src="js/process-hero.js?v=20261001-4" defer></script>
+<script src="js/title-dock.js?v=20261001-4" defer></script>
+<script src="js/testimonials.js?v=20261001-4" defer></script>
+<script src="js/comparison-chart.js?v=20261001-4" defer></script>
+<script src="js/logo-marquee.js?v=20261001-4" defer></script>
+<script src="js/live-demo.js?v=20261001-4" defer></script>
+<script src="js/faq.js?v=20261001-4" defer></script>
+<script src="js/quote-form.js?v=20261001-4" defer></script>
+<script src="js/newsletter-popup.js?v=20261001-4" defer></script>
+<script src="js/faq-chatbot.js?v=20261001-4" defer></script>
+<script src="js/cursor.js?v=20261001-4" defer></script>
+<script src="js/cursor-trail.js?v=20261001-4" defer></script>
+<script src="js/scroll-reveal.js?v=20261001-4" defer></script>
+<script src="js/scroll-dolly.js?v=20261001-4" defer></script>
+<script src="js/scroll-progress.js?v=20261001-4" defer></script>
+<script src="js/anim-idle.js?v=20261001-4" defer></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
-     Hero -> Live Demo -> How It's Built. gsap.min.js/ScrollTrigger.min.js
-     were already vendored locally from an earlier (since-reverted) 3D
-     process-room build — reused here rather than re-downloaded, no new
-     dependency. Loaded after scroll-dolly.js (which the journey files
-     coordinate with via window.PapiDolly) and after live-demo.js earlier
-     above (whose cards the hero/live-demo journey files need to already
-     exist in the DOM), before init.js. -->
-<script src="js/vendor/gsap/gsap.min.js?v=20261001-2" defer></script>
-<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261001-2" defer></script>
-<script src="js/scroll-journey-hero.js?v=20261001-2" defer></script>
-<script src="js/scroll-journey-livedemo.js?v=20261001-2" defer></script>
-<script src="js/scroll-journey-process.js?v=20261001-2" defer></script>
-<script src="js/init.js?v=20261001-2" defer></script>
+     Hero -> Live Demo. gsap.min.js/ScrollTrigger.min.js were already
+     vendored locally from an earlier (since-reverted) 3D process-room
+     build — reused here rather than re-downloaded, no new dependency.
+     Loaded after scroll-dolly.js (which the journey files coordinate
+     with via window.PapiDolly) and after live-demo.js earlier above
+     (whose cards the hero/live-demo journey files need to already
+     exist in the DOM), before init.js.
+     js/scroll-journey-process.js (the pinned 3D "How It's Built" panel
+     carousel this same pattern used to drive too) is gone — per direct
+     request, that section is now a plain vertical scroll-reveal
+     timeline instead (js/process-hero.js), no GSAP pin needed there
+     anymore. -->
+<script src="js/vendor/gsap/gsap.min.js?v=20261001-4" defer></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261001-4" defer></script>
+<script src="js/scroll-journey-hero.js?v=20261001-4" defer></script>
+<script src="js/scroll-journey-livedemo.js?v=20261001-4" defer></script>
+<script src="js/init.js?v=20261001-4" defer></script>
 </body>
 </html>

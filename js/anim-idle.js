@@ -17,21 +17,14 @@
    desktop-only cursor-ring glow is also left out — js/cursor.js already
    fully disables that whole feature on touch devices via its own
    (hover:none),(pointer:coarse) check, so it was never a factor on
-   iPhone to begin with. .process-hotspot-dot's pulse already has its
-   own pause mechanism (see process-hero.js's is-scrolled-away toggle)
-   so it's left out here too.
+   iPhone to begin with.
 
-   #ourProcessSection/.process-reveal-title added per a later full-site
-   heat audit: a separate, parallel pass had already caught this one
-   independently (all 4 process-step reveal titles exist in the DOM
-   simultaneously — see js/scroll-journey-process.js — so all 4 copies
-   of that shine animation ran at once, continuously, regardless of
-   whether that step was ever opened) but built its own bespoke
-   mechanism for it instead of adding it here; consolidated into this
-   file's existing generic one so there's a single canonical off-
-   screen-pause system site-wide.
+   #ourProcessSection used to need an entry here (its old pinned 3D
+   panel carousel had a continuously-running title shine) — removed
+   entirely now that section is a plain vertical timeline with no
+   infinite CSS animation left to pause (see js/process-hero.js).
 
-   BUG FIX, found while verifying that consolidation: `extra` used to
+   BUG FIX, found while this file still had that entry: `extra` used to
    be resolved to a fixed `els` array ONCE, when this IIFE first ran —
    fine for every other group (their `extra` selectors are all plain
    static markup, already in the DOM by the time any deferred script
@@ -51,7 +44,6 @@
   const GROUPS = [
     { root: '#hero', extra: ['.process-room-grain', '.process-hero-copy', '.process-hero-title', '.process-hero-cta', '.process-hero-start'] },
     { root: '#liveDemoSection', extra: ['.process-arrival-flame'] },
-    { root: '#ourProcessSection', extra: ['.process-reveal-title'] },
     { root: '#testimonialsSection', extra: ['.testimonials-hint-icon'] },
     { root: '#comparisonSection', extra: ['.comparison-title em', '.comparison-line--papi', '.comparison-stat-number'] },
     { root: '#faqSection', extra: [] },

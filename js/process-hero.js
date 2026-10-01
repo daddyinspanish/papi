@@ -1,82 +1,106 @@
 /* ===================================================================
-   Papi — Process Hero + Our Process interactions
-   Two independent jobs (used to be three — see js/scroll-journey-
-   process.js for what replaced the old job #1 below):
+   Papi — Process Hero + Our Process timeline
+   Two independent jobs:
    1. Smooth-scrolling for both hero CTAs, replacing the browser's
       own instant anchor-jump with a real scrollIntoView so it reads
       as a natural, eased scroll rather than a snap.
-   2. Pausing the hotspot dots' pulse once #ourProcessSection scrolls
-      out of view.
+   2. Building the "How It's Built" vertical timeline from STEPS below
+      (single source of truth for the step copy/icons).
 
-   The old job #1 here used to be a click-to-open modal reveal panel
-   (one shared overlay, radial-gradient-anchored at whichever hotspot
-   was clicked, with a hero-title dissolve/glitch tied to its open/
-   close state). Per direct request for a GSAP ScrollTrigger cinematic
-   journey through the 4 steps, that's fully replaced by
-   js/scroll-journey-process.js's own pinned, scroll-driven depth-travel
-   panels — hotspot clicks now scroll to that step's position in the
-   pinned sequence instead of opening a modal, and the hotspot dots'
-   is-active/is-emphasized/is-loaded states and #processTrackFill are
-   now driven continuously by scroll progress there instead of by click
-   count here. STEPS below is still this file's own responsibility
-   (single source of truth for the step copy/icons) — exposed on
-   window so the new file can build its panels from the same data
-   without duplicating any copy.
+   This file used to also drive a click-to-open modal reveal panel,
+   then (per a later direct request for a GSAP ScrollTrigger cinematic
+   journey) a pinned, scroll-driven 3D depth-travel carousel built by
+   js/scroll-journey-process.js. Per a further direct request, modeled
+   on dentalscale.com's "How It Works" section, that's replaced again
+   with a plain vertical timeline — numbered steps down a connecting
+   line, alternating left/right, revealing on scroll like every other
+   section on the page (js/scroll-reveal.js's existing [data-reveal]
+   mechanism) instead of a bespoke pin/carousel. See this file's own
+   git history if the swipeable/pinned version is ever needed again.
 =================================================================== */
 (function(){
   const hero = document.querySelector('.process-hero');
-  const stepsSection = document.querySelector('.our-process-section');
-  if(!hero && !stepsSection) return;
+  const timeline = document.getElementById('processTimeline');
+  if(!hero && !timeline) return;
 
   // per direct request: "make sure the steps do not come out as
   // double digits" — single digit (1/2/3/4), not the old zero-padded
-  // 01/02/03/04. Per a later direct request ("add icons to the
-  // steps, to show more life") each step also carries its own inline-
-  // SVG inner markup (no outer <svg> tag).
-  const STEPS = {
-    discover: {
+  // 01/02/03/04. `tags` is a short, plain-language list of what that
+  // phase actually covers — same spirit as dentalscale.com's own
+  // per-step tag line, not a literal copy of their wording.
+  const STEPS = [
+    {
       index: '1',
       title: 'Discover',
       text: 'We start by learning your business inside and out — your goals, your customers, what’s working and what isn’t.',
-      icon: '<circle cx="10" cy="10" r="6"/><line x1="14.5" y1="14.5" x2="20" y2="20"/>',
+      tags: 'Research · Goals · Competitors',
     },
-    steps: {
+    {
       index: '2',
       title: 'Steps',
       text: 'A clear, honest roadmap from first sketch to final launch, so you always know exactly what happens next.',
-      icon: '<path d="M4 20v-4h4v-4h4v-4h4v-4h4"/>',
+      tags: 'Roadmap · Milestones · Timeline',
     },
-    structure: {
+    {
       index: '3',
       title: 'Structure',
       text: 'Real, considered architecture beneath every page — built to hold up as your business grows, not just look good on day one.',
-      icon: '<rect x="3.5" y="3.5" width="7.5" height="7.5" rx="1.2"/><rect x="13" y="3.5" width="7.5" height="7.5" rx="1.2"/><rect x="3.5" y="13" width="7.5" height="7.5" rx="1.2"/><rect x="13" y="13" width="7.5" height="7.5" rx="1.2"/>',
+      tags: 'Content model · Navigation · SEO foundations',
     },
-    delivery: {
+    {
       index: '4',
       title: 'Delivery',
       text: 'A finished site that’s fast, easy to manage, and ready to start bringing in business from day one.',
-      icon: '<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>',
+      tags: 'Launch · Handoff · Training',
     },
-  };
+  ];
 
-  // js/scroll-journey-process.js builds its 4 depth-travel panels from
-  // this exact same data (single source of truth, no copy duplicated
-  // in HTML) — the DOM order of the hotspot buttons below is the
-  // canonical step order.
-  window.PapiSteps = STEPS;
-  window.PapiStepOrder = ['discover', 'steps', 'structure', 'delivery'];
+  if(timeline){
+    const frag = document.createDocumentFragment();
+    STEPS.forEach((step, i)=>{
+      const el = document.createElement('div');
+      el.className = 'process-timeline-step';
+      el.setAttribute('data-reveal', '');
+      el.innerHTML = `
+        <div class="process-timeline-number">${step.index}</div>
+        <div class="process-timeline-card">
+          <p class="process-timeline-step-label">Step ${step.index}</p>
+          <h3 class="process-timeline-title">${step.title}</h3>
+          <p class="process-timeline-text">${step.text}</p>
+          <p class="process-timeline-tags">${step.tags}</p>
+        </div>`;
+      frag.appendChild(el);
+    });
+    timeline.appendChild(frag);
+  }
 
   // ===================================================================
-  // 1. smooth-scrolling hero CTAs (per direct request: "when we scroll
+  // smooth-scrolling hero CTAs (per direct request: "when we scroll
   // on the start a project can we slowly scroll... and not just snap
   // them", "when we click show our work are you able to stick scroll
   // into the live demo section, just like ... scrolling ... naturally")
   // — a plain <a href="#section"> jumps instantly with no sitewide
-  // smooth-scroll CSS enabled (see this site's own established
-  // convention of doing this per-link via scrollIntoView rather than a
-  // global scroll-behavior, e.g. the old process-room's own neon quick
-  // nav); this matches that same pattern for both hero CTAs
+  // smooth-scroll CSS enabled, so this animates it manually instead.
+  //
+  // BUG FIX, found while verifying the new timeline above still works
+  // end to end: a plain target.scrollIntoView({behavior:'smooth'})
+  // here silently did nothing at all — confirmed directly (patched
+  // Element.prototype.scrollIntoView to log calls: it WAS being
+  // called, yet scrollY never moved from its starting position, for
+  // as long as observed). Root cause: the hero is GSAP-pinned
+  // (js/scroll-journey-hero.js), and a browser-native smooth-scroll
+  // animates scrollY gradually over several frames — ScrollTrigger's
+  // own per-frame recalculation fights that gradual change for as long
+  // as the hero's pin is still the "active" one, effectively holding
+  // scrollY in place. A plain instant window.scrollTo (no animation,
+  // resolves in a single frame) reliably worked in the same repro,
+  // confirming it's specifically the multi-frame animation that loses
+  // the fight, not scrolling out of the pin at all. Routing the
+  // animation through GSAP's own ticker instead (tweening a plain
+  // proxy value, writing scrollY on every tick) sidesteps the conflict
+  // the same way (deleted) js/scroll-journey-process.js's own
+  // fastScrollTo() already proved out for an analogous GSAP-vs-native-
+  // scroll conflict.
   // ===================================================================
   function bindSmoothScroll(selector){
     if(!hero) return;
@@ -87,30 +111,24 @@
       const target = targetId && document.querySelector(targetId);
       if(!target) return; // fall back to the plain anchor jump
       e.preventDefault();
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if(window.gsap){
+        const startY = window.scrollY;
+        const endY = target.getBoundingClientRect().top + window.scrollY;
+        const proxy = { y: startY };
+        gsap.to(proxy, {
+          y: endY,
+          duration: 1,
+          ease: 'power2.inOut',
+          onUpdate: () => window.scrollTo(0, proxy.y),
+        });
+      } else {
+        // GSAP not loaded yet somehow (shouldn't happen — by the time a
+        // visitor can click this, every deferred script has long since
+        // run) — still scrolls, just without the pin-safe tweening above
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     });
   }
   bindSmoothScroll('.process-hero-cta');
   bindSmoothScroll('.process-hero-start');
-
-  // ===================================================================
-  // 2. pause the hotspot dots' pulse once #ourProcessSection scrolls
-  // out of view
-  // ===================================================================
-  // per direct request: "make the dots stop pulsing when the viewer is
-  // in section 2, and when they get back to section 1 they start
-  // glowing again" — style.css's own processHotspotPulse keyframe runs
-  // "infinite" with nothing to ever stop it, so it kept animating
-  // (box-shadow, which forces a repaint each cycle) for the rest of the
-  // session even once this section was long scrolled past. Toggling
-  // one class here — driven by real intersection, not a viewport-size
-  // media query — is what makes this apply identically on desktop and
-  // mobile. Now observes stepsSection (where the dots actually live)
-  // instead of the hero.
-  if(stepsSection && 'IntersectionObserver' in window){
-    const stepsVisibilityIO = new IntersectionObserver((entries) => {
-      stepsSection.classList.toggle('is-scrolled-away', !entries[0].isIntersecting);
-    }, { threshold: 0 });
-    stepsVisibilityIO.observe(stepsSection);
-  }
 })();
