@@ -185,7 +185,7 @@ setTimeout(function(){
      what the browser's cache thought. BUMP THIS EXACT STRING (all
      occurrences in this file) whenever any css/js file's contents
      change — a stale version string here defeats the entire point. -->
-<link rel="stylesheet" href="css/style.css?v=20261001-5">
+<link rel="stylesheet" href="css/style.css?v=20261001-6">
 
 <!-- structured data — per direct request, so search engines/AI tools
      have an explicit, machine-readable answer for "what is this and
@@ -277,37 +277,35 @@ setTimeout(function(){
            under the view our work button" — originally reused the
            quote section's own full-color brand-SVG icons verbatim.
            Per direct follow-up feedback ("make the social icons feel
-           part of the theme, those icons look old") these are now
-           simple single-color line icons sitting in a glass-pill
-           circle matching .process-hero-start's own look,
+           part of the theme, those icons look old") these moved to a
+           single monochrome color sitting in a glass-pill circle,
            instead of full-color brand logos that clashed with the
-           rest of this hero's monochrome aqua/cream palette. Real
-           profile URLs wired in — see the matching set in .quote-social
-           further down and the Organization schema in <head>. -->
+           rest of this hero's palette. Per a later direct request
+           ("actual circular real logos that look premium" — the
+           generic camera/play-button approximations weren't reading as
+           the real platforms) these three are now each platform's
+           actual logomark (the same well-known single-path glyphs used
+           site-wide for "follow us" links, e.g. Simple Icons/Font
+           Awesome Brands), still recolored to currentColor so they
+           keep the same monochrome gold treatment as before — the
+           SHAPE is now accurate, the COLOR is still this site's own,
+           not each brand's. Real profile URLs wired in — see the
+           matching set in .quote-social further down and the
+           Organization schema in <head>. -->
       <div class="process-hero-social">
         <a href="https://www.instagram.com/designedbypapi/" target="_blank" rel="noopener" class="process-hero-social-link" aria-label="Papi on Instagram">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="3" width="18" height="18" rx="5"/>
-            <circle cx="12" cy="12" r="4.2"/>
-            <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z"/>
           </svg>
         </a>
         <a href="https://www.tiktok.com/@designedbypapi" target="_blank" rel="noopener" class="process-hero-social-link" aria-label="Papi on TikTok">
-          <!-- per direct report: "one of them looks like a music
-               symbol, it's supposed to be TikTok" — that was a generic
-               two-eighth-notes glyph (any "music" icon, not specific to
-               any platform); this is the actual TikTok logo mark
-               itself (single fill path, so it stays recognizable),
-               just recolored to currentColor so it still sits inside
-               the same monochrome glass-pill treatment as the other two -->
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M16.6 5.82c-.9-.78-1.47-1.9-1.53-3.16h-2.62v13.02c0 1.4-1.14 2.54-2.54 2.54a2.54 2.54 0 0 1 0-5.08c.24 0 .47.03.69.1V10.6a5.2 5.2 0 0 0-.69-.05 5.17 5.17 0 0 0-5.17 5.17 5.17 5.17 0 0 0 5.17 5.17 5.17 5.17 0 0 0 5.17-5.17V9.01a7.66 7.66 0 0 0 4.32 1.33V7.71c-.94 0-1.87-.32-2.6-.9-.14-.11-.27-.25-.4-.99z"/>
           </svg>
         </a>
         <a href="https://www.youtube.com/@designedbypapi" target="_blank" rel="noopener" class="process-hero-social-link" aria-label="Papi on YouTube">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="3" y="5" width="18" height="14" rx="4"/>
-            <path d="M10 9l6 3-6 3V9z" fill="currentColor" stroke="none"/>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M23.498 6.186a2.994 2.994 0 0 0-2.107-2.117C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.391.524A2.994 2.994 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a2.994 2.994 0 0 0 2.107 2.117c1.886.524 9.391.524 9.391.524s7.505 0 9.391-.524a2.994 2.994 0 0 0 2.107-2.117C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.6 15.6V8.4l6.4 3.6-6.4 3.6z"/>
           </svg>
         </a>
       </div>
@@ -770,23 +768,23 @@ setTimeout(function(){
      and init.js's own bounded reveal windows can actually fire on time
      instead of queuing behind an unbounded fetch chain. Confirmed safe:
      none of these files use document.write (defer-incompatible). -->
-<script src="js/accent.js?v=20261001-5" defer></script>
-<script src="js/hero-matrix.js?v=20261001-5" defer></script>
-<script src="js/process-hero.js?v=20261001-5" defer></script>
-<script src="js/title-dock.js?v=20261001-5" defer></script>
-<script src="js/testimonials.js?v=20261001-5" defer></script>
-<script src="js/logo-marquee.js?v=20261001-5" defer></script>
-<script src="js/live-demo.js?v=20261001-5" defer></script>
-<script src="js/faq.js?v=20261001-5" defer></script>
-<script src="js/quote-form.js?v=20261001-5" defer></script>
-<script src="js/newsletter-popup.js?v=20261001-5" defer></script>
-<script src="js/faq-chatbot.js?v=20261001-5" defer></script>
-<script src="js/cursor.js?v=20261001-5" defer></script>
-<script src="js/cursor-trail.js?v=20261001-5" defer></script>
-<script src="js/scroll-reveal.js?v=20261001-5" defer></script>
-<script src="js/scroll-dolly.js?v=20261001-5" defer></script>
-<script src="js/scroll-progress.js?v=20261001-5" defer></script>
-<script src="js/anim-idle.js?v=20261001-5" defer></script>
+<script src="js/accent.js?v=20261001-6" defer></script>
+<script src="js/hero-matrix.js?v=20261001-6" defer></script>
+<script src="js/process-hero.js?v=20261001-6" defer></script>
+<script src="js/title-dock.js?v=20261001-6" defer></script>
+<script src="js/testimonials.js?v=20261001-6" defer></script>
+<script src="js/logo-marquee.js?v=20261001-6" defer></script>
+<script src="js/live-demo.js?v=20261001-6" defer></script>
+<script src="js/faq.js?v=20261001-6" defer></script>
+<script src="js/quote-form.js?v=20261001-6" defer></script>
+<script src="js/newsletter-popup.js?v=20261001-6" defer></script>
+<script src="js/faq-chatbot.js?v=20261001-6" defer></script>
+<script src="js/cursor.js?v=20261001-6" defer></script>
+<script src="js/cursor-trail.js?v=20261001-6" defer></script>
+<script src="js/scroll-reveal.js?v=20261001-6" defer></script>
+<script src="js/scroll-dolly.js?v=20261001-6" defer></script>
+<script src="js/scroll-progress.js?v=20261001-6" defer></script>
+<script src="js/anim-idle.js?v=20261001-6" defer></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
      Hero -> Live Demo. gsap.min.js/ScrollTrigger.min.js were already
      vendored locally from an earlier (since-reverted) 3D process-room
@@ -800,10 +798,10 @@ setTimeout(function(){
      request, that section is now a plain vertical scroll-reveal
      timeline instead (js/process-hero.js), no GSAP pin needed there
      anymore. -->
-<script src="js/vendor/gsap/gsap.min.js?v=20261001-5" defer></script>
-<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261001-5" defer></script>
-<script src="js/scroll-journey-hero.js?v=20261001-5" defer></script>
-<script src="js/scroll-journey-livedemo.js?v=20261001-5" defer></script>
-<script src="js/init.js?v=20261001-5" defer></script>
+<script src="js/vendor/gsap/gsap.min.js?v=20261001-6" defer></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261001-6" defer></script>
+<script src="js/scroll-journey-hero.js?v=20261001-6" defer></script>
+<script src="js/scroll-journey-livedemo.js?v=20261001-6" defer></script>
+<script src="js/init.js?v=20261001-6" defer></script>
 </body>
 </html>
