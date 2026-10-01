@@ -58,10 +58,17 @@
     horizonFracMobile: 0,
     mobileWidth: 640,
     nearYFrac: 1.04, // the nearest row lands just past the bottom edge
-    // the road's width, as a fraction of the full viewport width —
-    // generous cream margins on both sides read as a road receding into
-    // the distance rather than a shape spanning the whole screen.
-    roadWidthFrac: 0.34,
+    // the grid's width at the near row, as a fraction of the full
+    // viewport width. BUG FIX: per follow-up report, "there are gaps on
+    // the left and right side... its suppose to cover the right and
+    // left sides always" — a previous pass narrowed this (0.34) to fix
+    // an unrelated complaint about the TOP looking like a sharp pyramid
+    // point, but that over-corrected into a narrow "road" floating in
+    // the middle of the hero instead of a full-bleed grid. 1 (full
+    // width) restores edge-to-edge coverage at the bottom, matching the
+    // original reference image, while widthFracAt() below still handles
+    // the (separate, already-fixed) pointy-top problem.
+    roadWidthFrac: 1,
     // BUG FIX: per report, "it looks like its just a pyramid... its
     // supposed to look like a road" — width used to be derived from the
     // SAME physical perspective scale as the row's vertical position
@@ -71,9 +78,9 @@
     // screen than on a short, wide desktop window — looked fine on one,
     // spiky on the other. widthFracAt() below is a width envelope
     // designed directly in terms of nz (0=near, 1=far), decoupled from
-    // the physical scale entirely, so the road's SHAPE is identical
-    // regardless of aspect ratio — only roadWidthFrac's absolute size
-    // changes with viewport width.
+    // the physical scale entirely, so the SHAPE of the narrowing is
+    // identical regardless of aspect ratio — only roadWidthFrac's
+    // absolute size (above) changes with viewport width.
     roadNarrowPower: 1.5,
     roadMinWidthFrac: 0.22,
     // wave amplitude as a fraction of canvas height
