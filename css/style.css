@@ -688,66 +688,101 @@ body, a{ cursor:none; }
 }
 .testimonial-stack::-webkit-scrollbar{ display:none; }
 
+/* BUG FIX: per direct request, "Google style looking reviews for the
+   what business owners say" — rebuilt as a real Google-review card
+   (colored initial avatar, gold stars, "Posted on Google" badge with
+   the real Google "G" mark — see js/testimonials.js). Left-aligned
+   block layout (real Google reviews are never centered) instead of
+   the previous centered glass card, solid white instead of a
+   translucent dark-glass tint. */
 .testimonial-card{
   position:relative;
-  overflow:hidden;
   flex:0 0 auto;
-  width:min(80vw, 420px);
+  width:min(80vw, 380px);
   scroll-snap-align:center;
   display:flex;
   flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  padding:clamp(1.4rem, 3vw, 2.4rem);
-  border-radius:22px;
-  background:linear-gradient(165deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-  border:1px solid rgba(138,106,31,.16);
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.6), inset 0 1px 30px rgba(0,0,0,.28);
+  align-items:flex-start;
+  text-align:left;
+  padding:clamp(1.3rem, 2.6vw, 1.7rem);
+  border-radius:16px;
+  background:#ffffff;
+  border:1px solid rgba(28,26,22,.1);
+  box-shadow:0 20px 50px -28px rgba(0,0,0,.25);
   opacity:.5;
-  transform:scale(.94);
+  transform:scale(.96);
   transition:opacity .35s var(--ease-out), transform .35s var(--ease-out), box-shadow .35s var(--ease-out);
-}
-/* same soft-reflection convention as .live-demo-browser::after (see its
-   own comment) — this element has no 3D preserve-3d to protect, so
-   overflow:hidden + a contained top-down gradient is safe here */
-.testimonial-card::after{
-  content:'';
-  position:absolute;
-  inset:0 0 auto 0;
-  height:35%;
-  background:linear-gradient(180deg, rgba(28,26,22,.05), transparent);
-  pointer-events:none;
 }
 .testimonial-card.is-active{
   opacity:1;
   transform:scale(1);
-  box-shadow:0 46px 110px -26px rgba(0,0,0,.7), 0 0 0 1px rgba(138,106,31,.22);
+  box-shadow:0 26px 60px -24px rgba(0,0,0,.3);
 }
 
-.testimonial-icon{ font-size:2.2rem; margin-bottom:.5rem; }
-.testimonial-industry{
-  font-size:.72rem;
-  letter-spacing:.32em;
-  text-transform:uppercase;
-  color:var(--gold-deep);
-  margin-bottom:.9rem;
+.testimonial-header{
+  display:flex;
+  align-items:center;
+  gap:.7rem;
+  margin-bottom:.6rem;
+  width:100%;
+}
+/* Google auto-generates a colored initial-letter avatar for any
+   reviewer with no profile photo — same convention here, a distinct
+   color per card (see js/testimonials.js's AVATAR_COLORS) rather than
+   a stock photo set that would need real licensed headshots */
+.testimonial-avatar{
+  flex:0 0 auto;
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  font-family:'Inter', sans-serif;
+  font-weight:600;
+  font-size:1.05rem;
+}
+.testimonial-identity{ min-width:0; }
+.testimonial-name{
+  font-family:'Inter', sans-serif;
+  font-weight:600;
+  font-size:.92rem;
+  color:var(--ink-text);
+}
+.testimonial-role{
+  font-size:.76rem;
+  color:rgba(28,26,22,.5);
+}
+/* Google's own real star color (also one of the four tones in the
+   "posted on Google" G mark below, for the same reason) */
+.testimonial-stars{
+  color:#FBBC04;
+  letter-spacing:.2em;
+  font-size:.85rem;
+  margin-bottom:.3rem;
+}
+.testimonial-when{
+  font-size:.74rem;
+  color:rgba(28,26,22,.45);
+  margin-bottom:.8rem;
 }
 .testimonial-quote{
-  /* was Fraunces italic — a display serif in italic reads fine as a
-     couple of words but got noticeably harder to read at full
-     paragraph length; a plain sans-serif body face carries the actual
-     review text much more comfortably */
   font-family:'Inter', sans-serif;
   font-weight:400;
-  font-size:clamp(1.05rem, 2.2vw, 1.3rem);
+  font-size:.96rem;
   line-height:1.55;
   color:var(--ink-text);
-  max-width:44ch;
-  margin-bottom:1rem;
+  margin-bottom:.9rem;
 }
 /* the "encouraging" beat: a concrete positive result, styled apart
-   from the quote so it reads like a quick win at a glance */
+   from the quote so it reads like a quick win at a glance.
+   BUG FIX: per the white rebrand, the old pale green (#8CE99A text on
+   a near-transparent green wash) lost most of its contrast once the
+   card itself went from dark glass to solid white — switched to
+   Google's own brand green (#0F9D58, also used in the G mark below)
+   at full strength on a light green tint, which stays legible either
+   way. */
 .testimonial-result{
   display:inline-flex;
   align-items:center;
@@ -755,40 +790,41 @@ body, a{ cursor:none; }
   font-size:.8rem;
   font-weight:600;
   letter-spacing:.01em;
-  color:#8CE99A;
-  background:rgba(140,233,154,.12);
-  border:1px solid rgba(140,233,154,.3);
+  color:#0F9D58;
+  background:rgba(15,157,88,.1);
+  border:1px solid rgba(15,157,88,.3);
   border-radius:999px;
   padding:.4em .9em;
-  margin-bottom:1rem;
+  margin-bottom:.9rem;
 }
 .testimonial-result::before{ content:'✓'; font-weight:700; }
 /* Awwwards personality pass — a brief glitch-spark on the result badge
-   right as its card becomes active, same highlight color (#fff28f) the
-   hero/FAQ glitch moments already use. Border/glow only — the badge's
-   own green stays green throughout, since that color carries real
-   "verified result" meaning and shouldn't flicker away. Triggered by
-   js/testimonials.js's updateActive(); self-removes on animationend. */
+   right as its card becomes active, same highlight gold the hero/FAQ
+   glitch moments use. Border/glow only — the badge's own green stays
+   green throughout, since that color carries real "verified result"
+   meaning and shouldn't flicker away. Triggered by js/testimonials.js's
+   updateActive(); self-removes on animationend. */
 .testimonial-result.is-glitching{
   animation:testimonialResultGlitch .5s steps(2, end);
 }
 @keyframes testimonialResultGlitch{
-  0%, 100%{ box-shadow:none; border-color:rgba(140,233,154,.3); }
-  30%{ box-shadow:0 0 8px rgba(255,242,143,.55); border-color:#fff28f; }
-  60%{ box-shadow:none; border-color:rgba(140,233,154,.3); }
-  80%{ box-shadow:0 0 6px rgba(255,242,143,.4); border-color:#fff28f; }
+  0%, 100%{ box-shadow:none; border-color:rgba(15,157,88,.3); }
+  30%{ box-shadow:0 0 8px rgba(138,106,31,.45); border-color:var(--gold-deep); }
+  60%{ box-shadow:none; border-color:rgba(15,157,88,.3); }
+  80%{ box-shadow:0 0 6px rgba(138,106,31,.3); border-color:var(--gold-deep); }
 }
-.testimonial-stars{
-  color:var(--gold-deep);
-  letter-spacing:.25em;
-  font-size:.85rem;
-  margin-bottom:.7rem;
+/* the real "posted on Google" pattern — a small instance of the actual
+   4-color Google "G" mark (see js/testimonials.js's GOOGLE_G_SVG)
+   beside plain gray label text, exactly how Google's own review
+   widgets and most review-aggregator embeds show attribution */
+.testimonial-posted{
+  display:flex;
+  align-items:center;
+  gap:.4rem;
+  font-size:.74rem;
+  color:rgba(28,26,22,.45);
 }
-.testimonial-name{
-  font-size:.85rem;
-  color:rgba(28,26,22,.7);
-}
-.testimonial-name span{ color:rgba(28,26,22,.45); }
+.testimonial-posted svg{ width:14px; height:14px; flex:0 0 auto; }
 
 .testimonials-controls{
   position:relative;

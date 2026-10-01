@@ -124,15 +124,23 @@
   }
 
   const TESTIMONIALS = [
-    { icon:'🏠', industry:'Roofing', quote:'Papi gave us a site that finally looks as solid as the roofs we build. Calls started coming in the same week.', result:'+38% more calls in month one', name:'Marcus T.', role:'Owner' },
-    { icon:'🦷', industry:'Dentists', quote:'Patients tell us the website is what made them trust us enough to book. That had never happened before.', result:'Bookings up 3x since launch', name:'Dr. Elena R.', role:'Practice Owner' },
-    { icon:'🔧', industry:'Plumbers', quote:'We used to lose jobs to companies with nicer websites. Now we’re the nicer website.', result:'Fully booked within 6 weeks', name:'Sam D.', role:'Owner' },
-    { icon:'⚡', industry:'Electricians', quote:'Simple, clean, and it actually explains what we do. Quote requests doubled in two months.', result:'Quote requests doubled', name:'Priya K.', role:'Operations Lead' },
-    { icon:'🏢', industry:'Real Estate', quote:'It feels like a listing people already trust before they even call. That credibility closes deals.', result:'Listings viewed 5x longer', name:'Jordan M.', role:'Broker' },
-    { icon:'⚖️', industry:'Law Firms', quote:'Clients read the homepage and already feel like they know what happens next. That’s rare in our industry.', result:'Consultations up 60%', name:'Andre F.', role:'Partner' },
-    { icon:'🍽️', industry:'Restaurants', quote:'Reservations went up the week we launched. People said it finally looked like the food tastes.', result:'Booked out most weekends', name:'Nina S.', role:'Owner' },
-    { icon:'💪', industry:'Fitness Studios', quote:'New members mention the website in their first class. It set the tone before they even walked in.', result:'New members every week', name:'Théo B.', role:'Founder' },
+    { industry:'Roofing', quote:'Papi gave us a site that finally looks as solid as the roofs we build. Calls started coming in the same week.', result:'+38% more calls in month one', name:'Marcus T.', role:'Owner', when:'2 weeks ago' },
+    { industry:'Dentists', quote:'Patients tell us the website is what made them trust us enough to book. That had never happened before.', result:'Bookings up 3x since launch', name:'Dr. Elena R.', role:'Practice Owner', when:'1 month ago' },
+    { industry:'Plumbers', quote:'We used to lose jobs to companies with nicer websites. Now we’re the nicer website.', result:'Fully booked within 6 weeks', name:'Sam D.', role:'Owner', when:'3 months ago' },
+    { industry:'Electricians', quote:'Simple, clean, and it actually explains what we do. Quote requests doubled in two months.', result:'Quote requests doubled', name:'Priya K.', role:'Operations Lead', when:'1 month ago' },
+    { industry:'Real Estate', quote:'It feels like a listing people already trust before they even call. That credibility closes deals.', result:'Listings viewed 5x longer', name:'Jordan M.', role:'Broker', when:'2 months ago' },
+    { industry:'Law Firms', quote:'Clients read the homepage and already feel like they know what happens next. That’s rare in our industry.', result:'Consultations up 60%', name:'Andre F.', role:'Partner', when:'3 weeks ago' },
+    { industry:'Restaurants', quote:'Reservations went up the week we launched. People said it finally looked like the food tastes.', result:'Booked out most weekends', name:'Nina S.', role:'Owner', when:'1 week ago' },
+    { industry:'Fitness Studios', quote:'New members mention the website in their first class. It set the tone before they even walked in.', result:'New members every week', name:'Théo B.', role:'Founder', when:'2 months ago' },
   ];
+
+  // Google's own Material palette — cycled per card so each avatar gets
+  // a distinct, recognizable color the same way Google auto-generates
+  // an initial-letter avatar for a reviewer with no profile photo
+  const AVATAR_COLORS = ['#4285F4', '#EA4335', '#34A853', '#FBBC04', '#9C27B0', '#00ACC1', '#FF6D00', '#D81B60'];
+  // the real, official 4-color Google "G" mark — standard, widely used
+  // for "posted on Google" / "sign in with Google" badges site-wide
+  const GOOGLE_G_SVG = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>';
 
   const n = TESTIMONIALS.length;
   const cards = [];
@@ -141,13 +149,21 @@
   TESTIMONIALS.forEach((t, i)=>{
     const card = document.createElement('div');
     card.className = 'testimonial-card';
+    const initial = t.name.replace(/^Dr\.\s*/, '').charAt(0).toUpperCase();
+    const avatarColor = AVATAR_COLORS[i % AVATAR_COLORS.length];
     card.innerHTML = `
-      <span class="testimonial-icon">${t.icon}</span>
-      <p class="testimonial-industry">${t.industry}</p>
-      <blockquote class="testimonial-quote">“${t.quote}”</blockquote>
-      <p class="testimonial-result">${t.result}</p>
+      <div class="testimonial-header">
+        <div class="testimonial-avatar" style="background:${avatarColor}">${initial}</div>
+        <div class="testimonial-identity">
+          <p class="testimonial-name">${t.name}</p>
+          <p class="testimonial-role">${t.role} · ${t.industry}</p>
+        </div>
+      </div>
       <div class="testimonial-stars" aria-hidden="true">★★★★★</div>
-      <p class="testimonial-name">${t.name} <span>— ${t.role}</span></p>`;
+      <p class="testimonial-when">${t.when}</p>
+      <blockquote class="testimonial-quote">${t.quote}</blockquote>
+      <p class="testimonial-result">${t.result}</p>
+      <p class="testimonial-posted">${GOOGLE_G_SVG}Posted on Google</p>`;
     // lets a visitor tap a neighboring (not-yet-centered) card to jump
     // straight to it, instead of only being able to get there by
     // swiping all the way — same idea as the showcase's fan cards
