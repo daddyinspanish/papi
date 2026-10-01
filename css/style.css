@@ -2933,9 +2933,13 @@ body, a{ cursor:none; }
   max-width:900px;
   margin-top:clamp(2rem, 5vh, 3rem);
 }
-/* the connecting line is a pseudo-element (not a real DOM sibling) so
-   it never throws off :nth-child(even)/(odd) below, which is what
-   actually drives the left/right alternation */
+/* the base track is a dim, static pseudo-element (never throws off
+   :nth-child(even)/(odd) below, which is what drives the left/right
+   alternation) — the actual "fills as you scroll" line is a real
+   sibling div instead (.process-timeline-fill, see js/process-hero.js),
+   since animating a pseudo-element's own height from JS needs a CSS
+   custom property either way, and a real element is simpler to reason
+   about here */
 .process-timeline::before{
   content:'';
   position:absolute;
@@ -2944,7 +2948,37 @@ body, a{ cursor:none; }
   bottom:0;
   width:2px;
   transform:translateX(-50%);
+  background:rgba(138,106,31,.18);
+}
+/* BUG FIX: per direct request, "the number line... actually animates
+   from 1 number to the other as it scrolls, with a neon pulsing line
+   that fills the numbers" — this grows from 0 to full height as the
+   visitor scrolls through the timeline (see js/process-hero.js's
+   updateTimelineProgress, which sets --timeline-progress), with a
+   brighter gradient + glow than the static track underneath so it
+   reads as "filling in" rather than just a color change. The glow
+   itself pulses gently and continuously (cheap — one element, opacity/
+   filter only, paused off-screen by the IntersectionObserver in
+   process-hero.js the same way every other continuous animation on
+   this site already is) for the "neon" quality asked for. */
+.process-timeline-fill{
+  position:absolute;
+  left:50%;
+  top:0;
+  width:3px;
+  height:100%;
+  transform:translateX(-50%) scaleY(var(--timeline-progress, 0));
+  transform-origin:top center;
   background:linear-gradient(180deg, var(--gold-soft), var(--gold), var(--gold-deep));
+  filter:drop-shadow(0 0 6px rgba(255,221,122,.8));
+  animation:timelineFillGlow 2.4s ease-in-out infinite;
+}
+@keyframes timelineFillGlow{
+  0%, 100%{ filter:drop-shadow(0 0 4px rgba(255,221,122,.6)); }
+  50%{ filter:drop-shadow(0 0 10px rgba(255,221,122,1)); }
+}
+@media (prefers-reduced-motion:reduce){
+  .process-timeline-fill{ animation:none; }
 }
 .process-timeline-step{
   position:relative;
@@ -2957,6 +2991,11 @@ body, a{ cursor:none; }
 .process-timeline-step:not(:last-child){
   margin-bottom:clamp(1.8rem, 5vw, 3rem);
 }
+/* BUG FIX: per the same direct request — numbers now start dim/neutral
+   and "pop" into the gold, glowing active state one at a time as the
+   fill line above reaches each one (toggled via .is-active by
+   js/process-hero.js), rather than all four sitting fully gold from
+   the moment the section loads with nothing left to animate toward. */
 .process-timeline-number{
   grid-column:2;
   justify-self:center;
@@ -2969,12 +3008,29 @@ body, a{ cursor:none; }
   font-family:'Space Grotesk', sans-serif;
   font-weight:700;
   font-size:1.1rem;
-  color:#1c1a16;
-  background:linear-gradient(135deg, var(--gold-soft), var(--gold));
+  color:rgba(28,26,22,.4);
+  background:#fff;
+  border:2px solid rgba(138,106,31,.25);
   /* the ring of --paper matching the page background is what makes the
      line behind it look like it passes BEHIND the circle rather than
      being visibly cut off at its edge */
+  box-shadow:0 0 0 6px var(--paper);
+  transition:background .4s var(--ease-out), border-color .4s var(--ease-out), color .4s var(--ease-out), box-shadow .4s var(--ease-out);
+}
+.process-timeline-number.is-active{
+  color:#1c1a16;
+  border-color:transparent;
+  background:linear-gradient(135deg, var(--gold-soft), var(--gold));
   box-shadow:0 10px 26px -10px rgba(138,106,31,.6), 0 0 0 6px var(--paper);
+  animation:timelineNumberPop .55s var(--ease-out);
+}
+@keyframes timelineNumberPop{
+  0%{ transform:scale(1); }
+  45%{ transform:scale(1.3); box-shadow:0 10px 30px -8px rgba(138,106,31,.8), 0 0 0 6px var(--paper), 0 0 18px rgba(255,221,122,.9); }
+  100%{ transform:scale(1); }
+}
+@media (prefers-reduced-motion:reduce){
+  .process-timeline-number.is-active{ animation:none; }
 }
 .process-timeline-card{
   grid-column:1;
@@ -3025,6 +3081,7 @@ body, a{ cursor:none; }
    narrow screens, cards always to the right of their own number */
 @media (max-width:720px){
   .process-timeline::before{ left:22px; transform:none; }
+  .process-timeline-fill{ left:22px; transform:scaleY(var(--timeline-progress, 0)); }
   .process-timeline-step{
     grid-template-columns:44px 1fr;
     column-gap:1rem;

@@ -56,6 +56,15 @@
   ];
 
   if(timeline){
+    // the fill is a real element (not a pseudo-element) so it has an
+    // actual box updateTimelineProgress() below can scale — see its
+    // own CSS comment for why this couldn't just be .process-
+    // timeline::before directly
+    const fill = document.createElement('div');
+    fill.className = 'process-timeline-fill';
+    fill.setAttribute('aria-hidden', 'true');
+    timeline.appendChild(fill);
+
     const frag = document.createDocumentFragment();
     STEPS.forEach((step, i)=>{
       const el = document.createElement('div');
@@ -72,6 +81,76 @@
       frag.appendChild(el);
     });
     timeline.appendChild(frag);
+
+    // ===================================================================
+    // per direct request: "the number line... actually animates from 1
+    // number to the other as it scrolls, with a neon pulsing line that
+    // fills the numbers, and also make the step 1 pop up as the scroll
+    // is in 1, then from 2 the step 2 pulses pop up as well until 4" —
+    // the fill line's own height (as a share of the whole timeline)
+    // tracks a fixed "reading line" partway down the viewport, and each
+    // number pops into its active gold state the moment that reading
+    // line reaches it, cumulatively (earlier numbers stay active, same
+    // convention as every other scroll-tied effect on this site
+    // reversing cleanly if the visitor scrolls back up).
+    // ===================================================================
+    const numberEls = Array.from(timeline.querySelectorAll('.process-timeline-number'));
+    let timelineTicking = false;
+    function updateTimelineProgress(){
+      const rect = timeline.getBoundingClientRect();
+      // a touch below true viewport center — a number popping just
+      // before it's fully centered reads as responsive rather than late
+      const referenceY = window.innerHeight * 0.6;
+      const raw = (referenceY - rect.top) / rect.height;
+      const progress = Math.max(0, Math.min(1, raw));
+      timeline.style.setProperty('--timeline-progress', progress.toFixed(4));
+
+      // BUG FIX: found via direct inspection — offsetTop is relative to
+      // an element's own closest *positioned* ancestor, which here is
+      // each number's own .process-timeline-step wrapper (also
+      // position:relative, for the grid/z-index above), not the overall
+      // .process-timeline container. That silently returned near-
+      // identical small values for every number regardless of which
+      // step it was in, activating all 4 at once almost immediately.
+      // getBoundingClientRect() on both and subtracting sidesteps the
+      // offsetParent chain entirely — always correct regardless of how
+      // many positioned ancestors sit in between.
+      numberEls.forEach((num)=>{
+        const numRect = num.getBoundingClientRect();
+        const numCenterY = (numRect.top + numRect.height / 2) - rect.top;
+        const numProgress = numCenterY / rect.height;
+        num.classList.toggle('is-active', progress >= numProgress);
+      });
+    }
+    function requestTimelineUpdate(){
+      if(timelineTicking) return;
+      timelineTicking = true;
+      requestAnimationFrame(()=>{ updateTimelineProgress(); timelineTicking = false; });
+    }
+    window.addEventListener('scroll', requestTimelineUpdate, { passive:true });
+    // width-only guard — same iOS-address-bar-collapse reasoning as
+    // every other resize listener on this site (see the --stable-vh
+    // comment in index.html's <head>)
+    let lastResizeWTimeline = window.innerWidth;
+    window.addEventListener('resize', ()=>{
+      const w = window.innerWidth;
+      if(Math.abs(w - lastResizeWTimeline) <= 10) return;
+      lastResizeWTimeline = w;
+      requestTimelineUpdate();
+    });
+    updateTimelineProgress();
+
+    // per the site-wide heat audit convention (js/anim-idle.js): the
+    // fill's own continuous neon-glow pulse costs nothing once this
+    // section is scrolled well past, so it's paused the same way
+    // everything else "infinite" on this page is — one Intersection
+    // Observer, toggling .is-anim-idle.
+    if('IntersectionObserver' in window){
+      const timelineIO = new IntersectionObserver((entries)=>{
+        fill.classList.toggle('is-anim-idle', !entries[0].isIntersecting);
+      }, { threshold: 0 });
+      timelineIO.observe(timeline);
+    }
   }
 
   // ===================================================================
