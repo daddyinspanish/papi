@@ -58,17 +58,24 @@
     horizonFracMobile: 0,
     mobileWidth: 640,
     nearYFrac: 1.04, // the nearest row lands just past the bottom edge
-    // per direct request, "make sure the grid covers the left and right
-    // sides of the desktop view, not just the center" — calibrating the
-    // grid's width against the NEAREST row (old behavior) only touches
-    // the full canvas width right at the very bottom edge; everything
-    // above it funnels inward fast, reading as a narrow center column.
-    // Calibrating against a row further out instead (this fraction of
-    // the way from zNear to zFar) makes THAT row span edge-to-edge, so
-    // the grid still fills the sides well into the middle of the view —
-    // nearer rows simply overflow past the canvas edges, harmlessly
-    // clipped.
-    edgeFitZFrac: 0.32,
+    // the road's width, as a fraction of the full viewport width —
+    // generous cream margins on both sides read as a road receding into
+    // the distance rather than a shape spanning the whole screen.
+    roadWidthFrac: 0.34,
+    // BUG FIX: per report, "it looks like its just a pyramid... its
+    // supposed to look like a road" — width used to be derived from the
+    // SAME physical perspective scale as the row's vertical position
+    // (colX[j]*scale). That scale is driven by farMultiple/canvas-height
+    // math built for closing the vertical gap, not for how a road should
+    // look, and it narrows far more aggressively on a tall, narrow phone
+    // screen than on a short, wide desktop window — looked fine on one,
+    // spiky on the other. widthFracAt() below is a width envelope
+    // designed directly in terms of nz (0=near, 1=far), decoupled from
+    // the physical scale entirely, so the road's SHAPE is identical
+    // regardless of aspect ratio — only roadWidthFrac's absolute size
+    // changes with viewport width.
+    roadNarrowPower: 1.5,
+    roadMinWidthFrac: 0.22,
     // wave amplitude as a fraction of canvas height
     amplitudeFrac: 0.085,
     lineWidth: 1,
@@ -85,14 +92,16 @@
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let W = 0, H = 0, dpr = 1;
-  let FOCAL = 0, zNear = 0, zFar = 0, gridHalfWidth = 0, camHeight = 0, horizonY = 0, amplitude = 0;
+  let FOCAL = 0, zNear = 0, zFar = 0, camHeight = 0, horizonY = 0, amplitude = 0;
   const rowZ = new Array(CONFIG.rows + 1);
-  const colX = new Array(CONFIG.cols + 1);
   const alphaCache = new Array(CONFIG.rows + 1);
 
-  // see this taper's own comment in renderFrame() below — shared here so
-  // the pointer-tracking math (updatePointer) stays consistent with
-  // where rows actually render, not just the untapered formula
+  // closes the top gap only (see its own BUG FIX comment in renderFrame
+  // below) — now ONLY responsible for vertical position, since width is
+  // fully decoupled via widthFracAt() below. Tapering all the way to a
+  // literal 0 is correct and desired here: Y should land exactly on
+  // horizonY, and doing so no longer drags the road's width down with
+  // it the way it did before this was split apart.
   const TAPER_START = 0.88;
   function scaleForRow(i){
     const nz = i / CONFIG.rows;
@@ -103,6 +112,14 @@
       scale *= (1 - smooth);
     }
     return scale;
+  }
+
+  // see roadNarrowPower/roadMinWidthFrac's own comment in CONFIG above —
+  // a hand-designed easing curve from full width (nz=0) down to
+  // roadMinWidthFrac (nz=1), independent of aspect ratio
+  function widthFracAt(nz){
+    const t = Math.pow(Math.min(Math.max(nz, 0), 1), CONFIG.roadNarrowPower);
+    return 1 - t * (1 - CONFIG.roadMinWidthFrac);
   }
 
   function resize(){
@@ -127,20 +144,11 @@
     // solving screenY = horizonY + camHeight * (FOCAL/zNear) for camHeight
     const scaleNear = FOCAL / zNear;
     camHeight = (H * CONFIG.nearYFrac - horizonY) / scaleNear;
-    // see edgeFitZFrac's own comment above — width is fit to a row partway
-    // out, not the nearest row, so the grid still fills the sides well
-    // past the very bottom edge
-    const zEdgeFit = zNear + CONFIG.edgeFitZFrac * (zFar - zNear);
-    const scaleEdgeFit = FOCAL / zEdgeFit;
-    gridHalfWidth = (W / 2) / scaleEdgeFit;
 
     for(let i = 0; i <= CONFIG.rows; i++){
       const t = i / CONFIG.rows;
       rowZ[i] = zNear + t * (zFar - zNear);
       alphaCache[i] = CONFIG.alphaNear + (CONFIG.alphaFar - CONFIG.alphaNear) * t;
-    }
-    for(let j = 0; j <= CONFIG.cols; j++){
-      colX[j] = (j / CONFIG.cols - 0.5) * 2 * gridHalfWidth;
     }
   }
 
@@ -178,13 +186,13 @@
         const d = Math.abs(sy - py);
         if(d < bestDist){ bestDist = d; bestI = i; }
       }
-      // epsilon floor — scaleForRow(CONFIG.rows) is exactly 0 (the true
-      // vanishing point, see its own comment), which would otherwise
-      // divide by zero here if that's the row the pointer lands nearest
-      const scale = Math.max(scaleForRow(bestI), 0.0001);
-      const worldX = (px - W / 2) / scale;
-      pointerNX = Math.max(-1, Math.min(1, worldX / gridHalfWidth));
-      pointerNZ = bestI / CONFIG.rows;
+      const nzBest = bestI / CONFIG.rows;
+      // mirrors renderFrame()'s own screenHalfWidth formula — see
+      // widthFracAt()'s comment for why width is no longer derived from
+      // scaleForRow() at all
+      const screenHalfWidth = (W / 2) * CONFIG.roadWidthFrac * widthFracAt(nzBest);
+      pointerNX = Math.max(-1, Math.min(1, (px - W / 2) / screenHalfWidth));
+      pointerNZ = nzBest;
       pointerActive = true;
     };
     heroSection.addEventListener('pointermove', (e) => updatePointer(e.clientX, e.clientY), { passive: true });
@@ -246,21 +254,23 @@
       // lands well short of horizonY (confirmed directly: the residual
       // gap is camHeight*scale_far, which doesn't go to zero just because
       // horizonY does). scaleForRow() (defined above) tapers scale itself
-      // to exactly 0 over the last 12% of rows, forcing the true
-      // vanishing point — x collapses to the center and y lands exactly
-      // on horizonY — closing the gap completely regardless of
-      // farMultiple, instead of chasing it numerically. The taper is
-      // smoothstepped, not a hard cutoff on the last row alone, so it
-      // reads as a continuation of the existing convergence rather than
-      // a visible kink.
+      // to exactly 0 over the last 12% of rows, so Y lands exactly on
+      // horizonY regardless of farMultiple — smoothstepped, not a hard
+      // cutoff on the last row alone, so it reads as a continuation of
+      // the existing convergence rather than a visible kink. Width (X)
+      // no longer rides along with this scale at all — see
+      // screenHalfWidth/widthFracAt() just below.
       const nz = i / CONFIG.rows;
       const scale = scaleForRow(i);
+      // see widthFracAt()'s own comment — the road's width at this row,
+      // in actual screen pixels, computed independently of `scale` above
+      const screenHalfWidth = (W / 2) * CONFIG.roadWidthFrac * widthFracAt(nz);
       const row = new Array(CONFIG.cols + 1);
       for(let j = 0; j <= CONFIG.cols; j++){
-        const nx = colX[j] / gridHalfWidth;
+        const nx = (j / CONFIG.cols - 0.5) * 2;
         const h = heightAt(nx, nz, t);
         row[j] = [
-          W / 2 + colX[j] * scale,
+          W / 2 + nx * screenHalfWidth,
           horizonY + (camHeight - h) * scale,
         ];
       }
