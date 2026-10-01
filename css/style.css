@@ -1134,6 +1134,72 @@ body, a{ cursor:none; }
 .comparison-stat.is-visible .comparison-stat-label{ opacity:1; }
 
 /* ===================================================================
+   LOGO MARQUEE — companies Papi has worked with, see js/logo-
+   marquee.js for how logos are added (this section hides itself
+   entirely while that file's LOGOS array is empty).
+=================================================================== */
+.logo-marquee-section{
+  padding:clamp(2.5rem, 6vw, 4rem) 0;
+  background:var(--paper);
+  text-align:center;
+  overflow:hidden;
+}
+.logo-marquee-label{
+  font-family:'Inter', sans-serif;
+  font-size:.76rem;
+  font-weight:600;
+  letter-spacing:.3em;
+  text-transform:uppercase;
+  color:rgba(28,26,22,.45);
+  margin-bottom:2rem;
+}
+.logo-marquee-track-wrap{
+  position:relative;
+  width:100%;
+  mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-image:linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+/* js/logo-marquee.js builds this row's content twice back to back, so
+   a continuous -50% translateX always lands on an identical second
+   copy — reads as an endless scroll rather than a visible reset/snap.
+   Same technique as the (now-removed) process-stage digit marquee. */
+.logo-marquee-track{
+  display:flex;
+  align-items:center;
+  width:max-content;
+  animation:logoMarqueeScroll 28s linear infinite;
+}
+@keyframes logoMarqueeScroll{
+  from{ transform:translateX(0); }
+  to{ transform:translateX(-50%); }
+}
+.logo-marquee-item{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0 clamp(1.8rem, 4vw, 3.2rem);
+}
+.logo-marquee-item img{
+  display:block;
+  height:clamp(28px, 4vw, 40px);
+  width:auto;
+  max-width:140px;
+  object-fit:contain;
+  /* grayscale-by-default, full color on hover — keeps the row calm and
+     uniform at rest (varying logo colors competing for attention) while
+     still rewarding a closer look */
+  filter:grayscale(1) opacity(.55);
+  transition:filter .25s ease;
+}
+.logo-marquee-item img:hover{
+  filter:grayscale(0) opacity(1);
+}
+@media (prefers-reduced-motion:reduce){
+  .logo-marquee-track{ animation:none; }
+}
+
+/* ===================================================================
    FAQ — light-blue-on-black accordion, one answer open at a time.
 =================================================================== */
 .faq-section{
