@@ -90,6 +90,21 @@
   const colX = new Array(CONFIG.cols + 1);
   const alphaCache = new Array(CONFIG.rows + 1);
 
+  // see this taper's own comment in renderFrame() below — shared here so
+  // the pointer-tracking math (updatePointer) stays consistent with
+  // where rows actually render, not just the untapered formula
+  const TAPER_START = 0.88;
+  function scaleForRow(i){
+    const nz = i / CONFIG.rows;
+    let scale = FOCAL / rowZ[i];
+    if(nz > TAPER_START){
+      const tt = (nz - TAPER_START) / (1 - TAPER_START);
+      const smooth = tt * tt * (3 - 2 * tt);
+      scale *= (1 - smooth);
+    }
+    return scale;
+  }
+
   function resize(){
     const w = canvas.clientWidth || window.innerWidth;
     const h = canvas.clientHeight || window.innerHeight;
@@ -158,12 +173,15 @@
       // invert that row's known perspective scale to recover world x
       let bestI = 0, bestDist = Infinity;
       for(let i = 0; i <= CONFIG.rows; i++){
-        const scale = FOCAL / rowZ[i];
+        const scale = scaleForRow(i);
         const sy = horizonY + camHeight * scale;
         const d = Math.abs(sy - py);
         if(d < bestDist){ bestDist = d; bestI = i; }
       }
-      const scale = FOCAL / rowZ[bestI];
+      // epsilon floor — scaleForRow(CONFIG.rows) is exactly 0 (the true
+      // vanishing point, see its own comment), which would otherwise
+      // divide by zero here if that's the row the pointer lands nearest
+      const scale = Math.max(scaleForRow(bestI), 0.0001);
       const worldX = (px - W / 2) / scale;
       pointerNX = Math.max(-1, Math.min(1, worldX / gridHalfWidth));
       pointerNZ = bestI / CONFIG.rows;
@@ -221,9 +239,22 @@
     // than re-deriving height/projection twice per vertex
     const pts = new Array(CONFIG.rows + 1);
     for(let i = 0; i <= CONFIG.rows; i++){
-      const z = rowZ[i];
-      const scale = FOCAL / z;
+      // BUG FIX: per report, "the grid... is not connecting to the very
+      // top" — persisted even with horizonFrac set to 0, because the
+      // perspective divide only ASYMPTOTICALLY approaches the horizon as
+      // z grows; with a finite farMultiple the farthest drawn row still
+      // lands well short of horizonY (confirmed directly: the residual
+      // gap is camHeight*scale_far, which doesn't go to zero just because
+      // horizonY does). scaleForRow() (defined above) tapers scale itself
+      // to exactly 0 over the last 12% of rows, forcing the true
+      // vanishing point — x collapses to the center and y lands exactly
+      // on horizonY — closing the gap completely regardless of
+      // farMultiple, instead of chasing it numerically. The taper is
+      // smoothstepped, not a hard cutoff on the last row alone, so it
+      // reads as a continuation of the existing convergence rather than
+      // a visible kink.
       const nz = i / CONFIG.rows;
+      const scale = scaleForRow(i);
       const row = new Array(CONFIG.cols + 1);
       for(let j = 0; j <= CONFIG.cols; j++){
         const nx = colX[j] / gridHalfWidth;
