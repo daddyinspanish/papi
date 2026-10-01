@@ -1824,26 +1824,28 @@ body, a{ cursor:none; }
   transform:translateY(0);
 }
 /* per direct request: a minimal, bouncing "tab" is the actual first
-   thing shown (see js/newsletter-popup.js's open()) — the full card
-   below stays hidden until this is clicked (expand()). Same dark-glass
-   pill language as .process-hero-start/.live-demo-arrow rather than a
-   new visual language. */
+   thing shown (see js/newsletter-popup.js's own open()) — the full card
+   below stays hidden until this is clicked (expand()).
+   BUG FIX: per direct request, "the dark does not go anymore... change
+   anything that is brown to a light glass tone" — same light-glass
+   treatment as .live-demo-browser now, replacing the old dark-brown
+   (#1a1508) pill. */
 .newsletter-popup-tab{
   display:flex;
   align-items:center;
   gap:.55rem;
   padding:.7rem 1.1rem .7rem .6rem;
   border-radius:999px;
-  border:1px solid rgba(138,106,31,.5);
-  background:#1a1508;
-  color:var(--gold-soft);
+  border:1px solid rgba(138,106,31,.4);
+  background:linear-gradient(160deg, #ffffff, #f3f1ec);
+  box-shadow:0 16px 34px -14px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.9);
+  color:var(--gold-deep);
   font-family:'Inter', sans-serif;
   font-size:.78rem;
   font-weight:700;
   letter-spacing:.02em;
   white-space:nowrap;
   cursor:none;
-  box-shadow:0 16px 34px -14px rgba(0,0,0,.6);
   transition:opacity .25s var(--ease-out), transform .25s var(--ease-out), border-color .25s ease;
   animation:newsletterTabBounce 3.2s ease-in-out infinite;
 }
@@ -1988,6 +1990,10 @@ body, a{ cursor:none; }
   bottom:1.25rem;
   z-index:900;
 }
+/* BUG FIX: per direct request, "the dark does not go anymore... change
+   anything that is brown to a light glass tone" — same light-glass
+   treatment as .live-demo-browser now, replacing the old dark-brown
+   (#1a1508) circle. */
 .faq-bot-launcher{
   display:flex;
   align-items:center;
@@ -1995,11 +2001,11 @@ body, a{ cursor:none; }
   width:52px;
   height:52px;
   border-radius:50%;
-  border:1px solid rgba(138,106,31,.5);
-  background:#1a1508;
+  border:1px solid rgba(138,106,31,.4);
+  background:linear-gradient(160deg, #ffffff, #f3f1ec);
   color:var(--gold-deep);
   cursor:none;
-  box-shadow:0 16px 34px -14px rgba(0,0,0,.6), 0 0 0 0 rgba(138,106,31,.35);
+  box-shadow:0 16px 34px -14px rgba(0,0,0,.18), 0 0 0 0 rgba(138,106,31,.35), inset 0 1px 0 rgba(255,255,255,.9);
   transition:transform .25s var(--ease-out), border-color .25s ease, opacity .25s ease;
   animation:faqBotPulse 3.4s ease-in-out infinite;
 }
@@ -2275,16 +2281,17 @@ body, a{ cursor:none; }
   width:100%;
   border-radius:16px;
   overflow:hidden;
-  /* per direct follow-up request ("make the entire card gold yellow, i
-     do not want those grays in there") — the old #ffffff was a neutral
-     near-black with no gold cast at all, and every accent inside this
-     card (bar/dots/url pill below) was a low-opacity tint faint enough
-     to read as plain gray against it. Background swapped for a dark
-     tone with a real gold cast, and every accent below bumped to a
-     clearly gold opacity rather than a barely-there one. */
-  background:#1a1508;
-  border:1px solid rgba(138,106,31,.5);
-  box-shadow:0 40px 90px -30px rgba(0,0,0,.6), inset 0 1px 30px rgba(0,0,0,.28);
+  /* BUG FIX: per direct request, "the dark does not go anymore" — this
+     was a dark brown/gold-cast frame (#1a1508), left over from before
+     the white rebrand. Replaced with a light "glass" card instead of
+     flattening to plain white: a soft diagonal sheen plus an inset
+     highlight reads as a pane of glass sitting on the page, without
+     backdrop-filter (never used on this site — see its own standing
+     rule — so the "glass" is a solid gradient illusion, not real blur/
+     transparency). */
+  background:linear-gradient(160deg, #ffffff, #f3f1ec);
+  border:1px solid rgba(255,255,255,.8);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.9);
 }
 /* soft reflection: a static, low-opacity top-down gradient, never a
    live blur/backdrop-filter — kept faint and top-only per "without
@@ -2295,7 +2302,7 @@ body, a{ cursor:none; }
   position:absolute;
   inset:0 0 auto 0;
   height:40%;
-  background:linear-gradient(180deg, rgba(138,106,31,.1), transparent);
+  background:linear-gradient(180deg, rgba(255,255,255,.6), transparent);
   pointer-events:none;
 }
 .live-demo-browser-bar{
@@ -2303,21 +2310,22 @@ body, a{ cursor:none; }
   align-items:center;
   gap:.5rem;
   padding:.65rem .9rem;
-  background:rgba(138,106,31,.16);
+  background:rgba(255,255,255,.5);
+  border-bottom:1px solid rgba(28,26,22,.06);
 }
 .live-demo-dot{
   width:8px;
   height:8px;
   border-radius:50%;
-  background:rgba(138,106,31,.6);
+  background:rgba(28,26,22,.22);
   flex:0 0 auto;
 }
 .live-demo-url{
   flex:1;
   margin-left:.4rem;
   font-size:.72rem;
-  color:rgba(138,106,31,.85);
-  background:rgba(138,106,31,.1);
+  color:rgba(28,26,22,.6);
+  background:rgba(28,26,22,.05);
   border-radius:999px;
   padding:.3em .9em;
   overflow:hidden;

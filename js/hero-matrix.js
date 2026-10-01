@@ -234,19 +234,18 @@
   // knowable up front — computed once here instead of reallocated on
   // every character on every frame. Pure GC-pressure reduction, zero
   // visual difference (identical values, just cached).
-  // per direct request to make the falling numbers actually read as
-  // yellow/gold — the first R/B-channel-swap pass (matching every other
-  // color on the site) landed too close to white/cream here, since the
-  // original blue was itself a near-white icy tint with barely any
-  // saturation to carry over. Using the site's own established gold
-  // tones directly instead: the head matches the "glow gold" accent
-  // used site-wide for hover/glitch states (rgba(255,221,122) / #ffdd7a),
-  // the tail matches --gold (203,168,105), both properly saturated.
-  const HEAD_FILLSTYLE = `rgba(255,221,122,${CONFIG.headAlpha})`;
+  // BUG FIX: per the white rebrand, the previous gold tones (255,221,122
+  // head / 203,168,105 tail) read as a near-invisible pale wash against
+  // the new white hero — per direct follow-up request, switched to the
+  // same dark ink used for the headline/body text (28,26,22, matching
+  // --ink-text) so the rain reads as a deliberate, legible "static on
+  // glass" texture instead of a faint accident. Alpha curve (head vs.
+  // tail falloff) is unchanged — only the RGB base moved.
+  const HEAD_FILLSTYLE = `rgba(28,26,22,${CONFIG.headAlpha})`;
   const TAIL_FILLSTYLES = new Array(CONFIG.streamMax).fill(null).map((_, j) => {
     if(j === 0) return null; // row 0 always uses HEAD_FILLSTYLE instead
     const alpha = CONFIG.headAlpha * Math.pow(CONFIG.tailFalloff, j) * 0.6;
-    return alpha < 0.015 ? null : `rgba(203,168,105,${alpha})`;
+    return alpha < 0.015 ? null : `rgba(28,26,22,${alpha})`;
   });
 
   function renderFrame(steps){
