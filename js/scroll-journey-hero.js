@@ -26,11 +26,12 @@
    less moving part, and structurally incapable of this bug class since
    there's no cross-section object left to go stale or double-render.
 
-   The hero has no separate 3D "hero object" — just #processHeroMatrix
-   (the falling-digits canvas background) behind the title/CTA/social-
-   icon text. Scaling that canvas itself as the portal (rather than
-   adding a new element) is the chosen approach — thematically it reads
-   as diving into the falling code, and needs no new DOM.
+   The hero has no separate 3D "hero object" — just #processHeroGrid
+   (the wireframe wave-grid canvas background, previously a falling-
+   digits matrix rain) behind the title/CTA/social-icon text. Scaling
+   that canvas itself as the portal (rather than adding a new element)
+   is the chosen approach — thematically it reads as diving into the
+   grid, and needs no new DOM.
 
    #processRoom's own plain scroll-dolly (js/scroll-dolly.js) keeps
    playing right up until this pin engages ("keep the existing camera
@@ -95,9 +96,9 @@
   if(!window.gsap || !window.ScrollTrigger) return;
 
   const processRoom = document.getElementById('processRoom');
-  const matrixCanvas = document.getElementById('processHeroMatrix');
+  const gridCanvas = document.getElementById('processHeroGrid');
   const heroCopy = document.querySelector('.process-hero-copy');
-  if(!processRoom || !matrixCanvas || !heroCopy) return;
+  if(!processRoom || !gridCanvas || !heroCopy) return;
 
   gsap.registerPlugin(ScrollTrigger);
 
@@ -149,8 +150,8 @@
   // taking off. Per-character stagger (a sweep, not every letter
   // glitching in lockstep) is driven purely by index — no separate
   // timer loop, matching this site's "everything driven by scroll"
-  // convention already used by js/hero-matrix.js's own per-frame
-  // digit randomization.
+  // convention already used by js/hero-grid.js's own per-frame wave
+  // recompute.
   const GLITCH_START = 0.28, GLITCH_END = 0.7;
   const STAGGER_SPAN = 2.5; // how many characters' worth of overlap are "in flight" at once
   // how far a character falls once fully dissolved, in its own font-size
@@ -273,11 +274,11 @@
       },
     });
 
-    // portal: the matrix-rain canvas scale-up doesn't start until 40%
+    // portal: the hero canvas scale-up doesn't start until 40%
     // into the pin, and finishes at 75% — a real dead zone first, then
     // a gradual dolly-in (transform+opacity only, per the 60fps
     // requirement)
-    tl.to(matrixCanvas, {
+    tl.to(gridCanvas, {
       scale: isDesktop ? 2.6 : 1.6,
       transformOrigin: '50% 50%',
       duration: 0.35,

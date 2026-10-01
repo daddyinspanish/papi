@@ -2330,13 +2330,13 @@ body, a{ cursor:none; }
   align-items:center;
   justify-content:center;
 }
-/* per direct request: a falling-numbers matrix rain running
-   continuously as the hero's whole background visual (js/hero-
-   matrix.js) — z-index sits below .process-room-grain (z-index:2) so
-   the grain layer visibly sits on top of it, and below .process-hero-
-   copy (z-index:5) so it never competes with the title/CTA for
-   legibility */
-.process-hero-matrix{
+/* per direct request, replacing the earlier falling-numbers matrix
+   rain: a continuously-animating 3D wireframe wave grid running as the
+   hero's whole background visual (js/hero-grid.js) — z-index sits
+   below .process-room-grain (z-index:2) so the grain layer visibly
+   sits on top of it, and below .process-hero-copy (z-index:5) so it
+   never competes with the title/CTA for legibility */
+.process-hero-grid{
   position:absolute;
   inset:0;
   width:100%;
