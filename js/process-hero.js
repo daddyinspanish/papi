@@ -65,13 +65,23 @@
     fill.setAttribute('aria-hidden', 'true');
     timeline.appendChild(fill);
 
+    // per direct request: step 4 (the last one) gets a shake-then-
+    // explode "delivery" animation instead of just scrolling off like
+    // steps 1-3 — these are the shards that burst out of its ball; see
+    // the .ptn-shard rules in css/style.css for the actual animation
+    const SHARD_ANGLES = [0, 60, 120, 180, 240, 300];
+    const finalShardsHTML = SHARD_ANGLES
+      .map(angle => `<span class="ptn-shard" style="--angle:${angle}deg"></span>`)
+      .join('');
+
     const frag = document.createDocumentFragment();
     STEPS.forEach((step, i)=>{
+      const isFinal = i === STEPS.length - 1;
       const el = document.createElement('div');
       el.className = 'process-timeline-step';
       el.setAttribute('data-reveal', '');
       el.innerHTML = `
-        <div class="process-timeline-number">${step.index}</div>
+        <div class="process-timeline-number${isFinal ? ' process-timeline-number--final' : ''}">${step.index}${isFinal ? finalShardsHTML : ''}</div>
         <div class="process-timeline-card">
           <p class="process-timeline-step-label">Step ${step.index}</p>
           <h3 class="process-timeline-title">${step.title}</h3>
@@ -95,6 +105,34 @@
     // reversing cleanly if the visitor scrolls back up).
     // ===================================================================
     const numberEls = Array.from(timeline.querySelectorAll('.process-timeline-number'));
+
+    // ===================================================================
+    // per direct request: "for step 4, an animation like it just filled
+    // up and exploded, as a delivery animation... after they read step
+    // 4 and try to scroll the ball shakes and it explodes onto what
+    // clients say about their website" — the ball itself (see its
+    // .is-exploding rules in css/style.css) only shakes/explodes once
+    // step 4 has already popped active AND the visitor keeps scrolling
+    // past it, same cumulative-progress reversibility as .is-active so
+    // scrolling back up before it fully leaves cancels it cleanly. The
+    // instant it fires (false -> true transition, not every frame it
+    // stays true) a matching glow pulses behind "What business owners
+    // say" below, so the burst reads as carrying down into that section
+    // rather than just vanishing into nothing.
+    // ===================================================================
+    const finalNumber = numberEls[numberEls.length - 1];
+    const impactGlow = document.querySelector('.testimonials-impact-glow');
+    let finalWasExploding = false;
+    let impactTimeout = null;
+    function triggerDeliveryImpact(){
+      if(!impactGlow) return;
+      impactGlow.classList.remove('is-impact');
+      void impactGlow.offsetWidth; // restart the keyframe if it's retriggered
+      impactGlow.classList.add('is-impact');
+      if(impactTimeout) clearTimeout(impactTimeout);
+      impactTimeout = setTimeout(()=> impactGlow.classList.remove('is-impact'), 900);
+    }
+
     let timelineTicking = false;
     function updateTimelineProgress(){
       const rect = timeline.getBoundingClientRect();
@@ -121,6 +159,14 @@
         const numProgress = numCenterY / rect.height;
         num.classList.toggle('is-active', progress >= numProgress);
       });
+
+      // "try to scroll" past step 4 = the whole timeline has scrolled
+      // mostly above the viewport already (not just read — left behind)
+      const isPastTimeline = rect.bottom < window.innerHeight * 0.2;
+      const finalIsExploding = !!(finalNumber && finalNumber.classList.contains('is-active') && isPastTimeline);
+      if(finalIsExploding && !finalWasExploding) triggerDeliveryImpact();
+      finalWasExploding = finalIsExploding;
+      if(finalNumber) finalNumber.classList.toggle('is-exploding', finalIsExploding);
     }
     function requestTimelineUpdate(){
       if(timelineTicking) return;

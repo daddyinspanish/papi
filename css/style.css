@@ -581,6 +581,35 @@ body, a{ cursor:none; }
   will-change:opacity, transform;
 }
 
+/* lands the step-4 "delivery" explosion from the process timeline above
+   — js/process-hero.js fires .is-impact here the instant that ball
+   bursts, so the energy reads as carrying down the page into what
+   clients say about the finished site, rather than just vanishing */
+.testimonials-impact-glow{
+  position:absolute;
+  top:-4%;
+  left:50%;
+  width:min(480px, 90vw);
+  height:min(480px, 90vw);
+  transform:translate(-50%,-50%) scale(.3);
+  border-radius:50%;
+  background:radial-gradient(circle, rgba(52,211,153,.5), rgba(52,211,153,0) 70%);
+  opacity:0;
+  z-index:0;
+  pointer-events:none;
+}
+.testimonials-impact-glow.is-impact{
+  animation:testimonialsImpactPulse .9s ease-out;
+}
+@keyframes testimonialsImpactPulse{
+  0%{ opacity:0; transform:translate(-50%,-50%) scale(.3); }
+  25%{ opacity:.9; transform:translate(-50%,-50%) scale(1); }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(1.6); }
+}
+@media (prefers-reduced-motion:reduce){
+  .testimonials-impact-glow.is-impact{ animation:none; }
+}
+
 .testimonials-eyebrow{
   position:relative;
   z-index:1;
@@ -3148,6 +3177,55 @@ body, a{ cursor:none; }
 }
 @media (prefers-reduced-motion:reduce){
   .process-timeline-number.is-active{ animation:none; }
+}
+/* ===================================================================
+   STEP 4 "DELIVERY" EXPLOSION — per direct request: once the visitor
+   has read step 4 and keeps scrolling past it (toward What Business
+   Owners Say below), the ball shakes like it's under pressure, then
+   bursts into a handful of flying gold shards instead of just quietly
+   scrolling off-screen like steps 1-3 do. js/process-hero.js toggles
+   .is-exploding on this one ball every frame, same reversible
+   cumulative-progress convention as .is-active above — scroll back up
+   before it fully leaves and it snaps back to the plain gold ball with
+   nothing left mid-animation.
+=================================================================== */
+.process-timeline-number--final{ position:relative; }
+.process-timeline-number--final.is-exploding{
+  animation:timelineFinalShake .85s var(--ease-out) forwards;
+}
+@keyframes timelineFinalShake{
+  0%{ transform:scale(1) translateX(0); }
+  12%{ transform:scale(1.05) translateX(-3px); }
+  24%{ transform:scale(1.05) translateX(3px); }
+  36%{ transform:scale(1.08) translateX(-3px); }
+  48%{ transform:scale(1.08) translateX(3px); }
+  60%{ transform:scale(1.1) translateX(-2px); }
+  70%{ transform:scale(1.35); box-shadow:0 0 42px 10px rgba(52,211,153,.9), 0 0 0 6px var(--paper); }
+  100%{ transform:scale(.001); box-shadow:0 0 0 0 rgba(52,211,153,0), 0 0 0 6px var(--paper); }
+}
+.ptn-shard{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:linear-gradient(135deg, var(--gold-soft), var(--gold));
+  opacity:0;
+  pointer-events:none;
+}
+.process-timeline-number--final.is-exploding .ptn-shard{
+  animation:timelineShardBurst .55s var(--ease-out) forwards;
+  animation-delay:.52s;
+}
+@keyframes timelineShardBurst{
+  0%{ opacity:0; transform:translate(-50%,-50%) rotate(var(--angle)) translateX(0) scale(1); }
+  20%{ opacity:1; }
+  100%{ opacity:0; transform:translate(-50%,-50%) rotate(var(--angle)) translateX(46px) scale(.3); }
+}
+@media (prefers-reduced-motion:reduce){
+  .process-timeline-number--final.is-exploding{ animation:none; }
+  .process-timeline-number--final.is-exploding .ptn-shard{ animation:none; }
 }
 .process-timeline-card{
   grid-column:1;
