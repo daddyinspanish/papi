@@ -1027,11 +1027,57 @@ body, a{ cursor:none; }
   border:1px solid rgba(4,120,87,.16);
   box-shadow:0 20px 50px -28px rgba(0,0,0,.22);
 }
+/* per direct request, portfolio clips are vertical (9:16) and must show
+   their FULL frame on mobile — a 16:9 box would crop/letterbox them.
+   object-fit:contain guarantees nothing is ever cropped even if a future
+   clip isn't exactly 9:16. */
+.content-film-player{
+  position:relative;
+  background:#000;
+}
 .content-film-video{
   display:block;
   width:100%;
-  aspect-ratio:16/9;
+  aspect-ratio:9/16;
+  object-fit:contain;
   background:#000;
+}
+.content-film-play{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:0;
+  background:linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.35));
+  cursor:pointer;
+  transition:opacity .3s ease;
+}
+.content-film-play-icon{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:64px;
+  height:64px;
+  border-radius:50%;
+  color:#fff;
+  background:rgba(4,120,87,.88);
+  box-shadow:0 8px 28px -6px rgba(0,0,0,.5);
+  transition:transform .3s var(--ease-out);
+}
+.content-film-play-icon svg{ width:26px; height:26px; margin-left:3px; }
+.content-film-play:hover .content-film-play-icon,
+.content-film-play:focus-visible .content-film-play-icon{ transform:scale(1.1); }
+.content-film-card.is-playing .content-film-play{ opacity:0; pointer-events:none; }
+.content-film-card .content-film-card-title--caption{
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:4.2em;
+  padding:1rem 1.2rem;
+  text-align:center;
+  line-height:1.3;
 }
 .content-film-card-title{
   font-family:'Fraunces', serif;
