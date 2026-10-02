@@ -36,7 +36,7 @@
   if(!ctx) return;
 
   const CONFIG = {
-    cols: 56,
+    cols: 80,
     rows: 44,
     // ratios, not pixels — resize() turns these into real distances
     // based on the canvas's own height so the field of view holds up
@@ -83,6 +83,16 @@
     // absolute size (above) changes with viewport width.
     roadNarrowPower: 1.5,
     roadMinWidthFrac: 0.22,
+    // per direct request ("extend the grid from the bottom, to always be
+    // connected to the left and right edges of screen... so it does not
+    // look like something is missing on the bottom left and right"): the
+    // grid used to be exactly viewport-wide only at its (off-screen)
+    // nearest row and narrowed from there, so the lower corners of the
+    // screen showed empty wedges once the rows rose above the bottom
+    // edge. The near end is now ~2x the viewport width, so the surface
+    // runs past both screen edges through the whole lower part of the
+    // hero and only narrows toward the horizon.
+    roadNearWidthFrac: 2,
     // wave amplitude as a fraction of canvas height
     amplitudeFrac: 0.085,
     // per direct request ("more 3D like if its more of a landscape"):
@@ -131,7 +141,7 @@
   // roadMinWidthFrac (nz=1), independent of aspect ratio
   function widthFracAt(nz){
     const t = Math.pow(Math.min(Math.max(nz, 0), 1), CONFIG.roadNarrowPower);
-    return 1 - t * (1 - CONFIG.roadMinWidthFrac);
+    return CONFIG.roadMinWidthFrac + (CONFIG.roadNearWidthFrac - CONFIG.roadMinWidthFrac) * (1 - t);
   }
 
   // ===================================================================
@@ -241,8 +251,10 @@
       // mirrors renderFrame()'s own screenHalfWidth formula — see
       // widthFracAt()'s comment for why width is no longer derived from
       // scaleForRow() at all
-      const screenHalfWidth = (W / 2) * CONFIG.roadWidthFrac * widthFracAt(nzBest);
-      pointerNX = Math.max(-1, Math.min(1, (px - W / 2) / screenHalfWidth));
+      // screen-normalized x (-1..1 across the viewport), NOT grid-space:
+      // the grid is now wider than the screen, but the ball and terrain
+      // are sized in screen units so they look the same as before
+      pointerNX = Math.max(-1, Math.min(1, (px - W / 2) / (W / 2)));
       pointerNZ = nzBest;
       pointerActive = true;
     };
@@ -403,11 +415,14 @@
       const scale = scaleForRow(i);
       const halfW = (W / 2) * CONFIG.roadWidthFrac * widthFracAt(nz);
       rowSx[i] = (2 * halfW) / cols;
+      const wf = halfW / (W / 2);
       for(let j = 0; j <= cols; j++){
         const k = i * C1 + j;
         const nx = (j / cols - 0.5) * 2;
         vx[k] = W / 2 + nx * halfW;
-        vy[k] = horizonY + (camHeight - heightAt(nx, nz, t)) * scale;
+        // ball + terrain are evaluated in screen-normalized x so widening
+        // the grid past the viewport doesn't stretch the landscape
+        vy[k] = horizonY + (camHeight - heightAt(nx * wf, nz, t)) * scale;
         // per-vertex jitter on the front's position makes it an organic,
         // ragged edge rather than a ruler-straight line across the grid
         vm[k] = morphing ? smooth01((nz - (front - BRIDGE_BAND)) / span + (hA[k] - 0.5) * 0.5) : 0;
