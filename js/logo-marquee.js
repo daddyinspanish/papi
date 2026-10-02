@@ -22,8 +22,16 @@
    comment for the animation itself.
 =================================================================== */
 (function(){
+  // Source files live in ~/Desktop/Papi Website logos; these are the same
+  // artwork cropped tight to the visible logo (so each fits its uniform
+  // display box the same way) and saved as transparent WebP.
   const LOGOS = [
-    // { name: 'Example Co.', src: 'img/logos/example.png' },
+    { name: '4M Dental Implant Center', src: 'img/logos/4m-dental-implant-center.webp?v=1' },
+    { name: 'Black Health Connect', src: 'img/logos/black-health-connect.webp?v=1' },
+    { name: 'California Dental Group of North Anaheim', src: 'img/logos/california-dental-group.webp?v=1' },
+    { name: 'Dent All by Dr. Z', src: 'img/logos/dent-all.webp?v=1' },
+    { name: 'Dental Scanning Solutions', src: 'img/logos/dental-scanning-solutions.webp?v=1' },
+    { name: 'Figueroa Furniture', src: 'img/logos/figueroa-furniture.webp?v=1' },
   ];
 
   const section = document.getElementById('logoMarqueeSection');
