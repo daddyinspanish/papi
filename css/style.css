@@ -975,6 +975,15 @@ body, a{ cursor:none; }
 .content-film-section{
   position:relative;
   z-index:1;
+  /* BUG FIX, per a phone report that scrolling down to the quote form
+     made the whole page shift sideways: the 3D video cylinder's side
+     covers (rotated + pushed out with translate3d) stick out past the
+     screen edges, and transformed content counts toward the page's
+     scrollable width — measured 482px of page on a 375px screen, all from
+     this section. Clipping horizontally here keeps the page exactly as
+     wide as the screen (`clip` where supported, `hidden` as fallback). */
+  overflow-x:hidden;
+  overflow-x:clip;
   background:var(--paper);
   padding:clamp(4rem, 9vw, 6.5rem) 1.5rem;
 }
