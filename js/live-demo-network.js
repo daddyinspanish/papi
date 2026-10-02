@@ -50,6 +50,9 @@
 
   let W = 0, H = 0, dpr = 1;
   let points = [];
+  const ALPHA_LEVELS = 12;
+  const COLOR_BANDS = 4;
+  const linkBuckets = Array.from({ length: (ALPHA_LEVELS * 2 + 1) * COLOR_BANDS }, () => []);
 
   function lerp(a, b, t){ return a + (b - a) * t; }
   function colorAt(ny){
@@ -96,6 +99,11 @@
       if(p.y < -10) p.y = H + 10; else if(p.y > H + 10) p.y = -10;
     });
 
+    // links are grouped into a fixed set of (alpha level x vertical
+    // color band) buckets and each bucket is drawn as ONE path/stroke,
+    // instead of one stroke (with its own color string) per pair — that
+    // per-pair cost was a real part of why scrolling from the hero into
+    // this section felt choppy, since both canvases animate at once there
     const linkDist2 = CONFIG.linkDistance * CONFIG.linkDistance;
     for(let i = 0; i < points.length; i++){
       const a = points[i];
@@ -107,13 +115,25 @@
         const d = Math.sqrt(d2);
         const alpha = (1 - d / CONFIG.linkDistance) * 0.5;
         if(alpha < 0.01) continue;
-        const [r, g, bl] = colorAt(((a.y + b.y) / 2) / H);
-        ctx.strokeStyle = `rgba(${r.toFixed(0)},${g.toFixed(0)},${bl.toFixed(0)},${alpha.toFixed(3)})`;
-        ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
-        ctx.lineTo(b.x, b.y);
-        ctx.stroke();
+        const aq = Math.max(1, Math.round(alpha * 2 * ALPHA_LEVELS));
+        let band = (((a.y + b.y) / 2) / H * COLOR_BANDS) | 0;
+        band = band < 0 ? 0 : band >= COLOR_BANDS ? COLOR_BANDS - 1 : band;
+        linkBuckets[aq * COLOR_BANDS + band].push(a.x, a.y, b.x, b.y);
       }
+    }
+    for(let q = 0; q < linkBuckets.length; q++){
+      const arr = linkBuckets[q];
+      if(!arr.length) continue;
+      const aq = (q / COLOR_BANDS) | 0, band = q % COLOR_BANDS;
+      const [r, g, bl] = colorAt((band + 0.5) / COLOR_BANDS);
+      ctx.strokeStyle = `rgba(${r.toFixed(0)},${g.toFixed(0)},${bl.toFixed(0)},${(aq / (2 * ALPHA_LEVELS)).toFixed(3)})`;
+      ctx.beginPath();
+      for(let k = 0; k < arr.length; k += 4){
+        ctx.moveTo(arr[k], arr[k + 1]);
+        ctx.lineTo(arr[k + 2], arr[k + 3]);
+      }
+      ctx.stroke();
+      arr.length = 0;
     }
 
     points.forEach((p) => {

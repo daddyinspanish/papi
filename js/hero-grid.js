@@ -52,7 +52,12 @@
     // nothing above it, regardless of viewport size.
     horizonFrac: 0,
     mobileWidth: 640,
-    nearYFrac: 1.04, // the nearest row lands just past the bottom edge
+    // the nearest row's flat baseline sits well PAST the bottom edge:
+    // per direct request the landscape now shapes the bottom of the grid
+    // too, and terrain only ever lifts the surface upward, so the extra
+    // margin is what keeps a hill near the viewer from pulling the
+    // grid's lower edge up into frame and exposing an empty strip
+    nearYFrac: 1.38,
     // the grid's width at the near row, as a fraction of the full
     // viewport width. BUG FIX: per follow-up report, "there are gaps on
     // the left and right side... its suppose to cover the right and
@@ -146,7 +151,8 @@
   // cross-fade to something else. Pure function of the scrubbed value, so
   // scrolling back up reverses it cleanly.
   // ===================================================================
-  let bridgeProgress = 0;
+  let bridgeProgress = 0;   // what is actually drawn (eased toward the target each frame)
+  let bridgeTarget = 0;     // what the scroll position is asking for
   const BRIDGE_BAND = 0.16; // half-width of the morph front, as a fraction of the grid depth
   // front position (in nz) at which a row is exactly half-morphed;
   // chosen so bridgeProgress 0 leaves every row untouched (even the
@@ -169,7 +175,9 @@
     const w = canvas.clientWidth || window.innerWidth;
     const h = canvas.clientHeight || window.innerHeight;
     if(!w || !h) return;
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // capped lower on phones — a full-bleed canvas at 3x is a lot of
+    // pixels to repaint every frame for 1px lines that look the same
+    dpr = Math.min(window.devicePixelRatio || 1, window.innerWidth < CONFIG.mobileWidth ? 1.5 : 2);
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -267,12 +275,26 @@
   // drift so it never sits frozen. Hidden-line removal in renderFrame()
   // then lets near ridges hide the ones behind them, which is what makes
   // it read as solid ground instead of a transparent net.
-  function terrain(nx, nz, t){
-    const env = 0.42 + 1.1 * Math.pow(nz, 1.1);
-    const walls = 0.3 + 1.15 * nx * nx;
-    const s1 = Math.sin(nx * 2.3 + nz * 3.1 + t * 0.05);
-    const s2 = Math.sin(nx * 4.7 - nz * 5.3 - t * 0.04 + 1.7);
-    const s3 = Math.sin(nx * 9.1 + nz * 8.2 + t * 0.06 + 0.4);
+  // per direct request, "make the grid in the beginning also be
+  // rotating, so that way the landscape is always random": the ridge
+  // field is sampled through a slowly ROTATING + drifting coordinate
+  // frame (and a per-visit random starting angle/phase), so hills turn,
+  // slide and re-form continuously and no two moments (or visits) match.
+  // The valley/wall composition below stays fixed to the screen so the
+  // hero never loses its overall shape or its legible middle.
+  const seedA = Math.random() * 6.283, seedB = Math.random() * 6.283;
+  let tCos = 1, tSin = 0, tDrift = 0;
+  function terrain(nx, nz){
+    const cz = (nz - 0.5) * 2;
+    const ru = nx * tCos - cz * tSin;
+    const rv = nx * tSin + cz * tCos + tDrift;
+    const env = 0.55 + 0.95 * Math.pow(nz, 1.1);
+    // side walls rise less right next to the viewer, so the bottom
+    // corners can't be hauled up out of frame
+    const walls = 0.3 + 1.15 * nx * nx * (0.35 + 0.65 * nz);
+    const s1 = Math.sin(ru * 2.3 + rv * 3.1 + seedA);
+    const s2 = Math.sin(ru * 4.7 - rv * 5.3 + seedB);
+    const s3 = Math.sin(ru * 9.1 + rv * 8.2 + seedA * 1.7);
     const ridge = 1 - Math.abs(s1);
     return (ridge * 0.85 + s2 * 0.25 + s3 * 0.08) * env * walls;
   }
@@ -289,7 +311,7 @@
       Math.sin(nx * 2.4 + nz * 1.6 + t * 0.3) * 0.5 +
       Math.sin(nx * 1.1 - nz * 2.8 - t * 0.24) * 0.4
     ) * zTaper * 0.15;
-    return (ball * 1.1 + ripple) * amplitude + terrain(nx, nz, t) * terrainAmp;
+    return (ball * 1.1 + ripple) * amplitude + terrain(nx, nz) * terrainAmp;
   }
 
   // ---- per-vertex scratch buffers (allocated once, reused every frame)
@@ -315,20 +337,68 @@
   const KEEP_AT_FULL_MORPH = 0.17; // fraction of vertices that survive as constellation nodes
   const LINK_STENCIL = [[0, 1], [1, 0], [1, 1], [1, -1], [0, 2], [2, 0]]; // [rows toward far, cols]
 
+  // BUG FIX, per direct report "the animation is not smooth": the morph
+  // used to issue one stroke() (with its own freshly-built color string)
+  // PER line segment — thousands per frame while rows were mid-morph —
+  // plus a shadowBlur glow, and ran capped at 36fps. Segments are now
+  // grouped into a fixed set of alpha levels and each level is drawn as
+  // ONE path / ONE stroke, so the cost stays flat no matter how many
+  // segments are on screen.
+  const AL = 32;
+  const makeBuckets = () => Array.from({ length: AL + 1 }, () => []);
+  const stripBuckets = makeBuckets();
+  const linkBuckets = makeBuckets();
+  const dotBuckets = makeBuckets();
+  const qa = (a) => Math.round((a > 1 ? 1 : a) * AL);
+  function flushSegs(buckets){
+    for(let q = 1; q <= AL; q++){
+      const arr = buckets[q];
+      if(!arr.length) continue;
+      ctx.strokeStyle = `rgba(${LINE_RGB},${(q / AL).toFixed(3)})`;
+      ctx.beginPath();
+      for(let k = 0; k < arr.length; k += 4){
+        ctx.moveTo(arr[k], arr[k + 1]);
+        ctx.lineTo(arr[k + 2], arr[k + 3]);
+      }
+      ctx.stroke();
+      arr.length = 0;
+    }
+  }
+  function flushDots(buckets){
+    for(let q = 1; q <= AL; q++){
+      const arr = buckets[q];
+      if(!arr.length) continue;
+      ctx.fillStyle = `rgba(${LINE_RGB},${(q / AL).toFixed(3)})`;
+      ctx.beginPath();
+      for(let k = 0; k < arr.length; k += 3){
+        ctx.moveTo(arr[k] + arr[k + 2], arr[k + 1]);
+        ctx.arc(arr[k], arr[k + 1], arr[k + 2], 0, Math.PI * 2);
+      }
+      ctx.fill();
+      arr.length = 0;
+    }
+  }
+
   function renderFrame(t){
     ctx.clearRect(0, 0, W, H);
     ctx.lineWidth = CONFIG.lineWidth;
     const rows = CONFIG.rows, cols = CONFIG.cols;
 
-    const morphing = bridgeProgress > 0;
+    // rotating/drifting terrain frame for this frame (see terrain())
+    const ang = seedA + t * 0.035;
+    tCos = Math.cos(ang);
+    tSin = Math.sin(ang);
+    tDrift = t * 0.03;
+
+    const morphing = bridgeProgress > 0.0005;
     const front = morphFront();
     const span = 2 * BRIDGE_BAND;
 
     // ---- project every vertex once (world -> screen), plus morph amount
     for(let i = 0; i <= rows; i++){
-      // BUG FIX history (kept): scaleForRow() tapers Y to land exactly on
-      // horizonY so the grid reaches the top edge; width comes from
-      // widthFracAt() independently — see both functions' own comments
+      // scaleForRow() tapers Y to land exactly on horizonY so the grid
+      // reaches the top edge; width comes from widthFracAt()
+      // independently — see both functions' own comments
       const nz = i / rows;
       const scale = scaleForRow(i);
       const halfW = (W / 2) * CONFIG.roadWidthFrac * widthFracAt(nz);
@@ -364,13 +434,15 @@
     // grid lines. Lines fade out as their vertices morph into nodes.
     for(let i = rows; i >= 0; i--){
       const base = i * C1;
-      let maxM = 0, minM = 1;
-      for(let j = 0; j <= cols; j++){ const m = vm[base + j]; if(m > maxM) maxM = m; if(m < minM) minM = m; }
+      const nb = (i - 1) * C1;
 
       if(i >= 1){
-        const nb = (i - 1) * C1;
-        let stripMin = Math.min(minM, 1);
-        for(let j = 0; j <= cols; j++){ const m = vm[nb + j]; if(m < stripMin) stripMin = m; }
+        let stripMin = 1;
+        for(let j = 0; j <= cols; j++){
+          const m = vm[base + j], m2 = vm[nb + j];
+          if(m < stripMin) stripMin = m;
+          if(m2 < stripMin) stripMin = m2;
+        }
         if(stripMin < 0.985){
           ctx.beginPath();
           ctx.moveTo(vx[base], vy[base]);
@@ -382,58 +454,28 @@
         }
       }
 
-      // depth line (this row), with the crest glow if the morph front is on it
+      // depth line (this row); rows inside the morph front are brightened
+      // so the sweep reads as a travelling crest
       const glow = morphing ? bridgeHighlight(i / rows, front) : 0;
-      const aRow = Math.min(1, alphaCache[i] + glow * 0.5);
-      if(glow > 0){
-        ctx.shadowColor = `rgba(${LINE_RGB},${glow.toFixed(3)})`;
-        ctx.shadowBlur = 10 * glow;
+      const aRow = alphaCache[i] + glow * 0.45;
+      for(let j = 0; j < cols; j++){
+        const a = aRow * (1 - (vm[base + j] + vm[base + j + 1]) * 0.5);
+        const q = qa(a);
+        if(q < 1) continue;
+        const arr = stripBuckets[q];
+        arr.push(vx[base + j], vy[base + j], vx[base + j + 1], vy[base + j + 1]);
       }
-      if(maxM < 0.002){
-        ctx.strokeStyle = `rgba(${LINE_RGB},${aRow.toFixed(3)})`;
-        ctx.beginPath();
-        ctx.moveTo(vx[base], vy[base]);
-        for(let j = 1; j <= cols; j++) ctx.lineTo(vx[base + j], vy[base + j]);
-        ctx.stroke();
-      } else if(minM < 0.985){
-        for(let j = 0; j < cols; j++){
-          const a = aRow * (1 - (vm[base + j] + vm[base + j + 1]) * 0.5);
-          if(a < 0.012) continue;
-          ctx.strokeStyle = `rgba(${LINE_RGB},${a.toFixed(3)})`;
-          ctx.beginPath();
-          ctx.moveTo(vx[base + j], vy[base + j]);
-          ctx.lineTo(vx[base + j + 1], vy[base + j + 1]);
-          ctx.stroke();
-        }
-      }
-      if(glow > 0) ctx.shadowBlur = 0;
-
       // cross lines between this row and the next one nearer the viewer
       if(i >= 1){
-        const nb = (i - 1) * C1;
         const aCol = alphaCache[i] * 0.7;
-        let nbMax = 0;
-        for(let j = 0; j <= cols; j++){ const m = vm[nb + j]; if(m > nbMax) nbMax = m; }
-        if(maxM < 0.002 && nbMax < 0.002){
-          ctx.strokeStyle = `rgba(${LINE_RGB},${aCol.toFixed(3)})`;
-          ctx.beginPath();
-          for(let j = 0; j <= cols; j++){
-            ctx.moveTo(vx[nb + j], vy[nb + j]);
-            ctx.lineTo(vx[base + j], vy[base + j]);
-          }
-          ctx.stroke();
-        } else {
-          for(let j = 0; j <= cols; j++){
-            const a = aCol * (1 - (vm[nb + j] + vm[base + j]) * 0.5);
-            if(a < 0.012) continue;
-            ctx.strokeStyle = `rgba(${LINE_RGB},${a.toFixed(3)})`;
-            ctx.beginPath();
-            ctx.moveTo(vx[nb + j], vy[nb + j]);
-            ctx.lineTo(vx[base + j], vy[base + j]);
-            ctx.stroke();
-          }
+        for(let j = 0; j <= cols; j++){
+          const a = aCol * (1 - (vm[nb + j] + vm[base + j]) * 0.5);
+          const q = qa(a);
+          if(q < 1) continue;
+          stripBuckets[q].push(vx[nb + j], vy[nb + j], vx[base + j], vy[base + j]);
         }
       }
+      flushSegs(stripBuckets);
     }
 
     if(!morphing) return;
@@ -444,9 +486,12 @@
     for(let i = 0; i <= rows; i++){
       const sx = rowSx[i];
       const linkMax = sx * 3.6 + 8;
+      const r = 0.9 + 0.6 * (1 - i / rows);
       for(let j = 0; j <= cols; j++){
         const k = i * C1 + j;
         if(vm[k] < 0.02 || !keep(k)) continue;
+        const qd = qa(0.85 * vm[k]);
+        if(qd >= 1) dotBuckets[qd].push(px[k], py[k], r);
         for(let s = 0; s < LINK_STENCIL.length; s++){
           const ni = i + LINK_STENCIL[s][0], nj = j + LINK_STENCIL[s][1];
           if(ni > rows || nj < 0 || nj > cols) continue;
@@ -455,34 +500,25 @@
           const dx = px[k] - px[n], dy = py[k] - py[n];
           const d = Math.sqrt(dx * dx + dy * dy);
           if(d > linkMax) continue;
-          const a = (1 - d / linkMax) * 0.5 * Math.min(vm[k], vm[n]);
-          if(a < 0.012) continue;
-          ctx.strokeStyle = `rgba(${LINE_RGB},${a.toFixed(3)})`;
-          ctx.beginPath();
-          ctx.moveTo(px[k], py[k]);
-          ctx.lineTo(px[n], py[n]);
-          ctx.stroke();
+          const q = qa((1 - d / linkMax) * 0.5 * Math.min(vm[k], vm[n]));
+          if(q < 1) continue;
+          linkBuckets[q].push(px[k], py[k], px[n], py[n]);
         }
       }
     }
-    for(let i = 0; i <= rows; i++){
-      const r = 0.9 + 0.6 * (1 - i / rows);
-      for(let j = 0; j <= cols; j++){
-        const k = i * C1 + j;
-        if(vm[k] < 0.02 || !keep(k)) continue;
-        ctx.fillStyle = `rgba(${LINE_RGB},${(0.85 * vm[k]).toFixed(3)})`;
-        ctx.beginPath();
-        ctx.arc(px[k], py[k], r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
+    flushSegs(linkBuckets);
+    flushDots(dotBuckets);
   }
 
   // public hook for js/scroll-journey-hero.js — see the BRIDGE WAVE
   // comment above bridgeHighlight() for the full story
   window.PapiHeroGrid = {
     setBridgeProgress(p){
-      bridgeProgress = Math.max(0, Math.min(1, p));
+      bridgeTarget = Math.max(0, Math.min(1, p));
+      // the drawn value eases toward this each frame (see loop()) so
+      // scroll steps never show up as visible jumps; with no loop
+      // running (reduced motion) there's nothing to ease, so apply it
+      if(prefersReducedMotion) bridgeProgress = bridgeTarget;
       // no raf loop runs under reduced motion, so force a repaint here —
       // otherwise a later setBridgeProgress call would silently never
       // reach the canvas
@@ -527,33 +563,31 @@
   let isHeroVisible = true;
   let rafId = null;
   let startTs = null;
-  const RENDER_INTERVAL = 1000 / (window.innerWidth < 640 ? 24 : 36);
+  let lastTs = 0;
+  // per direct report, "the animation is not smooth": this used to be
+  // hard-capped at 36fps (24 on phones), so even a perfectly drawn frame
+  // stream looked steppy. Now it runs at the display's own rate and only
+  // backs off to ~30fps if frames are measurably expensive (slow device
+  // or heavy morph), recovering again once they get cheap.
+  let minInterval = window.innerWidth < 640 ? 1000 / 40 : 0;
+  let costAvg = 8;
   let lastRenderTs = 0;
 
   function loop(ts){
     if(startTs === null) startTs = ts;
-    if(ts - lastRenderTs >= RENDER_INTERVAL){
+    if(ts - lastRenderTs >= minInterval - 1){
+      const dt = lastTs ? Math.min((ts - lastTs) / 1000, 0.1) : 1 / 60;
+      lastTs = ts;
       lastRenderTs = ts;
       const t = (ts - startTs) / 1000;
-      // chase the cursor when it's present; otherwise drift slowly on
-      // its own so there's always something to find, not a dead-center
-      // ball waiting for a pointer that touch devices never send
+      // chase the cursor when it's present; otherwise wander to a fresh
+      // random point every ~0.7-1.8s so there's always something to
+      // find (touch devices never send a pointer)
       let targetX, targetZ;
       if(pointerActive){
         targetX = pointerNX;
         targetZ = Math.max(0.12, Math.min(0.85, pointerNZ));
       } else {
-        // BUG FIX: per direct report, "I would like the ball to also
-        // move more randomly around the space faster" — the old idle
-        // drift was two plain sine/cosine waves (a full side-to-side
-        // cycle took ~52s), so it read as a slow, perfectly predictable
-        // ellipse rather than something alive. This instead picks a
-        // fresh random point to wander toward every ~0.7-1.8s — the same
-        // "chase a target" smoothing already used for the cursor above,
-        // just with the target itself jumping around unpredictably
-        // instead of sliding along a fixed curve — so the path between
-        // points still reads as a smooth, organic arc (no noise
-        // function needed), not a jittery teleport.
         if(t >= idleNextPickAt){
           idleTargetX = (Math.random() * 2 - 1) * 0.85;
           idleTargetZ = 0.15 + Math.random() * 0.67;
@@ -562,12 +596,20 @@
         targetX = idleTargetX;
         targetZ = idleTargetZ;
       }
-      // raised from 0.08 — per the same "faster" request, the ball now
-      // closes the gap to wherever it's chasing (cursor or idle target)
-      // noticeably quicker each frame
-      ballX += (targetX - ballX) * 0.11;
-      ballZ += (targetZ - ballZ) * 0.11;
+      // frame-rate independent easing (was a fixed 0.11 per frame, which
+      // changes speed with the frame rate)
+      const kBall = 1 - Math.exp(-4.5 * dt);
+      ballX += (targetX - ballX) * kBall;
+      ballZ += (targetZ - ballZ) * kBall;
+      // ease the scroll-driven morph so wheel/touch steps blend together
+      const diff = bridgeTarget - bridgeProgress;
+      bridgeProgress = Math.abs(diff) < 0.0004 ? bridgeTarget : bridgeProgress + diff * (1 - Math.exp(-8 * dt));
+
+      const t0 = performance.now();
       renderFrame(t);
+      costAvg += (performance.now() - t0 - costAvg) * 0.08;
+      if(costAvg > 13 && minInterval < 30) minInterval = 1000 / 30;
+      else if(costAvg < 6 && minInterval === 1000 / 30) minInterval = window.innerWidth < 640 ? 1000 / 40 : 0;
     }
     rafId = requestAnimationFrame(loop);
   }
