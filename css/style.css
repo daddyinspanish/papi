@@ -1975,7 +1975,27 @@ body, a{ cursor:none; }
    render light-colored again and go barely-visible against the new
    light field — 'light' tells the browser to draw it dark instead,
    matching what the field actually looks like today. */
-.quote-field--date input{ color:var(--ink-text); overflow:hidden; color-scheme:light; }
+.quote-field--date input{
+  color:var(--ink-text);
+  overflow:hidden;
+  color-scheme:light;
+  /* BUG FIX, per an iPhone report that the "Preferred date" box stuck out
+     past the right edge of the Book a Call card: iOS Safari draws a native
+     date input with its own intrinsic width/height and ignores width:100%
+     unless the native appearance is switched off. Forcing a plain block box
+     keeps it inside the card like the other fields. */
+  -webkit-appearance:none;
+  appearance:none;
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  min-height:3.4rem;
+  text-align:left;
+}
+.quote-field--date input::-webkit-date-and-time-value{ text-align:left; min-height:1.2em; margin:0; }
+.quote-field--date input::-webkit-datetime-edit{ padding:0; }
 .quote-field--date input:focus + label,
 .quote-field--date input.has-value + label{
   top:.4rem;
