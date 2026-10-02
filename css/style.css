@@ -2628,8 +2628,28 @@ body, a{ cursor:none; }
 .hero-title-word{
   display:inline-block;
 }
+/* per direct request, "I want the cursor to have an effect on the title
+   letters and subtitles letters too" — js/hero-letter-fx.js drives
+   `translate`/`scale`/`color` on each letter based on cursor proximity;
+   the transition here is what turns its per-frame value jumps into a
+   smooth lift/settle rather than the letters snapping instantly to
+   wherever the cursor last was. Deliberately NOT transitioning
+   `transform` itself — that property stays fully owned by this same
+   element's own scroll-driven glitch tween just below, so the two
+   effects never fight over one property. */
 .hero-title-char{
   display:inline-block;
+  transition:translate .3s cubic-bezier(.16,1,.3,1), scale .3s cubic-bezier(.16,1,.3,1), color .3s ease;
+}
+/* same letter-cursor effect, applied to the hero subtitle — split into
+   words/characters by js/hero-letter-fx.js itself (the title already
+   had this from js/scroll-journey-hero.js; the subtitle didn't) */
+.hero-sub-word{
+  display:inline-block;
+}
+.hero-sub-char{
+  display:inline-block;
+  transition:translate .3s cubic-bezier(.16,1,.3,1), scale .3s cubic-bezier(.16,1,.3,1), color .3s ease;
 }
 .hero-title-char.is-glitching{
   /* BUG FIX: this used to flash near-white (#a7f3d0) to pop against the
@@ -3256,6 +3276,7 @@ body, a{ cursor:none; }
   .process-timeline-number--final.is-exploding .ptn-shard{ animation:none; }
 }
 .process-timeline-card{
+  position:relative;
   grid-column:1;
   text-align:left;
   background:#fff;
@@ -3263,9 +3284,48 @@ body, a{ cursor:none; }
   border-radius:16px;
   padding:clamp(1.4rem, 3vw, 1.9rem) clamp(1.5rem, 3.5vw, 2rem);
   box-shadow:0 24px 60px -30px rgba(0,0,0,.22);
+  transition:transform .5s var(--ease-out), border-color .5s var(--ease-out), box-shadow .5s var(--ease-out);
 }
 .process-timeline-step:nth-child(even) .process-timeline-card{
   grid-column:3;
+}
+/* per direct request, "I would like it Step rectangle to pop up as they
+   pass through their numbers with a highlighted green glow in the
+   background, make it look more premium the steps" — js/process-
+   hero.js toggles this in lockstep with the number's own .is-active
+   (same cumulative, reversible scroll convention as everywhere else in
+   this timeline). A blurred radial glow sits behind the card via its
+   own ::before (kept separate from box-shadow so it can be much softer/
+   wider than a shadow would read without looking like dirt), and the
+   card itself lifts with a one-time pop on arrival, settling into a
+   slightly raised, green-bordered resting state while active. */
+.process-timeline-card::before{
+  content:'';
+  position:absolute;
+  inset:-22px;
+  z-index:-1;
+  border-radius:30px;
+  background:radial-gradient(circle, rgba(52,211,153,.4), rgba(52,211,153,0) 70%);
+  opacity:0;
+  transition:opacity .5s var(--ease-out);
+  pointer-events:none;
+}
+.process-timeline-card.is-active{
+  transform:translateY(-6px);
+  border-color:rgba(4,120,87,.4);
+  box-shadow:0 36px 80px -28px rgba(4,120,87,.5), 0 0 0 1px rgba(4,120,87,.1);
+  animation:timelineCardPop .6s var(--ease-out);
+}
+.process-timeline-card.is-active::before{
+  opacity:1;
+}
+@keyframes timelineCardPop{
+  0%{ transform:translateY(0) scale(1); }
+  45%{ transform:translateY(-10px) scale(1.025); }
+  100%{ transform:translateY(-6px) scale(1); }
+}
+@media (prefers-reduced-motion:reduce){
+  .process-timeline-card.is-active{ animation:none; }
 }
 .process-timeline-step-label{
   font-family:'Inter', sans-serif;

@@ -43,19 +43,14 @@
     // at any viewport size
     nearRatio: 0.42,
     farMultiple: 5,
-    horizonFrac: 0.16,
-    // per direct report, "on mobile the grid... is not connecting to
-    // the very top, it looks like the grid cuts half of the screen" —
-    // horizonFrac is a FRACTION of the canvas's own height, so the same
-    // 0.16 that reads as a small, unnoticeable gap on a short/wide
-    // desktop window becomes a much taller, more obvious empty band at
-    // the top of a tall, narrow phone screen (16% of 812px is a lot
-    // more dead space than 16% of 674px). FOLLOW-UP per direct report,
-    // "still no more blank space in the top" — 0.04 (an earlier fix)
-    // still left a small gap; 0 puts the horizon exactly at the top
+    // BUG FIX: per direct report, "the top of the grid should connect to
+    // the top edge of the website" — this used to be 0.16 on desktop
+    // (mobile was already fixed to 0 after an earlier, identical report:
+    // "on mobile the grid... is not connecting to the very top"). Same
+    // fix now applies everywhere: 0 puts the horizon exactly at the top
     // edge, so the grid's own vanishing point sits right at y=0 with
-    // nothing above it.
-    horizonFracMobile: 0,
+    // nothing above it, regardless of viewport size.
+    horizonFrac: 0,
     mobileWidth: 640,
     nearYFrac: 1.04, // the nearest row lands just past the bottom edge
     // the grid's width at the near row, as a fraction of the full
@@ -179,11 +174,10 @@
     W = w;
     H = h;
 
-    const isMobile = window.innerWidth < CONFIG.mobileWidth;
     FOCAL = H * 0.9;
     zNear = FOCAL * CONFIG.nearRatio;
     zFar = zNear * CONFIG.farMultiple;
-    horizonY = H * (isMobile ? CONFIG.horizonFracMobile : CONFIG.horizonFrac);
+    horizonY = H * CONFIG.horizonFrac;
     amplitude = H * CONFIG.amplitudeFrac;
 
     // the nearest row's flat (height 0) point should land at nearYFrac*H;

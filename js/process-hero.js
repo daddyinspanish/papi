@@ -105,6 +105,12 @@
     // reversing cleanly if the visitor scrolls back up).
     // ===================================================================
     const numberEls = Array.from(timeline.querySelectorAll('.process-timeline-number'));
+    // per direct request, "I would like it Step rectangle to pop up as
+    // they pass through their numbers with a highlighted green glow in
+    // the background, make it look more premium the steps" — one card
+    // per number, same index/order, so the loop below can toggle both
+    // together without re-querying the DOM every frame
+    const cardEls = numberEls.map((num) => num.closest('.process-timeline-step').querySelector('.process-timeline-card'));
 
     // ===================================================================
     // per direct request: "for step 4, an animation like it just filled
@@ -124,6 +130,38 @@
     const impactGlow = document.querySelector('.testimonials-impact-glow');
     let finalWasExploding = false;
     let impactTimeout = null;
+
+    // per direct request, "I also want the animation for the step four
+    // that explodes to be seen before the viewer is able to move to the
+    // review section" — without this, a fast scroll (a hard trackpad
+    // flick, repeated PageDown, etc.) could carry the visitor straight
+    // past this exact scroll position before the ~1.1s shake+explode
+    // sequence even finishes playing, landing them in the testimonials
+    // ("review") section having never actually seen it happen. Briefly
+    // blocks wheel/touch/keyboard scrolling the instant the explosion
+    // fires, same duration as the shake (.85s) + delayed shard burst
+    // (.52s delay + .55s = 1.07s) it's gating, plus a small buffer —
+    // then releases on its own, letting the visitor continue scrolling
+    // normally into testimonials right as the sequence wraps up.
+    let scrollLockActive = false;
+    function lockScrollBriefly(durationMs){
+      if(scrollLockActive) return;
+      scrollLockActive = true;
+      const prevent = (e)=>{ e.preventDefault(); };
+      const preventKeys = (e)=>{
+        if(['ArrowDown','ArrowUp','PageDown','PageUp','Home','End',' '].includes(e.key)) e.preventDefault();
+      };
+      window.addEventListener('wheel', prevent, { passive:false });
+      window.addEventListener('touchmove', prevent, { passive:false });
+      window.addEventListener('keydown', preventKeys);
+      setTimeout(()=>{
+        window.removeEventListener('wheel', prevent);
+        window.removeEventListener('touchmove', prevent);
+        window.removeEventListener('keydown', preventKeys);
+        scrollLockActive = false;
+      }, durationMs);
+    }
+
     function triggerDeliveryImpact(){
       if(!impactGlow) return;
       impactGlow.classList.remove('is-impact');
@@ -153,18 +191,24 @@
       // getBoundingClientRect() on both and subtracting sidesteps the
       // offsetParent chain entirely — always correct regardless of how
       // many positioned ancestors sit in between.
-      numberEls.forEach((num)=>{
+      numberEls.forEach((num, i)=>{
         const numRect = num.getBoundingClientRect();
         const numCenterY = (numRect.top + numRect.height / 2) - rect.top;
         const numProgress = numCenterY / rect.height;
-        num.classList.toggle('is-active', progress >= numProgress);
+        const isActive = progress >= numProgress;
+        num.classList.toggle('is-active', isActive);
+        const card = cardEls[i];
+        if(card) card.classList.toggle('is-active', isActive);
       });
 
       // "try to scroll" past step 4 = the whole timeline has scrolled
       // mostly above the viewport already (not just read — left behind)
       const isPastTimeline = rect.bottom < window.innerHeight * 0.2;
       const finalIsExploding = !!(finalNumber && finalNumber.classList.contains('is-active') && isPastTimeline);
-      if(finalIsExploding && !finalWasExploding) triggerDeliveryImpact();
+      if(finalIsExploding && !finalWasExploding){
+        triggerDeliveryImpact();
+        lockScrollBriefly(1200);
+      }
       finalWasExploding = finalIsExploding;
       if(finalNumber) finalNumber.classList.toggle('is-exploding', finalIsExploding);
     }

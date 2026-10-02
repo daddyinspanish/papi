@@ -125,24 +125,43 @@
     });
   }
 
+  // BUG FIX: per direct report, "when I leave section 2 and the live
+  // demo disappears the connected dot lines seem to change order" —
+  // ResizeObserver fired resize() -> buildPoints() on ANY size change at
+  // all, including the sub-pixel/few-px reflows a mobile browser's own
+  // address bar causes just from scrolling (no real resize happened).
+  // buildPoints() throws every point away and re-randomizes the whole
+  // field from scratch, so scrolling straight past this section could
+  // make the dots instantly jump to a brand new layout. The legacy
+  // window-resize fallback just below already guarded against exactly
+  // this with a 10px threshold; the primary ResizeObserver path (what
+  // every modern browser actually uses) never had the same guard. Both
+  // paths now share one threshold check, so only a genuine size change
+  // rebuilds the field.
+  let lastResizeW = 0, lastResizeH = 0;
+  function handleResize(){
+    const w = section.clientWidth || window.innerWidth;
+    const h = section.clientHeight || window.innerHeight;
+    if(Math.abs(w - lastResizeW) <= 10 && Math.abs(h - lastResizeH) <= 10) return;
+    lastResizeW = w;
+    lastResizeH = h;
+    resize();
+  }
+
   if('ResizeObserver' in window){
     const ro = new ResizeObserver(() => {
       clearTimeout(window.__papiLiveDemoNetResizeT);
-      window.__papiLiveDemoNetResizeT = setTimeout(resize, 150);
+      window.__papiLiveDemoNetResizeT = setTimeout(handleResize, 150);
     });
     ro.observe(section);
   } else {
-    let lastResizeW = window.innerWidth;
     window.addEventListener('resize', () => {
-      const w = window.innerWidth;
-      if(Math.abs(w - lastResizeW) <= 10) return;
-      lastResizeW = w;
       clearTimeout(window.__papiLiveDemoNetResizeT);
-      window.__papiLiveDemoNetResizeT = setTimeout(resize, 150);
+      window.__papiLiveDemoNetResizeT = setTimeout(handleResize, 150);
     });
   }
 
-  resize();
+  handleResize();
 
   if(prefersReducedMotion){
     renderFrame(0);
