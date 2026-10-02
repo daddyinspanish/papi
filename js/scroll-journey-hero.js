@@ -120,9 +120,26 @@
   const GLITCH_DIGITS = '0123456789';
   let titleChars = [];
   if(titleEl){
+    // BUG FIX, found once the title became a single long one-liner (per
+    // direct request to drop the old two-line "Real Websites. / Built
+    // With Purpose." in favor of one line): a bare space text node
+    // between two `display:inline-block` char spans does NOT reliably
+    // keep the browser from treating the boundary between two spans
+    // WITHIN the same word as its own line-break opportunity too —
+    // confirmed directly on a narrow viewport, where "Building Websites
+    // for Businesses." wrapped as "...for Businesses." became "...fo" /
+    // "r Businesses." (split mid-word, exactly between two character
+    // spans, nowhere near an actual space). The old two-line title never
+    // surfaced this — each hard-coded line was always short enough to
+    // never actually need a second wrap. Each word's own character spans
+    // are now nested inside one more `.hero-title-word` (display:
+    // inline-block, see its own CSS) wrapper, so that word is one atomic
+    // box the line-breaking algorithm can only break BEFORE or AFTER —
+    // never inside — while the plain space text nodes between word
+    // wrappers (unchanged) still wrap normally between words.
     const lines = titleEl.innerHTML.split(/<br\s*\/?>/i);
     titleEl.innerHTML = lines
-      .map((line) => Array.from(line).map((ch) => (ch === ' ' ? ' ' : `<span class="hero-title-char" data-char="${ch}">${ch}</span>`)).join(''))
+      .map((line) => line.split(' ').map((word) => `<span class="hero-title-word">${Array.from(word).map((ch) => `<span class="hero-title-char" data-char="${ch}">${ch}</span>`).join('')}</span>`).join(' '))
       .join('<br>');
     titleChars = Array.from(titleEl.querySelectorAll('.hero-title-char'));
   }

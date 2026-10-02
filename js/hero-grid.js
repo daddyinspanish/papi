@@ -256,6 +256,9 @@
   // settles into a slow idle drift instead of sitting dead-center, so
   // the hero still reads as "alive" with nothing to chase it.
   let ballX = 0.12, ballZ = 0.42;
+  // random-waypoint idle wander state — see its own BUG FIX comment in
+  // loop() below
+  let idleTargetX = 0.12, idleTargetZ = 0.42, idleNextPickAt = 0;
 
   // nx: -1..1 across the grid's width. nz: 0..1 from near to far.
   function heightAt(nx, nz, t){
@@ -269,11 +272,18 @@
     // spike.
     const ball = Math.exp(-(dx * dx) / 0.16 - (dz * dz) / 0.05);
 
-    // faint ambient ripple texture only — kept deliberately subtle so
-    // the ball itself stays the clear, dominant feature. sin(nz*pi) is
-    // 0 at both nz=0 and nz=1 and peaks at nz=0.5, fading the ripple
-    // out at the near/far edges for the same compressed-horizon reason
-    // as the ball's own z falloff above.
+    // REVERTED per direct follow-up report, "the waves are too much now,
+    // its only suppose to make a wave when scrolling into the next
+    // section" — a continuous ball-centered radiating wave was tried
+    // here, but the wave effect is only meant to happen during the
+    // scroll-triggered handoff into #liveDemoSection (see the BRIDGE
+    // WAVE block above, driven by bridgeProgress), not as a permanent
+    // idle/ambient effect. Back to the original faint ambient ripple
+    // texture — kept deliberately subtle so the ball itself stays the
+    // clear, dominant feature. sin(nz*pi) is 0 at both nz=0 and nz=1 and
+    // peaks at nz=0.5, fading the ripple out at the near/far edges for
+    // the same compressed-horizon reason as the ball's own z falloff
+    // above.
     const zTaper = Math.sin(Math.min(Math.max(nz, 0), 1) * Math.PI);
     const ripple = (
       Math.sin(nx * 2.4 + nz * 1.6 + t * 0.3) * 0.5 +
@@ -445,11 +455,30 @@
         targetX = pointerNX;
         targetZ = Math.max(0.12, Math.min(0.85, pointerNZ));
       } else {
-        targetX = Math.sin(t * 0.12) * 0.5;
-        targetZ = 0.42 + Math.cos(t * 0.09) * 0.18;
+        // BUG FIX: per direct report, "I would like the ball to also
+        // move more randomly around the space faster" — the old idle
+        // drift was two plain sine/cosine waves (a full side-to-side
+        // cycle took ~52s), so it read as a slow, perfectly predictable
+        // ellipse rather than something alive. This instead picks a
+        // fresh random point to wander toward every ~0.7-1.8s — the same
+        // "chase a target" smoothing already used for the cursor above,
+        // just with the target itself jumping around unpredictably
+        // instead of sliding along a fixed curve — so the path between
+        // points still reads as a smooth, organic arc (no noise
+        // function needed), not a jittery teleport.
+        if(t >= idleNextPickAt){
+          idleTargetX = (Math.random() * 2 - 1) * 0.85;
+          idleTargetZ = 0.15 + Math.random() * 0.67;
+          idleNextPickAt = t + 0.7 + Math.random() * 1.1;
+        }
+        targetX = idleTargetX;
+        targetZ = idleTargetZ;
       }
-      ballX += (targetX - ballX) * 0.08;
-      ballZ += (targetZ - ballZ) * 0.08;
+      // raised from 0.08 — per the same "faster" request, the ball now
+      // closes the gap to wherever it's chasing (cursor or idle target)
+      // noticeably quicker each frame
+      ballX += (targetX - ballX) * 0.11;
+      ballZ += (targetZ - ballZ) * 0.11;
       renderFrame(t);
     }
     rafId = requestAnimationFrame(loop);

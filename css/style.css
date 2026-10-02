@@ -2569,11 +2569,28 @@ body, a{ cursor:none; }
 }
 .process-hero-title{
   font-family:'Fraunces', serif;
-  font-weight:400;
-  font-style:italic;
-  font-size:clamp(2.4rem, 6vw, 4.4rem);
-  line-height:1.08;
-  max-width:16ch;
+  /* BUG FIX: per direct report, "the hero font is too popping, its not
+     connecting with premium to me having that font looks funky lets
+     change it to something more professional" — Fraunces' italic forms
+     are deliberately expressive/swashy (that's the "funky" read at this
+     display size); dropping italic and moving up to its heavier 600
+     weight keeps the same brand typeface (still Fraunces, same as every
+     other heading site-wide — no new font request needed) but reads as
+     a confident, grounded, upright display face instead of a stylized
+     script. */
+  font-weight:600;
+  font-size:clamp(1.8rem, 4.4vw, 3.1rem);
+  line-height:1.15;
+  /* per direct follow-up, "shorten it to building websites for
+     businesses, one line" — widened from the old two-line title's 16ch
+     (and the font-size clamp above lowered to match) specifically so
+     "Building Websites for Businesses." fits on one line at ordinary
+     desktop widths instead of wrapping; confirmed directly by measuring
+     rendered height against the old two-line max/size pair, same method
+     used to fix the previous title's own wrap bug. Only wraps on
+     genuinely narrow phones, where wrapping is unavoidable regardless of
+     wording. */
+  max-width:30ch;
   transition:opacity .45s ease, filter .45s ease, transform .45s ease;
   /* BUG FIX: per direct request, "change the luxury feel to something
      not dark, so a premium white, that changes the hero text to a dark
@@ -2584,6 +2601,9 @@ body, a{ cursor:none; }
      A plain solid dark ink fill is the direct, explicit ask here
      rather than a redesigned dark-toned shine. */
   color:var(--ink-text);
+  /* per direct follow-up report, "the glow does not look good, please
+     remove it" — a neon-green backlight text-shadow was tried here and
+     removed again; plain solid ink, no shadow. */
 }
 @keyframes processHeroTitleShine{
   0%, 100%{ background-position:0% 50%; }
@@ -2600,6 +2620,14 @@ body, a{ cursor:none; }
    color, so a glitching character visually pops out of the metallic
    gradient and reads as becoming one of the falling digits behind it,
    instead of just fading out on its own. */
+/* BUG FIX, per js/scroll-journey-hero.js's own matching comment: groups
+   each word's character spans into one atomic inline-block, so the
+   title (now one single line instead of two hard-coded short ones) only
+   ever wraps BETWEEN words on a narrow viewport, never mid-word between
+   two character spans */
+.hero-title-word{
+  display:inline-block;
+}
 .hero-title-char{
   display:inline-block;
 }
