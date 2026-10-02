@@ -18,6 +18,8 @@
      falling-letters glitch can fall past the slot's edge instead of being
      cut off by it.
    - off-screen / backgrounded tab: paused.
+   The subtitle (.hero-sub-line spans) swaps in step with it from the same
+   clock, so the two always match.
    Dispatches `papi:herotitle` after each change so js/hero-letter-fx.js
    re-measures where the letters now are.
 =================================================================== */
@@ -28,9 +30,12 @@
   if(phrases.length < 2) return;
 
   const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const HOLD_MS = 3200;   // how long each phrase stays up
+  // per direct request the subtitle swaps in step with the title and must
+  // be slow enough to actually read — one shared clock for both
+  const HOLD_MS = 6000;   // how long each phrase stays up
   const ROLL_MS = 800;    // matches the CSS transition (.75s) + a little
 
+  const subLines = Array.from(document.querySelectorAll('.hero-sub-line'));
   let current = 0;
   let widths = [];
 
@@ -89,6 +94,11 @@
     nxt.classList.add('is-active');
     nxt.removeAttribute('aria-hidden');
     current = next;
+    // the subtitle's matching line fades in as the title phrase rolls
+    subLines.forEach((l, k) => {
+      l.classList.toggle('is-active', k === next);
+      l.setAttribute('aria-hidden', k === next ? 'false' : 'true');
+    });
     setTimeout(() => {
       // park the old phrase back below the slot with no transition, so it
       // doesn't visibly slide through the window on its way there

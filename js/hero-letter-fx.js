@@ -31,10 +31,30 @@
   if(!hero || (!titleEl && !subEl)) return;
 
   if(subEl){
-    subEl.innerHTML = subEl.textContent
-      .split(' ')
-      .map((word) => `<span class="hero-sub-word">${Array.from(word).map((ch) => `<span class="hero-sub-char">${ch}</span>`).join('')}</span>`)
-      .join(' ');
+    // the subtitle now holds two stacked lines (rotated by js/hero-rotator.js),
+    // so split by walking TEXT NODES to keep that markup intact (same
+    // technique and reason as the title split in js/scroll-journey-hero.js)
+    const nodes = [];
+    const walker = document.createTreeWalker(subEl, NodeFilter.SHOW_TEXT);
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach((node) => {
+      if(!node.nodeValue.trim()) return;
+      const frag = document.createDocumentFragment();
+      node.nodeValue.split(/( )/).forEach((part) => {
+        if(!part) return;
+        if(part === ' '){ frag.appendChild(document.createTextNode(' ')); return; }
+        const word = document.createElement('span');
+        word.className = 'hero-sub-word';
+        Array.from(part).forEach((ch) => {
+          const c = document.createElement('span');
+          c.className = 'hero-sub-char';
+          c.textContent = ch;
+          word.appendChild(c);
+        });
+        frag.appendChild(word);
+      });
+      node.parentNode.replaceChild(frag, node);
+    });
   }
 
   const chars = [

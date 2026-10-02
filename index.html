@@ -193,7 +193,7 @@ setTimeout(function(){
      what the browser's cache thought. BUMP THIS EXACT STRING (all
      occurrences in this file) whenever any css/js file's contents
      change — a stale version string here defeats the entire point. -->
-<link rel="stylesheet" href="css/style.css?v=20261002-17">
+<link rel="stylesheet" href="css/style.css?v=20261002-18">
 
 <!-- structured data — per direct request, so search engines/AI tools
      have an explicit, machine-readable answer for "what is this and
@@ -293,7 +293,14 @@ setTimeout(function(){
            and lead tracking available too" — the hero sub now just
            elaborates on the website itself, no mention of the other
            services at all -->
-      <p class="process-hero-sub">A website designed to build trust, communicate clearly, and guide visitors to their next step.</p>
+      <!-- per direct request ("have the subtitle change from a website designed...
+           to videos planned for purpose, and show what your business offers to
+           your ideal customer, on loop... slower so they have time to read each
+           of them"): two lines stacked in one spot, swapped in step with the
+           title's rotating phrase (js/hero-rotator.js drives both from one
+           clock, so "Building Websites" always sits over the website line and
+           "Creating Content" over the video line). -->
+      <p class="process-hero-sub"><span class="hero-sub-line is-active">A website designed to build trust, communicate clearly, and guide visitors to their next step.</span><span class="hero-sub-line" aria-hidden="true">Videos planned with purpose, showing what your business offers to your ideal customer.</span></p>
       <!-- per direct request: "move the view our work button above" —
            now sits right under the title, in-flow (inherits
            .process-hero-copy's own flex gap), always active — the
@@ -819,25 +826,25 @@ setTimeout(function(){
      and init.js's own bounded reveal windows can actually fire on time
      instead of queuing behind an unbounded fetch chain. Confirmed safe:
      none of these files use document.write (defer-incompatible). -->
-<script src="js/accent.js?v=20261002-17" defer></script>
-<script src="js/hero-grid.js?v=20261002-17" defer></script>
-<script src="js/process-hero.js?v=20261002-17" defer></script>
-<script src="js/title-dock.js?v=20261002-17" defer></script>
-<script src="js/testimonials.js?v=20261002-17" defer></script>
-<script src="js/content-film.js?v=20261002-17" defer></script>
-<script src="js/logo-marquee.js?v=20261002-17" defer></script>
-<script src="js/live-demo.js?v=20261002-17" defer></script>
-<script src="js/live-demo-network.js?v=20261002-17" defer></script>
-<script src="js/faq.js?v=20261002-17" defer></script>
-<script src="js/quote-form.js?v=20261002-17" defer></script>
-<script src="js/newsletter-popup.js?v=20261002-17" defer></script>
-<script src="js/faq-chatbot.js?v=20261002-17" defer></script>
-<script src="js/cursor.js?v=20261002-17" defer></script>
-<script src="js/cursor-trail.js?v=20261002-17" defer></script>
-<script src="js/scroll-reveal.js?v=20261002-17" defer></script>
-<script src="js/scroll-dolly.js?v=20261002-17" defer></script>
-<script src="js/scroll-progress.js?v=20261002-17" defer></script>
-<script src="js/anim-idle.js?v=20261002-17" defer></script>
+<script src="js/accent.js?v=20261002-18" defer></script>
+<script src="js/hero-grid.js?v=20261002-18" defer></script>
+<script src="js/process-hero.js?v=20261002-18" defer></script>
+<script src="js/title-dock.js?v=20261002-18" defer></script>
+<script src="js/testimonials.js?v=20261002-18" defer></script>
+<script src="js/content-film.js?v=20261002-18" defer></script>
+<script src="js/logo-marquee.js?v=20261002-18" defer></script>
+<script src="js/live-demo.js?v=20261002-18" defer></script>
+<script src="js/live-demo-network.js?v=20261002-18" defer></script>
+<script src="js/faq.js?v=20261002-18" defer></script>
+<script src="js/quote-form.js?v=20261002-18" defer></script>
+<script src="js/newsletter-popup.js?v=20261002-18" defer></script>
+<script src="js/faq-chatbot.js?v=20261002-18" defer></script>
+<script src="js/cursor.js?v=20261002-18" defer></script>
+<script src="js/cursor-trail.js?v=20261002-18" defer></script>
+<script src="js/scroll-reveal.js?v=20261002-18" defer></script>
+<script src="js/scroll-dolly.js?v=20261002-18" defer></script>
+<script src="js/scroll-progress.js?v=20261002-18" defer></script>
+<script src="js/anim-idle.js?v=20261002-18" defer></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
      Hero -> Live Demo. gsap.min.js/ScrollTrigger.min.js were already
      vendored locally from an earlier (since-reverted) 3D process-room
@@ -851,12 +858,12 @@ setTimeout(function(){
      request, that section is now a plain vertical scroll-reveal
      timeline instead (js/process-hero.js), no GSAP pin needed there
      anymore. -->
-<script src="js/vendor/gsap/gsap.min.js?v=20261002-17" defer></script>
-<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261002-17" defer></script>
-<script src="js/scroll-journey-hero.js?v=20261002-17" defer></script>
-<script src="js/hero-letter-fx.js?v=20261002-17" defer></script>
-<script src="js/hero-rotator.js?v=20261002-17" defer></script>
-<script src="js/scroll-journey-livedemo.js?v=20261002-17" defer></script>
-<script src="js/init.js?v=20261002-17" defer></script>
+<script src="js/vendor/gsap/gsap.min.js?v=20261002-18" defer></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261002-18" defer></script>
+<script src="js/scroll-journey-hero.js?v=20261002-18" defer></script>
+<script src="js/hero-letter-fx.js?v=20261002-18" defer></script>
+<script src="js/hero-rotator.js?v=20261002-18" defer></script>
+<script src="js/scroll-journey-livedemo.js?v=20261002-18" defer></script>
+<script src="js/init.js?v=20261002-18" defer></script>
 </body>
 </html>

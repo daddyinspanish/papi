@@ -2962,6 +2962,19 @@ body, a{ cursor:none; }
 /* per direct request to lead the hero with the full offering, not just
    "websites" — same proportions/color as the other hero-adjacent
    subheadlines on the page (.quote-sub) for consistency */
+/* two stacked lines sharing one spot (js/hero-rotator.js swaps which is
+   active); the box is as tall as the taller line, so nothing jumps */
+.process-hero-sub{ display:grid; }
+.hero-sub-line{
+  grid-area:1 / 1;
+  opacity:0;
+  transform:translateY(10px);
+  transition:opacity .9s ease, transform .9s cubic-bezier(.2, .8, .2, 1);
+}
+.hero-sub-line.is-active{ opacity:1; transform:none; }
+@media (prefers-reduced-motion:reduce){
+  .hero-sub-line{ transition:none; }
+}
 .process-hero-sub{
   font-family:'Inter', sans-serif;
   font-size:clamp(1rem, 1.8vw, 1.15rem);
