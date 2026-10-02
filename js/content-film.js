@@ -23,7 +23,7 @@
           title: 'Caption shown under the video',
           src: 'videos/content/name.mp4?v=1',
           poster: 'img/content/name.webp?v=2',
-          ratio: '9 / 16',            // or '1 / 1' for a square clip
+          ratio: '9 / 16',            // or '1 / 1' for a genuinely square clip
           description: 'Text for the back of the card. Separate paragraphs with a blank line (\n\n).',
         }
    3. Replacing a file with the same name? Bump its ?v= number — the
@@ -66,9 +66,9 @@
     },
     {
       title: 'Dent All By Dr. Z',
-      src: 'videos/content/dent-all-dr-z.mp4?v=1',
-      poster: 'img/content/dent-all-dr-z.webp?v=2',
-      ratio: '1 / 1',
+      src: 'videos/content/dent-all-dr-z.mp4?v=2',
+      poster: 'img/content/dent-all-dr-z.webp?v=3',
+      ratio: '9 / 16',
       description: 'A video for Dent All by Dr. Z.',
     },
     {
