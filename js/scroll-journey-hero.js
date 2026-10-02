@@ -224,6 +224,24 @@
     });
   }
 
+  // per direct request: "I would like the edge of our hero section...
+  // to connect to the dots and lines that are in the second section...
+  // as I scroll to the next section, the grid makes a wave that flows
+  // down to the end of the grid and connects to those dots in the next
+  // section" — reuses this SAME pin-scrub progress (the one already
+  // dissolving the title/CTA above) to drive js/hero-grid.js's own
+  // bridge-wave crest, so the grid visually hands off into
+  // #liveDemoSection's plexus nodes right as this pin releases, rather
+  // than the two sections meeting at a hard, unrelated seam. Starts
+  // partway through the title dissolve (so the wave and the glitch read
+  // as one continuous effect, not two disconnected ones) and finishes
+  // exactly at progress 1, when the pin lets go.
+  const BRIDGE_START = 0.45, BRIDGE_END = 1;
+  function updateBridgeWave(progress){
+    if(!window.PapiHeroGrid) return;
+    window.PapiHeroGrid.setBridgeProgress((progress - BRIDGE_START) / (BRIDGE_END - BRIDGE_START));
+  }
+
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(prefersReducedMotion) return;
 
@@ -255,6 +273,7 @@
         onUpdate: (self) => {
           updateTitleGlitch(self.progress);
           updateCtaGlitch(self.progress);
+          updateBridgeWave(self.progress);
         },
       },
     });

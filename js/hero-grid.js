@@ -129,6 +129,45 @@
     return 1 - t * (1 - CONFIG.roadMinWidthFrac);
   }
 
+  // ===================================================================
+  // BRIDGE WAVE — per direct request: "as I scroll to the next section,
+  // the grid makes a wave that flows down to the end of the grid and
+  // connects to those dots in the next section." js/scroll-journey-
+  // hero.js drives bridgeProgress (0-1) from the tail end of its own
+  // existing pin-scrub (the same scroll range that already dissolves the
+  // title into the matrix glitch), via window.PapiHeroGrid.setBridge
+  // Progress() below. 0 = the plain grid; 1 = a bright crest has swept
+  // all the way from the horizon down to the near row, which now renders
+  // as a field of small glowing dots — same exact brand color (LINE_RGB)
+  // as js/live-demo-network.js's own plexus nodes just below this
+  // section — so the handoff into #liveDemoSection reads as one
+  // continuous network meeting at the seam, not two unrelated canvases.
+  // Driven purely by a scrubbed progress value (no internal timer), same
+  // "everything derived from scroll position" convention as every other
+  // effect in this file, so scrolling back up reverses it cleanly too.
+  // ===================================================================
+  let bridgeProgress = 0;
+  const BRIDGE_BAND = 0.16; // how many rows (as a fraction of the grid) the bright crest spans
+  // BUG FIX, found via direct inspection before this ever shipped: row 0
+  // (nz=0) is deliberately parked just PAST the bottom edge (see
+  // nearYFrac's own comment above — "the nearest row lands just past the
+  // bottom edge"), so it only actually turns visible when the cursor-ball
+  // happens to bulge it into frame. A crest/dot handoff anchored there
+  // would mostly render off-canvas. Row 1 (nz = 1/rows) is the nearest
+  // row that's reliably on-screen at ~94% down the canvas regardless of
+  // the ball's position, so the wave's front targets that row instead of
+  // a literal 0.
+  const NEAR_ROW = 1;
+  const NEAR_NZ = NEAR_ROW / CONFIG.rows;
+  function bridgeHighlight(nz){
+    if(bridgeProgress <= 0) return 0;
+    // the crest travels from the horizon (nz=1) down to NEAR_NZ as
+    // bridgeProgress goes 0 -> 1
+    const front = 1 - bridgeProgress * (1 - NEAR_NZ);
+    const d = Math.abs(nz - front) / BRIDGE_BAND;
+    return Math.max(0, 1 - d);
+  }
+
   function resize(){
     const w = canvas.clientWidth || window.innerWidth;
     const h = canvas.clientHeight || window.innerHeight;
@@ -285,14 +324,23 @@
     }
 
     // depth lines (constant z, varying x) — drawn far-to-near so nearer,
-    // bolder lines paint over the tail ends of farther ones
+    // bolder lines paint over the tail ends of farther ones. Rows caught
+    // in the bridge wave's crest (see bridgeHighlight() above) get a
+    // brightened alpha + soft glow on top of their normal fade, so the
+    // wave reads as a bright band sweeping down through the grid.
     for(let i = CONFIG.rows; i >= 0; i--){
       const row = pts[i];
-      ctx.strokeStyle = `rgba(${LINE_RGB},${alphaCache[i].toFixed(3)})`;
+      const glow = bridgeHighlight(i / CONFIG.rows);
+      if(glow > 0){
+        ctx.shadowColor = `rgba(${LINE_RGB},${glow.toFixed(3)})`;
+        ctx.shadowBlur = 10 * glow;
+      }
+      ctx.strokeStyle = `rgba(${LINE_RGB},${Math.min(1, alphaCache[i] + glow * 0.5).toFixed(3)})`;
       ctx.beginPath();
       ctx.moveTo(row[0][0], row[0][1]);
       for(let j = 1; j <= CONFIG.cols; j++) ctx.lineTo(row[j][0], row[j][1]);
       ctx.stroke();
+      if(glow > 0) ctx.shadowBlur = 0;
     }
 
     // cross lines (constant x, varying z) — faded with the same
@@ -310,7 +358,39 @@
         ctx.moveTo(pts[i][j][0], pts[i][j][1]);
       }
     }
+
+    // the actual handoff: as the crest above arrives at NEAR_ROW
+    // (bridgeProgress -> 1), that row's own line fades up into a row of
+    // small glowing nodes — every other column, matching js/live-demo-
+    // network.js's own node radius/spacing/color exactly, not just a
+    // thematically-similar effect, so the dots feel like the SAME field
+    // continuing into the next section rather than a lookalike
+    const nearGlow = bridgeHighlight(NEAR_NZ);
+    if(nearGlow > 0.01){
+      const nearRow = pts[NEAR_ROW];
+      ctx.fillStyle = `rgba(${LINE_RGB},${(nearGlow * 0.9).toFixed(3)})`;
+      ctx.shadowColor = `rgba(${LINE_RGB},${(nearGlow * 0.8).toFixed(3)})`;
+      ctx.shadowBlur = 8 * nearGlow;
+      for(let j = 0; j <= CONFIG.cols; j += 2){
+        ctx.beginPath();
+        ctx.arc(nearRow[j][0], nearRow[j][1], 1.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+    }
   }
+
+  // public hook for js/scroll-journey-hero.js — see the BRIDGE WAVE
+  // comment above bridgeHighlight() for the full story
+  window.PapiHeroGrid = {
+    setBridgeProgress(p){
+      bridgeProgress = Math.max(0, Math.min(1, p));
+      // no raf loop runs under reduced motion, so force a repaint here —
+      // otherwise a later setBridgeProgress call would silently never
+      // reach the canvas
+      if(prefersReducedMotion) renderFrame(0);
+    },
+  };
 
   if('ResizeObserver' in window){
     const ro = new ResizeObserver(() => {
