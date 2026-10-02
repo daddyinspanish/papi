@@ -2086,8 +2086,18 @@ body, a{ cursor:none; }
      matching that reference's much darker tone, specifically so the
      dark-ink card captions sitting directly on this background (not on
      the white card chrome) stay legible the whole way down — verified
-     contrast, not a guess. */
-  background:linear-gradient(180deg, #f8f6f2 0%, #d1fae5 38%, #6ee7b7 70%, #10b981 100%);
+     contrast, not a guess.
+     BUG FIX: per direct follow-up, "I would like the green from section
+     live demos to turn back to white when scrolling into how its built
+     section" — this used to end solid #10b981 right at the section's
+     own bottom edge, meeting #ourProcessSection's flat #f8f6f2 as a hard
+     seam. The green now peaks earlier (80% instead of 100%) and fades
+     back to that same #f8f6f2 by the very bottom, so the handoff into
+     the next section reads as one continuous close rather than a cut —
+     every live-demo-* text color sitting directly on this background is
+     dark ink regardless (see the comment above), so fading the tail back
+     to white doesn't cost any contrast. */
+  background:linear-gradient(180deg, #f8f6f2 0%, #d1fae5 30%, #6ee7b7 55%, #10b981 80%, #f8f6f2 100%);
   padding:clamp(3.5rem, 8vw, 6rem) 0;
 }
 .live-demo-network{
