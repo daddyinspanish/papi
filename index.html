@@ -185,7 +185,7 @@ setTimeout(function(){
      what the browser's cache thought. BUMP THIS EXACT STRING (all
      occurrences in this file) whenever any css/js file's contents
      change — a stale version string here defeats the entire point. -->
-<link rel="stylesheet" href="css/style.css?v=20261001-24">
+<link rel="stylesheet" href="css/style.css?v=20261001-26">
 
 <!-- structured data — per direct request, so search engines/AI tools
      have an explicit, machine-readable answer for "what is this and
@@ -260,12 +260,23 @@ setTimeout(function(){
     <div class="process-room-grain" aria-hidden="true"></div>
 
     <div class="process-hero-copy">
-      <h1 class="process-hero-title">Strategy Built In.<br>Leads You Can Track.</h1>
-      <!-- per direct request: the hero now leads with the full offering
-           (content strategy + a website built to convert + tracking
-           every lead that comes in) rather than describing Papi as
-           just "building websites" -->
-      <p class="process-hero-sub">Content strategy, a website that converts, and a dashboard that shows exactly where every lead comes from.</p>
+      <!-- per direct request, "I would like the title to not mention
+           anything about leads or strategies, lets make that more so a
+           service we also offer, lets make the hero title focus on
+           creating websites" — the hero used to lead with the FULL
+           offering (content strategy + website + lead-tracking
+           dashboard); content strategy already has its own dedicated
+           pitch further down the page (#contentFilmSection), so it
+           doesn't need to carry the hero too. "Built With Purpose" keeps
+           this in step with this site's own <title>/meta description;
+           "Business-Ready Websites" itself (the exact title-tag phrase)
+           doesn't fit the title's 16ch container without wrapping
+           mid-word — confirmed directly by measuring rendered height
+           against several candidates — so "Real Websites" takes its
+           place, same "the actual real thing" voice already used in
+           #liveDemoSection's "Not a screenshot. The real site, live." -->
+      <h1 class="process-hero-title">Real Websites.<br>Built With Purpose.</h1>
+      <p class="process-hero-sub">A website designed to build trust, communicate clearly, and guide visitors to their next step — content strategy and lead tracking available too.</p>
       <!-- per direct request: "move the view our work button above" —
            now sits right under the title, in-flow (inherits
            .process-hero-copy's own flex gap), always active — the
@@ -790,25 +801,25 @@ setTimeout(function(){
      and init.js's own bounded reveal windows can actually fire on time
      instead of queuing behind an unbounded fetch chain. Confirmed safe:
      none of these files use document.write (defer-incompatible). -->
-<script src="js/accent.js?v=20261001-24" defer></script>
-<script src="js/hero-grid.js?v=20261001-24" defer></script>
-<script src="js/process-hero.js?v=20261001-24" defer></script>
-<script src="js/title-dock.js?v=20261001-24" defer></script>
-<script src="js/testimonials.js?v=20261001-24" defer></script>
-<script src="js/content-film.js?v=20261001-24" defer></script>
-<script src="js/logo-marquee.js?v=20261001-24" defer></script>
-<script src="js/live-demo.js?v=20261001-24" defer></script>
-<script src="js/live-demo-network.js?v=20261001-24" defer></script>
-<script src="js/faq.js?v=20261001-24" defer></script>
-<script src="js/quote-form.js?v=20261001-24" defer></script>
-<script src="js/newsletter-popup.js?v=20261001-24" defer></script>
-<script src="js/faq-chatbot.js?v=20261001-24" defer></script>
-<script src="js/cursor.js?v=20261001-24" defer></script>
-<script src="js/cursor-trail.js?v=20261001-24" defer></script>
-<script src="js/scroll-reveal.js?v=20261001-24" defer></script>
-<script src="js/scroll-dolly.js?v=20261001-24" defer></script>
-<script src="js/scroll-progress.js?v=20261001-24" defer></script>
-<script src="js/anim-idle.js?v=20261001-24" defer></script>
+<script src="js/accent.js?v=20261001-26" defer></script>
+<script src="js/hero-grid.js?v=20261001-26" defer></script>
+<script src="js/process-hero.js?v=20261001-26" defer></script>
+<script src="js/title-dock.js?v=20261001-26" defer></script>
+<script src="js/testimonials.js?v=20261001-26" defer></script>
+<script src="js/content-film.js?v=20261001-26" defer></script>
+<script src="js/logo-marquee.js?v=20261001-26" defer></script>
+<script src="js/live-demo.js?v=20261001-26" defer></script>
+<script src="js/live-demo-network.js?v=20261001-26" defer></script>
+<script src="js/faq.js?v=20261001-26" defer></script>
+<script src="js/quote-form.js?v=20261001-26" defer></script>
+<script src="js/newsletter-popup.js?v=20261001-26" defer></script>
+<script src="js/faq-chatbot.js?v=20261001-26" defer></script>
+<script src="js/cursor.js?v=20261001-26" defer></script>
+<script src="js/cursor-trail.js?v=20261001-26" defer></script>
+<script src="js/scroll-reveal.js?v=20261001-26" defer></script>
+<script src="js/scroll-dolly.js?v=20261001-26" defer></script>
+<script src="js/scroll-progress.js?v=20261001-26" defer></script>
+<script src="js/anim-idle.js?v=20261001-26" defer></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
      Hero -> Live Demo. gsap.min.js/ScrollTrigger.min.js were already
      vendored locally from an earlier (since-reverted) 3D process-room
@@ -822,10 +833,10 @@ setTimeout(function(){
      request, that section is now a plain vertical scroll-reveal
      timeline instead (js/process-hero.js), no GSAP pin needed there
      anymore. -->
-<script src="js/vendor/gsap/gsap.min.js?v=20261001-24" defer></script>
-<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261001-24" defer></script>
-<script src="js/scroll-journey-hero.js?v=20261001-24" defer></script>
-<script src="js/scroll-journey-livedemo.js?v=20261001-24" defer></script>
-<script src="js/init.js?v=20261001-24" defer></script>
+<script src="js/vendor/gsap/gsap.min.js?v=20261001-26" defer></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261001-26" defer></script>
+<script src="js/scroll-journey-hero.js?v=20261001-26" defer></script>
+<script src="js/scroll-journey-livedemo.js?v=20261001-26" defer></script>
+<script src="js/init.js?v=20261001-26" defer></script>
 </body>
 </html>
