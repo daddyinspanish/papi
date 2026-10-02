@@ -22,7 +22,7 @@
         {
           title: 'Caption shown under the video',
           src: 'videos/content/name.mp4?v=1',
-          poster: 'img/content/name.webp?v=1',
+          poster: 'img/content/name.webp?v=2',
           ratio: '9 / 16',            // or '1 / 1' for a square clip
           description: 'Text for the back of the card. Separate paragraphs with a blank line (\n\n).',
         }
@@ -46,35 +46,35 @@
     {
       title: '4M Dental Implant Center Transformation',
       src: 'videos/content/4m-transformation.mp4?v=1',
-      poster: 'img/content/4m-transformation.webp?v=1',
+      poster: 'img/content/4m-transformation.webp?v=2',
       ratio: '9 / 16',
       description: 'A before-and-after patient transformation filmed for 4M Dental Implant Center.',
     },
     {
       title: 'Dr. Kamran Pakdamanian',
       src: 'videos/content/dr-kamran.mp4?v=1',
-      poster: 'img/content/dr-kamran.webp?v=1',
+      poster: 'img/content/dr-kamran.webp?v=2',
       ratio: '9 / 16',
       description: 'A cinematic video of Dr. Kamran Pakdamanian at work.',
     },
     {
       title: 'Andy Choi, Multi Family Investor',
       src: 'videos/content/andy-choi.mp4?v=1',
-      poster: 'img/content/andy-choi.webp?v=1',
+      poster: 'img/content/andy-choi.webp?v=2',
       ratio: '9 / 16',
       description: 'A real estate house tour for Andy Choi, a multi family investor.',
     },
     {
       title: 'Dent All By Dr. Z',
       src: 'videos/content/dent-all-dr-z.mp4?v=1',
-      poster: 'img/content/dent-all-dr-z.webp?v=1',
+      poster: 'img/content/dent-all-dr-z.webp?v=2',
       ratio: '1 / 1',
       description: 'A video for Dent All by Dr. Z.',
     },
     {
       title: 'Black Health Connect',
       src: 'videos/content/black-health-connect.mp4?v=1',
-      poster: 'img/content/black-health-connect.webp?v=1',
+      poster: 'img/content/black-health-connect.webp?v=2',
       ratio: '9 / 16',
       description: 'A video for Black Health Connect.',
     },
@@ -104,7 +104,7 @@
       <div class="content-film-flip">
         <div class="content-film-face content-film-front">
           <div class="content-film-player" style="--cf-ratio:${esc(video.ratio || '9 / 16')}">
-            <video class="content-film-video" src="${esc(video.src)}" poster="${esc(video.poster)}" playsinline preload="none" aria-label="${esc(video.title)}"></video>
+            <video class="content-film-video" src="${esc(video.src)}" data-poster="${esc(video.poster)}" playsinline preload="none" aria-label="${esc(video.title)}"></video>
             <button type="button" class="content-film-play" aria-label="Play video: ${esc(video.title)}">
               <span class="content-film-play-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
@@ -206,5 +206,20 @@
       entries.forEach((en) => { if(!en.isIntersecting && !en.target.paused) en.target.pause(); });
     }, { threshold: 0.2 });
     players.forEach((p) => io.observe(p));
+  }
+
+  // Posters are now full-quality (1080px, ~50-165KB each) so they stay
+  // sharp on large/retina cards — a video element downloads its poster
+  // immediately even with preload="none", so they're only attached once
+  // a card is within ~half a screen of the viewport, keeping the rest of
+  // the page's initial load unchanged.
+  const attachPoster = (v) => { if(v.dataset.poster){ v.poster = v.dataset.poster; delete v.dataset.poster; } };
+  if('IntersectionObserver' in window){
+    const posterIO = new IntersectionObserver((entries) => {
+      entries.forEach((en) => { if(en.isIntersecting){ attachPoster(en.target); posterIO.unobserve(en.target); } });
+    }, { rootMargin: '600px 0px' });
+    players.forEach((p) => posterIO.observe(p));
+  } else {
+    players.forEach(attachPoster);
   }
 })();
