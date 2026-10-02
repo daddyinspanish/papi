@@ -137,11 +137,38 @@
     // box the line-breaking algorithm can only break BEFORE or AFTER —
     // never inside — while the plain space text nodes between word
     // wrappers (unchanged) still wrap normally between words.
-    const lines = titleEl.innerHTML.split(/<br\s*\/?>/i);
-    titleEl.innerHTML = lines
-      .map((line) => line.split(' ').map((word) => `<span class="hero-title-word">${Array.from(word).map((ch) => `<span class="hero-title-char" data-char="${ch}">${ch}</span>`).join('')}</span>`).join(' '))
-      .join('<br>');
+    // per direct request the title now holds a rotating phrase (see
+    // js/hero-rotator.js), so it contains nested elements — splitting by
+    // walking TEXT NODES (instead of the old innerHTML string split) keeps
+    // that markup intact. Plain spaces stay as real text nodes between
+    // word wrappers, exactly as before; <br> and other elements are left
+    // alone.
+    const textNodes = [];
+    const walker = document.createTreeWalker(titleEl, NodeFilter.SHOW_TEXT);
+    while(walker.nextNode()) textNodes.push(walker.currentNode);
+    textNodes.forEach((node) => {
+      if(!node.nodeValue.trim()) return;
+      const frag = document.createDocumentFragment();
+      node.nodeValue.split(/( )/).forEach((part) => {
+        if(!part) return;
+        if(part === ' '){ frag.appendChild(document.createTextNode(' ')); return; }
+        const word = document.createElement('span');
+        word.className = 'hero-title-word';
+        Array.from(part).forEach((ch) => {
+          const c = document.createElement('span');
+          c.className = 'hero-title-char';
+          c.dataset.char = ch;
+          c.textContent = ch;
+          word.appendChild(c);
+        });
+        frag.appendChild(word);
+      });
+      node.parentNode.replaceChild(frag, node);
+    });
     titleChars = Array.from(titleEl.querySelectorAll('.hero-title-char'));
+    // letters of the rotating phrase remember which phrase they belong to
+    // so the glitch below only sweeps the one that's actually showing
+    titleChars.forEach((c) => { c._phrase = c.closest('.hero-rot-phrase'); });
   }
   // same split-into-spans technique as the title above, own class so it
   // can be styled/timed independently — see the CTA BUTTON GLITCH note
@@ -183,8 +210,11 @@
   function updateTitleGlitch(progress){
     if(!titleChars.length) return;
     const raw = clamp01((progress - GLITCH_START) / (GLITCH_END - GLITCH_START));
-    const n = titleChars.length;
-    titleChars.forEach((span, i) => {
+    // the hidden half of the rotating title would otherwise take up
+    // stagger slots (leaving a dead gap in the sweep) for letters nobody sees
+    const list = titleChars.filter((c) => !c._phrase || c._phrase.classList.contains('is-active'));
+    const n = list.length;
+    list.forEach((span, i) => {
       const start = i / n;
       const end = start + STAGGER_SPAN / n;
       const t = clamp01((raw - start) / (end - start));

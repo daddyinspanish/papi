@@ -75,6 +75,9 @@
     lastResizeW = w;
     cacheRects();
   });
+  // the rotating title phrase (js/hero-rotator.js) moves the letters after
+  // "Building Websites"/"Creating Content" whenever it swaps — re-measure
+  window.addEventListener('papi:herotitle', cacheRects);
 
   let isHeroVisible = true;
   if('IntersectionObserver' in window){

@@ -3033,6 +3033,53 @@ body, a{ cursor:none; }
 .hero-title-word{
   display:inline-block;
 }
+/* ---- rotating first half of the hero title (js/hero-rotator.js). Until
+   that script marks it .is-ready, the first phrase is just ordinary
+   inline text and the others are hidden, so the title reads correctly
+   with no JS and with no layout jump when it takes over. */
+/* per direct request ("a contrasting color for the words that are
+   changing"): the rotating words are brand emerald against the ink-black
+   rest of the title, so what's changing reads at a glance */
+.hero-rot-phrase{ color:var(--gold-deep); }
+.hero-rot-phrase:not(.is-active){ display:none; }
+.hero-rot.is-ready .hero-rot-phrase:not(.is-active){ display:block; }
+.hero-rot.is-ready{
+  position:relative;
+  display:inline-block;
+  vertical-align:top;
+  height:1.15em;
+  /* a little extra room top and bottom (cancelled by the negative margin)
+     so descenders (g, p) aren't clipped by the roll's overflow mask */
+  padding:.12em 0 .18em;
+  margin:-.12em 0 -.18em;
+  box-sizing:content-box;
+  overflow:hidden;
+  white-space:nowrap;
+  transition:width .75s cubic-bezier(.7, 0, .2, 1);
+}
+.hero-rot.is-ready.is-static{ overflow:visible; }
+.hero-rot.is-ready .hero-rot-phrase{
+  position:absolute;
+  left:0;
+  top:.12em;
+  white-space:nowrap;
+  transform:translateY(120%);
+  opacity:0;
+  transition:transform .75s cubic-bezier(.7, 0, .2, 1), opacity .45s ease;
+}
+.hero-rot.is-ready .hero-rot-phrase.is-active{ transform:none; opacity:1; }
+.hero-rot.is-ready .hero-rot-phrase.is-leaving{ transform:translateY(-120%); opacity:0; }
+.hero-rot.is-ready .hero-rot-phrase.is-reset{ transition:none; }
+/* "for Businesses." is one unbreakable unit so it can be measured; when
+   the whole title no longer fits on one line (js/hero-rotator.js checks),
+   the rotating part drops onto its own centered line instead — so the
+   line count stays the same for every phrase and nothing jumps */
+.hero-title-rest{ display:inline-block; white-space:nowrap; }
+.hero-rot.is-ready.is-stacked{ display:block; margin:-.12em auto -.18em; }
+@media (prefers-reduced-motion:reduce){
+  .hero-rot.is-ready, .hero-rot.is-ready .hero-rot-phrase{ transition:none; }
+}
+
 /* per direct request, "I want the cursor to have an effect on the title
    letters and subtitles letters too" — js/hero-letter-fx.js drives
    `translate`/`scale`/`color` on each letter based on cursor proximity;
