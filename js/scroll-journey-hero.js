@@ -253,7 +253,7 @@
   // partway through the title dissolve (so the wave and the glitch read
   // as one continuous effect, not two disconnected ones) and finishes
   // exactly at progress 1, when the pin lets go.
-  const BRIDGE_START = 0.45, BRIDGE_END = 1;
+  const BRIDGE_START = 0.25, BRIDGE_END = 1;
   function updateBridgeWave(progress){
     if(!window.PapiHeroGrid) return;
     window.PapiHeroGrid.setBridgeProgress((progress - BRIDGE_START) / (BRIDGE_END - BRIDGE_START));

@@ -36,8 +36,8 @@
   if(!ctx) return;
 
   const CONFIG = {
-    cols: 46,
-    rows: 32,
+    cols: 56,
+    rows: 44,
     // ratios, not pixels — resize() turns these into real distances
     // based on the canvas's own height so the field of view holds up
     // at any viewport size
@@ -80,6 +80,11 @@
     roadMinWidthFrac: 0.22,
     // wave amplitude as a fraction of canvas height
     amplitudeFrac: 0.085,
+    // per direct request ("more 3D like if its more of a landscape"):
+    // height of the rolling terrain itself, as a fraction of canvas
+    // height — separate from amplitudeFrac above, which now only drives
+    // the cursor-ball bump and the faint ambient ripple
+    terrainFrac: 0.23,
     lineWidth: 1,
     // alpha fades from near (bold, legible) to far (faint, atmospheric)
     alphaNear: 0.5,
@@ -94,7 +99,7 @@
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let W = 0, H = 0, dpr = 1;
-  let FOCAL = 0, zNear = 0, zFar = 0, camHeight = 0, horizonY = 0, amplitude = 0;
+  let FOCAL = 0, zNear = 0, zFar = 0, camHeight = 0, horizonY = 0, amplitude = 0, terrainAmp = 0;
   const rowZ = new Array(CONFIG.rows + 1);
   const alphaCache = new Array(CONFIG.rows + 1);
 
@@ -125,42 +130,39 @@
   }
 
   // ===================================================================
-  // BRIDGE WAVE — per direct request: "as I scroll to the next section,
-  // the grid makes a wave that flows down to the end of the grid and
-  // connects to those dots in the next section." js/scroll-journey-
-  // hero.js drives bridgeProgress (0-1) from the tail end of its own
-  // existing pin-scrub (the same scroll range that already dissolves the
-  // title into the matrix glitch), via window.PapiHeroGrid.setBridge
-  // Progress() below. 0 = the plain grid; 1 = a bright crest has swept
-  // all the way from the horizon down to the near row, which now renders
-  // as a field of small glowing dots — same exact brand color (LINE_RGB)
-  // as js/live-demo-network.js's own plexus nodes just below this
-  // section — so the handoff into #liveDemoSection reads as one
-  // continuous network meeting at the seam, not two unrelated canvases.
-  // Driven purely by a scrubbed progress value (no internal timer), same
-  // "everything derived from scroll position" convention as every other
-  // effect in this file, so scrolling back up reverses it cleanly too.
+  // BRIDGE MORPH — per direct request: "as someone scrolls the grid goes
+  // from the wave and transforms into one of those connected dot lines
+  // in the second section." js/scroll-journey-hero.js drives
+  // bridgeProgress (0-1) from the tail of its own pin-scrub via
+  // window.PapiHeroGrid.setBridgeProgress(). A morph front sweeps from
+  // the horizon down to the viewer: rows it has passed lose their solid
+  // grid lines and become a constellation — most vertices drop out, the
+  // survivors drift off the lattice into irregular positions, and only a
+  // few short links between neighbours remain, with the exact node
+  // radius/color/link style of js/live-demo-network.js's plexus just
+  // below this section, so the handoff reads as one continuous network.
+  // The vertices keep riding the terrain/ball heights while they morph,
+  // so it is the same living wave that dissolves into dots, not a
+  // cross-fade to something else. Pure function of the scrubbed value, so
+  // scrolling back up reverses it cleanly.
   // ===================================================================
   let bridgeProgress = 0;
-  const BRIDGE_BAND = 0.16; // how many rows (as a fraction of the grid) the bright crest spans
-  // BUG FIX, found via direct inspection before this ever shipped: row 0
-  // (nz=0) is deliberately parked just PAST the bottom edge (see
-  // nearYFrac's own comment above — "the nearest row lands just past the
-  // bottom edge"), so it only actually turns visible when the cursor-ball
-  // happens to bulge it into frame. A crest/dot handoff anchored there
-  // would mostly render off-canvas. Row 1 (nz = 1/rows) is the nearest
-  // row that's reliably on-screen at ~94% down the canvas regardless of
-  // the ball's position, so the wave's front targets that row instead of
-  // a literal 0.
-  const NEAR_ROW = 1;
-  const NEAR_NZ = NEAR_ROW / CONFIG.rows;
-  function bridgeHighlight(nz){
-    if(bridgeProgress <= 0) return 0;
-    // the crest travels from the horizon (nz=1) down to NEAR_NZ as
-    // bridgeProgress goes 0 -> 1
-    const front = 1 - bridgeProgress * (1 - NEAR_NZ);
-    const d = Math.abs(nz - front) / BRIDGE_BAND;
-    return Math.max(0, 1 - d);
+  const BRIDGE_BAND = 0.16; // half-width of the morph front, as a fraction of the grid depth
+  // front position (in nz) at which a row is exactly half-morphed;
+  // chosen so bridgeProgress 0 leaves every row untouched (even the
+  // horizon) and bridgeProgress 1 leaves every row fully morphed
+  function morphFront(){
+    return 1 + BRIDGE_BAND - bridgeProgress * (1 + 2 * BRIDGE_BAND);
+  }
+  function smooth01(x){
+    x = x < 0 ? 0 : x > 1 ? 1 : x;
+    return x * x * (3 - 2 * x);
+  }
+  // brightens the rows currently inside the front, so the sweep itself
+  // reads as a travelling wave crest
+  function bridgeHighlight(nz, front){
+    if(bridgeProgress <= 0 || bridgeProgress >= 1) return 0;
+    return Math.max(0, 1 - Math.abs(nz - front) / BRIDGE_BAND);
   }
 
   function resize(){
@@ -179,6 +181,7 @@
     zFar = zNear * CONFIG.farMultiple;
     horizonY = H * CONFIG.horizonFrac;
     amplitude = H * CONFIG.amplitudeFrac;
+    terrainAmp = H * CONFIG.terrainFrac;
 
     // the nearest row's flat (height 0) point should land at nearYFrac*H;
     // solving screenY = horizonY + camHeight * (FOCAL/zNear) for camHeight
@@ -255,132 +258,223 @@
   let idleTargetX = 0.12, idleTargetZ = 0.42, idleNextPickAt = 0;
 
   // nx: -1..1 across the grid's width. nz: 0..1 from near to far.
+  //
+  // per direct request, "I would like the grid to look more 3D like if
+  // its more of a landscape look" — terrain() is a real rolling
+  // landscape rather than a flat floor with one bump: a valley down the
+  // middle with walls rising toward both sides, ridged hills that grow
+  // taller the further away they are (distant mountains), and a slow
+  // drift so it never sits frozen. Hidden-line removal in renderFrame()
+  // then lets near ridges hide the ones behind them, which is what makes
+  // it read as solid ground instead of a transparent net.
+  function terrain(nx, nz, t){
+    const env = 0.42 + 1.1 * Math.pow(nz, 1.1);
+    const walls = 0.3 + 1.15 * nx * nx;
+    const s1 = Math.sin(nx * 2.3 + nz * 3.1 + t * 0.05);
+    const s2 = Math.sin(nx * 4.7 - nz * 5.3 - t * 0.04 + 1.7);
+    const s3 = Math.sin(nx * 9.1 + nz * 8.2 + t * 0.06 + 0.4);
+    const ridge = 1 - Math.abs(s1);
+    return (ridge * 0.85 + s2 * 0.25 + s3 * 0.08) * env * walls;
+  }
+
   function heightAt(nx, nz, t){
     const dx = nx - ballX;
     const dz = nz - ballZ;
     // tight, roughly-equal falloff in both axes — a round "ball" rather
     // than the elongated ridge a wide x/narrow z falloff would produce.
-    // z stays slightly tighter than x since rows near the far edge are
-    // already heavily compressed toward the horizon by perspective, so
-    // even a small residual height there reads as a dramatic-looking
-    // spike.
     const ball = Math.exp(-(dx * dx) / 0.16 - (dz * dz) / 0.05);
-
-    // REVERTED per direct follow-up report, "the waves are too much now,
-    // its only suppose to make a wave when scrolling into the next
-    // section" — a continuous ball-centered radiating wave was tried
-    // here, but the wave effect is only meant to happen during the
-    // scroll-triggered handoff into #liveDemoSection (see the BRIDGE
-    // WAVE block above, driven by bridgeProgress), not as a permanent
-    // idle/ambient effect. Back to the original faint ambient ripple
-    // texture — kept deliberately subtle so the ball itself stays the
-    // clear, dominant feature. sin(nz*pi) is 0 at both nz=0 and nz=1 and
-    // peaks at nz=0.5, fading the ripple out at the near/far edges for
-    // the same compressed-horizon reason as the ball's own z falloff
-    // above.
+    // faint ambient ripple, kept subtle (the terrain is the main shape)
     const zTaper = Math.sin(Math.min(Math.max(nz, 0), 1) * Math.PI);
     const ripple = (
       Math.sin(nx * 2.4 + nz * 1.6 + t * 0.3) * 0.5 +
-      Math.sin(nx * 1.1 - nz * 2.8 - t * 0.24) * 0.4 +
-      Math.sin((nx * 0.7 + nz * 1.3) * 3.1 + t * 0.2) * 0.3
-    ) * zTaper * 0.22;
-
-    return (ball * 1.1 + ripple) * amplitude;
+      Math.sin(nx * 1.1 - nz * 2.8 - t * 0.24) * 0.4
+    ) * zTaper * 0.15;
+    return (ball * 1.1 + ripple) * amplitude + terrain(nx, nz, t) * terrainAmp;
   }
+
+  // ---- per-vertex scratch buffers (allocated once, reused every frame)
+  const C1 = CONFIG.cols + 1;
+  const VN = (CONFIG.rows + 1) * C1;
+  const vx = new Float32Array(VN), vy = new Float32Array(VN);
+  const px = new Float32Array(VN), py = new Float32Array(VN);
+  const vm = new Float32Array(VN);
+  const rowSx = new Float32Array(CONFIG.rows + 1);
+  const hA = new Float32Array(VN), hB = new Float32Array(VN), hC = new Float32Array(VN), hD = new Float32Array(VN);
+  (function seedHashes(){
+    let s = 0x9e3779b9;
+    const rnd = () => {
+      s = (s + 0x6D2B79F5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    for(let k = 0; k < VN; k++){ hA[k] = rnd(); hB[k] = rnd(); hC[k] = rnd(); hD[k] = rnd(); }
+  })();
+
+  const PAPER = '#f8f6f2'; // matches .process-hero's own flat background
+  const KEEP_AT_FULL_MORPH = 0.17; // fraction of vertices that survive as constellation nodes
+  const LINK_STENCIL = [[0, 1], [1, 0], [1, 1], [1, -1], [0, 2], [2, 0]]; // [rows toward far, cols]
 
   function renderFrame(t){
     ctx.clearRect(0, 0, W, H);
     ctx.lineWidth = CONFIG.lineWidth;
+    const rows = CONFIG.rows, cols = CONFIG.cols;
 
-    // precompute every vertex's projected position + height once, then
-    // stroke rows and columns from the same cached grid — far cheaper
-    // than re-deriving height/projection twice per vertex
-    const pts = new Array(CONFIG.rows + 1);
-    for(let i = 0; i <= CONFIG.rows; i++){
-      // BUG FIX: per report, "the grid... is not connecting to the very
-      // top" — persisted even with horizonFrac set to 0, because the
-      // perspective divide only ASYMPTOTICALLY approaches the horizon as
-      // z grows; with a finite farMultiple the farthest drawn row still
-      // lands well short of horizonY (confirmed directly: the residual
-      // gap is camHeight*scale_far, which doesn't go to zero just because
-      // horizonY does). scaleForRow() (defined above) tapers scale itself
-      // to exactly 0 over the last 12% of rows, so Y lands exactly on
-      // horizonY regardless of farMultiple — smoothstepped, not a hard
-      // cutoff on the last row alone, so it reads as a continuation of
-      // the existing convergence rather than a visible kink. Width (X)
-      // no longer rides along with this scale at all — see
-      // screenHalfWidth/widthFracAt() just below.
-      const nz = i / CONFIG.rows;
+    const morphing = bridgeProgress > 0;
+    const front = morphFront();
+    const span = 2 * BRIDGE_BAND;
+
+    // ---- project every vertex once (world -> screen), plus morph amount
+    for(let i = 0; i <= rows; i++){
+      // BUG FIX history (kept): scaleForRow() tapers Y to land exactly on
+      // horizonY so the grid reaches the top edge; width comes from
+      // widthFracAt() independently — see both functions' own comments
+      const nz = i / rows;
       const scale = scaleForRow(i);
-      // see widthFracAt()'s own comment — the road's width at this row,
-      // in actual screen pixels, computed independently of `scale` above
-      const screenHalfWidth = (W / 2) * CONFIG.roadWidthFrac * widthFracAt(nz);
-      const row = new Array(CONFIG.cols + 1);
-      for(let j = 0; j <= CONFIG.cols; j++){
-        const nx = (j / CONFIG.cols - 0.5) * 2;
-        const h = heightAt(nx, nz, t);
-        row[j] = [
-          W / 2 + nx * screenHalfWidth,
-          horizonY + (camHeight - h) * scale,
-        ];
+      const halfW = (W / 2) * CONFIG.roadWidthFrac * widthFracAt(nz);
+      rowSx[i] = (2 * halfW) / cols;
+      for(let j = 0; j <= cols; j++){
+        const k = i * C1 + j;
+        const nx = (j / cols - 0.5) * 2;
+        vx[k] = W / 2 + nx * halfW;
+        vy[k] = horizonY + (camHeight - heightAt(nx, nz, t)) * scale;
+        // per-vertex jitter on the front's position makes it an organic,
+        // ragged edge rather than a ruler-straight line across the grid
+        vm[k] = morphing ? smooth01((nz - (front - BRIDGE_BAND)) / span + (hA[k] - 0.5) * 0.5) : 0;
       }
-      pts[i] = row;
+    }
+    // ---- where each vertex sits once morphed off the lattice
+    if(morphing){
+      for(let i = 0; i <= rows; i++){
+        const sx = rowSx[i];
+        for(let j = 0; j <= cols; j++){
+          const k = i * C1 + j;
+          const m = vm[k];
+          if(m <= 0){ px[k] = vx[k]; py[k] = vy[k]; continue; }
+          const sy = i > 0 ? Math.abs(vy[k] - vy[k - C1]) : sx * 2;
+          const reach = Math.min(Math.max(sy, sx * 0.6), sx * 3) * 0.85;
+          px[k] = vx[k] + ((hB[k] - 0.5) * 2 * sx * 0.85 + Math.sin(t * 0.5 + hC[k] * 6.283) * 1.6) * m;
+          py[k] = vy[k] + ((hC[k] - 0.5) * 2 * reach + Math.cos(t * 0.45 + hB[k] * 6.283) * 1.6) * m;
+        }
+      }
     }
 
-    // depth lines (constant z, varying x) — drawn far-to-near so nearer,
-    // bolder lines paint over the tail ends of farther ones. Rows caught
-    // in the bridge wave's crest (see bridgeHighlight() above) get a
-    // brightened alpha + soft glow on top of their normal fade, so the
-    // wave reads as a bright band sweeping down through the grid.
-    for(let i = CONFIG.rows; i >= 0; i--){
-      const row = pts[i];
-      const glow = bridgeHighlight(i / CONFIG.rows);
+    // ---- solid-looking terrain: far -> near, each strip first paints
+    // over whatever it hides (hidden-line removal), then draws its own
+    // grid lines. Lines fade out as their vertices morph into nodes.
+    for(let i = rows; i >= 0; i--){
+      const base = i * C1;
+      let maxM = 0, minM = 1;
+      for(let j = 0; j <= cols; j++){ const m = vm[base + j]; if(m > maxM) maxM = m; if(m < minM) minM = m; }
+
+      if(i >= 1){
+        const nb = (i - 1) * C1;
+        let stripMin = Math.min(minM, 1);
+        for(let j = 0; j <= cols; j++){ const m = vm[nb + j]; if(m < stripMin) stripMin = m; }
+        if(stripMin < 0.985){
+          ctx.beginPath();
+          ctx.moveTo(vx[base], vy[base]);
+          for(let j = 1; j <= cols; j++) ctx.lineTo(vx[base + j], vy[base + j]);
+          for(let j = cols; j >= 0; j--) ctx.lineTo(vx[nb + j], vy[nb + j]);
+          ctx.closePath();
+          ctx.fillStyle = PAPER;
+          ctx.fill();
+        }
+      }
+
+      // depth line (this row), with the crest glow if the morph front is on it
+      const glow = morphing ? bridgeHighlight(i / rows, front) : 0;
+      const aRow = Math.min(1, alphaCache[i] + glow * 0.5);
       if(glow > 0){
         ctx.shadowColor = `rgba(${LINE_RGB},${glow.toFixed(3)})`;
         ctx.shadowBlur = 10 * glow;
       }
-      ctx.strokeStyle = `rgba(${LINE_RGB},${Math.min(1, alphaCache[i] + glow * 0.5).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.moveTo(row[0][0], row[0][1]);
-      for(let j = 1; j <= CONFIG.cols; j++) ctx.lineTo(row[j][0], row[j][1]);
-      ctx.stroke();
-      if(glow > 0) ctx.shadowBlur = 0;
-    }
-
-    // cross lines (constant x, varying z) — faded with the same
-    // near/far alpha curve as the depth lines, sampled at each line's
-    // own nearest (bottom-most, i.e. nearest-camera) visible point
-    for(let j = 0; j <= CONFIG.cols; j++){
-      ctx.strokeStyle = `rgba(${LINE_RGB},${(CONFIG.alphaNear * 0.7).toFixed(3)})`;
-      ctx.beginPath();
-      ctx.moveTo(pts[0][j][0], pts[0][j][1]);
-      for(let i = 1; i <= CONFIG.rows; i++){
-        ctx.strokeStyle = `rgba(${LINE_RGB},${(alphaCache[i] * 0.7).toFixed(3)})`;
-        ctx.lineTo(pts[i][j][0], pts[i][j][1]);
-        ctx.stroke();
+      if(maxM < 0.002){
+        ctx.strokeStyle = `rgba(${LINE_RGB},${aRow.toFixed(3)})`;
         ctx.beginPath();
-        ctx.moveTo(pts[i][j][0], pts[i][j][1]);
+        ctx.moveTo(vx[base], vy[base]);
+        for(let j = 1; j <= cols; j++) ctx.lineTo(vx[base + j], vy[base + j]);
+        ctx.stroke();
+      } else if(minM < 0.985){
+        for(let j = 0; j < cols; j++){
+          const a = aRow * (1 - (vm[base + j] + vm[base + j + 1]) * 0.5);
+          if(a < 0.012) continue;
+          ctx.strokeStyle = `rgba(${LINE_RGB},${a.toFixed(3)})`;
+          ctx.beginPath();
+          ctx.moveTo(vx[base + j], vy[base + j]);
+          ctx.lineTo(vx[base + j + 1], vy[base + j + 1]);
+          ctx.stroke();
+        }
+      }
+      if(glow > 0) ctx.shadowBlur = 0;
+
+      // cross lines between this row and the next one nearer the viewer
+      if(i >= 1){
+        const nb = (i - 1) * C1;
+        const aCol = alphaCache[i] * 0.7;
+        let nbMax = 0;
+        for(let j = 0; j <= cols; j++){ const m = vm[nb + j]; if(m > nbMax) nbMax = m; }
+        if(maxM < 0.002 && nbMax < 0.002){
+          ctx.strokeStyle = `rgba(${LINE_RGB},${aCol.toFixed(3)})`;
+          ctx.beginPath();
+          for(let j = 0; j <= cols; j++){
+            ctx.moveTo(vx[nb + j], vy[nb + j]);
+            ctx.lineTo(vx[base + j], vy[base + j]);
+          }
+          ctx.stroke();
+        } else {
+          for(let j = 0; j <= cols; j++){
+            const a = aCol * (1 - (vm[nb + j] + vm[base + j]) * 0.5);
+            if(a < 0.012) continue;
+            ctx.strokeStyle = `rgba(${LINE_RGB},${a.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.moveTo(vx[nb + j], vy[nb + j]);
+            ctx.lineTo(vx[base + j], vy[base + j]);
+            ctx.stroke();
+          }
+        }
       }
     }
 
-    // the actual handoff: as the crest above arrives at NEAR_ROW
-    // (bridgeProgress -> 1), that row's own line fades up into a row of
-    // small glowing nodes — every other column, matching js/live-demo-
-    // network.js's own node radius/spacing/color exactly, not just a
-    // thematically-similar effect, so the dots feel like the SAME field
-    // continuing into the next section rather than a lookalike
-    const nearGlow = bridgeHighlight(NEAR_NZ);
-    if(nearGlow > 0.01){
-      const nearRow = pts[NEAR_ROW];
-      ctx.fillStyle = `rgba(${LINE_RGB},${(nearGlow * 0.9).toFixed(3)})`;
-      ctx.shadowColor = `rgba(${LINE_RGB},${(nearGlow * 0.8).toFixed(3)})`;
-      ctx.shadowBlur = 8 * nearGlow;
-      for(let j = 0; j <= CONFIG.cols; j += 2){
+    if(!morphing) return;
+
+    // ---- constellation layer: surviving nodes + short links, drawn
+    // after (on top of) the terrain, same style as live-demo-network.js
+    const keep = (k) => hD[k] < 1 - (1 - KEEP_AT_FULL_MORPH) * vm[k];
+    for(let i = 0; i <= rows; i++){
+      const sx = rowSx[i];
+      const linkMax = sx * 3.6 + 8;
+      for(let j = 0; j <= cols; j++){
+        const k = i * C1 + j;
+        if(vm[k] < 0.02 || !keep(k)) continue;
+        for(let s = 0; s < LINK_STENCIL.length; s++){
+          const ni = i + LINK_STENCIL[s][0], nj = j + LINK_STENCIL[s][1];
+          if(ni > rows || nj < 0 || nj > cols) continue;
+          const n = ni * C1 + nj;
+          if(vm[n] < 0.02 || !keep(n)) continue;
+          const dx = px[k] - px[n], dy = py[k] - py[n];
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if(d > linkMax) continue;
+          const a = (1 - d / linkMax) * 0.5 * Math.min(vm[k], vm[n]);
+          if(a < 0.012) continue;
+          ctx.strokeStyle = `rgba(${LINE_RGB},${a.toFixed(3)})`;
+          ctx.beginPath();
+          ctx.moveTo(px[k], py[k]);
+          ctx.lineTo(px[n], py[n]);
+          ctx.stroke();
+        }
+      }
+    }
+    for(let i = 0; i <= rows; i++){
+      const r = 0.9 + 0.6 * (1 - i / rows);
+      for(let j = 0; j <= cols; j++){
+        const k = i * C1 + j;
+        if(vm[k] < 0.02 || !keep(k)) continue;
+        ctx.fillStyle = `rgba(${LINE_RGB},${(0.85 * vm[k]).toFixed(3)})`;
         ctx.beginPath();
-        ctx.arc(nearRow[j][0], nearRow[j][1], 1.6, 0, Math.PI * 2);
+        ctx.arc(px[k], py[k], r, 0, Math.PI * 2);
         ctx.fill();
       }
-      ctx.shadowBlur = 0;
     }
   }
 
