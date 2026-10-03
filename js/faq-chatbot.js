@@ -4,7 +4,7 @@
    most asked questions, and my bot answers them." A fully client-side,
    rule-based matcher — this is a static site with no backend, so
    there's no server/API to wire a "real" AI chatbot up to. The first 5
-   entries below are sourced verbatim from the FAQ accordion
+   entries below (and the film/editing pair after them) are sourced verbatim from the FAQ accordion
    (index.html's #faqList) — keep those two in sync if the accordion's
    own copy ever changes. Pricing/business-types/portfolio/getting-
    started were added next, each grounded in something already true and
@@ -51,6 +51,17 @@
     {
       q: 'Do you offer ongoing support after launch?',
       a: 'Yes — hosting, updates, and support plans are available so your site keeps running smoothly long after it goes live.',
+    },
+    // content / video questions — same copy as the last two accordion items
+    {
+      q: 'How long does it take to film?',
+      a: 'Depending on your content strategy plan and the number of videos you want, content can be filmed within a day or two.',
+      keywords: ['film', 'filming', 'filmed', 'shoot', 'shooting', 'video', 'videos', 'content', 'record', 'recording', 'long', 'time'],
+    },
+    {
+      q: 'How long does editing take?',
+      a: 'Next-day delivery for most content.',
+      keywords: ['edit', 'editing', 'edited', 'video', 'videos', 'content', 'turnaround', 'delivery', 'deliver', 'long', 'time', 'fast'],
     },
     {
       q: 'How much does a website cost?',
