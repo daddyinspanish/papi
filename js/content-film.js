@@ -176,6 +176,36 @@
   }
 
   /* ------------------------------------------------------------------
+     Auto-rotation
+     The cylinder turns on its own, one video every AUTO_MS. It stops
+     for as long as the pop-up player is open (a video playing, ended, or
+     flipped to its description) and starts again RESUME_MS after the
+     visitor closes it. It also holds still while the cursor is over the
+     stage or after any manual rotate/tap (RESUME_MS after the last
+     touch), while the section is off-screen, in a background tab, and
+     under prefers-reduced-motion.
+  ------------------------------------------------------------------ */
+  const AUTO_MS = 4200;
+  const RESUME_MS = 4000;
+  let autoTimer = 0;
+  let modalOpen = false, hovering = false, inView = false;
+  const canAuto = () => !reduceMotion && inView && !hovering && !modalOpen && !document.hidden;
+  function stopAuto(){ clearTimeout(autoTimer); autoTimer = 0; }
+  // (re)start the clock: the next turn happens `delay` ms from now
+  function scheduleAuto(delay){
+    stopAuto();
+    if(!canAuto()) return;
+    autoTimer = setTimeout(autoTick, delay);
+  }
+  function autoTick(){
+    autoTimer = 0;
+    if(!canAuto()) return;
+    setActive(active + 1);
+    autoTimer = setTimeout(autoTick, AUTO_MS);
+  }
+  const userActed = () => scheduleAuto(RESUME_MS);
+
+  /* ------------------------------------------------------------------
      Pop-up player
   ------------------------------------------------------------------ */
   const modal = document.createElement('div');
@@ -212,6 +242,8 @@
     modalBody.style.setProperty('--cf-rh', rh);
     const card = buildVideoCard(video);
     modalBody.appendChild(card);
+    modalOpen = true;
+    stopAuto();
     modal.hidden = false;
     // next frame, so the open transition actually runs
     requestAnimationFrame(() => requestAnimationFrame(() => modal.classList.add('is-open')));
@@ -222,6 +254,8 @@
 
   function closeModal(){
     if(modal.hidden) return;
+    modalOpen = false;
+    scheduleAuto(RESUME_MS); // wait a few seconds after they click off it
     players.forEach((p) => p.pause());
     modal.classList.remove('is-open');
     closeTimer = setTimeout(() => {
@@ -275,7 +309,7 @@
     d.className = 'cf-dot';
     d.setAttribute('role', 'tab');
     d.setAttribute('aria-label', video.title);
-    d.addEventListener('click', () => setActive(i));
+    d.addEventListener('click', () => { setActive(i); userActed(); });
     dotsEl.appendChild(d);
     return d;
   });
@@ -306,7 +340,7 @@
     captionEl.textContent = VIDEOS[active].title;
   }
   function setActive(i){ active = ((i % N) + N) % N; render(); }
-  const go = (dir) => setActive(active + dir);
+  const go = (dir) => { setActive(active + dir); userActed(); };
 
   mount.querySelector('.cf-prev').addEventListener('click', () => go(-1));
   mount.querySelector('.cf-next').addEventListener('click', () => go(1));
@@ -360,9 +394,32 @@
     card.addEventListener('click', () => {
       if(moved) return;
       if(offsetOf(i) === 0) openModal(VIDEOS[i], card);
-      else setActive(i);
+      else { setActive(i); userActed(); }
     });
   });
+
+  // wiring for the auto-rotation (see its block above)
+  stage.addEventListener('pointerenter', (e) => {
+    if(e.pointerType !== 'mouse') return;
+    hovering = true;
+    stopAuto();
+  });
+  stage.addEventListener('pointerleave', (e) => {
+    if(e.pointerType !== 'mouse') return;
+    hovering = false;
+    scheduleAuto(RESUME_MS * 0.6);
+  });
+  // any press on the stage (touch included) holds the turn for a moment
+  stage.addEventListener('pointerdown', () => userActed());
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden) stopAuto(); else scheduleAuto(AUTO_MS);
+  });
+  if('IntersectionObserver' in window){
+    new IntersectionObserver((entries) => {
+      inView = entries[0].isIntersecting;
+      if(inView) scheduleAuto(AUTO_MS); else stopAuto();
+    }, { threshold: 0.3 }).observe(mount);
+  }
 
   render();
 })();
