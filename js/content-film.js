@@ -185,7 +185,7 @@
      touch), while the section is off-screen, in a background tab, and
      under prefers-reduced-motion.
   ------------------------------------------------------------------ */
-  const AUTO_MS = 3000;
+  const AUTO_MS = 2000;
   const RESUME_MS = 4000;
   let autoTimer = 0;
   let modalOpen = false, hovering = false, inView = false;
