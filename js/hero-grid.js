@@ -36,7 +36,9 @@
   if(!ctx) return;
 
   const CONFIG = {
-    cols: 100,
+    // fewer columns on phones: the same 100 squeezed into ~375px are only a
+    // few px apart, which reads as a dense, busy moire instead of a mesh
+    cols: window.innerWidth < 640 ? 66 : 100,
     rows: 54,
     // ratios, not pixels — resize() turns these into real distances
     // based on the canvas's own height so the field of view holds up
@@ -82,7 +84,11 @@
     // identical regardless of aspect ratio — only roadWidthFrac's
     // absolute size (above) changes with viewport width.
     roadNarrowPower: 1.5,
-    roadMinWidthFrac: 0.22,
+    // per direct request, "widen the top part of the grid so it doesn't look
+    // like a thin part": the far end used to taper to 22% of the viewport
+    // width. It now stays ~full width, so the landscape reaches both edges
+    // all the way up instead of narrowing into a strip at the top.
+    roadMinWidthFrac: 1.05,
     // per direct request ("extend the grid from the bottom, to always be
     // connected to the left and right edges of screen... so it does not
     // look like something is missing on the bottom left and right"): the
@@ -232,6 +238,7 @@
   // path in the render loop below, continuously, rather than waiting on
   // touch input that may never come.
   const isMobileDevice = window.innerWidth < CONFIG.mobileWidth;
+  const TIME_SCALE = isMobileDevice ? 0.58 : 0.78;
   const heroSection = canvas.closest('.process-hero');
   if(!prefersReducedMotion && heroSection && !isMobileDevice){
     const updatePointer = (clientX, clientY) => {
@@ -418,11 +425,14 @@
     const rows = CONFIG.rows, cols = CONFIG.cols;
 
     // rotating/drifting terrain frame for this frame (see terrain())
-    const ang = seedA + t * 0.07;
+    // per direct request ("a bit slower, on mobile it's too distracting"):
+    // the landscape's own clock runs a notch slower, a bit more so on phones
+    const ts = t * TIME_SCALE;
+    const ang = seedA + ts * 0.07;
     tCos = Math.cos(ang);
     tSin = Math.sin(ang);
-    tDrift = t * 0.09;
-    tFlow = t;
+    tDrift = ts * 0.09;
+    tFlow = ts;
 
     const morphing = bridgeProgress > 0.0005;
     const front = morphFront();
@@ -444,7 +454,7 @@
         vx[k] = W / 2 + nx * halfW;
         // ball + terrain are evaluated in screen-normalized x so widening
         // the grid past the viewport doesn't stretch the landscape
-        vy[k] = horizonY + (camHeight - heightAt(nx * wf, nz, t)) * scale;
+        vy[k] = horizonY + (camHeight - heightAt(nx * wf, nz, ts)) * scale;
         // per-vertex jitter on the front's position makes it an organic,
         // ragged edge rather than a ruler-straight line across the grid
         vm[k] = morphing ? smooth01((nz - (front - BRIDGE_BAND)) / span + (hA[k] - 0.5) * 0.5) : 0;
@@ -628,7 +638,8 @@
         if(t >= idleNextPickAt){
           idleTargetX = (Math.random() * 2 - 1) * 0.9;
           idleTargetZ = 0.14 + Math.random() * 0.7;
-          idleNextPickAt = t + 0.5 + Math.random() * 0.8;
+          // touch devices only ever run this idle path, so it stays gentle there
+          idleNextPickAt = t + (isMobileDevice ? 1.2 : 0.7) + Math.random() * (isMobileDevice ? 1.6 : 1.0);
         }
         targetX = idleTargetX;
         targetZ = idleTargetZ;
@@ -637,7 +648,8 @@
       // overshoots and settles instead of easing in a straight line,
       // which is what makes the surface feel elastic. Sub-stepped so the
       // feel doesn't change with the frame rate.
-      const SPRING_K = 34, SPRING_C = 6.4;
+      // softer, more damped spring while nothing is steering it
+      const SPRING_K = pointerActive ? 34 : 22, SPRING_C = pointerActive ? 6.4 : 5.6;
       let rem = dt;
       while(rem > 1e-6){
         const h = Math.min(rem, 1 / 120);
