@@ -65,57 +65,6 @@
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(prefersReducedMotion) return;
 
-  // ---------------------------------------------------------------
-  // PAGE WIPE into the next section, per direct request: "make the next
-  // section fold up, more like a page wipe up right as the iframes are
-  // zooming and disappearing". While the demo is pinned and zooming out,
-  // the section after it (#ourProcessSection) is held STILL at the top of
-  // the screen — its own scroll-up is cancelled with a counter-translate —
-  // and an edge sweeps from the bottom of the screen to the top, revealing
-  // it (a soft mask, not a hard clip). The sweep starts shortly after the
-  // zoom-out begins and finishes exactly as the pin releases, at which
-  // point the counter-translate is exactly zero, so it hands back to normal
-  // scrolling with no jump. Driven by the pin's own scroll progress, so it
-  // reverses cleanly scrolling back up.
-  // ---------------------------------------------------------------
-  const stepsEl = document.getElementById('ourProcessSection');
-  let wipeTy = 0;
-  let wipeOn = false;
-  function clearWipe(){
-    if(!stepsEl || !wipeOn) return;
-    wipeOn = false;
-    wipeTy = 0;
-    stepsEl.style.transform = '';
-    stepsEl.style.webkitMaskImage = '';
-    stepsEl.style.maskImage = '';
-    stepsEl.style.pointerEvents = '';
-  }
-  const WIPE_START = 0.16;  // fraction of the pin where the edge begins to rise
-  let wipeLastP = 0;
-  function applyWipe(p, again){
-    if(!stepsEl) return;
-    wipeLastP = p;
-    // the section's un-translated top edge, however far down it still is
-    const nat = stepsEl.getBoundingClientRect().top - wipeTy;
-    if(p <= 0 || nat <= 0){ clearWipe(); return; }
-    // the pin switches the demo out of normal flow, which moves this section
-    // up; on a big jump straight into the range that happens AFTER the first
-    // measurement above, so re-measure once on the next frame
-    if(again !== false) requestAnimationFrame(() => applyWipe(wipeLastP, false));
-    wipeOn = true;
-    wipeTy = -nat;
-    const t = Math.max(0, Math.min(1, (p - WIPE_START) / (1 - WIPE_START)));
-    const q = t * t * (3 - 2 * t);                 // edge position: 0 = bottom, 1 = top
-    const vh = window.innerHeight;
-    const soft = Math.min(140, vh * 0.14);          // feathered edge
-    const edge = (1 - q) * (vh + soft) - soft;      // y where the mask starts to open
-    const mask = `linear-gradient(to bottom, transparent ${edge.toFixed(1)}px, #000 ${(edge + soft).toFixed(1)}px)`;
-    stepsEl.style.transform = `translate3d(0, ${wipeTy.toFixed(1)}px, 0)`;
-    stepsEl.style.webkitMaskImage = mask;
-    stepsEl.style.maskImage = mask;
-    stepsEl.style.pointerEvents = 'none';          // invisible/partial: never steal clicks from the demo
-  }
-
   const mm = gsap.matchMedia();
 
   mm.add({
@@ -136,13 +85,16 @@
         // instead of the demo emptying out and the page then jumping on
         pinSpacing: false,
         start: 'bottom bottom',
-        // same scroll distance on phones now (it was shorter): the wipe has
-        // to span exactly one screen of scrolling to land flush at the end
-        end: '+=100%',
+        end: isDesktop ? '+=100%' : '+=60%',
         scrub: 1,
-        onUpdate: (self) => applyWipe(self.progress),
-        onLeave: clearWipe,
-        onLeaveBack: clearWipe,
+        // once the next section has mostly covered this one there is no
+        // point animating this section's background network underneath it
+        onUpdate: (self) => {
+          if(window.PapiLiveDemoNet) window.PapiLiveDemoNet.setPaused(self.progress > 0.7);
+        },
+        onLeave: () => { if(window.PapiLiveDemoNet) window.PapiLiveDemoNet.setPaused(true); },
+        onEnterBack: () => { if(window.PapiLiveDemoNet) window.PapiLiveDemoNet.setPaused(false); },
+        onLeaveBack: () => { if(window.PapiLiveDemoNet) window.PapiLiveDemoNet.setPaused(false); },
       },
     });
 
@@ -191,7 +143,5 @@
       }, 0.6);
     }
 
-    // if the breakpoint flips (rotation / resize) drop any wipe in progress
-    return () => clearWipe();
   });
 })();

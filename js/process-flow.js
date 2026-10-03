@@ -72,7 +72,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     W = w; H = h;
     build();
-    if(prefersReducedMotion) draw(0);
+    if(prefersReducedMotion) draw(0, true);
   }
 
   // one smooth phase field drives both axes
@@ -85,26 +85,41 @@
 
   const q = (a) => Math.max(0, Math.min(ALPHA_LEVELS, Math.round(a * ALPHA_LEVELS)));
 
-  function draw(t){
+  // `full` draws every row (used for the single static frame under reduced
+  // motion); the animated path only draws the rows currently on screen —
+  // the canvas is as tall as the whole section but a visitor only ever sees
+  // about one screen of it, so redrawing the rest every frame was wasted
+  // work (and it competed with the scroll transition into this section)
+  function draw(t, full){
     ctx.clearRect(0, 0, W, H);
-    const n = rows * cols;
-    for(let k = 0; k < n; k++){
+    let i0 = 0, i1 = rows - 1;
+    if(!full){
+      const r = section.getBoundingClientRect();
+      const bandTop = -r.top - 40, bandBot = -r.top + window.innerHeight + 40;
+      i0 = Math.max(0, Math.floor((bandTop - AMP) / lineGap) + 3 - 1);
+      i1 = Math.min(rows - 1, Math.ceil((bandBot + AMP) / lineGap) + 3 + 1);
+      if(i1 < i0) return;
+    }
+    // displace/measure one extra row each side so every drawn row has its
+    // neighbours (cross-links, squeeze reference)
+    const d0 = Math.max(0, i0 - 1), d1 = Math.min(rows - 1, i1 + 1);
+    for(let k = d0 * cols; k < (d1 + 1) * cols; k++){
       const ph = phase(bx[k], by[k], t);
       Y[k] = by[k] + AMP * Math.sin(ph);
       X[k] = bx[k] + AMP_X * Math.sin(ph * 0.8 + 2.0);
     }
     // how squeezed each dot's line is against the line above it
-    for(let i = 0; i < rows; i++){
+    for(let i = d0; i <= d1; i++){
       for(let j = 0; j < cols; j++){
         const k = i * cols + j;
-        const ref = i > 0 ? k - cols : k + cols;
+        const ref = i > d0 ? k - cols : k + cols;
         const gap = Math.abs(Y[k] - Y[ref]);
         const sq = 1 - gap / lineGap;           // >0 squeezed, <0 spread out
         C[k] = sq <= 0 ? 0 : Math.min(1, sq / 0.7);
       }
     }
 
-    for(let i = 0; i < rows; i++){
+    for(let i = i0; i <= i1; i++){
       const col = (i % 5 === 0) ? 1 : 0;
       const base = col * (ALPHA_LEVELS + 1);
       for(let j = 0; j < cols; j++){
@@ -120,7 +135,7 @@
           segBuckets[base + q(a)].push(x0, y0, X[k2], Y[k2]);
         }
         // cross-links to the line below, only where the two are squeezed together
-        if(i + 1 < rows){
+        if(i + 1 <= d1){
           const kb = k + cols;
           const cc = Math.min(c, C[kb]);
           if(cc > 0.18){
@@ -192,7 +207,7 @@
   handleResize();
 
   if(prefersReducedMotion){
-    draw(4);
+    draw(4, true);
     return;
   }
 

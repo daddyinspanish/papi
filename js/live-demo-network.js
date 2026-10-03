@@ -206,7 +206,18 @@
   }
   function startLoop(){ if(rafId === null) rafId = requestAnimationFrame(loop); }
   function stopLoop(){ if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; } }
-  function syncLoop(){ if(isVisible && !document.hidden) startLoop(); else stopLoop(); }
+  // js/scroll-journey-livedemo.js pauses this once the next section has
+  // slid up over the demo (the network is hidden behind it by then)
+  let externallyPaused = false;
+  function syncLoop(){ if(isVisible && !document.hidden && !externallyPaused) startLoop(); else stopLoop(); }
+  window.PapiLiveDemoNet = {
+    setPaused(v){
+      v = !!v;
+      if(v === externallyPaused) return;
+      externallyPaused = v;
+      syncLoop();
+    },
+  };
 
   if('IntersectionObserver' in window){
     const io = new IntersectionObserver((entries) => {
