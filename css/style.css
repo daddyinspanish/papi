@@ -3741,7 +3741,9 @@ body, a{ cursor:none; }
   border:1px solid rgba(4,120,87,.16);
   border-radius:16px;
   padding:clamp(1.4rem, 3vw, 1.9rem) clamp(1.5rem, 3.5vw, 2rem);
-  box-shadow:0 24px 60px -30px rgba(0,0,0,.22);
+  /* resting steps carry a clear, tight shadow so they read as cards
+     sitting on the page; the popped one below lifts away from them */
+  box-shadow:0 10px 26px -8px rgba(0,0,0,.26), 0 2px 6px rgba(0,0,0,.06);
   transition:transform .5s var(--ease-out), border-color .5s var(--ease-out), box-shadow .5s var(--ease-out);
 }
 .process-timeline-step:nth-child(even) .process-timeline-card{
@@ -3755,10 +3757,16 @@ body, a{ cursor:none; }
    uses the plain base ease above. Still no glow: just lift, a touch of
    scale, a thin green border and a soft neutral shadow. */
 .process-timeline-card.is-active{
-  transform:translateY(-10px) scale(1.035);
-  border-color:rgba(4,120,87,.4);
-  box-shadow:0 34px 60px -28px rgba(0,0,0,.3);
+  transform:translateY(-16px) scale(1.1);
+  border-color:rgba(4,120,87,.45);
+  box-shadow:0 46px 76px -26px rgba(0,0,0,.38), 0 10px 22px rgba(0,0,0,.08);
   transition:transform .55s cubic-bezier(.34,1.56,.64,1), border-color .4s var(--ease-out), box-shadow .5s var(--ease-out);
+}
+/* narrow screens: the cards fill the width and sit close together, so a
+   slightly smaller pop keeps the popped card clear of the screen edge and
+   the card above it */
+@media (max-width:640px){
+  .process-timeline-card.is-active{ transform:translateY(-10px) scale(1.06); }
 }
 .process-timeline-step-label{
   font-family:'Inter', sans-serif;
