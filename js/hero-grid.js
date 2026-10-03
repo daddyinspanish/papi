@@ -476,7 +476,7 @@
       for(let j = 0; j < cols; j++){
         const a = aRow * (1 - (vm[base + j] + vm[base + j + 1]) * 0.5);
         const q = qa(a);
-        if(q < 1) continue;
+        if(!(q >= 1)) continue; // also skips NaN (e.g. mid-resize)
         const arr = stripBuckets[q];
         arr.push(vx[base + j], vy[base + j], vx[base + j + 1], vy[base + j + 1]);
       }
@@ -486,7 +486,7 @@
         for(let j = 0; j <= cols; j++){
           const a = aCol * (1 - (vm[nb + j] + vm[base + j]) * 0.5);
           const q = qa(a);
-          if(q < 1) continue;
+          if(!(q >= 1)) continue; // also skips NaN (e.g. mid-resize)
           stripBuckets[q].push(vx[nb + j], vy[nb + j], vx[base + j], vy[base + j]);
         }
       }
@@ -516,7 +516,7 @@
           const d = Math.sqrt(dx * dx + dy * dy);
           if(d > linkMax) continue;
           const q = qa((1 - d / linkMax) * 0.5 * Math.min(vm[k], vm[n]));
-          if(q < 1) continue;
+          if(!(q >= 1)) continue; // also skips NaN (e.g. mid-resize)
           linkBuckets[q].push(px[k], py[k], px[n], py[n]);
         }
       }

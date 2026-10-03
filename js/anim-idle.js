@@ -43,7 +43,7 @@
 
   const GROUPS = [
     { root: '#hero', extra: ['.process-room-grain', '.process-hero-copy', '.process-hero-title', '.process-hero-cta'] },
-    { root: '#liveDemoSection', extra: ['.process-arrival-flame', '.live-demo-gas'] },
+    { root: '#liveDemoSection', extra: ['.process-arrival-flame'] },
     { root: '#testimonialsSection', extra: ['.testimonials-hint-icon'] },
     { root: '#faqSection', extra: [] },
     { root: '#quoteSection', extra: ['.quote-heading', '.quote-heading-shine', '.quote-form-title', '.quote-submit'] },
