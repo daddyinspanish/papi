@@ -77,6 +77,13 @@
       scrollTrigger: {
         trigger: liveDemoSection,
         pin: true,
+        // per direct request ("after the iframe zooms out, have the next
+        // section come up so it's a smooth transition"): no blank spacer
+        // after the pin, so the next section starts rising the moment the
+        // zoom-out begins and slides up OVER the shrinking, fading demo
+        // (it paints above this one: same z-index, later in the page)
+        // instead of the demo emptying out and the page then jumping on
+        pinSpacing: false,
         start: 'bottom bottom',
         end: isDesktop ? '+=100%' : '+=60%',
         scrub: 1,
