@@ -23,33 +23,69 @@
     return t * t * (3 - 2 * t);
   }
 
-  // split into words so they can sign on one after another, each with
-  // its own slight rotation/swoop rather than the whole line just
-  // fading in flat — reads more like a flourish than a plain reveal
-  let headingWords = [];
-  let sayIcon = null;
+  // typewriter heading: the title types itself out, character by
+  // character, with a blinking caret, the first time the section settles
+  // into view. An invisible full-length copy sits in the same grid cell so
+  // the heading's box (and its centering) never changes while it types.
+  const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  let typeText = null, typeCaret = null, sayIcon = null, fullText = '';
+  let typingStarted = false;
   if(headingEl){
-    const text = headingEl.textContent.trim();
+    fullText = headingEl.textContent.trim();
+    headingEl.setAttribute('aria-label', fullText);
     headingEl.innerHTML = '';
-    headingWords = text.split(/\s+/).map(word=>{
-      const span = document.createElement('span');
-      span.className = 'testimonials-heading-word';
-      span.textContent = word;
-      headingEl.appendChild(span);
-      headingEl.appendChild(document.createTextNode(' '));
-      return span;
-    });
-    // a small quote-mark icon (not an emoji) after the last word — a
-    // gradient-clipped-text run can't have a differently-colored child, so
-    // this is its own element with an explicit color, same reason
-    // .testimonials-heading-word sets its own color rather than
-    // inheriting the heading's transparent text-fill. (It used to be a
-    // microphone, back when the title ended in "say".)
+    const wrap = document.createElement('span');
+    wrap.className = 'testimonials-type';
+    wrap.setAttribute('aria-hidden', 'true');
+    const ghost = document.createElement('span');
+    ghost.className = 'testimonials-type-ghost';
+    ghost.textContent = fullText;
+    const live = document.createElement('span');
+    live.className = 'testimonials-type-live';
+    typeText = document.createTextNode(reduceMotion ? fullText : '');
+    typeCaret = document.createElement('span');
+    typeCaret.className = 'testimonials-caret';
+    live.appendChild(typeText);
+    if(!reduceMotion) live.appendChild(typeCaret);
+    wrap.appendChild(ghost);
+    wrap.appendChild(live);
+    headingEl.appendChild(wrap);
+    // a small quote-mark icon (not an emoji) that pops in once the typing
+    // is done — its own element with an explicit color, same reason the
+    // old per-word spans had one
     sayIcon = document.createElement('span');
     sayIcon.className = 'testimonials-say-icon';
     sayIcon.setAttribute('aria-hidden', 'true');
     sayIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 17.2c0-3.9 1.7-7.1 5-9.3l1.2 1.5C9 10.8 8.2 12.1 8 13.4c.2-.1.5-.1.7-.1 1.7 0 3 1.3 3 3s-1.3 3-3 3c-2.5 0-4.2-1.8-4.2-4.1zm9 0c0-3.9 1.7-7.1 5-9.3l1.2 1.5c-1.7 1.4-2.5 2.7-2.7 4 .2-.1.5-.1.7-.1 1.7 0 3 1.3 3 3s-1.3 3-3 3c-2.5 0-4.2-1.8-4.2-4.1z"/></svg>';
     headingEl.appendChild(sayIcon);
+    if(reduceMotion){ sayIcon.style.opacity = '1'; typingStarted = true; }
+  }
+
+  function popIcon(){
+    if(!sayIcon) return;
+    sayIcon.style.transition = 'opacity .25s ease, transform .5s cubic-bezier(.34,1.56,.64,1)';
+    sayIcon.style.opacity = '1';
+    sayIcon.style.transform = 'scale(1)';
+  }
+  function startTyping(){
+    if(typingStarted || !typeText) return;
+    typingStarted = true;
+    let i = 0;
+    const step = () => {
+      i++;
+      typeText.nodeValue = fullText.slice(0, i);
+      if(i < fullText.length){
+        const ch = fullText.charAt(i - 1);
+        // a touch slower after spaces/punctuation, with human-ish jitter
+        const base = (ch === ' ' || ch === ',' || ch === '.') ? 150 : 72;
+        setTimeout(step, base + Math.random() * 60);
+      } else {
+        popIcon();
+        // let the caret blink a little longer, then fade it away
+        setTimeout(() => { if(typeCaret) typeCaret.classList.add('is-done'); }, 2400);
+      }
+    };
+    setTimeout(step, 260);
   }
 
   // once, the first time the section has mostly settled into view, the
@@ -69,7 +105,7 @@
   // the whole section rises and fades in as it enters from below, tied
   // directly to scroll position (same convention as the cube title and
   // quote form) rather than a fixed-duration animation triggered once —
-  // and the heading signs itself in, word by word, over the same window
+  // (the heading types itself out once it has settled — see startTyping)
   let entrancePinnedLow = false, entrancePinnedHigh = false;
   function updateEntrance(){
     if(!sticky) return;
@@ -100,28 +136,8 @@
     sticky.style.transform = `translateY(${((1 - bodyP) * 34).toFixed(1)}px)`;
     maybeNudge(bodyP);
 
-    const wn = headingWords.length;
-    if(wn){
-      const signP = smoothstep(0.15, 0.85, p); // starts a beat after the section itself begins rising
-      const spread = 0.6;
-      for(let i=0;i<wn;i++){
-        const start = wn > 1 ? (i / (wn - 1)) * spread : 0;
-        const wp = smoothstep(start, start + (1 - spread), signP);
-        const el = headingWords[i];
-        const rot = (1 - wp) * (i % 2 === 0 ? -10 : 10);
-        el.style.opacity = wp.toFixed(3);
-        el.style.transform = `translateY(${((1 - wp) * 22).toFixed(1)}px) rotate(${rot.toFixed(1)}deg)`;
-        // the icon rides in on the same wp as "say" (the last word) so
-        // it lands in sync with it, with a little extra overshoot pop
-        // (a sine bulge that's back at 1 exactly when wp reaches 1)
-        // rather than just fading in flat like the words do
-        if(i === wn - 1 && sayIcon){
-          const pop = 1 + Math.sin(wp * Math.PI) * 0.25;
-          sayIcon.style.opacity = wp.toFixed(3);
-          sayIcon.style.transform = `translateY(${((1 - wp) * 22).toFixed(1)}px) scale(${pop.toFixed(3)})`;
-        }
-      }
-    }
+    // start typing once the section has mostly risen into place
+    if(p > 0.55) startTyping();
   }
 
   const TESTIMONIALS = [

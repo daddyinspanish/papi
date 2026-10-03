@@ -647,25 +647,25 @@ body, a{ cursor:none; }
   text-align:center;
   margin-bottom:.5rem;
 }
-/* each word signs itself in on its own slight rotation, cascading
-   left to right — a flourish rather than the whole line just fading
-   in flat. Driven per-frame from testimonials.js, tied to scroll.
-   Solid gold rather than inheriting the parent's transparent/
-   background-clip gradient — that clip only masks the ancestor
-   element's own text runs, so a wrapped span with no background of
-   its own would just render invisible (inherited color:transparent
-   with nothing to clip against). */
-.testimonials-heading-word{
+/* typewriter heading (js/testimonials.js): a hidden full-length copy
+   holds the heading's size so nothing shifts while the live copy types */
+.testimonials-type{ display:inline-grid; }
+.testimonials-type > span{ grid-area:1 / 1; }
+.testimonials-type-ghost{ visibility:hidden; }
+.testimonials-type-live{ text-align:left; white-space:nowrap; }
+.testimonials-caret{
   display:inline-block;
-  /* BUG FIX: per the white rebrand — #047857 is a pale, high-luminance
-     gold that popped clearly against the old near-black section but
-     reads as barely-there low-contrast text against the new white one
-     (confirmed visually: the whole heading was nearly unreadable).
-     --gold-deep is the same hue, just dark enough to stay legible. */
-  color:var(--gold-deep);
-  opacity:0;
-  will-change:opacity, transform;
+  width:.065em;
+  height:.84em;
+  margin-left:.07em;
+  vertical-align:-.05em;
+  background:var(--gold-deep);
+  animation:testimonialsCaretBlink 1s steps(1) infinite;
+  transition:opacity .5s ease;
 }
+.testimonials-caret.is-done{ opacity:0; animation:none; }
+@keyframes testimonialsCaretBlink{ 0%,49%{ opacity:1; } 50%,100%{ opacity:0; } }
+@media (prefers-reduced-motion: reduce){ .testimonials-caret{ animation:none; } }
 /* a real mic icon (not an emoji) riding in right after "say" — solid
    gold like the word beside it, same reason as .testimonials-heading-
    word above: the parent's gradient text-clip only masks its own text
@@ -681,6 +681,7 @@ body, a{ cursor:none; }
   vertical-align:-.06em;
   color:#059669;
   opacity:0;
+  transform:scale(.4);
   will-change:opacity, transform;
 }
 .testimonials-say-icon svg{ width:100%; height:100%; }
