@@ -191,14 +191,20 @@
       // getBoundingClientRect() on both and subtracting sidesteps the
       // offsetParent chain entirely — always correct regardless of how
       // many positioned ancestors sit in between.
+      // numbers stay lit once reached (cumulative, reversible), but only
+      // the CURRENT step's card is popped up — it drops back down as soon
+      // as the next number takes over (and when scrolling back up)
+      let currentStep = -1;
       numberEls.forEach((num, i)=>{
         const numRect = num.getBoundingClientRect();
         const numCenterY = (numRect.top + numRect.height / 2) - rect.top;
         const numProgress = numCenterY / rect.height;
         const isActive = progress >= numProgress;
         num.classList.toggle('is-active', isActive);
-        const card = cardEls[i];
-        if(card) card.classList.toggle('is-active', isActive);
+        if(isActive) currentStep = i;
+      });
+      cardEls.forEach((card, i)=>{
+        if(card) card.classList.toggle('is-active', i === currentStep);
       });
 
       // "try to scroll" past step 4 = the whole timeline has scrolled

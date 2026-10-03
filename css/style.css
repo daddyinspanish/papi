@@ -3747,16 +3747,18 @@ body, a{ cursor:none; }
 .process-timeline-step:nth-child(even) .process-timeline-card{
   grid-column:3;
 }
-/* per direct request the active step card lifts as its number goes
-   active (js/process-hero.js toggles this in lockstep, same cumulative
-   reversible scroll convention as the rest of the timeline). The green
-   halo/glow originally paired with it was removed per follow-up
-   feedback ("I also do not like the glow... more minimal") — now just a
-   small lift, a thin green border and a soft neutral shadow. */
+/* per direct request: the step rectangle pops UP while it is that
+   step's turn and pops back DOWN when the next step takes over
+   (js/process-hero.js marks only the current step's card — earlier
+   numbers stay lit, but their cards settle back). The pop-up eases with a
+   slight overshoot (the spring curve on .is-active); settling back down
+   uses the plain base ease above. Still no glow: just lift, a touch of
+   scale, a thin green border and a soft neutral shadow. */
 .process-timeline-card.is-active{
-  transform:translateY(-4px);
-  border-color:rgba(4,120,87,.35);
-  box-shadow:0 24px 50px -30px rgba(0,0,0,.28);
+  transform:translateY(-10px) scale(1.035);
+  border-color:rgba(4,120,87,.4);
+  box-shadow:0 34px 60px -28px rgba(0,0,0,.3);
+  transition:transform .55s cubic-bezier(.34,1.56,.64,1), border-color .4s var(--ease-out), box-shadow .5s var(--ease-out);
 }
 .process-timeline-step-label{
   font-family:'Inter', sans-serif;
