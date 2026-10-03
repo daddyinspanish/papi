@@ -51,6 +51,7 @@
   const HOVER_REST_MS = 800;     // cursor stillness (inside the frame) that means "go live"
   const AMBIENT_RANGE_MAX = 1700; // css px the idle drift covers (the hero + first sections)
   const AMBIENT_PERIOD = 36000;  // ms for one full down-and-back drift
+  const SCROLL_GAIN = 2.3;       // px the preview scrolls per px the cursor moves
 
   // add another demo here later — everything below (cards, dots,
   // preview, hover-load, swipe) is built from this array
@@ -132,7 +133,7 @@
       attached: false, ready: false,
       visible: false, live: false, loading: false,
       max: 0, cur: 0, t0: 0,
-      hover: false, py: 0.5, travel: 0, lx: 0, ly: 0,
+      hover: false, tgt: 0, travel: 0, lx: 0, ly: 0,
       restTimer: 0, failTimer: 0, token: 0,
     };
     states.push(s);
@@ -145,14 +146,21 @@
       s.hover = true;
       s.travel = 0;
       s.lx = e.clientX; s.ly = e.clientY;
-      trackY(s, e);
+      s.tgt = s.cur; // take over from wherever the idle drift has got to
     });
     s.wrap.addEventListener('pointermove', (e)=>{
       if(e.pointerType !== 'mouse' || !s.hover) return;
-      trackY(s, e);
-      const d = Math.hypot(e.clientX - s.lx, e.clientY - s.ly);
+      const dy = e.clientY - s.ly;
+      const d = Math.hypot(e.clientX - s.lx, dy);
       s.lx = e.clientX; s.ly = e.clientY;
-      if(d <= 3) return; // jitter / a scroll-under-a-resting-cursor event isn't intent
+      // the preview scrolls by how far the cursor MOVES, not by where it
+      // sits in the frame: an absolute mapping sent the whole tall page to
+      // its very bottom/top whenever the cursor neared the frame's edge, and
+      // jolted whenever the page itself scrolled under a resting cursor.
+      // Relative movement can't jump, and a scroll-under-a-resting-cursor
+      // event has no movement at all.
+      if(dy) s.tgt = Math.max(0, Math.min(s.max, s.tgt + dy * SCROLL_GAIN));
+      if(d <= 3) return; // jitter isn't intent
       s.travel += d;
       armRest(s);
     });
@@ -221,10 +229,6 @@
   window.addEventListener('resize', ()=>{ states.forEach((s)=>{ if(s.ready) measure(s); }); });
 
   // ---- cursor tracking / idle drift ----
-  function trackY(s, e){
-    const r = s.wrap.getBoundingClientRect();
-    s.py = r.height ? (e.clientY - r.top) / r.height : 0.5;
-  }
   function armRest(s){
     clearTimeout(s.restTimer);
     if(!canHoverLoad || s.live || s.loading || s.travel < HOVER_MIN_TRAVEL) return;
@@ -251,7 +255,7 @@
       if(s.loading){
         target = 0; // ease back to the hero, where the real site starts
       } else if(s.hover){
-        target = s.max * clamp01((s.py - 0.08) / 0.84);
+        target = s.tgt;
       } else if(reduceMotion){
         target = 0;
       } else {
