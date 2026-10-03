@@ -36,8 +36,8 @@
   if(!ctx) return;
 
   const CONFIG = {
-    cols: 80,
-    rows: 44,
+    cols: 100,
+    rows: 54,
     // ratios, not pixels — resize() turns these into real distances
     // based on the canvas's own height so the field of view holds up
     // at any viewport size
@@ -94,12 +94,12 @@
     // hero and only narrows toward the horizon.
     roadNearWidthFrac: 2,
     // wave amplitude as a fraction of canvas height
-    amplitudeFrac: 0.085,
+    amplitudeFrac: 0.1,
     // per direct request ("more 3D like if its more of a landscape"):
     // height of the rolling terrain itself, as a fraction of canvas
     // height — separate from amplitudeFrac above, which now only drives
     // the cursor-ball bump and the faint ambient ripple
-    terrainFrac: 0.23,
+    terrainFrac: 0.27,
     lineWidth: 1,
     // alpha fades from near (bold, legible) to far (faint, atmospheric)
     alphaNear: 0.5,
@@ -272,7 +272,7 @@
   // pointer present (touch devices, or before the first mouse move) it
   // settles into a slow idle drift instead of sitting dead-center, so
   // the hero still reads as "alive" with nothing to chase it.
-  let ballX = 0.12, ballZ = 0.42;
+  let ballX = 0.12, ballZ = 0.42, ballVX = 0, ballVZ = 0;
   // random-waypoint idle wander state — see its own BUG FIX comment in
   // loop() below
   let idleTargetX = 0.12, idleTargetZ = 0.42, idleNextPickAt = 0;
@@ -295,7 +295,16 @@
   // The valley/wall composition below stays fixed to the screen so the
   // hero never loses its overall shape or its legible middle.
   const seedA = Math.random() * 6.283, seedB = Math.random() * 6.283;
-  let tCos = 1, tSin = 0, tDrift = 0;
+  let tCos = 1, tSin = 0, tDrift = 0, tFlow = 0;
+  // per direct request, "make the grid more flexible, more smoother, and
+  // moving a lot more": the old ridge (1 - |sin|) had sharp creases along
+  // every crest, which read as stiff folded paper. The field is now built
+  // from long smooth waves whose coordinates are themselves bent by two
+  // slow flowing sine fields (a domain warp), so crests curve and slide
+  // like ribbons of cloth instead of running as straight creases, and the
+  // crest itself is rounded (sqrt(a*a + eps) instead of |a|). tFlow drives
+  // the flow several times faster than the old drift so the landscape is
+  // visibly always in motion.
   function terrain(nx, nz){
     const cz = (nz - 0.5) * 2;
     const ru = nx * tCos - cz * tSin;
@@ -304,26 +313,38 @@
     // side walls rise less right next to the viewer, so the bottom
     // corners can't be hauled up out of frame
     const walls = 0.3 + 1.15 * nx * nx * (0.35 + 0.65 * nz);
-    const s1 = Math.sin(ru * 2.3 + rv * 3.1 + seedA);
-    const s2 = Math.sin(ru * 4.7 - rv * 5.3 + seedB);
-    const s3 = Math.sin(ru * 9.1 + rv * 8.2 + seedA * 1.7);
-    const ridge = 1 - Math.abs(s1);
-    return (ridge * 0.85 + s2 * 0.25 + s3 * 0.08) * env * walls;
+    const wu = ru + 0.42 * Math.sin(rv * 2.1 + tFlow * 0.55 + seedB);
+    const wv = rv + 0.42 * Math.sin(ru * 1.7 - tFlow * 0.45 + seedA);
+    const a = Math.sin(wu * 2.6 + wv * 1.9 + seedA + tFlow * 0.5);
+    const b = Math.sin(wu * 1.3 - wv * 3.4 + seedB - tFlow * 0.38);
+    const c = Math.sin(wu * 5.2 + wv * 4.1 + tFlow * 0.85);
+    // rounded crest, remapped to 0..1 like the old ridge so the overall
+    // height budget (and the grid's bottom margin) is unchanged
+    const ridge = (1.0583 - Math.sqrt(a * a + 0.12)) / 0.7123;
+    return (ridge * 0.9 + b * 0.32 + c * 0.1) * env * walls;
   }
 
+  // how much the ball is moving right now (0..1) — drives the ripple
+  // rings below so the surface only "rings" when the cursor actually
+  // stirs it (see loop(): the ball is an underdamped spring)
+  let ballEnergy = 0;
   function heightAt(nx, nz, t){
     const dx = nx - ballX;
     const dz = nz - ballZ;
     // tight, roughly-equal falloff in both axes — a round "ball" rather
     // than the elongated ridge a wide x/narrow z falloff would produce.
-    const ball = Math.exp(-(dx * dx) / 0.16 - (dz * dz) / 0.05);
-    // faint ambient ripple, kept subtle (the terrain is the main shape)
+    const ball = Math.exp(-(dx * dx) / 0.2 - (dz * dz) / 0.065);
     const zTaper = Math.sin(Math.min(Math.max(nz, 0), 1) * Math.PI);
+    // flowing swell: long waves travelling toward the viewer, the same
+    // direction ribbons run in the reference
     const ripple = (
-      Math.sin(nx * 2.4 + nz * 1.6 + t * 0.3) * 0.5 +
-      Math.sin(nx * 1.1 - nz * 2.8 - t * 0.24) * 0.4
-    ) * zTaper * 0.15;
-    return (ball * 1.1 + ripple) * amplitude + terrain(nx, nz) * terrainAmp;
+      Math.sin(nx * 2.4 + nz * 3.4 - t * 1.05) * 0.5 +
+      Math.sin(nx * 1.1 - nz * 4.6 - t * 0.8) * 0.4
+    ) * zTaper * 0.34;
+    // concentric rings spreading from the ball, fading with distance
+    const d2 = dx * dx + dz * dz * 2.56;
+    const ring = Math.sin(Math.sqrt(d2) * 11 - t * 3.4) * Math.exp(-d2 * 2.4) * (0.1 + 0.5 * ballEnergy);
+    return (ball * 1.25 + ripple + ring) * amplitude + terrain(nx, nz) * terrainAmp;
   }
 
   // ---- per-vertex scratch buffers (allocated once, reused every frame)
@@ -397,10 +418,11 @@
     const rows = CONFIG.rows, cols = CONFIG.cols;
 
     // rotating/drifting terrain frame for this frame (see terrain())
-    const ang = seedA + t * 0.035;
+    const ang = seedA + t * 0.07;
     tCos = Math.cos(ang);
     tSin = Math.sin(ang);
-    tDrift = t * 0.03;
+    tDrift = t * 0.09;
+    tFlow = t;
 
     const morphing = bridgeProgress > 0.0005;
     const front = morphFront();
@@ -596,7 +618,7 @@
       lastRenderTs = ts;
       const t = (ts - startTs) / 1000;
       // chase the cursor when it's present; otherwise wander to a fresh
-      // random point every ~0.7-1.8s so there's always something to
+      // random point every ~0.5-1.3s so there's always something to
       // find (touch devices never send a pointer)
       let targetX, targetZ;
       if(pointerActive){
@@ -604,18 +626,29 @@
         targetZ = Math.max(0.12, Math.min(0.85, pointerNZ));
       } else {
         if(t >= idleNextPickAt){
-          idleTargetX = (Math.random() * 2 - 1) * 0.85;
-          idleTargetZ = 0.15 + Math.random() * 0.67;
-          idleNextPickAt = t + 0.7 + Math.random() * 1.1;
+          idleTargetX = (Math.random() * 2 - 1) * 0.9;
+          idleTargetZ = 0.14 + Math.random() * 0.7;
+          idleNextPickAt = t + 0.5 + Math.random() * 0.8;
         }
         targetX = idleTargetX;
         targetZ = idleTargetZ;
       }
-      // frame-rate independent easing (was a fixed 0.11 per frame, which
-      // changes speed with the frame rate)
-      const kBall = 1 - Math.exp(-4.5 * dt);
-      ballX += (targetX - ballX) * kBall;
-      ballZ += (targetZ - ballZ) * kBall;
+      // the ball is an UNDERDAMPED spring (damping ratio ~0.55): it
+      // overshoots and settles instead of easing in a straight line,
+      // which is what makes the surface feel elastic. Sub-stepped so the
+      // feel doesn't change with the frame rate.
+      const SPRING_K = 34, SPRING_C = 6.4;
+      let rem = dt;
+      while(rem > 1e-6){
+        const h = Math.min(rem, 1 / 120);
+        ballVX += ((targetX - ballX) * SPRING_K - ballVX * SPRING_C) * h;
+        ballVZ += ((targetZ - ballZ) * SPRING_K - ballVZ * SPRING_C) * h;
+        ballX += ballVX * h;
+        ballZ += ballVZ * h;
+        rem -= h;
+      }
+      const speed = Math.sqrt(ballVX * ballVX + ballVZ * ballVZ);
+      ballEnergy += (Math.min(1, speed * 0.45) - ballEnergy) * (1 - Math.exp(-3 * dt));
       // ease the scroll-driven morph so wheel/touch steps blend together
       const diff = bridgeTarget - bridgeProgress;
       bridgeProgress = Math.abs(diff) < 0.0004 ? bridgeTarget : bridgeProgress + diff * (1 - Math.exp(-8 * dt));
