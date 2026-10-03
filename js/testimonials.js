@@ -39,15 +39,16 @@
       headingEl.appendChild(document.createTextNode(' '));
       return span;
     });
-    // a real mic icon (not an emoji) right after "say" — a gradient-
-    // clipped-text run can't have a differently-colored child, so this
-    // is its own element with an explicit color, same reason
+    // a small quote-mark icon (not an emoji) after the last word — a
+    // gradient-clipped-text run can't have a differently-colored child, so
+    // this is its own element with an explicit color, same reason
     // .testimonials-heading-word sets its own color rather than
-    // inheriting the heading's transparent text-fill
+    // inheriting the heading's transparent text-fill. (It used to be a
+    // microphone, back when the title ended in "say".)
     sayIcon = document.createElement('span');
     sayIcon.className = 'testimonials-say-icon';
     sayIcon.setAttribute('aria-hidden', 'true');
-    sayIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"></rect><path d="M5 10v1a7 7 0 0 0 14 0v-1"></path><line x1="12" y1="18" x2="12" y2="22"></line><line x1="8" y1="22" x2="16" y2="22"></line></svg>';
+    sayIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 17.2c0-3.9 1.7-7.1 5-9.3l1.2 1.5C9 10.8 8.2 12.1 8 13.4c.2-.1.5-.1.7-.1 1.7 0 3 1.3 3 3s-1.3 3-3 3c-2.5 0-4.2-1.8-4.2-4.1zm9 0c0-3.9 1.7-7.1 5-9.3l1.2 1.5c-1.7 1.4-2.5 2.7-2.7 4 .2-.1.5-.1.7-.1 1.7 0 3 1.3 3 3s-1.3 3-3 3c-2.5 0-4.2-1.8-4.2-4.1z"/></svg>';
     headingEl.appendChild(sayIcon);
   }
 

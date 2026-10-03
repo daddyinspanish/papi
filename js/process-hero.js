@@ -122,8 +122,8 @@
     // past it, same cumulative-progress reversibility as .is-active so
     // scrolling back up before it fully leaves cancels it cleanly. The
     // instant it fires (false -> true transition, not every frame it
-    // stays true) a matching glow pulses behind "What business owners
-    // say" below, so the burst reads as carrying down into that section
+    // stays true) a matching glow pulses behind the reviews heading
+    // below, so the burst reads as carrying down into that section
     // rather than just vanishing into nothing.
     // ===================================================================
     const finalNumber = numberEls[numberEls.length - 1];
