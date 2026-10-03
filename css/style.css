@@ -564,6 +564,17 @@ body, a{ cursor:none; }
   will-change:opacity;
 }
 
+/* converging dot-line speed streaks from the top-right and bottom-left
+   corners (js/testimonial-streaks.js) */
+.testimonial-streaks{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:0;
+  pointer-events:none;
+}
+
 /* opacity/transform driven directly, continuously, by scroll position
    in testimonials.js as the section enters from below — not a fixed-
    duration animation triggered once, for the same reason as the cube
