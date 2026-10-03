@@ -97,6 +97,19 @@
     if(prefersReducedMotion) draw(6);
   }
 
+  // the same smooth phase field the steps section uses
+  // (js/process-flow.js): a few low-frequency sines whose phase is bent by
+  // two slower sines. Every dot is nudged sideways by it, so a streak
+  // bends and undulates like a ribbon instead of running straight, and
+  // neighbouring streaks (same field) bend together.
+  const FLOW_AMP = 46;     // px of sideways flow at the tip of a streak
+  function phase(x, y, t){
+    const u = x * 0.0046, v = y * 0.0036;
+    const w1 = Math.sin(u * 1.1 + v * 0.8 + t * 0.33);
+    const w2 = Math.sin(v * 1.7 - u * 0.6 - t * 0.26 + 1.3);
+    return u * 1.4 + v * 0.9 + 1.6 * w1 + 1.1 * w2 + t * 0.42;
+  }
+
   // streak state at time t: visible slice [s, e] along the axis, or null
   function slice(st, t){
     const span = st.rm + st.len;
@@ -127,7 +140,12 @@
         const pts = [];
         for(let m = 0; m <= n; m++){
           const a = sl.s + m * step;
-          pts.push(cl.ox + dx * a + nx * st.o, cl.oy + dy * a + ny * st.o, a);
+          const bx = cl.ox + dx * a + nx * st.o, by = cl.oy + dy * a + ny * st.o;
+          // calmer near the corner, freer toward the thin tip
+          const ph = phase(bx, by, t);
+          const side = FLOW_AMP * (0.3 + 0.7 * (a / st.rm)) * Math.sin(ph);
+          const along = 7 * Math.sin(ph * 0.8 + 2.0);
+          pts.push(bx + nx * side + dx * along, by + ny * side + dy * along, a);
         }
 
         // connected line, width tapering along the streak
