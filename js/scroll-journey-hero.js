@@ -300,10 +300,20 @@
   }, (context) => {
     const isDesktop = context.conditions.isDesktop;
 
-    // the hero (#processRoom) is exactly one viewport tall with
-    // nothing extra to scroll through first, so ScrollTrigger's
-    // start:'bottom bottom' resolves to ~scrollY 0 — the pin engages
-    // essentially at page load. A long total scroll distance, with
+    // the hero (#processRoom) is the very first thing on the page and
+    // exactly one viewport tall, so the pin engages at scrollY 0, i.e.
+    // essentially at page load.
+    //
+    // BUG FIX, per report "on Safari the grid's height is off, there's a
+    // blank space near the top": this used start:'bottom bottom', which
+    // places the pinned element at (viewport height - element height)
+    // using the viewport height ScrollTrigger last measured. Safari's
+    // toolbar changes the real height after load (and ScrollTrigger
+    // deliberately ignores mobile resizes), so the two disagreed — in
+    // the simulator ScrollTrigger believed 754px while the real viewport
+    // was 714px, pinning the hero 40px too low and leaving a blank band
+    // above it. 'top top' pins to top:0 whatever the viewport height is,
+    // and is the same scroll position here (hero top = page top). A long total scroll distance, with
     // every visible change pushed deep into its tail, is what actually
     // gives the visitor real "just read the hero" scroll runway before
     // the portal starts, let alone completes.
@@ -311,7 +321,7 @@
       scrollTrigger: {
         trigger: processRoom,
         pin: true,
-        start: 'bottom bottom',
+        start: 'top top',
         end: isDesktop ? '+=300%' : '+=170%',
         scrub: 1,
         onEnter: () => window.PapiDolly && window.PapiDolly.lock('processRoom'),
