@@ -55,11 +55,11 @@
       const len = rnd(70, 340) * (0.55 + 0.45 * falloff);
       list.push({
         o, rm, len,
-        v: rnd(22, 66),                       // px/s toward the centre
+        v: rnd(7, 20),                        // px/s toward the centre (slow drift)
         phase: Math.random() * (rm + len),
-        w0: rnd(1.4, 9) * (0.5 + 0.5 * falloff),
+        w0: rnd(1, 4.8) * (0.5 + 0.5 * falloff),
         col: PALETTE[(Math.random() * PALETTE.length) | 0],
-        a0: rnd(0.42, 0.9),
+        a0: rnd(0.2, 0.42),
       });
     }
     list.sort((p, q) => p.o - q.o);
@@ -77,7 +77,7 @@
     reach = half * (phone ? 0.3 : 0.64);
     band = phone ? Math.max(W * 0.3, 90) : Math.min(Math.max(Math.min(W, H) * 0.44, 110), 360);
     alphaScale = phone ? 0.6 : 1;
-    const n = isPhone() ? 18 : 46;
+    const n = isPhone() ? 12 : 30;
     clusters = [
       { ox: W, oy: 0, sign: 1, streaks: makeStreaks(n) },
       { ox: 0, oy: H, sign: -1, streaks: makeStreaks(n) },
@@ -141,8 +141,8 @@
           ctx.stroke();
         }
         // beads
-        ctx.fillStyle = `rgba(${st.col},${Math.min(0.9, alpha * 1.35).toFixed(3)})`;
-        const r = Math.max(1.1, width * 0.5 + 0.7);
+        ctx.fillStyle = `rgba(${st.col},${Math.min(0.9, alpha * 1.25).toFixed(3)})`;
+        const r = Math.max(0.9, width * 0.42 + 0.5);
         ctx.beginPath();
         for(let m = 0; m <= n; m++){
           ctx.moveTo(pts[m * 3] + r, pts[m * 3 + 1]);
@@ -153,7 +153,7 @@
         // cross-links to the neighbouring streak where the two run close
         if(prev.pts && Math.abs(st.o - prev.o) < 52){
           const pp = prev.pts, pn = pp.length / 3;
-          ctx.strokeStyle = `rgba(${st.col},${(Math.min(alpha, prev.alpha) * 0.55).toFixed(3)})`;
+          ctx.strokeStyle = `rgba(${st.col},${(Math.min(alpha, prev.alpha) * 0.45).toFixed(3)})`;
           ctx.lineWidth = 0.8;
           ctx.beginPath();
           let drawn = 0;
