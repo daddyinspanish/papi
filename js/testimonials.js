@@ -28,7 +28,7 @@
   // into view. An invisible full-length copy sits in the same grid cell so
   // the heading's box (and its centering) never changes while it types.
   const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  let typeText = null, typeCaret = null, sayIcon = null, fullText = '';
+  let typeText = null, typeCaret = null, fullText = '';
   let typingStarted = false;
   if(headingEl){
     fullText = headingEl.textContent.trim();
@@ -50,23 +50,9 @@
     wrap.appendChild(ghost);
     wrap.appendChild(live);
     headingEl.appendChild(wrap);
-    // a small quote-mark icon (not an emoji) that pops in once the typing
-    // is done — its own element with an explicit color, same reason the
-    // old per-word spans had one
-    sayIcon = document.createElement('span');
-    sayIcon.className = 'testimonials-say-icon';
-    sayIcon.setAttribute('aria-hidden', 'true');
-    sayIcon.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.5 17.2c0-3.9 1.7-7.1 5-9.3l1.2 1.5C9 10.8 8.2 12.1 8 13.4c.2-.1.5-.1.7-.1 1.7 0 3 1.3 3 3s-1.3 3-3 3c-2.5 0-4.2-1.8-4.2-4.1zm9 0c0-3.9 1.7-7.1 5-9.3l1.2 1.5c-1.7 1.4-2.5 2.7-2.7 4 .2-.1.5-.1.7-.1 1.7 0 3 1.3 3 3s-1.3 3-3 3c-2.5 0-4.2-1.8-4.2-4.1z"/></svg>';
-    headingEl.appendChild(sayIcon);
-    if(reduceMotion){ sayIcon.style.opacity = '1'; typingStarted = true; }
+    if(reduceMotion) typingStarted = true;
   }
 
-  function popIcon(){
-    if(!sayIcon) return;
-    sayIcon.style.transition = 'opacity .25s ease, transform .5s cubic-bezier(.34,1.56,.64,1)';
-    sayIcon.style.opacity = '1';
-    sayIcon.style.transform = 'scale(1)';
-  }
   function startTyping(){
     if(typingStarted || !typeText) return;
     typingStarted = true;
@@ -80,7 +66,6 @@
         const base = (ch === ' ' || ch === ',' || ch === '.') ? 150 : 72;
         setTimeout(step, base + Math.random() * 60);
       } else {
-        popIcon();
         // let the caret blink a little longer, then fade it away
         setTimeout(() => { if(typeCaret) typeCaret.classList.add('is-done'); }, 2400);
       }
