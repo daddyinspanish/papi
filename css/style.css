@@ -3116,7 +3116,10 @@ body, a{ cursor:none; }
    effects never fight over one property. */
 .hero-title-char{
   display:inline-block;
-  transition:translate .3s cubic-bezier(.16,1,.3,1), scale .3s cubic-bezier(.16,1,.3,1), color .3s ease;
+  /* no CSS transition here on purpose: js/hero-letter-fx.js eases these letters
+     itself, one update per frame for just the few letters near the cursor.
+     Three transitions on each of ~200 letters over an animating canvas was the
+     cause of the hero lag (profiled). */
 }
 /* same letter-cursor effect, applied to the hero subtitle — split into
    words/characters by js/hero-letter-fx.js itself (the title already
@@ -3126,7 +3129,10 @@ body, a{ cursor:none; }
 }
 .hero-sub-char{
   display:inline-block;
-  transition:translate .3s cubic-bezier(.16,1,.3,1), scale .3s cubic-bezier(.16,1,.3,1), color .3s ease;
+  /* no CSS transition here on purpose: js/hero-letter-fx.js eases these letters
+     itself, one update per frame for just the few letters near the cursor.
+     Three transitions on each of ~200 letters over an animating canvas was the
+     cause of the hero lag (profiled). */
 }
 .hero-title-char.is-glitching{
   /* BUG FIX: this used to flash near-white (#a7f3d0) to pop against the

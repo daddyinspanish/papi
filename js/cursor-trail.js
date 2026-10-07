@@ -59,16 +59,40 @@
   const ctx = canvas.getContext('2d');
   if(!ctx) return;
 
-  let W = 0, H = 0;
+  let W = 0, H = 0, DPR = 1;
+
+  // each digit is rendered ONCE into a tiny sprite; frames then just
+  // drawImage() it with globalAlpha. This replaces fillText + a freshly
+  // built color string per particle per frame, which re-rasterized glyphs
+  // every frame (it was the single biggest named cost in the profile).
+  const SPRITE_W = 12, SPRITE_H = 18;
+  let sprites = [];
+  function buildSprites(){
+    sprites = [];
+    for(let i = 0; i < CHARS.length; i++){
+      const c = document.createElement('canvas');
+      c.width = Math.ceil(SPRITE_W * DPR); c.height = Math.ceil(SPRITE_H * DPR);
+      const g = c.getContext('2d');
+      g.setTransform(DPR, 0, 0, DPR, 0, 0);
+      g.font = `${FONT_SIZE}px "Courier New", monospace`;
+      g.textBaseline = 'top';
+      // brand accent color — kept in sync with --gold-soft (#6ee7b7)
+      g.fillStyle = 'rgb(110,231,183)';
+      g.fillText(CHARS[i], 1, 1);
+      sprites.push(c);
+    }
+  }
   function resize(){
     const w = window.innerWidth, h = window.innerHeight;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // capped at 1.5: these are 13px soft digits, and a full-viewport canvas
+    // at 2x (5M+ pixels on a laptop) was a real part of the hero lag
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.font = `${FONT_SIZE}px "Courier New", monospace`;
-    ctx.textBaseline = 'top';
     W = w; H = h;
+    DPR = dpr;
+    buildSprites();
   }
   let lastResizeW = window.innerWidth;
   window.addEventListener('resize', () => {
@@ -93,7 +117,7 @@
       y: e.clientY,
       vy: 0.35 + Math.random() * 0.35,
       vx: Math.random() * 0.6 - 0.3,
-      ch: CHARS[(Math.random() * CHARS.length) | 0],
+      ci: (Math.random() * CHARS.length) | 0,
       born: performance.now(),
     });
     if(particles.length > MAX_PARTICLES) particles.splice(0, particles.length - MAX_PARTICLES);
@@ -104,20 +128,32 @@
   let isPageVisible = true;
   let lastRenderTs = 0;
 
+  // only the area the digits actually occupied last frame is cleared —
+  // not the whole viewport-sized canvas — and nothing is allocated per frame
+  let dirty = null; // {x0,y0,x1,y1} of last frame's drawing, in css px
   function render(now){
-    ctx.clearRect(0, 0, W, H);
-    particles = particles.filter((p) => {
+    if(dirty){
+      ctx.clearRect(dirty.x0 - 2, dirty.y0 - 2, dirty.x1 - dirty.x0 + 4, dirty.y1 - dirty.y0 + 4);
+      dirty = null;
+    }
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    let w = 0;
+    for(let i = 0; i < particles.length; i++){
+      const p = particles[i];
       const age = now - p.born;
-      if(age > LIFE_MS) return false;
+      if(age > LIFE_MS) continue;
       const t = age / LIFE_MS;
       p.x += p.vx;
       p.y += p.vy;
-      const alpha = (1 - t) * 0.65;
-      // brand accent color — kept in sync with --gold-soft (#6ee7b7)
-      ctx.fillStyle = `rgba(110,231,183,${alpha.toFixed(3)})`;
-      ctx.fillText(p.ch, p.x, p.y);
-      return true;
-    });
+      ctx.globalAlpha = (1 - t) * 0.65;
+      ctx.drawImage(sprites[p.ci], p.x - 1, p.y - 1, SPRITE_W, SPRITE_H);
+      if(p.x < x0) x0 = p.x; if(p.y < y0) y0 = p.y;
+      if(p.x + SPRITE_W > x1) x1 = p.x + SPRITE_W; if(p.y + SPRITE_H > y1) y1 = p.y + SPRITE_H;
+      particles[w++] = p;
+    }
+    particles.length = w; // compact in place (was a .filter() allocating a new array every frame)
+    ctx.globalAlpha = 1;
+    if(w) dirty = { x0, y0, x1, y1 };
   }
 
   function loop(ts){

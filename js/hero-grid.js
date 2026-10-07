@@ -131,6 +131,12 @@
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let W = 0, H = 0, dpr = 1;
+  // PERF (per report: "lag when I move my cursor"): the canvas used to render
+  // at the full 2x retina size (5M+ pixels every frame on a laptop). 1px
+  // hairlines look the same at 1.5x, and dprCap steps further down by itself
+  // (see loop()) on machines that still can't hold 60fps — a lower-res but
+  // smooth grid beats a sharp one that stutters.
+  let dprCap = 1.5;
   let FOCAL = 0, zNear = 0, zFar = 0, camHeight = 0, horizonY = 0, amplitude = 0, terrainAmp = 0;
   const rowZ = new Array(CONFIG.rows + 1);
   const alphaCache = new Array(CONFIG.rows + 1);
@@ -204,7 +210,7 @@
     if(!w || !h) return;
     // capped lower on phones — a full-bleed canvas at 3x is a lot of
     // pixels to repaint every frame for 1px lines that look the same
-    dpr = Math.min(window.devicePixelRatio || 1, window.innerWidth < CONFIG.mobileWidth ? 1.5 : 2);
+    dpr = Math.min(window.devicePixelRatio || 1, dprCap);
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -351,7 +357,10 @@
     const dz = nz - ballZ;
     // tight, roughly-equal falloff in both axes — a round "ball" rather
     // than the elongated ridge a wide x/narrow z falloff would produce.
-    const ball = Math.exp(-(dx * dx) / 0.2 - (dz * dz) / 0.065);
+    // exp() of a large negative number is ~0: skip it (and the ring below)
+    // for the vast majority of vertices that are nowhere near the ball
+    const bq = (dx * dx) / 0.2 + (dz * dz) / 0.065;
+    const ball = bq > 11 ? 0 : Math.exp(-bq);
     const zTaper = Math.sin(Math.min(Math.max(nz, 0), 1) * Math.PI);
     // flowing swell: long waves travelling toward the viewer, the same
     // direction ribbons run in the reference
@@ -361,7 +370,7 @@
     ) * zTaper * 0.34;
     // concentric rings spreading from the ball, fading with distance
     const d2 = dx * dx + dz * dz * 2.56;
-    const ring = Math.sin(Math.sqrt(d2) * 11 - t * 3.4) * Math.exp(-d2 * 2.4) * (0.1 + 0.5 * ballEnergy);
+    const ring = d2 > 4.6 ? 0 : Math.sin(Math.sqrt(d2) * 11 - t * 3.4) * Math.exp(-d2 * 2.4) * (0.1 + 0.5 * ballEnergy);
     return (ball * 1.25 + ripple + ring) * amplitude + terrain(nx, nz) * terrainAmp;
   }
 
@@ -631,6 +640,7 @@
   // or heavy morph), recovering again once they get cheap.
   let minInterval = window.innerWidth < 640 ? 1000 / 40 : 0;
   let costAvg = 8;
+  let frameTs = 0, gapAvg = 16.7, slowFrames = 0;
   let lastRenderTs = 0;
 
   function loop(ts){
@@ -681,7 +691,26 @@
       const t0 = performance.now();
       renderFrame(t);
       costAvg += (performance.now() - t0 - costAvg) * 0.08;
-      if(costAvg > 13 && minInterval < 30) minInterval = 1000 / 30;
+
+      // real frame-to-frame time (includes the browser's own paint/composite
+      // work, which renderFrame's own timer can't see): if frames keep
+      // arriving slower than ~48fps, drop the render resolution a notch
+      if(frameTs){
+        const gap = ts - frameTs;
+        if(gap < 200){                    // ignore tab-switch / pause gaps
+          gapAvg += (gap - gapAvg) * 0.1;
+          if(gapAvg > 21 && minInterval === 0){
+            if(++slowFrames > 36 && dprCap > 1){
+              dprCap = Math.max(1, dprCap - 0.25);
+              resize();
+              slowFrames = 0; gapAvg = 16.7;
+            }
+          } else if(slowFrames > 0){ slowFrames--; }
+        }
+      }
+      frameTs = ts;
+      // last resort once resolution is already at the floor
+      if(dprCap <= 1 && costAvg > 13 && minInterval < 30) minInterval = 1000 / 30;
       else if(costAvg < 6 && minInterval === 1000 / 30) minInterval = window.innerWidth < 640 ? 1000 / 40 : 0;
     }
     rafId = requestAnimationFrame(loop);
