@@ -60,7 +60,7 @@
       name: 'California Dental Group of North Anaheim',
       industry: 'Dentists',
       url: 'https://cdgnorth.com',
-      preview: { desktop: 'img/demos/cdg-desktop.webp?v=1', mobile: 'img/demos/cdg-mobile.webp?v=1' },
+      preview: { desktop: 'img/demos/cdg-desktop.webp?v=2', mobile: 'img/demos/cdg-mobile.webp?v=2' },
     },
     {
       name: 'Dental Scanning Solutions',

@@ -3977,13 +3977,14 @@ html[data-theme="dark"] .process-timeline-card.is-active{
 }
 
 /* the "Trusted by" logos are transparent artwork drawn for a light page
-   (several have dark wordmarks) — give each a soft light tile in dark mode */
+   (several have black wordmarks that would vanish on a dark one). No
+   tiles or backgrounds: in dark mode they are simply drawn as clean white
+   versions of themselves; light mode keeps the original colors */
 html[data-theme="dark"] .logo-marquee-item img{
-  background:#f4f2ed;
-  border-radius:12px;
-  padding:.5rem .85rem;
-  opacity:1;
+  filter:brightness(0) invert(1);
+  opacity:.85;
 }
+html[data-theme="dark"] .logo-marquee-item img:hover{ opacity:1; }
 
 /* native date picker + autofill */
 html[data-theme="dark"] .quote-field--date input{ color-scheme:dark; }
