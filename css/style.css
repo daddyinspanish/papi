@@ -4003,3 +4003,186 @@ html[data-theme="dark"] select:-webkit-autofill{
   -webkit-text-fill-color:var(--ink-text);
   box-shadow:0 0 0 1000px var(--card) inset;
 }
+
+/* ===================================================================
+   HOW CONTENT STRATEGY WORKS (#contentStrategySection) — four numbered
+   steps under the videos. Desktop: one row, the numbers joined by a dotted
+   line (the site's connected-dots language). Tablet: 2x2. Phone: a vertical
+   list with the dotted line running down the numbers. All colors come from
+   the theme variables, so it follows light/dark automatically.
+=================================================================== */
+.cs-section{
+  position:relative;
+  z-index:1;
+  background:var(--paper);
+  padding:clamp(4rem, 9vw, 6.5rem) 1.5rem;
+}
+.cs-inner{
+  max-width:1120px;
+  margin:0 auto;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  text-align:center;
+}
+.cs-eyebrow{
+  font-size:.76rem;
+  letter-spacing:.38em;
+  text-transform:uppercase;
+  color:var(--gold-deep);
+  margin-bottom:1rem;
+}
+.cs-title{
+  font-family:'Fraunces', serif;
+  font-weight:400;
+  font-size:clamp(1.9rem, 4.4vw, 2.8rem);
+  line-height:1.15;
+  color:var(--ink-text);
+  max-width:24ch;
+  margin:0 auto .9rem;
+}
+.cs-title em{ font-style:italic; color:var(--gold-deep); }
+.cs-sub{
+  max-width:520px;
+  margin:0 auto clamp(2.8rem, 6vw, 4rem);
+  color:rgba(var(--ink-rgb),.68);
+  font-size:1rem;
+  line-height:1.55;
+}
+.cs-steps{
+  list-style:none;
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:clamp(1rem, 2vw, 1.5rem);
+  position:relative;
+  counter-reset:none;
+}
+/* the dotted line joining the four numbers */
+.cs-steps::before{
+  content:'';
+  position:absolute;
+  top:21px;
+  left:calc(12.5% - 2px);
+  right:calc(12.5% - 2px);
+  border-top:2px dotted rgba(var(--brand-rgb), .5);
+  z-index:0;
+}
+.cs-step{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  z-index:1;
+}
+.cs-num{
+  display:grid;
+  place-items:center;
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  background:var(--card);
+  border:2px solid rgba(var(--brand-rgb), .45);
+  color:var(--gold-deep);
+  font-family:'Fraunces', serif;
+  font-size:1.15rem;
+  font-weight:600;
+  /* a ring of page color keeps the dotted line from running into the circle */
+  box-shadow:0 0 0 6px var(--paper);
+  position:relative;
+  z-index:2;
+}
+.cs-card{
+  margin-top:1.1rem;
+  width:100%;
+  flex:1;
+  text-align:left;
+  background:var(--card);
+  border:1px solid rgba(var(--brand-rgb), .16);
+  border-radius:16px;
+  padding:1.4rem 1.4rem 1.3rem;
+  box-shadow:0 10px 26px -8px rgba(0,0,0,.2), 0 2px 6px rgba(0,0,0,.05);
+  transition:transform .45s var(--ease-out), box-shadow .45s var(--ease-out), border-color .45s var(--ease-out);
+}
+.cs-step:hover .cs-card{
+  transform:translateY(-6px);
+  border-color:rgba(var(--brand-rgb), .4);
+  box-shadow:0 26px 46px -18px rgba(0,0,0,.28);
+}
+.cs-label{
+  font-size:.7rem;
+  font-weight:700;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--gold-deep);
+  margin-bottom:.3rem;
+}
+.cs-step-title{
+  font-family:'Fraunces', serif;
+  font-weight:500;
+  font-size:1.25rem;
+  line-height:1.2;
+  color:var(--ink-text);
+  margin-bottom:.6rem;
+}
+.cs-text{
+  font-size:.92rem;
+  line-height:1.55;
+  color:rgba(var(--ink-rgb), .72);
+}
+.cs-tags{
+  margin-top:.9rem;
+  font-size:.74rem;
+  letter-spacing:.04em;
+  color:rgba(var(--ink-rgb), .5);
+}
+.cs-cta{
+  margin-top:clamp(2.2rem, 5vw, 3rem);
+  display:inline-block;
+  padding:.95rem 1.9rem;
+  border-radius:999px;
+  background:linear-gradient(120deg, #047857, #34d399, #10b981, #047857);
+  background-size:200% 100%;
+  color:#0a0908;
+  font-weight:600;
+  font-size:.95rem;
+  letter-spacing:.02em;
+  text-decoration:none;
+  box-shadow:0 16px 34px -14px rgba(var(--brand-rgb), .6);
+  transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out), background-position .6s ease;
+}
+.cs-cta:hover{ transform:translateY(-2px); background-position:100% 0; box-shadow:0 20px 40px -14px rgba(var(--brand-rgb), .7); }
+.cs-cta:focus-visible{ outline:2px solid var(--gold-deep); outline-offset:3px; }
+
+/* tablet: 2 x 2, dotted line hidden (it would cut across the rows) */
+@media (max-width:900px){
+  .cs-steps{ grid-template-columns:repeat(2, 1fr); row-gap:2rem; }
+  .cs-steps::before{ display:none; }
+}
+/* phone: one column; the dotted line runs down the left, through the numbers */
+@media (max-width:560px){
+  .cs-steps{ grid-template-columns:1fr; row-gap:1.4rem; padding-left:0; }
+  .cs-step{ flex-direction:row; align-items:flex-start; gap:1rem; }
+  .cs-num{ flex:0 0 44px; margin-top:.2rem; }
+  .cs-card{ margin-top:0; }
+  .cs-steps::before{
+    display:block;
+    top:24px; bottom:60px;
+    left:21px; right:auto;
+    border-top:0;
+    border-left:2px dotted rgba(var(--brand-rgb), .5);
+  }
+  .cs-step:hover .cs-card{ transform:none; }
+}
+html[data-theme="dark"] .cs-card{
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 18px 44px -24px rgba(0,0,0,.7);
+}
+html[data-theme="dark"] .cs-step:hover .cs-card{
+  border-color:rgba(var(--brand-rgb), .5);
+  box-shadow:0 26px 46px -18px rgba(0,0,0,.85);
+}
+@media (prefers-reduced-motion: reduce){
+  .cs-card, .cs-cta{ transition:none; }
+  .cs-step:hover .cs-card{ transform:none; }
+}
