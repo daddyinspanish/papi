@@ -18,8 +18,13 @@
      button still reads as premium sitting on an otherwise white page. */
   --ink-text: #1c1a16;
   --ink-text-dim: #4a4640;
-  --paper: #f8f6f2;
+  --ink-rgb: 28, 26, 22;        /* the ink color as r,g,b, for rgba(var(--ink-rgb), a) */
+  --paper: var(--paper);
   --paper-soft: #ffffff;
+  --card: #ffffff;              /* raised surfaces: cards, forms, panels */
+  --card-2: #f3f1ec;            /* the soft end of card gradients */
+  --brand-rgb: 4, 120, 87;      /* deep-brand hairlines/glows as r,g,b */
+  --line-rgb: 4, 120, 87;       /* what the canvas animations draw with */
 
   /* names kept as --gold* on purpose — every var(--gold...) reference
      site-wide still means "the one brand accent color," which is what
@@ -48,6 +53,31 @@
   --ease-in-out: cubic-bezier(.65,0,.35,1);
 }
 
+/* ===================================================================
+   DARK MODE
+   Applied with <html data-theme="dark"> (set before first paint by the
+   inline script in index.html's <head>, toggled by js/theme.js). The
+   light palette above stays the default; everything here only swaps the
+   variables the rest of this file already reads, plus the handful of
+   places that needed their own dark treatment (see the block at the very
+   end of this file).
+=================================================================== */
+html[data-theme="dark"]{
+  --ink-text: #ece9e2;
+  --ink-text-dim: #b4b0a6;
+  --ink-rgb: 236, 233, 226;
+  --paper: #0a110f;
+  --paper-soft: #101a16;
+  --card: #111c18;
+  --card-2: #0d1612;
+  --brand-rgb: 52, 211, 153;
+  --line-rgb: 52, 211, 153;
+  --gold: #34d399;
+  --gold-soft: #6ee7b7;
+  --gold-deep: #34d399;
+  color-scheme: dark;
+}
+
 *{ margin:0; padding:0; box-sizing:border-box; }
 
 /* Awwwards personality pass — a thin, persistent page-scroll progress
@@ -61,7 +91,7 @@
   position:fixed;
   top:0; left:0; right:0;
   height:2px;
-  background:rgba(28,26,22,.08);
+  background:rgba(var(--ink-rgb),.08);
   z-index:1900;
   pointer-events:none;
 }
@@ -71,7 +101,7 @@
   transform-origin:left center;
   transform:scaleX(var(--scroll-progress, 0));
   background:linear-gradient(90deg, #34d399, #a7f3d0);
-  box-shadow:0 0 8px rgba(4,120,87,.5);
+  box-shadow:0 0 8px rgba(var(--brand-rgb),.5);
 }
 @media (prefers-reduced-motion:reduce){
   .scroll-progress-fill{ transition:none; }
@@ -86,11 +116,11 @@ html,body{
      briefly reveals whatever's behind them for however many px they've
      shifted — that's THIS element, body, showing through. --ink used
      to be a close-but-not-quite #0b0b0c, one shade lighter than every
-     section's own #f8f6f2; against near-black that tiny difference
+     section's own var(--paper); against near-black that tiny difference
      still read as a visible seam. Matching it exactly means any such
      gap (this one or a future one) is invisible regardless of cause,
      same fix already used once for the faq-section background seam. */
-  background:#f8f6f2;
+  background:var(--paper);
   color:var(--ink-text);
   font-family:'Inter', system-ui, sans-serif;
   /* mobile Safari's own rubber-band/momentum overscroll can visibly
@@ -190,7 +220,7 @@ body, a{ cursor:none; }
 #hero{
   position:relative;
   width:100%;
-  background:#f8f6f2;
+  background:var(--paper);
   visibility:hidden;
   opacity:0;
   /* BUG FIX: per the recurring "page goes black after clicking Enter"
@@ -249,7 +279,7 @@ body, a{ cursor:none; }
 .closing-brand-line{
   margin-top:.35rem;
   font-size:.85rem;
-  color:rgba(28,26,22,.75);
+  color:rgba(var(--ink-rgb),.75);
 }
 .closing-brand-line em{
   font-style:italic;
@@ -346,7 +376,7 @@ body, a{ cursor:none; }
   width:2.6rem;
   height:auto;
   flex-shrink:0;
-  filter:drop-shadow(0 0 10px rgba(4,120,87,.35));
+  filter:drop-shadow(0 0 10px rgba(var(--brand-rgb),.35));
 }
 .process-arrival-flame{
   transform-origin:30px 66px;
@@ -364,9 +394,9 @@ body, a{ cursor:none; }
   font-size:.78rem;
   font-weight:600;
   letter-spacing:.04em;
-  color:#1c1a16;
+  color:var(--ink-text);
   background:rgba(255,255,255,.08);
-  border:1px solid rgba(28,26,22,.22);
+  border:1px solid rgba(var(--ink-rgb),.22);
   border-radius:999px;
   padding:.6rem 1.1rem .6rem .85rem;
   cursor:pointer;
@@ -466,7 +496,7 @@ body, a{ cursor:none; }
   width:36px; height:36px;
   margin:-18px 0 0 -18px;
   border-radius:50%;
-  border:1px solid rgba(28,26,22,.7);
+  border:1px solid rgba(var(--ink-rgb),.7);
   transition:width .35s var(--ease-out), height .35s var(--ease-out), margin .35s var(--ease-out), border-color .35s var(--ease-out), opacity .3s ease;
   /* a slow, subtle breathing glow rather than a flat static shadow —
      something about the cursor is always gently alive as it travels
@@ -474,8 +504,8 @@ body, a{ cursor:none; }
   animation:cursorGlowPulse 2.6s ease-in-out infinite;
 }
 @keyframes cursorGlowPulse{
-  0%, 100%{ box-shadow:0 0 16px rgba(4,120,87,.3); }
-  50%{ box-shadow:0 0 28px rgba(4,120,87,.55); }
+  0%, 100%{ box-shadow:0 0 16px rgba(var(--brand-rgb),.3); }
+  50%{ box-shadow:0 0 28px rgba(var(--brand-rgb),.55); }
 }
 .cursor-dot{
   position:absolute;
@@ -494,8 +524,8 @@ body, a{ cursor:none; }
   animation:cursorGlowPulseActive 1.3s ease-in-out infinite;
 }
 @keyframes cursorGlowPulseActive{
-  0%, 100%{ box-shadow:0 0 24px rgba(4,120,87,.55); }
-  50%{ box-shadow:0 0 40px rgba(4,120,87,.85); }
+  0%, 100%{ box-shadow:0 0 24px rgba(var(--brand-rgb),.55); }
+  50%{ box-shadow:0 0 40px rgba(var(--brand-rgb),.85); }
 }
 /* Awwwards personality pass — site-wide cursor language (see
    js/cursor.js's generic [data-cursor] hook). Two variants, each a
@@ -544,7 +574,7 @@ body, a{ cursor:none; }
      read as a repeating wave. Flattened to the same solid tone the old
      gradient's own darkest stop already used, so the overall darkness
      is unchanged but there's no curvature left to read as a wave */
-  background:#f8f6f2;
+  background:var(--paper);
   padding:clamp(3.5rem, 8vw, 6rem) 0;
   overflow:hidden;
 }
@@ -557,7 +587,7 @@ body, a{ cursor:none; }
   inset:-15% -10%;
   z-index:0;
   pointer-events:none;
-  background:radial-gradient(circle at 72% 30%, rgba(4,120,87,.08), transparent 60%);
+  background:radial-gradient(circle at 72% 30%, rgba(var(--brand-rgb),.08), transparent 60%);
   opacity:.7;
   animation:ambientGlowDrift 26s ease-in-out infinite;
   animation-delay:-6s;
@@ -693,7 +723,7 @@ body, a{ cursor:none; }
   align-items:center;
   gap:.4em;
   font-size:.78rem;
-  color:rgba(28,26,22,.45);
+  color:rgba(var(--ink-rgb),.45);
   margin-top:-.5rem;
 }
 /* a small continuous side-to-side nudge on the icon itself — reinforces
@@ -748,8 +778,8 @@ body, a{ cursor:none; }
   text-align:left;
   padding:clamp(1.3rem, 2.6vw, 1.7rem);
   border-radius:16px;
-  background:#ffffff;
-  border:1px solid rgba(28,26,22,.1);
+  background:var(--card);
+  border:1px solid rgba(var(--ink-rgb),.1);
   box-shadow:0 20px 50px -28px rgba(0,0,0,.25);
   opacity:.5;
   transform:scale(.96);
@@ -794,7 +824,7 @@ body, a{ cursor:none; }
 }
 .testimonial-role{
   font-size:.76rem;
-  color:rgba(28,26,22,.5);
+  color:rgba(var(--ink-rgb),.5);
 }
 /* Google's own real star color (also one of the four tones in the
    "posted on Google" G mark below, for the same reason) */
@@ -806,7 +836,7 @@ body, a{ cursor:none; }
 }
 .testimonial-when{
   font-size:.74rem;
-  color:rgba(28,26,22,.45);
+  color:rgba(var(--ink-rgb),.45);
   margin-bottom:.8rem;
 }
 .testimonial-quote{
@@ -851,9 +881,9 @@ body, a{ cursor:none; }
 }
 @keyframes testimonialResultGlitch{
   0%, 100%{ box-shadow:none; border-color:rgba(15,157,88,.3); }
-  30%{ box-shadow:0 0 8px rgba(4,120,87,.45); border-color:var(--gold-deep); }
+  30%{ box-shadow:0 0 8px rgba(var(--brand-rgb),.45); border-color:var(--gold-deep); }
   60%{ box-shadow:none; border-color:rgba(15,157,88,.3); }
-  80%{ box-shadow:0 0 6px rgba(4,120,87,.3); border-color:var(--gold-deep); }
+  80%{ box-shadow:0 0 6px rgba(var(--brand-rgb),.3); border-color:var(--gold-deep); }
 }
 /* the real "posted on Google" pattern — a small instance of the actual
    4-color Google "G" mark (see js/testimonials.js's GOOGLE_G_SVG)
@@ -864,7 +894,7 @@ body, a{ cursor:none; }
   align-items:center;
   gap:.4rem;
   font-size:.74rem;
-  color:rgba(28,26,22,.45);
+  color:rgba(var(--ink-rgb),.45);
 }
 .testimonial-posted svg{ width:14px; height:14px; flex:0 0 auto; }
 
@@ -881,13 +911,13 @@ body, a{ cursor:none; }
   justify-content:center;
   width:38px; height:38px;
   border-radius:50%;
-  border:1px solid rgba(28,26,22,.25);
+  border:1px solid rgba(var(--ink-rgb),.25);
   background:transparent;
-  color:rgba(28,26,22,.8);
+  color:rgba(var(--ink-rgb),.8);
   cursor:none;
   transition:border-color .3s var(--ease-out), color .3s var(--ease-out), background .3s var(--ease-out);
 }
-.testimonial-arrow:hover{ border-color:var(--gold-deep); color:var(--gold-deep); background:rgba(4,120,87,.08); }
+.testimonial-arrow:hover{ border-color:var(--gold-deep); color:var(--gold-deep); background:rgba(var(--brand-rgb),.08); }
 @media (hover:none), (pointer:coarse){ .testimonial-arrow{ display:none; } }
 
 .testimonial-dots{
@@ -901,15 +931,15 @@ body, a{ cursor:none; }
   border-radius:50%;
   border:none;
   padding:0;
-  background:rgba(28,26,22,.25);
+  background:rgba(var(--ink-rgb),.25);
   cursor:none;
   transition:background .35s var(--ease-out), width .35s var(--ease-out);
 }
-.testimonial-dot:hover{ background:rgba(28,26,22,.5); }
+.testimonial-dot:hover{ background:rgba(var(--ink-rgb),.5); }
 .testimonial-dot.is-active{
   width:22px;
   border-radius:5px;
-  background:#047857;
+  background:var(--gold-deep);
 }
 
 /* ===================================================================
@@ -929,7 +959,7 @@ body, a{ cursor:none; }
   font-weight:600;
   letter-spacing:.3em;
   text-transform:uppercase;
-  color:rgba(28,26,22,.45);
+  color:rgba(var(--ink-rgb),.45);
   margin-bottom:2rem;
 }
 .logo-marquee-track-wrap{
@@ -1028,7 +1058,7 @@ body, a{ cursor:none; }
 .content-film-sub{
   max-width:520px;
   margin:0 auto clamp(2.5rem, 5vw, 3.5rem);
-  color:rgba(28,26,22,.68);
+  color:rgba(var(--ink-rgb),.68);
   font-size:1rem;
   line-height:1.55;
 }
@@ -1051,7 +1081,7 @@ body, a{ cursor:none; }
   outline:none;
 }
 .cf-stage:active{ cursor:grabbing; }
-.cf-stage:focus-visible{ outline:2px solid rgba(4,120,87,.4); outline-offset:6px; border-radius:16px; }
+.cf-stage:focus-visible{ outline:2px solid rgba(var(--brand-rgb),.4); outline-offset:6px; border-radius:16px; }
 .cf-card{
   position:absolute;
   left:50%;
@@ -1107,7 +1137,7 @@ body, a{ cursor:none; }
   margin:-30px 0 0 -30px;
   border-radius:50%;
   background:#fff;
-  color:var(--ink-text);
+  color:#1c1a16;
   box-shadow:0 12px 30px -10px rgba(0,0,0,.55);
   opacity:0;
   transform:scale(.8);
@@ -1142,9 +1172,9 @@ body, a{ cursor:none; }
   width:40px;
   height:40px;
   border-radius:50%;
-  border:1px solid rgba(28,26,22,.22);
-  background:#fff;
-  color:rgba(28,26,22,.8);
+  border:1px solid rgba(var(--ink-rgb),.22);
+  background:var(--card);
+  color:rgba(var(--ink-rgb),.8);
   cursor:pointer;
   transition:border-color .2s ease, transform .2s ease;
 }
@@ -1161,7 +1191,7 @@ body, a{ cursor:none; }
   padding:0;
   border:0;
   border-radius:99px;
-  background:rgba(28,26,22,.22);
+  background:rgba(var(--ink-rgb),.22);
   cursor:pointer;
   transition:width .3s var(--ease-out), background .3s ease;
 }
@@ -1169,7 +1199,7 @@ body, a{ cursor:none; }
 .cf-hint{
   margin-top:.9rem;
   font-size:.78rem;
-  color:rgba(28,26,22,.45);
+  color:rgba(var(--ink-rgb),.45);
 }
 @media (max-width:640px){
   .cf-carousel{ --cf-w:min(54vw, 230px); }
@@ -1221,7 +1251,7 @@ body, a{ cursor:none; }
   border:0;
   border-radius:50%;
   background:#fff;
-  color:var(--ink-text);
+  color:#1c1a16;
   cursor:pointer;
   box-shadow:0 10px 26px -10px rgba(0,0,0,.6);
 }
@@ -1242,8 +1272,8 @@ body, a{ cursor:none; }
   flex-direction:column;
   border-radius:16px;
   overflow:hidden;
-  background:#fff;
-  border:1px solid rgba(4,120,87,.16);
+  background:var(--card);
+  border:1px solid rgba(var(--brand-rgb),.16);
   box-shadow:0 20px 50px -28px rgba(0,0,0,.22);
 }
 /* per direct request, portfolio clips are vertical (9:16) and must show
@@ -1280,7 +1310,7 @@ body, a{ cursor:none; }
   width:64px;
   height:64px;
   border-radius:50%;
-  color:var(--ink-text);
+  color:#1c1a16;
   background:#fff;
   box-shadow:0 12px 30px -10px rgba(0,0,0,.55);
   transition:transform .3s var(--ease-out);
@@ -1340,8 +1370,8 @@ body, a{ cursor:none; }
   min-width:0;
   border-radius:16px;
   overflow:hidden;
-  background:#fff;
-  border:1px solid rgba(4,120,87,.16);
+  background:var(--card);
+  border:1px solid rgba(var(--brand-rgb),.16);
   box-shadow:0 20px 50px -28px rgba(0,0,0,.22);
   -webkit-backface-visibility:hidden;
   backface-visibility:hidden;
@@ -1385,7 +1415,7 @@ body, a{ cursor:none; }
   border:0;
   border-radius:999px;
   background:#fff;
-  color:var(--ink-text);
+  color:#1c1a16;
   font-size:.74rem;
   font-weight:700;
   letter-spacing:.14em;
@@ -1417,7 +1447,7 @@ body, a{ cursor:none; }
   border:0;
   border-radius:999px;
   background:#fff;
-  color:var(--ink-text);
+  color:#1c1a16;
   font-size:.76rem;
   font-weight:700;
   letter-spacing:.12em;
@@ -1453,7 +1483,7 @@ body, a{ cursor:none; }
 .content-film-card-text{
   font-size:.86rem;
   line-height:1.5;
-  color:rgba(28,26,22,.62);
+  color:rgba(var(--ink-rgb),.62);
   padding:.4rem 1.2rem 1.2rem;
 }
 /* placeholder slots — a real aspect-ratio frame with a play icon and a
@@ -1479,7 +1509,7 @@ body, a{ cursor:none; }
   border-radius:50%;
   color:var(--gold-deep);
   background:#fff;
-  border:1px solid rgba(4,120,87,.3);
+  border:1px solid rgba(var(--brand-rgb),.3);
 }
 .content-film-placeholder-icon svg{ width:20px; height:20px; }
 .content-film-placeholder-tag{
@@ -1487,7 +1517,7 @@ body, a{ cursor:none; }
   font-weight:700;
   letter-spacing:.14em;
   text-transform:uppercase;
-  color:rgba(28,26,22,.45);
+  color:rgba(var(--ink-rgb),.45);
 }
 
 /* ===================================================================
@@ -1497,11 +1527,11 @@ body, a{ cursor:none; }
   position:relative;
   /* BUG FIX: per request to make the site feel like one continuous
      world rather than separate sections — this was the one plain #000
-     seam in an otherwise identical #f8f6f2 background shared by the
+     seam in an otherwise identical var(--paper) background shared by the
      hero/live-demo/process/comparison/testimonials sections. Matching
      it removes the one visible "reset" between sections that isn't
      the quote section's own intentional closing-chapter gradient. */
-  background:#f8f6f2;
+  background:var(--paper);
   padding:clamp(4rem, 10vw, 7rem) clamp(1.5rem, 5vw, 4.5rem);
   /* contains the new ::before ambient glow's inset:-15% bleed within
      this section's own box, same reasoning as .comparison-section */
@@ -1516,7 +1546,7 @@ body, a{ cursor:none; }
   inset:-15% -10%;
   z-index:0;
   pointer-events:none;
-  background:radial-gradient(circle at 45% 75%, rgba(4,120,87,.07), transparent 58%);
+  background:radial-gradient(circle at 45% 75%, rgba(var(--brand-rgb),.07), transparent 58%);
   opacity:.7;
   animation:ambientGlowDrift 24s ease-in-out infinite;
   animation-delay:-13s;
@@ -1552,9 +1582,9 @@ body, a{ cursor:none; }
    js/faq.js's own scroll-driven auto-advance for the new "scrolling
    moves through the questions" behavior instead of a swipeable row. */
 .faq-item{
-  border-bottom:1px solid rgba(4,120,87,.18);
+  border-bottom:1px solid rgba(var(--brand-rgb),.18);
 }
-.faq-item:first-child{ border-top:1px solid rgba(4,120,87,.18); }
+.faq-item:first-child{ border-top:1px solid rgba(var(--brand-rgb),.18); }
 .faq-question{
   position:relative;
   width:100%;
@@ -1583,7 +1613,7 @@ body, a{ cursor:none; }
   content:'';
   position:absolute;
   inset:0;
-  background:linear-gradient(100deg, transparent 42%, rgba(4,120,87,.16) 50%, transparent 58%);
+  background:linear-gradient(100deg, transparent 42%, rgba(var(--brand-rgb),.16) 50%, transparent 58%);
   transform:translateX(-120%);
   pointer-events:none;
 }
@@ -1598,8 +1628,8 @@ body, a{ cursor:none; }
   flex:0 0 auto;
   width:10px;
   height:10px;
-  border-right:1.5px solid #047857;
-  border-bottom:1.5px solid #047857;
+  border-right:1.5px solid var(--gold-deep);
+  border-bottom:1.5px solid var(--gold-deep);
   transform:rotate(45deg);
   transition:transform .3s var(--ease-out);
 }
@@ -1624,7 +1654,7 @@ body, a{ cursor:none; }
 }
 .faq-answer p{
   padding:0 1.15rem 1.5rem;
-  color:rgba(28,26,22,.68);
+  color:rgba(var(--ink-rgb),.68);
   font-size:.98rem;
   line-height:1.6;
   /* Awwwards personality pass — a soft depth-echo settle instead of a
@@ -1663,7 +1693,7 @@ body, a{ cursor:none; }
      background; the section's own background was the one piece still
      built for the old dark theme. Gold stops swapped for emerald ones
      per the later site-wide accent color change. */
-  background:linear-gradient(120deg, #f8f6f2, #d1fae5, #a7f3d0, #d1fae5, #f8f6f2);
+  background:linear-gradient(120deg, var(--paper), #d1fae5, #a7f3d0, #d1fae5, var(--paper));
   background-size:400% 400%;
   animation:quoteBgSweep 26s ease-in-out infinite;
   padding:clamp(4rem, 10vw, 8rem) clamp(1.5rem, 5vw, 4rem);
@@ -1747,7 +1777,7 @@ body, a{ cursor:none; }
 .quote-sub{
   font-size:clamp(1rem, 1.6vw, 1.15rem);
   line-height:1.55;
-  color:rgba(28,26,22,.85);
+  color:rgba(var(--ink-rgb),.85);
   max-width:44ch;
   margin-bottom:2.4rem;
 }
@@ -1759,11 +1789,11 @@ body, a{ cursor:none; }
 }
 .quote-rating{ display:flex; align-items:center; gap:.7rem; }
 .quote-stars{ color:#34d399; letter-spacing:.15em; font-size:1.05rem; }
-.quote-rating-text{ font-size:.9rem; color:rgba(28,26,22,.8); }
+.quote-rating-text{ font-size:.9rem; color:rgba(var(--ink-rgb),.8); }
 .quote-rating-text strong{ color:var(--ink-text); }
 
 .quote-social{ display:flex; align-items:center; gap:.9rem; }
-.quote-social-label{ font-size:.85rem; color:rgba(28,26,22,.8); }
+.quote-social-label{ font-size:.85rem; color:rgba(var(--ink-rgb),.8); }
 .quote-social-links{ display:flex; gap:.6rem; }
 .quote-social-link{
   display:flex;
@@ -1804,7 +1834,7 @@ body, a{ cursor:none; }
      wrapped around the tabs+stack pair here (rather than on each
      separately) so there's one border, not a visible seam where two
      borders would otherwise meet at the tabs/stack boundary */
-  border:1px solid rgba(4,120,87,.16);
+  border:1px solid rgba(var(--brand-rgb),.16);
   /* a plain, static shadow for depth — not a "container background",
      just enough definition that the card doesn't look like it's
      floating flat against the page */
@@ -1819,7 +1849,7 @@ body, a{ cursor:none; }
   position:relative;
   z-index:1;
   display:flex;
-  background:#f8f6f2;
+  background:var(--paper);
   border-radius:23px 23px 0 0;
   overflow:hidden;
 }
@@ -1839,7 +1869,7 @@ body, a{ cursor:none; }
 }
 .quote-form-tab.is-active{
   color:var(--ink-text);
-  background:#ffffff;
+  background:var(--card);
   border-bottom-color:var(--gold-deep);
 }
 
@@ -1858,7 +1888,7 @@ body, a{ cursor:none; }
      more white card, not a gap into whatever is behind the section. */
   align-items:flex-start;
   height:0;
-  background:#ffffff;
+  background:var(--card);
   overflow-x:auto;
   scroll-snap-type:x mandatory;
   -webkit-overflow-scrolling:touch;
@@ -1875,7 +1905,7 @@ body, a{ cursor:none; }
 .quote-form{
   position:relative;
   z-index:1;
-  background:#ffffff;
+  background:var(--card);
   padding:clamp(1.6rem, 3vw, 2.4rem);
   display:flex;
   flex-direction:column;
@@ -1917,8 +1947,8 @@ body, a{ cursor:none; }
   font-family:'Inter', sans-serif;
   font-size:1rem;
   color:var(--ink-text);
-  background:rgba(28,26,22,.05);
-  border:1.5px solid rgba(28,26,22,.14);
+  background:rgba(var(--ink-rgb),.05);
+  border:1.5px solid rgba(var(--ink-rgb),.14);
   border-radius:12px;
   padding:1.1rem .9rem .5rem;
   transition:border-color .3s var(--ease-out), box-shadow .3s var(--ease-out), background .3s var(--ease-out);
@@ -1930,7 +1960,7 @@ body, a{ cursor:none; }
 .quote-field select:focus{
   outline:none;
   border-color:var(--gold-deep);
-  background:rgba(28,26,22,.08);
+  background:rgba(var(--ink-rgb),.08);
   /* restored to its original gold value (rgba(202,153,20,.16)), per
      the site-wide blue->gold reversal on :root — this was a bare
      rgba() rather than a var(--gold...) token, so it needed its own
@@ -1995,7 +2025,7 @@ body, a{ cursor:none; }
    that shadow content back inside the border-box, which is what
    showed up as the control spilling out past the form's edge. */
 /* BUG FIX: per the white rebrand, this field's own background is now
-   light (rgba(28,26,22,.05), a barely-there dark tint on paper) — the
+   light (rgba(var(--ink-rgb),.05), a barely-there dark tint on paper) — the
    color-scheme used to be 'dark' so the native calendar-icon/day-
    month-year chrome (browser-drawn, not something this stylesheet can
    reach directly) would render light-on-dark to match the old dark
@@ -2052,9 +2082,9 @@ body, a{ cursor:none; }
   transition:transform .3s var(--ease-out), box-shadow .3s var(--ease-out);
   /* restored to its original gold glow (see the .quote-field:focus
      box-shadow fix above for the same reversal) */
-  box-shadow:0 16px 34px -14px rgba(4,120,87,.6);
+  box-shadow:0 16px 34px -14px rgba(var(--brand-rgb),.6);
 }
-.quote-submit:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -14px rgba(4,120,87,.7); }
+.quote-submit:hover{ transform:translateY(-2px); box-shadow:0 20px 40px -14px rgba(var(--brand-rgb),.7); }
 .quote-submit:active{ transform:translateY(0) scale(.98); }
 .quote-submit-check{
   display:none;
@@ -2148,8 +2178,8 @@ body, a{ cursor:none; }
   gap:.55rem;
   padding:.7rem 1.1rem .7rem .6rem;
   border-radius:999px;
-  border:1px solid rgba(4,120,87,.4);
-  background:linear-gradient(160deg, #ffffff, #f3f1ec);
+  border:1px solid rgba(var(--brand-rgb),.4);
+  background:linear-gradient(160deg, var(--card), var(--card-2));
   box-shadow:0 16px 34px -14px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.9);
   color:var(--gold-deep);
   font-family:'Inter', sans-serif;
@@ -2170,7 +2200,7 @@ body, a{ cursor:none; }
   height:26px;
   flex:0 0 auto;
   border-radius:50%;
-  background:rgba(4,120,87,.18);
+  background:rgba(var(--brand-rgb),.18);
   color:var(--gold-deep);
   font-size:.68rem;
   font-weight:800;
@@ -2196,8 +2226,8 @@ body, a{ cursor:none; }
   width:min(360px, calc(100vw - 2.5rem));
   max-height:calc(100vh - 2.5rem);
   overflow-y:auto;
-  background:#ffffff;
-  border:1px solid rgba(4,120,87,.16);
+  background:var(--card);
+  border:1px solid rgba(var(--brand-rgb),.16);
   border-radius:16px;
   padding:clamp(1.2rem, 3vw, 1.5rem);
   box-shadow:0 24px 60px -16px rgba(0,0,0,.6), 0 4px 18px -4px rgba(0,0,0,.35), inset 0 1px 30px rgba(0,0,0,.28);
@@ -2228,12 +2258,12 @@ body, a{ cursor:none; }
   justify-content:center;
   border-radius:50%;
   border:none;
-  background:rgba(28,26,22,.08);
+  background:rgba(var(--ink-rgb),.08);
   color:var(--ink-text);
   cursor:none;
   transition:background .2s var(--ease-out);
 }
-.newsletter-popup-close:hover{ background:rgba(28,26,22,.16); }
+.newsletter-popup-close:hover{ background:rgba(var(--ink-rgb),.16); }
 .newsletter-popup-eyebrow{
   font-size:.66rem;
   font-weight:700;
@@ -2262,7 +2292,7 @@ body, a{ cursor:none; }
 .newsletter-popup-sub{
   font-size:.82rem;
   line-height:1.45;
-  color:rgba(28,26,22,.66);
+  color:rgba(var(--ink-rgb),.66);
   margin-bottom:1.1rem;
 }
 .newsletter-popup-card .quote-form{
@@ -2313,11 +2343,11 @@ body, a{ cursor:none; }
   width:52px;
   height:52px;
   border-radius:50%;
-  border:1px solid rgba(4,120,87,.4);
-  background:linear-gradient(160deg, #ffffff, #f3f1ec);
+  border:1px solid rgba(var(--brand-rgb),.4);
+  background:linear-gradient(160deg, var(--card), var(--card-2));
   color:var(--gold-deep);
   cursor:none;
-  box-shadow:0 16px 34px -14px rgba(0,0,0,.18), 0 0 0 0 rgba(4,120,87,.35), inset 0 1px 0 rgba(255,255,255,.9);
+  box-shadow:0 16px 34px -14px rgba(0,0,0,.18), 0 0 0 0 rgba(var(--brand-rgb),.35), inset 0 1px 0 rgba(255,255,255,.9);
   transition:transform .25s var(--ease-out), border-color .25s ease, opacity .25s ease;
   animation:faqBotPulse 3.4s ease-in-out infinite;
 }
@@ -2328,8 +2358,8 @@ body, a{ cursor:none; }
    off-screen-pause treatment, but it's still the right property to
    animate here regardless */
 @keyframes faqBotPulse{
-  0%, 100%{ box-shadow:0 16px 34px -14px rgba(0,0,0,.6), 0 0 0 0 rgba(4,120,87,.35); }
-  50%{ box-shadow:0 16px 34px -14px rgba(0,0,0,.6), 0 0 0 8px rgba(4,120,87,0); }
+  0%, 100%{ box-shadow:0 16px 34px -14px rgba(0,0,0,.6), 0 0 0 0 rgba(var(--brand-rgb),.35); }
+  50%{ box-shadow:0 16px 34px -14px rgba(0,0,0,.6), 0 0 0 8px rgba(var(--brand-rgb),0); }
 }
 @media (prefers-reduced-motion:reduce){
   .faq-bot-launcher{ animation:none; }
@@ -2342,8 +2372,8 @@ body, a{ cursor:none; }
   max-height:min(480px, calc(100vh - 6rem));
   display:flex;
   flex-direction:column;
-  background:#ffffff;
-  border:1px solid rgba(4,120,87,.16);
+  background:var(--card);
+  border:1px solid rgba(var(--brand-rgb),.16);
   border-radius:16px;
   box-shadow:0 24px 60px -16px rgba(0,0,0,.6), 0 4px 18px -4px rgba(0,0,0,.35), inset 0 1px 30px rgba(0,0,0,.28);
   opacity:0;
@@ -2368,7 +2398,7 @@ body, a{ cursor:none; }
   align-items:center;
   justify-content:space-between;
   padding:.9rem 1rem;
-  border-bottom:1px solid rgba(4,120,87,.12);
+  border-bottom:1px solid rgba(var(--brand-rgb),.12);
   flex:0 0 auto;
 }
 .faq-bot-title{
@@ -2384,12 +2414,12 @@ body, a{ cursor:none; }
   height:26px;
   border-radius:50%;
   border:none;
-  background:rgba(28,26,22,.08);
+  background:rgba(var(--ink-rgb),.08);
   color:var(--ink-text);
   cursor:none;
   transition:background .2s var(--ease-out);
 }
-.faq-bot-close:hover{ background:rgba(28,26,22,.16); }
+.faq-bot-close:hover{ background:rgba(var(--ink-rgb),.16); }
 .faq-bot-log{
   flex:1;
   overflow-y:auto;
@@ -2408,13 +2438,13 @@ body, a{ cursor:none; }
 }
 .faq-bot-msg--bot{
   align-self:flex-start;
-  background:rgba(4,120,87,.1);
+  background:rgba(var(--brand-rgb),.1);
   color:var(--ink-text);
   border-bottom-left-radius:4px;
 }
 .faq-bot-msg--user{
   align-self:flex-end;
-  background:rgba(28,26,22,.1);
+  background:rgba(var(--ink-rgb),.1);
   color:var(--ink-text);
   border-bottom-right-radius:4px;
 }
@@ -2446,25 +2476,25 @@ body, a{ cursor:none; }
   font-size:.7rem;
   padding:.4rem .7rem;
   border-radius:999px;
-  border:1px solid rgba(4,120,87,.3);
+  border:1px solid rgba(var(--brand-rgb),.3);
   background:transparent;
   color:var(--gold-soft);
   cursor:none;
   transition:border-color .2s ease, background .2s ease;
 }
-.faq-bot-chip:hover{ border-color:var(--gold-deep); background:rgba(4,120,87,.08); }
+.faq-bot-chip:hover{ border-color:var(--gold-deep); background:rgba(var(--brand-rgb),.08); }
 .faq-bot-form{
   flex:0 0 auto;
   display:flex;
   gap:.5rem;
   padding:.8rem 1rem;
-  border-top:1px solid rgba(4,120,87,.12);
+  border-top:1px solid rgba(var(--brand-rgb),.12);
 }
 .faq-bot-form input{
   flex:1;
   min-width:0;
-  background:rgba(28,26,22,.06);
-  border:1px solid rgba(28,26,22,.16);
+  background:rgba(var(--ink-rgb),.06);
+  border:1px solid rgba(var(--ink-rgb),.16);
   border-radius:999px;
   padding:.55rem .9rem;
   color:var(--ink-text);
@@ -2520,14 +2550,14 @@ body, a{ cursor:none; }
      BUG FIX: per direct follow-up, "I would like the green from section
      live demos to turn back to white when scrolling into how its built
      section" — this used to end solid #10b981 right at the section's
-     own bottom edge, meeting #ourProcessSection's flat #f8f6f2 as a hard
+     own bottom edge, meeting #ourProcessSection's flat var(--paper) as a hard
      seam. The green now peaks earlier (80% instead of 100%) and fades
-     back to that same #f8f6f2 by the very bottom, so the handoff into
+     back to that same var(--paper) by the very bottom, so the handoff into
      the next section reads as one continuous close rather than a cut —
      every live-demo-* text color sitting directly on this background is
      dark ink regardless (see the comment above), so fading the tail back
      to white doesn't cost any contrast. */
-  background:linear-gradient(180deg, #f8f6f2 0%, #d1fae5 30%, #6ee7b7 55%, #10b981 80%, #f8f6f2 100%);
+  background:linear-gradient(180deg, var(--paper) 0%, #d1fae5 30%, #6ee7b7 55%, #10b981 80%, var(--paper) 100%);
   padding:clamp(3.5rem, 8vw, 6rem) 0;
 }
 .live-demo-network{
@@ -2572,7 +2602,7 @@ body, a{ cursor:none; }
   max-width:520px;
   text-wrap:balance;
   margin-top:-.6rem;
-  color:rgba(28,26,22,.68);
+  color:rgba(var(--ink-rgb),.68);
   font-size:1rem;
   line-height:1.5;
 }
@@ -2625,7 +2655,7 @@ body, a{ cursor:none; }
      backdrop-filter (never used on this site — see its own standing
      rule — so the "glass" is a solid gradient illusion, not real blur/
      transparency). */
-  background:linear-gradient(160deg, #ffffff, #f3f1ec);
+  background:linear-gradient(160deg, var(--card), var(--card-2));
   border:1px solid rgba(255,255,255,.8);
   box-shadow:0 40px 90px -30px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.9);
 }
@@ -2639,21 +2669,21 @@ body, a{ cursor:none; }
   gap:.5rem;
   padding:.65rem .9rem;
   background:rgba(255,255,255,.5);
-  border-bottom:1px solid rgba(28,26,22,.06);
+  border-bottom:1px solid rgba(var(--ink-rgb),.06);
 }
 .live-demo-dot{
   width:8px;
   height:8px;
   border-radius:50%;
-  background:rgba(28,26,22,.22);
+  background:rgba(var(--ink-rgb),.22);
   flex:0 0 auto;
 }
 .live-demo-url{
   flex:1;
   margin-left:.4rem;
   font-size:.72rem;
-  color:rgba(28,26,22,.6);
-  background:rgba(28,26,22,.05);
+  color:rgba(var(--ink-rgb),.6);
+  background:rgba(var(--ink-rgb),.05);
   border-radius:999px;
   padding:.3em .9em;
   overflow:hidden;
@@ -2669,7 +2699,7 @@ body, a{ cursor:none; }
   position:relative;
   width:100%;
   height:clamp(680px, 60vw, 780px);
-  background:#f4f2ed;
+  background:var(--card-2);
   overflow:hidden;
 }
 .live-demo-preview{
@@ -2714,14 +2744,14 @@ body, a{ cursor:none; }
   font-weight:600;
   letter-spacing:.14em;
   text-transform:uppercase;
-  color:rgba(28,26,22,.5);
+  color:rgba(var(--ink-rgb),.5);
 }
 .live-demo-status::before{
   content:'';
   width:6px;
   height:6px;
   border-radius:50%;
-  background:rgba(28,26,22,.3);
+  background:rgba(var(--ink-rgb),.3);
 }
 .live-demo-card.is-loading .live-demo-status::before{
   animation:liveDemoStatusPulse 1s ease-in-out infinite;
@@ -2757,7 +2787,7 @@ body, a{ cursor:none; }
   font-weight:600;
   letter-spacing:.14em;
   text-transform:uppercase;
-  color:var(--ink-text);
+  color:#1c1a16;
   background:#fff;
   padding:.6em 1.3em;
   border-radius:999px;
@@ -2792,7 +2822,7 @@ body, a{ cursor:none; }
   font-size:.72rem;
   letter-spacing:.28em;
   text-transform:uppercase;
-  color:rgba(28,26,22,.5);
+  color:rgba(var(--ink-rgb),.5);
   margin-top:.3rem;
 }
 .live-demo-visit{
@@ -2800,7 +2830,7 @@ body, a{ cursor:none; }
   font-size:.85rem;
   color:var(--gold-deep);
   text-decoration:none;
-  border-bottom:1px solid rgba(4,120,87,.4);
+  border-bottom:1px solid rgba(var(--brand-rgb),.4);
   padding-bottom:2px;
   cursor:none;
   transition:border-color .3s var(--ease-out);
@@ -2820,13 +2850,13 @@ body, a{ cursor:none; }
   justify-content:center;
   width:38px; height:38px;
   border-radius:50%;
-  border:1px solid rgba(28,26,22,.25);
+  border:1px solid rgba(var(--ink-rgb),.25);
   background:transparent;
-  color:rgba(28,26,22,.8);
+  color:rgba(var(--ink-rgb),.8);
   cursor:none;
   transition:border-color .3s var(--ease-out), color .3s var(--ease-out), background .3s var(--ease-out);
 }
-.live-demo-arrow:hover{ border-color:var(--gold-deep); color:var(--gold-deep); background:rgba(4,120,87,.08); }
+.live-demo-arrow:hover{ border-color:var(--gold-deep); color:var(--gold-deep); background:rgba(var(--brand-rgb),.08); }
 @media (hover:none), (pointer:coarse){ .live-demo-arrow{ display:none; } }
 /* hidden outright with a single demo — no point browsing a list of one */
 .live-demo-controls.is-single{ display:none; }
@@ -2842,15 +2872,15 @@ body, a{ cursor:none; }
   border-radius:50%;
   border:none;
   padding:0;
-  background:rgba(28,26,22,.25);
+  background:rgba(var(--ink-rgb),.25);
   cursor:none;
   transition:background .35s var(--ease-out), width .35s var(--ease-out);
 }
-.live-demo-dot-btn:hover{ background:rgba(28,26,22,.5); }
+.live-demo-dot-btn:hover{ background:rgba(var(--ink-rgb),.5); }
 .live-demo-dot-btn.is-active{
   width:22px;
   border-radius:5px;
-  background:#047857;
+  background:var(--gold-deep);
 }
 
 /* ===================================================================
@@ -2896,7 +2926,7 @@ body, a{ cursor:none; }
      from a radial-gradient vignette to a flat solid tone (matching
      that gradient's own darkest stop) for the same reason as every
      other section below */
-  background:#f8f6f2;
+  background:var(--paper);
   display:flex;
   flex-direction:column;
   align-items:center;
@@ -2961,7 +2991,7 @@ body, a{ cursor:none; }
   font-family:'Inter', sans-serif;
   font-size:clamp(1rem, 1.8vw, 1.15rem);
   line-height:1.55;
-  color:rgba(28,26,22,.75);
+  color:rgba(var(--ink-rgb),.75);
   max-width:38ch;
 }
 @media (prefers-reduced-motion:reduce){
@@ -3109,7 +3139,7 @@ body, a{ cursor:none; }
   background:none;
   -webkit-text-fill-color:var(--gold-deep);
   color:var(--gold-deep);
-  text-shadow:0 0 6px rgba(4,120,87,.5), 0 0 16px rgba(4,120,87,.35);
+  text-shadow:0 0 6px rgba(var(--brand-rgb),.5), 0 0 16px rgba(var(--brand-rgb),.35);
 }
 /* same technique, applied to the "View our work" button's own text —
    see js/scroll-journey-hero.js's CTA BUTTON GLITCH note. No gradient
@@ -3120,7 +3150,7 @@ body, a{ cursor:none; }
 }
 .hero-cta-char.is-glitching{
   color:#a7f3d0;
-  text-shadow:0 0 6px rgba(167,243,208,.85), 0 0 14px rgba(4,120,87,.6);
+  text-shadow:0 0 6px rgba(167,243,208,.85), 0 0 14px rgba(var(--brand-rgb),.6);
 }
 /* per direct request: "dissolve the title" while a step is open — a
    soft fade/blur/lift out, not just a plain opacity cut */
@@ -3397,8 +3427,8 @@ body, a{ cursor:none; }
   color:#1c1a16;
   background:linear-gradient(120deg, #047857, #34d399, #10b981, #047857);
   background-size:300% 100%;
-  border:1px solid rgba(4,120,87,.4);
-  box-shadow:0 10px 30px -12px rgba(4,120,87,.55), inset 0 1px 0 rgba(255,255,255,.4);
+  border:1px solid rgba(var(--brand-rgb),.4);
+  box-shadow:0 10px 30px -12px rgba(var(--brand-rgb),.55), inset 0 1px 0 rgba(255,255,255,.4);
   animation:processHeroCtaShine 6.5s ease-in-out infinite;
   transition:transform .25s var(--ease-out), box-shadow .25s var(--ease-out);
 }
@@ -3439,7 +3469,7 @@ body, a{ cursor:none; }
 }
 .process-hero-cta:hover{
   transform:translateY(-2px) scale(1.03);
-  box-shadow:0 14px 38px -12px rgba(4,120,87,.7), inset 0 1px 0 rgba(255,255,255,.5);
+  box-shadow:0 14px 38px -12px rgba(var(--brand-rgb),.7), inset 0 1px 0 rgba(255,255,255,.5);
 }
 .process-hero-cta:active{ transform:translateY(0) scale(.98); }
 
@@ -3478,8 +3508,8 @@ body, a{ cursor:none; }
      were tried before and explicitly reverted for clashing with this
      hero's own palette (see the real-logo SVGs below in index.html). */
   color:var(--gold-deep);
-  background:linear-gradient(160deg, #ffffff, #f3f1ec);
-  border:1px solid rgba(4,120,87,.3);
+  background:linear-gradient(160deg, var(--card), var(--card-2));
+  border:1px solid rgba(var(--brand-rgb),.3);
   box-shadow:0 10px 24px -14px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.9);
   transition:transform .3s var(--ease-out), border-color .25s ease, box-shadow .25s ease, color .25s ease;
 }
@@ -3487,7 +3517,7 @@ body, a{ cursor:none; }
   transform:translateY(-3px) scale(1.08);
   color:var(--gold);
   border-color:var(--gold-deep);
-  box-shadow:0 14px 30px -14px rgba(4,120,87,.45), inset 0 1px 0 rgba(255,255,255,.9);
+  box-shadow:0 14px 30px -14px rgba(var(--brand-rgb),.45), inset 0 1px 0 rgba(255,255,255,.9);
 }
 .process-hero-social-link svg{ display:block; width:17px; height:17px; }
 
@@ -3517,7 +3547,7 @@ body, a{ cursor:none; }
      sections... please remove that from all sections" — flattened to
      the same solid tone used across every other section now, for one
      continuous dark background with no visible seams while scrolling */
-  background:#f8f6f2;
+  background:var(--paper);
   padding:clamp(4rem, 9vw, 6.5rem) 1.5rem;
 }
 /* flowing dot-and-line contour field behind the steps (js/process-flow.js);
@@ -3564,7 +3594,7 @@ body, a{ cursor:none; }
 .our-process-sub{
   max-width:480px;
   margin-top:-.4rem;
-  color:rgba(28,26,22,.68);
+  color:rgba(var(--ink-rgb),.68);
   font-size:1rem;
   line-height:1.5;
 }
@@ -3602,7 +3632,7 @@ body, a{ cursor:none; }
   bottom:0;
   width:2px;
   transform:translateX(-50%);
-  background:rgba(4,120,87,.18);
+  background:rgba(var(--brand-rgb),.18);
 }
 /* BUG FIX: per direct request, "the number line... actually animates
    from 1 number to the other as it scrolls, with a neon pulsing line
@@ -3662,9 +3692,9 @@ body, a{ cursor:none; }
   font-family:'Space Grotesk', sans-serif;
   font-weight:700;
   font-size:1.1rem;
-  color:rgba(28,26,22,.4);
-  background:#fff;
-  border:2px solid rgba(4,120,87,.25);
+  color:rgba(var(--ink-rgb),.4);
+  background:var(--card);
+  border:2px solid rgba(var(--brand-rgb),.25);
   /* the ring of --paper matching the page background is what makes the
      line behind it look like it passes BEHIND the circle rather than
      being visibly cut off at its edge */
@@ -3675,12 +3705,12 @@ body, a{ cursor:none; }
   color:#1c1a16;
   border-color:transparent;
   background:linear-gradient(135deg, var(--gold-soft), var(--gold));
-  box-shadow:0 10px 26px -10px rgba(4,120,87,.6), 0 0 0 6px var(--paper);
+  box-shadow:0 10px 26px -10px rgba(var(--brand-rgb),.6), 0 0 0 6px var(--paper);
   animation:timelineNumberPop .55s var(--ease-out);
 }
 @keyframes timelineNumberPop{
   0%{ transform:scale(1); }
-  45%{ transform:scale(1.3); box-shadow:0 10px 30px -8px rgba(4,120,87,.8), 0 0 0 6px var(--paper), 0 0 18px rgba(52,211,153,.9); }
+  45%{ transform:scale(1.3); box-shadow:0 10px 30px -8px rgba(var(--brand-rgb),.8), 0 0 0 6px var(--paper), 0 0 18px rgba(52,211,153,.9); }
   100%{ transform:scale(1); }
 }
 @media (prefers-reduced-motion:reduce){
@@ -3739,8 +3769,8 @@ body, a{ cursor:none; }
   position:relative;
   grid-column:1;
   text-align:left;
-  background:#fff;
-  border:1px solid rgba(4,120,87,.16);
+  background:var(--card);
+  border:1px solid rgba(var(--brand-rgb),.16);
   border-radius:16px;
   padding:clamp(1.4rem, 3vw, 1.9rem) clamp(1.5rem, 3.5vw, 2rem);
   /* resting steps carry a clear, tight shadow so they read as cards
@@ -3760,7 +3790,7 @@ body, a{ cursor:none; }
    scale, a thin green border and a soft neutral shadow. */
 .process-timeline-card.is-active{
   transform:translateY(-16px) scale(1.1);
-  border-color:rgba(4,120,87,.45);
+  border-color:rgba(var(--brand-rgb),.45);
   box-shadow:0 46px 76px -26px rgba(0,0,0,.38), 0 10px 22px rgba(0,0,0,.08);
   transition:transform .55s cubic-bezier(.34,1.56,.64,1), border-color .4s var(--ease-out), box-shadow .5s var(--ease-out);
 }
@@ -3790,7 +3820,7 @@ body, a{ cursor:none; }
   font-family:'Inter', sans-serif;
   font-size:.92rem;
   line-height:1.55;
-  color:rgba(28,26,22,.72);
+  color:rgba(var(--ink-rgb),.72);
   margin-bottom:.8rem;
 }
 .process-timeline-tags{
@@ -3798,7 +3828,7 @@ body, a{ cursor:none; }
   font-size:.74rem;
   font-weight:600;
   letter-spacing:.03em;
-  color:rgba(28,26,22,.45);
+  color:rgba(var(--ink-rgb),.45);
 }
 /* below ~720px there isn't enough width either side of a centered line
    for an alternating card to read comfortably — the line and every
@@ -3861,3 +3891,105 @@ body, a{ cursor:none; }
   animation-play-state:paused !important;
 }
 
+
+/* ===================================================================
+   DARK MODE — places that need their own treatment beyond the shared
+   variables swapped at the top of this file (see html[data-theme="dark"]).
+   Deliberately all in one block so the whole theme can be reviewed (or
+   removed) in one place.
+=================================================================== */
+
+/* the theme toggle itself (top-right, both themes) */
+.theme-toggle{
+  position:fixed;
+  top:max(14px, env(safe-area-inset-top));
+  right:max(14px, env(safe-area-inset-right));
+  z-index:2500;
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  border:1px solid rgba(var(--ink-rgb), .18);
+  background:var(--card);
+  color:var(--ink-text);
+  cursor:pointer;
+  box-shadow:0 8px 22px -10px rgba(0,0,0,.35);
+  transition:transform .3s var(--ease-out), background-color .3s ease, color .3s ease, border-color .3s ease;
+}
+.theme-toggle:hover{ transform:scale(1.08); border-color:var(--gold-deep); color:var(--gold-deep); }
+.theme-toggle:focus-visible{ outline:2px solid var(--gold-deep); outline-offset:3px; }
+.theme-toggle svg{ width:19px; height:19px; display:block; }
+.theme-toggle .theme-icon-sun{ display:none; }
+html[data-theme="dark"] .theme-toggle .theme-icon-sun{ display:block; }
+html[data-theme="dark"] .theme-toggle .theme-icon-moon{ display:none; }
+
+/* a short cross-fade while the theme flips (js/theme.js adds .theme-fade
+   for a moment) so surfaces change together instead of snapping one by
+   one; colors only, never transform/opacity animations */
+html.theme-fade, html.theme-fade *{
+  transition:background-color .35s ease, color .35s ease, border-color .35s ease, fill .35s ease, stroke .35s ease, box-shadow .35s ease !important;
+}
+
+html[data-theme="dark"] ::selection{ color:#0a110f; }
+
+/* section backdrops that were light-to-green washes */
+html[data-theme="dark"] .live-demo-section{
+  background:linear-gradient(180deg, var(--paper) 0%, #0c241d 30%, #0d4a38 55%, #0b6b4d 80%, var(--paper) 100%);
+}
+html[data-theme="dark"] .quote-section{
+  background:linear-gradient(120deg, var(--paper), #0c241d, #0f3d30, #0c241d, var(--paper));
+}
+html[data-theme="dark"] .content-film-placeholder-frame{
+  background:linear-gradient(160deg, #0f2a22, var(--card-2));
+}
+
+/* glass browser frame around the demos */
+html[data-theme="dark"] .live-demo-browser{
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,255,255,.06);
+}
+html[data-theme="dark"] .live-demo-browser-bar{ background:rgba(255,255,255,.04); }
+
+/* small floating pills/buttons: their lit-from-above inner highlight is
+   a white sheen in the light theme; keep just a faint edge in the dark */
+html[data-theme="dark"] .newsletter-popup-tab,
+html[data-theme="dark"] .faq-bot-launcher,
+html[data-theme="dark"] .process-hero-social-link{
+  box-shadow:0 16px 34px -14px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+}
+html[data-theme="dark"] .newsletter-popup-card,
+html[data-theme="dark"] .faq-bot-panel{
+  box-shadow:0 24px 60px -16px rgba(0,0,0,.8), 0 4px 18px -4px rgba(0,0,0,.5);
+}
+
+/* raised cards need a visible edge once their shadows disappear into a dark page */
+html[data-theme="dark"] .testimonial-card,
+html[data-theme="dark"] .process-timeline-card,
+html[data-theme="dark"] .content-film-card,
+html[data-theme="dark"] .content-film-face{
+  border-color:rgba(255,255,255,.1);
+  box-shadow:0 18px 44px -24px rgba(0,0,0,.7);
+}
+html[data-theme="dark"] .process-timeline-card.is-active{
+  border-color:rgba(var(--brand-rgb), .5);
+  box-shadow:0 40px 70px -28px rgba(0,0,0,.85), 0 10px 22px rgba(0,0,0,.3);
+}
+
+/* the "Trusted by" logos are transparent artwork drawn for a light page
+   (several have dark wordmarks) — give each a soft light tile in dark mode */
+html[data-theme="dark"] .logo-marquee-item img{
+  background:#f4f2ed;
+  border-radius:12px;
+  padding:.5rem .85rem;
+  opacity:1;
+}
+
+/* native date picker + autofill */
+html[data-theme="dark"] .quote-field--date input{ color-scheme:dark; }
+html[data-theme="dark"] input:-webkit-autofill,
+html[data-theme="dark"] textarea:-webkit-autofill,
+html[data-theme="dark"] select:-webkit-autofill{
+  -webkit-text-fill-color:var(--ink-text);
+  box-shadow:0 0 0 1000px var(--card) inset;
+}

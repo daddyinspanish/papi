@@ -37,14 +37,22 @@
     nodeRadius: 1.4,
   };
 
-  const DARK_RGB = [4, 120, 87];   // matches --gold-deep, for the white/light top
+  let DARK_RGB = [4, 120, 87];   // matches --gold-deep, for the white/light top
   // per direct follow-up request, "make the background color of the
   // connecting dots a bit more darker" — this used to fade all the way
   // to a pale, near-white mint toward the bottom; darkened to a deep
   // green instead so the whole network reads as deliberately dark
   // rather than washing out against the section's own saturated-green
   // backdrop down there.
-  const LIGHT_RGB = [10, 70, 52];
+  let LIGHT_RGB = [10, 70, 52];
+  // dark theme: the section is a deep green wash, so the network is drawn in
+  // light mint instead (re-read when the visitor flips the theme)
+  function readTheme(){
+    if(document.documentElement.getAttribute('data-theme') === 'dark'){ DARK_RGB = [110, 231, 183]; LIGHT_RGB = [167, 243, 208]; }
+    else { DARK_RGB = [4, 120, 87]; LIGHT_RGB = [10, 70, 52]; }
+  }
+  readTheme();
+  window.addEventListener('papi:themechange', readTheme);
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

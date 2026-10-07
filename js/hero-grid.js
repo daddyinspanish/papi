@@ -115,7 +115,18 @@
   // brand emerald — matches --gold-deep in css/style.css, chosen so the
   // grid reads as a deliberate brand accent against the pale hero
   // rather than the reference image's literal neon blue
-  const LINE_RGB = '4,120,87';
+  // theme-aware colors (see js/theme.js): read from the CSS variables, and
+  // re-read whenever the visitor flips light/dark
+  const rootEl = document.documentElement;
+  const readVar = (n, fallback) => (getComputedStyle(rootEl).getPropertyValue(n).trim() || fallback);
+  const isDarkTheme = () => rootEl.getAttribute('data-theme') === 'dark';
+  let LINE_RGB = '4,120,87';
+  let ALPHA_SCALE = 1;
+  function readTheme(){
+    LINE_RGB = readVar('--line-rgb', '4,120,87');
+    PAPER = readVar('--paper', '#f8f6f2');
+    ALPHA_SCALE = isDarkTheme() ? 0.8 : 1;
+  }
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -373,7 +384,9 @@
     for(let k = 0; k < VN; k++){ hA[k] = rnd(); hB[k] = rnd(); hC[k] = rnd(); hD[k] = rnd(); }
   })();
 
-  const PAPER = '#f8f6f2'; // matches .process-hero's own flat background
+  let PAPER = '#f8f6f2'; // matches .process-hero's own flat background (var(--paper))
+  readTheme();
+  window.addEventListener('papi:themechange', () => { readTheme(); if(prefersReducedMotion) renderFrame(0); });
   const KEEP_AT_FULL_MORPH = 0.17; // fraction of vertices that survive as constellation nodes
   const LINK_STENCIL = [[0, 1], [1, 0], [1, 1], [1, -1], [0, 2], [2, 0]]; // [rows toward far, cols]
 
@@ -394,7 +407,7 @@
     for(let q = 1; q <= AL; q++){
       const arr = buckets[q];
       if(!arr.length) continue;
-      ctx.strokeStyle = `rgba(${LINE_RGB},${(q / AL).toFixed(3)})`;
+      ctx.strokeStyle = `rgba(${LINE_RGB},${(q / AL * ALPHA_SCALE).toFixed(3)})`;
       ctx.beginPath();
       for(let k = 0; k < arr.length; k += 4){
         ctx.moveTo(arr[k], arr[k + 1]);
@@ -408,7 +421,7 @@
     for(let q = 1; q <= AL; q++){
       const arr = buckets[q];
       if(!arr.length) continue;
-      ctx.fillStyle = `rgba(${LINE_RGB},${(q / AL).toFixed(3)})`;
+      ctx.fillStyle = `rgba(${LINE_RGB},${(q / AL * ALPHA_SCALE).toFixed(3)})`;
       ctx.beginPath();
       for(let k = 0; k < arr.length; k += 3){
         ctx.moveTo(arr[k] + arr[k + 2], arr[k + 1]);

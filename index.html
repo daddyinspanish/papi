@@ -3,6 +3,23 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f8f6f2">
+<script>
+// theme: runs before anything paints so there is never a flash of the wrong
+// theme. A saved choice wins; otherwise follow the device. js/theme.js
+// handles the toggle button and device changes after load.
+(function(){
+  var t = null;
+  try{ t = localStorage.getItem('papi-theme'); }catch(e){}
+  if(t !== 'dark' && t !== 'light'){
+    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  document.documentElement.setAttribute('data-theme', t);
+  var m = document.querySelector('meta[name="theme-color"]');
+  if(m) m.setAttribute('content', t === 'dark' ? '#0a110f' : '#f8f6f2');
+})();
+</script>
 <script>
 // run as early as possible, before the browser has a chance to
 // restore a scrolled-down position from the last visit/reload — that
@@ -193,7 +210,7 @@ setTimeout(function(){
      what the browser's cache thought. BUMP THIS EXACT STRING (all
      occurrences in this file) whenever any css/js file's contents
      change — a stale version string here defeats the entire point. -->
-<link rel="stylesheet" href="css/style.css?v=20261003-26">
+<link rel="stylesheet" href="css/style.css?v=20261006-1">
 
 <!-- structured data — per direct request, so search engines/AI tools
      have an explicit, machine-readable answer for "what is this and
@@ -227,6 +244,12 @@ setTimeout(function(){
 </script>
 </head>
 <body>
+
+<!-- light/dark toggle (js/theme.js) -->
+<button type="button" class="theme-toggle" id="themeToggle" aria-label="Switch to dark mode" title="Switch theme">
+  <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.6 6.6 0 0 0 9.8 9.8z"/></svg>
+  <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+</button>
 
 <!-- Awwwards personality pass — a thin, persistent journey indicator
      spanning the whole page (see js/scroll-progress.js), reinforcing
@@ -851,27 +874,28 @@ setTimeout(function(){
      and init.js's own bounded reveal windows can actually fire on time
      instead of queuing behind an unbounded fetch chain. Confirmed safe:
      none of these files use document.write (defer-incompatible). -->
-<script src="js/accent.js?v=20261003-26" defer></script>
-<script src="js/hero-grid.js?v=20261003-26" defer></script>
-<script src="js/process-hero.js?v=20261003-26" defer></script>
-<script src="js/process-flow.js?v=20261003-26" defer></script>
-<script src="js/testimonial-streaks.js?v=20261003-26" defer></script>
-<script src="js/title-dock.js?v=20261003-26" defer></script>
-<script src="js/testimonials.js?v=20261003-26" defer></script>
-<script src="js/content-film.js?v=20261003-26" defer></script>
-<script src="js/logo-marquee.js?v=20261003-26" defer></script>
-<script src="js/live-demo.js?v=20261003-26" defer></script>
-<script src="js/live-demo-network.js?v=20261003-26" defer></script>
-<script src="js/faq.js?v=20261003-26" defer></script>
-<script src="js/quote-form.js?v=20261003-26" defer></script>
-<script src="js/newsletter-popup.js?v=20261003-26" defer></script>
-<script src="js/faq-chatbot.js?v=20261003-26" defer></script>
-<script src="js/cursor.js?v=20261003-26" defer></script>
-<script src="js/cursor-trail.js?v=20261003-26" defer></script>
-<script src="js/scroll-reveal.js?v=20261003-26" defer></script>
-<script src="js/scroll-dolly.js?v=20261003-26" defer></script>
-<script src="js/scroll-progress.js?v=20261003-26" defer></script>
-<script src="js/anim-idle.js?v=20261003-26" defer></script>
+<script src="js/theme.js?v=20261006-1" defer></script>
+<script src="js/accent.js?v=20261006-1" defer></script>
+<script src="js/hero-grid.js?v=20261006-1" defer></script>
+<script src="js/process-hero.js?v=20261006-1" defer></script>
+<script src="js/process-flow.js?v=20261006-1" defer></script>
+<script src="js/testimonial-streaks.js?v=20261006-1" defer></script>
+<script src="js/title-dock.js?v=20261006-1" defer></script>
+<script src="js/testimonials.js?v=20261006-1" defer></script>
+<script src="js/content-film.js?v=20261006-1" defer></script>
+<script src="js/logo-marquee.js?v=20261006-1" defer></script>
+<script src="js/live-demo.js?v=20261006-1" defer></script>
+<script src="js/live-demo-network.js?v=20261006-1" defer></script>
+<script src="js/faq.js?v=20261006-1" defer></script>
+<script src="js/quote-form.js?v=20261006-1" defer></script>
+<script src="js/newsletter-popup.js?v=20261006-1" defer></script>
+<script src="js/faq-chatbot.js?v=20261006-1" defer></script>
+<script src="js/cursor.js?v=20261006-1" defer></script>
+<script src="js/cursor-trail.js?v=20261006-1" defer></script>
+<script src="js/scroll-reveal.js?v=20261006-1" defer></script>
+<script src="js/scroll-dolly.js?v=20261006-1" defer></script>
+<script src="js/scroll-progress.js?v=20261006-1" defer></script>
+<script src="js/anim-idle.js?v=20261006-1" defer></script>
 <!-- per direct request for a GSAP ScrollTrigger cinematic journey across
      Hero -> Live Demo. gsap.min.js/ScrollTrigger.min.js were already
      vendored locally from an earlier (since-reverted) 3D process-room
@@ -885,12 +909,12 @@ setTimeout(function(){
      request, that section is now a plain vertical scroll-reveal
      timeline instead (js/process-hero.js), no GSAP pin needed there
      anymore. -->
-<script src="js/vendor/gsap/gsap.min.js?v=20261003-26" defer></script>
-<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261003-26" defer></script>
-<script src="js/scroll-journey-hero.js?v=20261003-26" defer></script>
-<script src="js/hero-letter-fx.js?v=20261003-26" defer></script>
-<script src="js/hero-rotator.js?v=20261003-26" defer></script>
-<script src="js/scroll-journey-livedemo.js?v=20261003-26" defer></script>
-<script src="js/init.js?v=20261003-26" defer></script>
+<script src="js/vendor/gsap/gsap.min.js?v=20261006-1" defer></script>
+<script src="js/vendor/gsap/ScrollTrigger.min.js?v=20261006-1" defer></script>
+<script src="js/scroll-journey-hero.js?v=20261006-1" defer></script>
+<script src="js/hero-letter-fx.js?v=20261006-1" defer></script>
+<script src="js/hero-rotator.js?v=20261006-1" defer></script>
+<script src="js/scroll-journey-livedemo.js?v=20261006-1" defer></script>
+<script src="js/init.js?v=20261006-1" defer></script>
 </body>
 </html>

@@ -32,7 +32,19 @@
 
   // brand emerald family (dark, mid, bright) — the reference's blues,
   // translated into the site's own palette
-  const PALETTE = ['4,120,87', '4,120,87', '16,185,129', '5,150,105', '52,211,153'];
+  // theme-aware colors (see js/theme.js): read from the CSS variables, and
+  // re-read whenever the visitor flips light/dark
+  const rootEl = document.documentElement;
+  const readVar = (n, fallback) => (getComputedStyle(rootEl).getPropertyValue(n).trim() || fallback);
+  const isDarkTheme = () => rootEl.getAttribute('data-theme') === 'dark';
+  const PALETTES = {
+    light: ['4,120,87', '4,120,87', '16,185,129', '5,150,105', '52,211,153'],
+    dark: ['52,211,153', '110,231,183', '16,185,129', '52,211,153', '167,243,208'],
+  };
+  let PALETTE = PALETTES.light;
+  function readTheme(){ PALETTE = isDarkTheme() ? PALETTES.dark : PALETTES.light; }
+  readTheme();
+  window.addEventListener('papi:themechange', () => { readTheme(); if(prefersReducedMotion) draw(6); });
   const SPACING = 11;          // px between dots along a streak
 
   let W = 0, H = 0, dpr = 1;
@@ -58,7 +70,7 @@
         v: rnd(7, 20),                        // px/s toward the centre (slow drift)
         phase: Math.random() * (rm + len),
         w0: rnd(1, 4.8) * (0.5 + 0.5 * falloff),
-        col: PALETTE[(Math.random() * PALETTE.length) | 0],
+        ci: (Math.random() * 5) | 0,
         a0: rnd(0.2, 0.42),
       });
     }
@@ -149,7 +161,7 @@
         }
 
         // connected line, width tapering along the streak
-        ctx.strokeStyle = `rgba(${st.col},${alpha.toFixed(3)})`;
+        ctx.strokeStyle = `rgba(${PALETTE[st.ci]},${alpha.toFixed(3)})`;
         for(let m = 0; m < n; m++){
           const fm = (pts[m * 3 + 2] + step / 2) / st.rm;
           ctx.lineWidth = Math.max(0.7, st.w0 * (1 - 0.6 * Math.min(1, fm)));
@@ -159,7 +171,7 @@
           ctx.stroke();
         }
         // beads
-        ctx.fillStyle = `rgba(${st.col},${Math.min(0.9, alpha * 1.25).toFixed(3)})`;
+        ctx.fillStyle = `rgba(${PALETTE[st.ci]},${Math.min(0.9, alpha * 1.25).toFixed(3)})`;
         const r = Math.max(0.9, width * 0.42 + 0.5);
         ctx.beginPath();
         for(let m = 0; m <= n; m++){
@@ -171,7 +183,7 @@
         // cross-links to the neighbouring streak where the two run close
         if(prev.pts && Math.abs(st.o - prev.o) < 52){
           const pp = prev.pts, pn = pp.length / 3;
-          ctx.strokeStyle = `rgba(${st.col},${(Math.min(alpha, prev.alpha) * 0.45).toFixed(3)})`;
+          ctx.strokeStyle = `rgba(${PALETTE[st.ci]},${(Math.min(alpha, prev.alpha) * 0.45).toFixed(3)})`;
           ctx.lineWidth = 0.8;
           ctx.beginPath();
           let drawn = 0;

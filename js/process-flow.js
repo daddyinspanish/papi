@@ -31,7 +31,21 @@
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const isPhone = () => window.innerWidth < 640;
 
-  const COLORS = ['4,120,87', '16,185,129']; // brand emerald, bright accent line
+  // theme-aware colors (see js/theme.js): read from the CSS variables, and
+  // re-read whenever the visitor flips light/dark
+  const rootEl = document.documentElement;
+  const readVar = (n, fallback) => (getComputedStyle(rootEl).getPropertyValue(n).trim() || fallback);
+  const isDarkTheme = () => rootEl.getAttribute('data-theme') === 'dark';
+  // brand emerald + a brighter accent line; lighter pair on the dark theme
+  let COLORS = ['4,120,87', '16,185,129'];
+  let ALPHA_SCALE = 1;
+  function readTheme(){
+    const dark = isDarkTheme();
+    COLORS = dark ? [readVar('--line-rgb', '52,211,153'), '110,231,183'] : ['4,120,87', '16,185,129'];
+    ALPHA_SCALE = dark ? 0.8 : 1;
+  }
+  readTheme();
+  window.addEventListener('papi:themechange', () => { readTheme(); if(prefersReducedMotion) draw(4, true); });
   const ALPHA_LEVELS = 14;
   const AMP = 80;              // px of vertical flow displacement
   const AMP_X = 12;            // px of sideways drift of the dots
@@ -154,7 +168,7 @@
       const colorIdx = (b / (ALPHA_LEVELS + 1)) | 0;
       const lvl = b % (ALPHA_LEVELS + 1);
       if(lvl >= 1){
-        ctx.strokeStyle = `rgba(${COLORS[colorIdx]},${(lvl / ALPHA_LEVELS * 0.85).toFixed(3)})`;
+        ctx.strokeStyle = `rgba(${COLORS[colorIdx]},${(lvl / ALPHA_LEVELS * 0.85 * ALPHA_SCALE).toFixed(3)})`;
         ctx.beginPath();
         for(let k = 0; k < arr.length; k += 4){
           ctx.moveTo(arr[k], arr[k + 1]);
@@ -170,7 +184,7 @@
       const colorIdx = (b / (ALPHA_LEVELS + 1)) | 0;
       const lvl = b % (ALPHA_LEVELS + 1);
       if(lvl >= 1){
-        ctx.fillStyle = `rgba(${COLORS[colorIdx]},${(lvl / ALPHA_LEVELS * 0.9).toFixed(3)})`;
+        ctx.fillStyle = `rgba(${COLORS[colorIdx]},${(lvl / ALPHA_LEVELS * 0.9 * ALPHA_SCALE).toFixed(3)})`;
         ctx.beginPath();
         for(let k = 0; k < arr.length; k += 3){
           ctx.moveTo(arr[k] + arr[k + 2], arr[k + 1]);
