@@ -14,8 +14,8 @@
    that have landed. The finished ball keeps turning slowly.
 
    The canvas is sticky inside the section, so the ball stays centred on
-   screen while the steps scroll over it, and drifts to the side opposite the
-   current card so it is never hidden behind it. Colors follow the page's
+   screen while the steps scroll over it — it follows you down the list,
+   centered on the line, and does not move sideways. Colors follow the page's
    data-theme (re-checked every frame, see js/hero-grid.js for why). Runs
    only while the section is on screen; one static frame under reduced
    motion.
@@ -107,10 +107,8 @@
 
   // ---- state driven from js/content-strategy.js
   let target = 0, cur = 0;       // formation progress 0..1
-  let sideTarget = 0, side = 0;  // -1 / 0 / 1: which way the ball drifts
   window.PapiStrategyBall = {
     setProgress(p){ target = Math.max(0, Math.min(1, p)); if(reduceMotion) cur = target; },
-    setSide(s){ sideTarget = s; if(reduceMotion) side = s; },
     redraw(){ if(reduceMotion) draw(0, 1 / 60); },
   };
 
@@ -134,14 +132,13 @@
     // ease toward the targets (frame-rate independent)
     if(!reduceMotion){
       cur += (target - cur) * (1 - Math.exp(-dt / 0.35));
-      side += (sideTarget - side) * (1 - Math.exp(-dt / 0.6));
     }
 
     const phone = isPhone();
     // phones: the cards fill the width and hide most of the ball, so it is drawn
     // larger (and a touch stronger) there so its edges show around and between them
     const R = Math.min(W * (phone ? 0.62 : 0.26), H * (phone ? 0.36 : 0.34));
-    const cx = W / 2 + (phone ? 0 : side * W * 0.2);
+    const cx = W / 2;
     const cy = H * 0.5;
     const ang = t * 0.12 + cur * 1.6;
     const ca = Math.cos(ang), sa = Math.sin(ang);
@@ -160,8 +157,7 @@
       const dr = p.sr * R;
       const wx = Math.cos(p.sa + t * p.sp * 0.4) * dr + Math.sin(t * p.sp + p.ph) * R * 0.05;
       const wy = Math.sin(p.sa + t * p.sp * 0.4) * dr * 0.8 + Math.cos(t * p.sp * 0.8 + p.ph) * R * 0.05;
-      const cxs = W / 2 + (phone ? 0 : side * W * 0.2);
-      const lx = cxs + wx, ly = cy + wy;
+      const lx = cx + wx, ly = cy + wy;
       px[i] = lx + (sx - lx) * e;
       py[i] = ly + (sy - ly) * e;
       pe[i] = e;

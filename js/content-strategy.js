@@ -69,12 +69,10 @@
     cards.forEach((card, i) => card.classList.toggle('is-active', i === current));
 
     // the connected-dot sphere behind the steps (js/strategy-ball.js): it forms
-    // as the line fills (finished just before the last number), and drifts to
-    // the side OPPOSITE the current card so it is never hidden behind it
-    // (steps 1 and 3 have their card on the left, 2 and 4 on the right)
+    // as the line fills (finished just before the last number). It stays
+    // centered on the line and simply follows you down the list.
     if(window.PapiStrategyBall){
       window.PapiStrategyBall.setProgress(progress / 0.92);
-      window.PapiStrategyBall.setSide(current < 0 ? 0 : (current % 2 === 0 ? 1 : -1));
       window.PapiStrategyBall.redraw();
     }
   }
