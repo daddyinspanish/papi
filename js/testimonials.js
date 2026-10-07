@@ -247,6 +247,19 @@
     requestAnimationFrame(()=>{ updateActive(); ticking = false; });
   }
   stack.addEventListener('scroll', requestUpdate, { passive:true });
+
+  // a two-finger trackpad swipe past the first/last review used to hand the
+  // gesture to the browser, which read it as "go back/forward" and slid the
+  // whole page away. Once the row is at an end, a horizontal swipe further in
+  // that direction is swallowed here instead (CSS overscroll-behavior covers
+  // most browsers; Safari needs the event itself cancelled).
+  stack.addEventListener('wheel', (e)=>{
+    if(Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return; // vertical = normal page scroll
+    const max = stack.scrollWidth - stack.clientWidth;
+    const atStart = stack.scrollLeft <= 1 && e.deltaX < 0;
+    const atEnd = stack.scrollLeft >= max - 1 && e.deltaX > 0;
+    if(atStart || atEnd) e.preventDefault();
+  }, { passive:false });
   // width-only guard — on iOS Safari, scrolling for the first time in a
   // session collapses the address bar, firing a 'resize' that changes
   // innerHeight but not innerWidth. Without this, that one resize
