@@ -4049,70 +4049,120 @@ html[data-theme="dark"] select:-webkit-autofill{
   font-size:1rem;
   line-height:1.55;
 }
-.cs-steps{
+/* a scroll-driven timeline, same behavior as "How it's built" above
+   (.process-timeline): the line fills as you scroll (--cs-progress, set by
+   js/content-strategy.js), each number pops to life as the line reaches it,
+   and only the CURRENT step's card is lifted. The track under the fill is a
+   dotted line (the site's connected-dots language). */
+.cs-timeline{
+  --cs-progress:0;
   list-style:none;
-  width:100%;
-  display:grid;
-  grid-template-columns:repeat(4, 1fr);
-  gap:clamp(1rem, 2vw, 1.5rem);
   position:relative;
-  counter-reset:none;
+  width:100%;
+  max-width:900px;
+  text-align:left;
 }
-/* the dotted line joining the four numbers */
-.cs-steps::before{
+.cs-timeline::before{
   content:'';
   position:absolute;
-  top:21px;
-  left:calc(12.5% - 2px);
-  right:calc(12.5% - 2px);
-  border-top:2px dotted rgba(var(--brand-rgb), .5);
-  z-index:0;
+  left:50%;
+  top:0;
+  bottom:0;
+  width:0;
+  border-left:2px dotted rgba(var(--brand-rgb), .4);
+  transform:translateX(-50%);
 }
+.cs-fill{
+  position:absolute;
+  left:50%;
+  top:0;
+  width:3px;
+  height:100%;
+  transform:translateX(-50%) scaleY(var(--cs-progress, 0));
+  transform-origin:top center;
+  background:linear-gradient(180deg, var(--gold-soft), var(--gold), var(--gold-deep));
+  border-radius:2px;
+  filter:drop-shadow(0 0 6px rgba(52,211,153,.8));
+  animation:csFillGlow 2.4s ease-in-out infinite;
+}
+@keyframes csFillGlow{
+  0%, 100%{ filter:drop-shadow(0 0 4px rgba(52,211,153,.6)); }
+  50%{ filter:drop-shadow(0 0 10px rgba(52,211,153,1)); }
+}
+.cs-timeline.is-idle .cs-fill{ animation-play-state:paused; }
 .cs-step{
   position:relative;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
   z-index:1;
-}
-.cs-num{
   display:grid;
-  place-items:center;
+  grid-template-columns:1fr 56px 1fr;
+  column-gap:clamp(1rem, 3vw, 2rem);
+  align-items:center;
+  /* entrance: each step slides in from ITS side when it first scrolls into
+     view (js/content-strategy.js adds .is-in) */
+  opacity:0;
+  transform:translateX(-56px) scale(.96);
+  transition:opacity .7s var(--ease-out), transform .9s cubic-bezier(.22,1,.36,1);
+}
+.cs-step:nth-child(even){ transform:translateX(56px) scale(.96); }
+.cs-step.is-in{ opacity:1; transform:none; }
+.cs-step:not(:last-child){ margin-bottom:clamp(1.8rem, 5vw, 3rem); }
+.cs-num{
+  grid-column:2;
+  justify-self:center;
   width:44px;
   height:44px;
   border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:'Space Grotesk', sans-serif;
+  font-weight:700;
+  font-size:1.1rem;
+  color:rgba(var(--ink-rgb), .4);
   background:var(--card);
-  border:2px solid rgba(var(--brand-rgb), .45);
-  color:var(--gold-deep);
-  font-family:'Fraunces', serif;
-  font-size:1.15rem;
-  font-weight:600;
-  /* a ring of page color keeps the dotted line from running into the circle */
+  border:2px solid rgba(var(--brand-rgb), .25);
+  /* the ring of page color is what makes the line look like it passes
+     BEHIND the circle */
   box-shadow:0 0 0 6px var(--paper);
-  position:relative;
-  z-index:2;
+  transition:background .4s var(--ease-out), border-color .4s var(--ease-out), color .4s var(--ease-out), box-shadow .4s var(--ease-out);
+}
+.cs-num.is-active{
+  color:#1c1a16;
+  border-color:transparent;
+  background:linear-gradient(135deg, var(--gold-soft), var(--gold));
+  box-shadow:0 10px 26px -10px rgba(var(--brand-rgb), .6), 0 0 0 6px var(--paper);
+  animation:csNumberPop .55s var(--ease-out);
+}
+@keyframes csNumberPop{
+  0%{ transform:scale(1); }
+  45%{ transform:scale(1.3); box-shadow:0 10px 30px -8px rgba(var(--brand-rgb), .8), 0 0 0 6px var(--paper), 0 0 18px rgba(52,211,153,.9); }
+  100%{ transform:scale(1); }
 }
 .cs-card{
-  margin-top:1.1rem;
-  width:100%;
-  flex:1;
+  position:relative;
+  grid-column:1;
   text-align:left;
   background:var(--card);
   border:1px solid rgba(var(--brand-rgb), .16);
   border-radius:16px;
-  padding:1.4rem 1.4rem 1.3rem;
-  box-shadow:0 10px 26px -8px rgba(0,0,0,.2), 0 2px 6px rgba(0,0,0,.05);
-  transition:transform .45s var(--ease-out), box-shadow .45s var(--ease-out), border-color .45s var(--ease-out);
+  padding:clamp(1.4rem, 3vw, 1.9rem) clamp(1.5rem, 3.5vw, 2rem);
+  /* resting steps carry a clear, tight shadow; the current one lifts away */
+  box-shadow:0 10px 26px -8px rgba(0,0,0,.26), 0 2px 6px rgba(0,0,0,.06);
+  transition:transform .5s var(--ease-out), border-color .5s var(--ease-out), box-shadow .5s var(--ease-out);
 }
-.cs-step:hover .cs-card{
-  transform:translateY(-6px);
-  border-color:rgba(var(--brand-rgb), .4);
-  box-shadow:0 26px 46px -18px rgba(0,0,0,.28);
+.cs-step:nth-child(even) .cs-card{ grid-column:3; }
+/* the current step pops UP with a slight overshoot, and settles back down
+   when the next step takes over (same as the steps above) */
+.cs-card.is-active{
+  transform:translateY(-16px) scale(1.1);
+  border-color:rgba(var(--brand-rgb), .45);
+  box-shadow:0 46px 76px -26px rgba(0,0,0,.38), 0 10px 22px rgba(0,0,0,.08);
+  transition:transform .55s cubic-bezier(.34,1.56,.64,1), border-color .4s var(--ease-out), box-shadow .5s var(--ease-out);
 }
 .cs-label{
-  font-size:.7rem;
+  font-size:.74rem;
   font-weight:700;
-  letter-spacing:.16em;
+  letter-spacing:.14em;
   text-transform:uppercase;
   color:var(--gold-deep);
   margin-bottom:.3rem;
@@ -4120,19 +4170,19 @@ html[data-theme="dark"] select:-webkit-autofill{
 .cs-step-title{
   font-family:'Fraunces', serif;
   font-weight:500;
-  font-size:1.25rem;
+  font-size:clamp(1.2rem, 2.6vw, 1.45rem);
   line-height:1.2;
   color:var(--ink-text);
-  margin-bottom:.6rem;
+  margin-bottom:.55rem;
 }
 .cs-text{
-  font-size:.92rem;
+  font-size:.95rem;
   line-height:1.55;
   color:rgba(var(--ink-rgb), .72);
 }
 .cs-tags{
-  margin-top:.9rem;
-  font-size:.74rem;
+  margin-top:.85rem;
+  font-size:.76rem;
   letter-spacing:.04em;
   color:rgba(var(--ink-rgb), .5);
 }
@@ -4154,35 +4204,29 @@ html[data-theme="dark"] select:-webkit-autofill{
 .cs-cta:hover{ transform:translateY(-2px); background-position:100% 0; box-shadow:0 20px 40px -14px rgba(var(--brand-rgb), .7); }
 .cs-cta:focus-visible{ outline:2px solid var(--gold-deep); outline-offset:3px; }
 
-/* tablet: 2 x 2, dotted line hidden (it would cut across the rows) */
-@media (max-width:900px){
-  .cs-steps{ grid-template-columns:repeat(2, 1fr); row-gap:2rem; }
-  .cs-steps::before{ display:none; }
-}
-/* phone: one column; the dotted line runs down the left, through the numbers */
-@media (max-width:560px){
-  .cs-steps{ grid-template-columns:1fr; row-gap:1.4rem; padding-left:0; }
-  .cs-step{ flex-direction:row; align-items:flex-start; gap:1rem; }
-  .cs-num{ flex:0 0 44px; margin-top:.2rem; }
-  .cs-card{ margin-top:0; }
-  .cs-steps::before{
-    display:block;
-    top:24px; bottom:60px;
-    left:21px; right:auto;
-    border-top:0;
-    border-left:2px dotted rgba(var(--brand-rgb), .5);
+/* narrow screens: numbers on the left with the line through them, cards on
+   the right (same arrangement as the steps above) */
+@media (max-width:640px){
+  .cs-timeline::before, .cs-fill{ left:22px; }
+  .cs-step, .cs-step:nth-child(even){
+    grid-template-columns:44px 1fr;
+    transform:translateX(40px) scale(.97);
   }
-  .cs-step:hover .cs-card{ transform:none; }
+  .cs-step.is-in, .cs-step:nth-child(even).is-in{ transform:none; }
+  .cs-num{ grid-column:1; }
+  .cs-card, .cs-step:nth-child(even) .cs-card{ grid-column:2; }
+  .cs-card.is-active{ transform:translateY(-10px) scale(1.06); }
 }
 html[data-theme="dark"] .cs-card{
   border-color:rgba(255,255,255,.1);
   box-shadow:0 18px 44px -24px rgba(0,0,0,.7);
 }
-html[data-theme="dark"] .cs-step:hover .cs-card{
+html[data-theme="dark"] .cs-card.is-active{
   border-color:rgba(var(--brand-rgb), .5);
-  box-shadow:0 26px 46px -18px rgba(0,0,0,.85);
+  box-shadow:0 40px 70px -28px rgba(0,0,0,.85), 0 10px 22px rgba(0,0,0,.3);
 }
 @media (prefers-reduced-motion: reduce){
+  .cs-step{ opacity:1; transform:none; transition:none; }
   .cs-card, .cs-cta{ transition:none; }
-  .cs-step:hover .cs-card{ transform:none; }
+  .cs-fill, .cs-num.is-active{ animation:none; }
 }
