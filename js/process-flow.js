@@ -39,9 +39,15 @@
   // brand emerald + a brighter accent line; lighter pair on the dark theme
   let COLORS = ['4,120,87', '16,185,129'];
   let ALPHA_SCALE = 1;
+  // palette keyed off the data-theme attribute and re-checked every frame (see
+  // the note in js/hero-grid.js: a theme read once at load could go stale)
+  let themeSeen = '';
   function readTheme(){
     const dark = isDarkTheme();
-    COLORS = dark ? [readVar('--line-rgb', '52,211,153'), '110,231,183'] : ['4,120,87', '16,185,129'];
+    const t = dark ? 'dark' : 'light';
+    if(t === themeSeen) return;
+    themeSeen = t;
+    COLORS = dark ? ['52,211,153', '110,231,183'] : ['4,120,87', '16,185,129'];
     ALPHA_SCALE = dark ? 0.8 : 1;
   }
   readTheme();
@@ -105,6 +111,7 @@
   // about one screen of it, so redrawing the rest every frame was wasted
   // work (and it competed with the scroll transition into this section)
   function draw(t, full){
+    readTheme();
     ctx.clearRect(0, 0, W, H);
     let i0 = 0, i1 = rows - 1;
     if(!full){

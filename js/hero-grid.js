@@ -122,10 +122,27 @@
   const isDarkTheme = () => rootEl.getAttribute('data-theme') === 'dark';
   let LINE_RGB = '4,120,87';
   let ALPHA_SCALE = 1;
+  // BUG FIX, per a report from Instagram's in-app browser: the page went dark
+  // but this canvas kept drawing with the LIGHT palette (cream background
+  // fill + dark lines), which made the hero's light dark-mode text nearly
+  // invisible. The theme used to be read once (at load, and on a change
+  // event) from computed CSS variables, so any hiccup in timing left it
+  // stale for good. It now comes from fixed palettes keyed off the
+  // data-theme attribute, re-checked at the start of EVERY frame, so the
+  // canvas can never disagree with the page. Keep these in sync with
+  // --paper / --line-rgb in css/style.css.
+  const PALETTES = {
+    light: { paper: '#f8f6f2', line: '4,120,87', alpha: 1 },
+    dark:  { paper: '#0a110f', line: '52,211,153', alpha: 0.8 },
+  };
+  let themeSeen = '';
   function readTheme(){
-    LINE_RGB = readVar('--line-rgb', '4,120,87');
-    PAPER = readVar('--paper', '#f8f6f2');
-    ALPHA_SCALE = isDarkTheme() ? 0.8 : 1;
+    const t = isDarkTheme() ? 'dark' : 'light';
+    if(t === themeSeen) return;
+    themeSeen = t;
+    LINE_RGB = PALETTES[t].line;
+    PAPER = PALETTES[t].paper;
+    ALPHA_SCALE = PALETTES[t].alpha;
   }
 
   const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -395,7 +412,7 @@
 
   let PAPER = '#f8f6f2'; // matches .process-hero's own flat background (var(--paper))
   readTheme();
-  window.addEventListener('papi:themechange', () => { readTheme(); if(prefersReducedMotion) renderFrame(0); });
+  window.addEventListener('papi:themechange', () => { if(prefersReducedMotion) renderFrame(0); });
   const KEEP_AT_FULL_MORPH = 0.17; // fraction of vertices that survive as constellation nodes
   const LINK_STENCIL = [[0, 1], [1, 0], [1, 1], [1, -1], [0, 2], [2, 0]]; // [rows toward far, cols]
 
@@ -442,6 +459,7 @@
   }
 
   function renderFrame(t){
+    readTheme(); // cheap attribute check; keeps the palette locked to the page's theme
     ctx.clearRect(0, 0, W, H);
     ctx.lineWidth = CONFIG.lineWidth;
     const rows = CONFIG.rows, cols = CONFIG.cols;

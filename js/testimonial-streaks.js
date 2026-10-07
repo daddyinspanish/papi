@@ -42,6 +42,7 @@
     dark: ['52,211,153', '110,231,183', '16,185,129', '52,211,153', '167,243,208'],
   };
   let PALETTE = PALETTES.light;
+  // re-checked every frame (see the note in js/hero-grid.js)
   function readTheme(){ PALETTE = isDarkTheme() ? PALETTES.dark : PALETTES.light; }
   readTheme();
   window.addEventListener('papi:themechange', () => { readTheme(); if(prefersReducedMotion) draw(6); });
@@ -132,6 +133,7 @@
   }
 
   function draw(t){
+    readTheme();
     ctx.clearRect(0, 0, W, H);
     ctx.lineCap = 'round';
 

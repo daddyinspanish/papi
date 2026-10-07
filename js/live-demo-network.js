@@ -96,6 +96,7 @@
   }
 
   function renderFrame(steps){
+    readTheme(); // palette follows the page's data-theme every frame
     ctx.clearRect(0, 0, W, H);
 
     points.forEach((p) => {
