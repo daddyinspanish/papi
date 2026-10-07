@@ -4017,7 +4017,25 @@ html[data-theme="dark"] select:-webkit-autofill{
   background:var(--paper);
   padding:clamp(4rem, 9vw, 6.5rem) 1.5rem;
 }
+/* the sphere's canvas: a full-section layer behind the steps whose canvas is
+   sticky, so the ball stays centered on screen while the steps scroll past */
+.cs-ball-wrap{
+  position:absolute;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+}
+.cs-ball{
+  position:sticky;
+  top:0;
+  display:block;
+  width:100%;
+  height:100vh;
+  height:100svh;
+}
 .cs-inner{
+  position:relative;
+  z-index:1;
   max-width:1120px;
   margin:0 auto;
   display:flex;
