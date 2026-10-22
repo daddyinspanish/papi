@@ -126,14 +126,14 @@
   }
 
   const TESTIMONIALS = [
-    { industry:'Roofing', quote:'Papi gave us a site that finally looks as solid as the roofs we build. Calls started coming in the same week.', result:'+38% more calls in month one', name:'Marcus T.', role:'Owner', when:'2 weeks ago' },
-    { industry:'Dentists', quote:'Patients tell us the website is what made them trust us enough to book. That had never happened before.', result:'Bookings up 3x since launch', name:'Dr. Elena R.', role:'Practice Owner', when:'1 month ago' },
-    { industry:'Plumbers', quote:'We used to lose jobs to companies with nicer websites. Now we’re the nicer website.', result:'Fully booked within 6 weeks', name:'Sam D.', role:'Owner', when:'3 months ago' },
-    { industry:'Electricians', quote:'Simple, clean, and it actually explains what we do. Quote requests doubled in two months.', result:'Quote requests doubled', name:'Priya K.', role:'Operations Lead', when:'1 month ago' },
-    { industry:'Real Estate', quote:'It feels like a listing people already trust before they even call. That credibility closes deals.', result:'Listings viewed 5x longer', name:'Jordan M.', role:'Broker', when:'2 months ago' },
-    { industry:'Law Firms', quote:'Clients read the homepage and already feel like they know what happens next. That’s rare in our industry.', result:'Consultations up 60%', name:'Andre F.', role:'Partner', when:'3 weeks ago' },
-    { industry:'Restaurants', quote:'Reservations went up the week we launched. People said it finally looked like the food tastes.', result:'Booked out most weekends', name:'Nina S.', role:'Owner', when:'1 week ago' },
-    { industry:'Fitness Studios', quote:'New members mention the website in their first class. It set the tone before they even walked in.', result:'New members every week', name:'Théo B.', role:'Founder', when:'2 months ago' },
+    { industry:'Roofing', quote:'Papi gave us a site that finally looks as solid as the roofs we build. Calls started coming in the same week.', result:'+38% more calls in month one', name:'Dennis W.', role:'Owner', when:'2 weeks ago' },
+    { industry:'Dentists', quote:'Patients tell us the website is what made them trust us enough to book. That had never happened before.', result:'Bookings up 3x since launch', name:'Dr. Hannah L.', role:'Practice Owner', when:'1 month ago' },
+    { industry:'Plumbers', quote:'We used to lose jobs to companies with nicer websites. Now we’re the nicer website.', result:'Fully booked within 6 weeks', name:'Tony G.', role:'Owner', when:'3 months ago' },
+    { industry:'Electricians', quote:'Simple, clean, and it actually explains what we do. Quote requests doubled in two months.', result:'Quote requests doubled', name:'Rachel O.', role:'Operations Lead', when:'1 month ago' },
+    { industry:'Real Estate', quote:'It feels like a listing people already trust before they even call. That credibility closes deals.', result:'Listings viewed 5x longer', name:'Gabriel H.', role:'Broker', when:'2 months ago' },
+    { industry:'Law Firms', quote:'Clients read the homepage and already feel like they know what happens next. That’s rare in our industry.', result:'Consultations up 60%', name:'Wesley C.', role:'Partner', when:'3 weeks ago' },
+    { industry:'Restaurants', quote:'Reservations went up the week we launched. People said it finally looked like the food tastes.', result:'Booked out most weekends', name:'Lucia F.', role:'Owner', when:'1 week ago' },
+    { industry:'Fitness Studios', quote:'New members mention the website in their first class. It set the tone before they even walked in.', result:'New members every week', name:'Oliver J.', role:'Founder', when:'2 months ago' },
   ];
 
   // Google's own Material palette — cycled per card so each avatar gets
